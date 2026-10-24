@@ -152,6 +152,7 @@ Existing computers:
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report |
 | `storage-computer` | Wired chest network as one searchable store, input/output chests | report (if present) |
+| `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | report (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the

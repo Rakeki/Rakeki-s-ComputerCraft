@@ -611,6 +611,47 @@
         "caption": "The storage terminal: type to search, Enter for a stack. Click a row to pick it, and again to take a stack."
       },
       "terminal": null
+    },
+    {
+      "name": "colony-dashboard",
+      "title": "Colony Dashboard",
+      "command": "colony",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "orange",
+      "tagline": "A touch-screen monitor for your MineColonies colony: citizens, happiness, huts, open requests, builds, and an alarm when it's attacked.",
+      "libs": ["report"],
+      "autostart": true,
+      "stats": [
+        ["Refresh", "every 5 s"],
+        ["Pages", "5"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["Needs", "Advanced Peripherals"]
+      ],
+      "features": [
+        "Citizens and happiness at a glance, with idle, hungry and hurt counts",
+        "Every hut's level and workers, every open request and who wants it",
+        "Builder work orders and whether a builder has taken them",
+        "Red title bar, speaker alarm and status-server alert during raids"
+      ],
+      "setup": [
+        "Place an advanced computer inside your colony with a Colony Integrator touching it.",
+        "Put an advanced monitor next to it. Optional: a speaker and a wireless modem.",
+        "Install and reboot. Tap the tabs on the monitor to switch pages."
+      ],
+      "commands": [
+        ["colony", "start the dashboard (runs on boot)"]
+      ],
+      "integrates": [
+        ["status-server", "Shows citizens, happiness and requests, and turns red during an attack."],
+        ["storage-computer", "Keep the colony's requests in your storage and fetch them from the terminal."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "colony",
+        "caption": "The dashboard on a monitor. Tap the tabs to look at each page."
+      },
+      "terminal": null
     }
   ],
   "libraries": [

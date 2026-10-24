@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel and storage terminal.
+// blueprint projector panel, storage terminal and colony dashboard.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -584,5 +584,86 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage } };
+  //---------------------------------------------------------------- colony dashboard
+
+  // The MineColonies dashboard on a monitor: same pages and layout as
+  // computers/colony-dashboard/colony.lua, with a made-up colony. Tabs work.
+  function colony(el) {
+    const W = 57, H = 24;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const TABS = ["Overview", "Citizens", "Buildings", "Requests", "Builds"];
+    const st = { tab: 0, scroll: 0, attack: false };
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const citizens = [
+      ["Alice Brook", "Builder", "Working"], ["Ben Carter", "Farmer", "Working"], ["Cara Dune", "Miner", "Working"],
+      ["Dale Ember", "Courier", "Delivering"], ["Eve Frost", "Unemployed", "Idle", "idle"], ["Finn Gale", "Knight", "Patrolling"],
+      ["Gus Hale", "Cook", "Working"], ["Hana Iver", "Lumberjack", "Sleeping", "asleep"], ["Ivo Jett", "Fisher", "Working"],
+      ["Jo Kent", "Builder", "Hungry - Working", "hungry"], ["Kai Lune", "Archer", "Patrolling", "hurt"], ["Lia Moss", "Smelter", "Working"],
+      ["Max Noor", "Researcher", "Working"], ["Nia Oak", "Deliveryman", "Delivering"], ["Oli Pike", "Unemployed", "Idle", "idle"],
+      ["Pia Quill", "Shepherd", "Sleeping", "asleep"], ["Rex Stone", "Baker", "Working"], ["Sue Tide", "Sawmill", "Working"],
+      ["Tom Vale", "Guard", "Patrolling"], ["Uma West", "Farmer", "Working"], ["Vic Yew", "Miner", "Working"],
+    ];
+    const buildings = [
+      ["Town hall", 3, 5, "", true], ["Builder", 2, 5, "Alice Brook", true], ["Builder", 1, 5, "Jo Kent", true],
+      ["Farmer", 3, 5, "Ben Carter, Uma West", true], ["Miner", 2, 5, "Cara Dune, Vic Yew", true], ["Residence", 5, 5, "", true],
+      ["Residence", 2, 5, "", true], ["Restaurant", 1, 5, "Gus Hale", true], ["Guard tower", 2, 5, "Finn Gale", true],
+      ["Library", 0, 5, "being built", false], ["Warehouse", 3, 5, "", true], ["Barracks", 1, 5, "Tom Vale", true],
+    ];
+    const requests = [["Oak Planks", 64, "Builder"], ["Cobblestone", 128, "Builder"], ["Iron Ingot", 12, "Blacksmith"], ["Bread", 16, "Restaurant"], ["Glass Pane", 24, "Builder"]];
+    const orders = [["Library -> 1", "build", "at 104,64,-31"], ["Residence -> 3", "upgrade", "at 98,63,-22"], ["Farmer -> 4", "upgrade", ""], ["Road", "decoration", ""]];
+    const col = (c) => c === "idle" ? "yellow" : c === "asleep" ? "lightGray" : c === "hurt" ? "red" : "white";
+
+    function bar(x, y, w, frac, colour) {
+      const f = Math.round(Math.max(0, Math.min(1, frac)) * w);
+      s.put(x, y, " ".repeat(f), "white", colour); s.put(x + f, y, " ".repeat(w - f), "white", "gray");
+    }
+    function list(items, y0, row) {
+      const rows = H - y0 + 1, max = Math.max(0, items.length - rows);
+      st.scroll = Math.max(0, Math.min(st.scroll, max));
+      items.slice(st.scroll, st.scroll + rows).forEach((it, i) => row(it, y0 + i));
+      if (max > 0) {
+        const range = `${st.scroll + 1}-${Math.min(items.length, st.scroll + rows)} of ${items.length}`;
+        s.put(W - 8 - range.length, 3, range, "lightGray");
+        s.button(W - 7, 3, "v", "white", "lightGray", () => { st.scroll += rows - 1; });
+        s.button(W - 3, 3, "^", "white", "lightGray", () => { st.scroll -= rows - 1; });
+      }
+    }
+    function draw() {
+      s.clear();
+      const bg = st.attack ? "red" : "gray";
+      s.fill(1, bg);
+      s.put(2, 1, "Riverside" + (st.attack ? "  UNDER ATTACK!" : ""), st.attack ? "white" : "yellow", bg);
+      let x = 1;
+      TABS.forEach((t, i) => { x = s.button(x, 2, t, i === st.tab ? "black" : "white", i === st.tab ? "white" : "gray", () => { st.tab = i; st.scroll = 0; }); });
+      if (st.tab === 0) {
+        s.put(2, 4, "Citizens", "lightGray"); s.put(14, 4, "21 / 26"); bar(26, 4, W - 27, 21 / 26, "lime");
+        s.put(2, 5, "Happiness", "lightGray"); s.put(14, 5, "7.4 / 10"); bar(26, 5, W - 27, 0.74, "lime");
+        const facts = [["Idle", 2, "yellow"], ["Asleep", 2], ["Hungry", 1, "orange"], ["Hurt", 1, "red"], ["Graves", 0], ["Buildings", 12], ["Building sites", 1], ["Work orders", 4], ["Open requests", 5, "yellow"]];
+        const cw = Math.floor((W - 2) / 2);
+        facts.forEach(([k, v, c], i) => { const xx = 2 + (i % 2) * cw, yy = 7 + Math.floor(i / 2); s.put(xx, yy, fitT(k, cw - 6), "lightGray"); s.put(xx + cw - 6, yy, String(v), c || "white"); });
+        s.put(2, 13, "Waiting for", "yellow");
+        requests.forEach(([n, c, t], i) => { const cnt = `${c}x`; s.put(2, 14 + i, cnt, "lightGray"); s.put(3 + cnt.length, 14 + i, fitT(n, W - cnt.length - 20)); s.put(W - 15, 14 + i, fitT(t, 15), "lightGray"); });
+        s.button(2, H, st.attack ? "End the raid" : "Simulate a raid", "white", st.attack ? "green" : "red", () => { st.attack = !st.attack; });
+      } else if (st.tab === 1) {
+        s.put(2, 4, fitT("Name", 20), "yellow"); s.put(23, 4, fitT("Job", 14), "yellow"); s.put(38, 4, "Doing", "yellow");
+        list(citizens, 5, ([n, j, d, c], y) => { s.put(2, y, fitT(n, 20), col(c)); s.put(23, y, fitT(j, 14), "lightGray"); s.put(38, y, fitT(d, W - 38), col(c)); });
+      } else if (st.tab === 2) {
+        s.put(2, 4, fitT("Building", 24), "yellow"); s.put(27, 4, fitT("Level", 7), "yellow"); s.put(35, 4, "Workers", "yellow");
+        list(buildings, 5, ([n, l, m, who, built], y) => { const c = !built ? "lightGray" : l >= m ? "lime" : "white"; s.put(2, y, fitT(n, 24), c); s.put(27, y, `${l}/${m}`, c); s.put(35, y, fitT(who, W - 35), built ? "lightGray" : "orange"); });
+      } else if (st.tab === 3) {
+        s.put(2, 4, fitT("Item", 30), "yellow"); s.put(33, 4, fitT("Count", 6), "yellow"); s.put(40, 4, "For", "yellow");
+        list(requests, 5, ([n, c, t], y) => { s.put(2, y, fitT(n, 30)); s.put(33, y, String(c), "lightGray"); s.put(40, y, t, "lightGray"); });
+      } else {
+        s.put(2, 4, fitT("Work order", 24), "yellow"); s.put(27, 4, fitT("Type", 10), "yellow"); s.put(38, 4, "Builder", "yellow");
+        list(orders, 5, ([n, t, b], y) => { s.put(2, y, fitT(n, 24)); s.put(27, y, fitT(t, 10), "lightGray"); s.put(38, y, b || "waiting for a builder", b ? "lime" : "yellow"); });
+      }
+      s.render();
+    }
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, colony } };
 })();
