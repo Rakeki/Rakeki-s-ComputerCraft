@@ -7,6 +7,7 @@
 -- Usage:
 --   projector                 show the last plan (startup runs this)
 --   projector <plan>          show a plan: cottage, /plans/<plan>.lua, or a file path
+--   projector village         show what a village turtle is building, where it's building it
 --   projector list            list the plans
 --   projector check <plan>    load a plan and print its size and blocks
 --   projector clear           remove the projection (stays hidden after a reboot)
@@ -29,6 +30,8 @@ local SLAB_COLOR = 0xffffff -- the layer you're building, in layer view
 local MIXED_COLOR = 0x33ff88 -- shapes that mix materials, when a plan is too big for one colour each
 local INSET_BLOCK = 0.04    -- shrink single blocks a little so neighbours' outlines don't merge
 local INSET_MERGED = 0.01
+local VILLAGE_FILE = "/.projector_village" -- the last building heard from a village turtle
+local PLAN_PROTOCOL = "village_plan" -- rednet protocol village turtles share their building on
 
 local args = { ... }
 
@@ -55,6 +58,11 @@ local function readFile(path)
     end
   end
 end
+
+-- The last building a village turtle shared: { from, key, name, world, blocks,
+-- stage, y, step, total }. world is true when its coordinates are real ones
+-- (the turtle has GPS), so the projection can go exactly where it's building.
+local village = readFile(VILLAGE_FILE)
 
 ---------------------------------------------------------------- colours
 
@@ -216,7 +224,15 @@ end
 local function loadPlan(id)
   local raw
   local path = planPath(id)
-  if path then
+  if id == "village" then
+    if not village then return nil, "No village builder heard yet." end
+    local ok, p = pcall(normalize, { name = village.name, blocks = village.blocks }, id)
+    if not ok then return nil, "village: " .. p end
+    local x0, y0, z0 = math.huge, math.huge, math.huge
+    for _, b in ipairs(village.blocks) do x0, y0, z0 = math.min(x0, b[1]), math.min(y0, b[2]), math.min(z0, b[3]) end
+    p.village, p.fixed, p.world0 = true, village.world, { x = x0, y = y0, z = z0 }
+    return p
+  elseif path then
     local fn, err = loadfile(path, nil, setmetatable({}, { __index = _G }))
     if not fn then return nil, err end
     local ok, result = pcall(fn)
@@ -241,6 +257,7 @@ local function planIds(extra)
     if id and not seen[id] then ids[#ids + 1] = id; seen[id] = true end
   end
   for _, p in ipairs(samples) do add(p.id) end
+  if village then add("village") end
   if fs.isDir(PLAN_DIR) then
     local files = fs.list(PLAN_DIR)
     table.sort(files)
@@ -335,12 +352,24 @@ local function placeHere()
   state.z = origin.z + SOUTH_GAP - z0
 end
 
+-- In layer view, a village building shows the layer the turtle is on.
+local function villageLayer()
+  if not (plan.village and village.y) then return nil end
+  return math.max(1, math.min(plan.h, village.y - plan.world0.y + 1))
+end
+
 local function usePlan(id, keepPlace)
   local p, err = loadPlan(id)
   if not p then return false, err end
   plan, state.plan = p, id
-  state.layer = state.view == "layer" and 1 or plan.h
-  if not keepPlace or not state.x then placeHere() end
+  state.layer = state.view == "layer" and (villageLayer() or 1) or plan.h
+  if plan.fixed then
+    -- real coordinates from the turtle: put it exactly where it's being built
+    state.turn = 0
+    state.x, state.y, state.z = plan.world0.x + plan.cx, plan.world0.y, plan.world0.z + plan.cz
+  elseif not keepPlace or not state.x then
+    placeHere()
+  end
   return true
 end
 
@@ -503,6 +532,18 @@ end
 local FACING = { [0] = "north", "east", "south", "west" }
 local MOVES = { north = { 0, 0, -1 }, south = { 0, 0, 1 }, west = { -1, 0, 0 }, east = { 1, 0, 0 }, up = { 0, 1, 0 }, down = { 0, -1, 0 } }
 
+-- What the village turtle is up to, for the panel.
+local function villageNote()
+  local who = ("Village builder #%s: "):format(tostring(village.from))
+  if village.stage == "build" and village.total then
+    return who .. ("building, %d%%"):format(math.floor((village.step or 0) / village.total * 100))
+  elseif village.stage == "clear" then return who .. "clearing the plot"
+  elseif village.stage == "path" then return who .. "paving the street"
+  elseif village.stage == "choose" then return who .. "getting materials"
+  end
+  return who .. (plan.fixed and "following" or "no GPS: move it into place")
+end
+
 -- What the panel shows: the current layer as a top-down map (north up) and
 -- the blocks it needs.
 local function model()
@@ -530,13 +571,18 @@ local function model()
   for i, id in ipairs(ids) do if id == state.plan then index = i end end
   return {
     plan = plan, index = index, planCount = #ids, state = state, facing = FACING[state.turn % 4],
-    status = status, note = note, map = map, counts = counts,
+    status = status, note = note or (plan.village and villageNote()), map = map, counts = counts,
     countTitle = (from == state.layer and "Layer %d: %d" or "Layers 1-%d: %d"):format(state.layer, total),
   }
 end
 
 local function act(action)
   if not action then return end
+  if plan.fixed and (MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here") then
+    note = "The village builder decides where this goes."
+    os.queueEvent("projector_status")
+    return
+  end
   if MOVES[action] then
     local m = MOVES[action]
     state.x, state.y, state.z = state.x + m[1] * state.step, state.y + m[2] * state.step, state.z + m[3] * state.step
@@ -634,6 +680,76 @@ local function panelLoop()
   end
 end
 
+---------------------------------------------------------------- village turtle
+
+local function openWireless()
+  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
+  if not modem then return false end
+  local name = peripheral.getName(modem)
+  if not rednet.isOpen(name) then rednet.open(name) end
+  return true
+end
+
+-- A message from a village turtle: a whole building (when it picks a new
+-- one, or when asked) or how far along it is.
+local function onVillage(from, msg)
+  if type(msg) ~= "table" then return end
+  if msg.type == "plan" and type(msg.blocks) == "table" and #msg.blocks > 0 then
+    local same = village and village.key == msg.key and village.from == from
+    village = {
+      from = from, key = msg.key, name = msg.name, world = msg.world, blocks = msg.blocks,
+      stage = same and village.stage or "choose", y = same and village.y or nil,
+      step = same and village.step or nil, total = same and village.total or nil,
+    }
+    writeFile(VILLAGE_FILE, village)
+    if state.plan == "village" and not (same and plan.village) then
+      local ok, err = usePlan("village", true)
+      if not ok then loadNote = err end
+      save()
+      redraw()
+    end
+  elseif msg.type == "progress" and village and msg.key == village.key and from == village.from then
+    village.stage, village.y, village.step, village.total = msg.stage, msg.y, msg.step, msg.total
+    if state.plan == "village" and plan.village then
+      local layer = villageLayer()
+      if state.view == "layer" and layer and layer ~= state.layer then
+        state.layer = layer
+        save()
+        redraw()
+      end
+      os.queueEvent("projector_status")
+    end
+  end
+end
+
+-- Listen for village turtles the whole time, so the village plan stays up
+-- to date even while another plan is showing.
+local function villageLoop()
+  if not openWireless() then
+    while true do sleep(3600) end
+  end
+  rednet.broadcast({ type = "request" }, PLAN_PROTOCOL)
+  while true do
+    local from, msg = rednet.receive(PLAN_PROTOCOL)
+    onVillage(from, msg)
+  end
+end
+
+-- 'projector village' before any village turtle has been heard: ask, and wait.
+local function waitForVillage()
+  if not openWireless() then
+    error("'projector village' needs a wireless or ender modem on this computer to hear the turtle.", 0)
+  end
+  print("Waiting to hear from a village builder. It needs a wireless")
+  print("modem too. Hold Ctrl+T to stop waiting.")
+  while not village do
+    rednet.broadcast({ type = "request" }, PLAN_PROTOCOL)
+    local from, msg = rednet.receive(PLAN_PROTOCOL, 10)
+    if from then onVillage(from, msg) end
+  end
+  print("Heard from it: " .. village.name .. ".")
+end
+
 ---------------------------------------------------------------- commands
 
 local function findProjector()
@@ -691,6 +807,7 @@ local function main()
 
   state.turn, state.step = state.turn or 0, state.step or 1
   state.view = state.view or "whole"
+  if cmd == "village" and not village then waitForVillage() end
   if cmd then
     local ok, err = usePlan(cmd, state.plan ~= nil)
     if not ok then error(err, 0) end
@@ -711,7 +828,7 @@ local function main()
   projector.clear()
   if report then report.init("blueprint projector") end
   redraw()
-  parallel.waitForAny(panelLoop, drawLoop, report and report.loop or function() while true do sleep(3600) end end)
+  parallel.waitForAny(panelLoop, drawLoop, villageLoop, report and report.loop or function() while true do sleep(3600) end end)
 end
 
 local ok, err = pcall(main)

@@ -50,6 +50,11 @@ local FUEL_RESERVE = 300 -- refuel at home to at least this much plus the job ah
 -- server, flip this.
 local STAIR_FLIP = false
 
+-- With a wireless modem, share the building being worked on so a
+-- blueprint-projector running 'projector village' can show it in the world.
+local SHARE_PLAN = true
+local PLAN_PROTOCOL = "village_plan"
+
 local FUEL = {}
 for _, n in ipairs({ "minecraft:coal", "minecraft:charcoal", "minecraft:coal_block", "minecraft:lava_bucket",
   "minecraft:blaze_rod", "minecraft:dried_kelp_block" }) do FUEL[n] = true end
@@ -867,6 +872,69 @@ end
 
 local function niceName(bp) return themes[job.theme].names[bp] or bp end
 
+---------------------------------------------------------------- sharing with a projector
+
+local function planModem()
+  if not SHARE_PLAN then return false end
+  if rednet.isOpen() then return true end
+  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
+  if not modem then return false end
+  rednet.open(peripheral.getName(modem))
+  return true
+end
+
+-- Once a building is chosen its place is known (job.cur has bp, rot, ax, base).
+local function hasPlan()
+  local c = job and job.cur
+  return c and c.bp and c.rot and c.ax and c.base and true or false
+end
+
+-- The whole building in world coordinates, one { x, y, z, block } per block.
+-- Without GPS they're only counted from where the village started.
+local function planMessage()
+  local c, b = job.cur, building()
+  local blocks = {}
+  for i, st in ipairs(b.steps) do
+    local x, y, z = toWorld({ x = st.x, y = c.base + st.y, z = st.z })
+    blocks[i] = { x, y, z, ITEM_BLOCK[st.item] or st.item }
+  end
+  return { type = "plan", key = b.key, name = ("%s, plot %d,%d"):format(niceName(c.bp), c.i, c.j),
+    world = job.gps, blocks = blocks }
+end
+
+local function progressMessage()
+  local c, b = job.cur, building()
+  local msg = { type = "progress", key = b.key, stage = c.stage }
+  if c.stage == "build" then
+    local st = b.steps[math.min(c.step + 1, #b.steps)]
+    if st then
+      local _, y = toWorld({ x = 0, y = c.base + st.y, z = 0 })
+      msg.y = y
+    end
+    msg.step, msg.total = c.step, #b.steps
+  end
+  return msg
+end
+
+-- full: send the whole building as well as how far along it is.
+local function sharePlan(full)
+  if not hasPlan() or not planModem() then return end
+  if full then rednet.broadcast(planMessage(), PLAN_PROTOCOL) end
+  rednet.broadcast(progressMessage(), PLAN_PROTOCOL)
+end
+
+-- A projector that starts up asks for the building; answer whenever asked.
+local function planServer()
+  while true do
+    if planModem() then
+      local _, msg = rednet.receive(PLAN_PROTOCOL, 60)
+      if type(msg) == "table" and msg.type == "request" then sharePlan(true) end
+    else
+      sleep(60)
+    end
+  end
+end
+
 local function skipPlot(why)
   local c = job.cur
   print(("Skipping plot %d,%d: %s."):format(c.i, c.j, why))
@@ -951,6 +1019,7 @@ local function doChoose(c)
   c.base = site.base
   bld = nil
   local b = building()
+  sharePlan(true)
   c.segs = site.class == "plaza" and {} or routeToPlaza(c.i, c.j, b.front)
   if site.class == "plaza" then
     for _, s in ipairs(PLAZA_SEGS) do
@@ -993,6 +1062,7 @@ local function doChoose(c)
   ensureFuel(FUEL_RESERVE + #b.steps * 4 + area * math.ceil(clearH / 3) * 2 + streetCells(c) * 3 + homeDistance() * 6)
   c.clearTop = c.base + clearH
   c.stage, c.step = "clear", 0
+  sharePlan(false)
   report.log(("building a %s at plot %d,%d"):format(niceName(c.bp), c.i, c.j))
   save()
 end
@@ -1163,6 +1233,7 @@ end
 local function doBuild(c)
   local b = building()
   local steps = b.steps
+  sharePlan(false)
   while c.step < #steps do
     local s = steps[c.step + 1]
     local r = placeStep(s)
@@ -1189,6 +1260,7 @@ local function doBuild(c)
       if c.step % 25 == 0 then
         checkPosition()
         status("building", ("%s at %d,%d: %d%%"):format(niceName(c.bp), c.i, c.j, math.floor(c.step / #steps * 100)))
+        sharePlan(false)
       end
       if emptySlots() == 0 or fuelLevel() < homeDistance() then
         local want, fillWant = loadPlan(c.step + 1)
@@ -1217,6 +1289,7 @@ local function doBuild(c)
   c.cells, c.profiles = cells, {}
   c.stage, c.step = "path", 0
   save()
+  sharePlan(false)
 end
 
 ---------------------------------------------------------------- streets
@@ -1731,4 +1804,4 @@ parallel.waitForAny(function()
     report.set("error", tostring(err))
     error(err, 0)
   end
-end, report.loop)
+end, report.loop, planServer)

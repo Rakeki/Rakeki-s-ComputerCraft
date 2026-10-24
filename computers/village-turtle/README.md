@@ -1,6 +1,6 @@
 # village-turtle
 
-- **Type:** mining turtle (pickaxe), plus a wireless or ender modem for GPS and the [status server](../status-server/README.md)
+- **Type:** mining turtle (pickaxe), plus a wireless or ender modem for GPS, the [status server](../status-server/README.md) and the [projector](../blueprint-projector/README.md#following-a-village-turtle)
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
@@ -190,6 +190,22 @@ there's none, it waits.
   ComputerCraft (via `lib/nav.lua`). Between plots it flies above everything
   it has built, and never digs sideways on the way: it goes over whatever's
   in front of it.
+
+## Seeing it with a projector
+
+Optional. With a wireless or ender modem, the turtle shares the building it's
+working on, so a [blueprint projector](../blueprint-projector/README.md#following-a-village-turtle)
+running `projector village` can show it in the world as glowing outlines:
+you can see the whole building on its plot while the turtle is still
+fetching materials or clearing the ground. In Layer view the projection
+follows the layer the turtle is building. It moves on to the next building
+as soon as the turtle picks one.
+
+The turtle needs GPS for the projection to land exactly on the plot. Without
+GPS the building shows next to the projector instead, and you can move it
+into place by hand.
+
+To turn sharing off, set `SHARE_PLAN = false` at the top of `village.lua`.
 
 ## Commands
 

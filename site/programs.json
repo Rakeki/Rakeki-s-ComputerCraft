@@ -143,7 +143,8 @@
       ],
       "integrates": [
         ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
-        ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."]
+        ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."],
+        ["blueprint-projector", "With a wireless modem, 'projector village' shows the building it's working on, right on its plot."]
       ],
       "render": {
         "kind": "gallery",
@@ -534,7 +535,8 @@
         "Loads your own plans from /plans: each layer drawn as rows of letters",
         "Move, raise and turn the building from the monitor",
         "Layer view outlines every block of one layer to build from",
-        "Top-down map of the layer and the blocks it needs"
+        "Top-down map of the layer and the blocks it needs",
+        "Follows a village turtle and projects the building it's working on"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -545,11 +547,13 @@
       "commands": [
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a built-in plan or /plans/<plan>.lua"],
+        ["projector village", "follow what a village turtle is building"],
         ["projector list", "every plan, with its size"],
         ["projector check <plan>", "load a plan and list the blocks it needs"],
         ["projector clear", "remove the projection"]
       ],
       "integrates": [
+        ["village-turtle", "'projector village' shows the turtle's current building where it's building it, layer by layer."],
         ["status-server", "Shows which plan is up, where it is and the layer you're on."],
         ["report", "Optional: without lib/report.lua or a modem it just projects."]
       ],

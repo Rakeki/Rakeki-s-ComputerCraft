@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** Spatial Projector (next to the computer or on a wired modem), advanced monitor (2×2 or bigger), optional wireless or ender modem for the [status server](../status-server/README.md)
+- **Peripherals:** Spatial Projector (next to the computer or on a wired modem), advanced monitor (2×2 or bigger), optional wireless or ender modem for the [status server](../status-server/README.md) and for following a [village turtle](#following-a-village-turtle)
 
 ## What it does
 
@@ -58,6 +58,7 @@ in the `/plans` folder (see [Plans](#plans)).
 projector                  -- show the last plan (startup does this)
 projector pagoda          -- show a plan: built in, or /plans/<name>.lua
 projector disk/house.lua   -- show a plan file from anywhere
+projector village          -- follow what a village turtle is building
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
 projector clear            -- remove the projection (Ctrl+T first to stop it)
@@ -80,6 +81,26 @@ projector clear            -- remove the projection (Ctrl+T first to stop it)
 Without a monitor, the panel shows on the computer's screen: click instead of
 tap. The keyboard works too: arrows move, PgUp/PgDn raise and lower, Q/E
 turn, `[` `]` change layer, V view, S step, N/P plan, H hide, Home here.
+
+## Following a village turtle
+
+`projector village` shows the building a [village turtle](../village-turtle/README.md#seeing-it-with-a-projector)
+is working on, right where it's building it. Both need a wireless or ender
+modem, and they must be in range of each other.
+
+- The projection appears as soon as the turtle picks a building, so you can
+  see it on its plot while the turtle is still gathering materials or
+  clearing the ground. When the turtle moves on, so does the projection.
+- In **Layer** view it shows the layer the turtle is building and keeps up as
+  it climbs. **Whole** and **Outline** work as usual.
+- With GPS on the turtle, the building goes exactly where it's being built
+  and the move and turn buttons are switched off. Without GPS it appears next
+  to the projector and you can move it into place yourself.
+- The monitor says what the turtle is doing: getting materials, clearing,
+  building (with how far along), or paving the street.
+- Once heard, the village shows up among the plans (**◀ ▶**) and is
+  remembered after a reboot. If no turtle has been heard yet,
+  `projector village` waits for one.
 
 ## Plans
 
