@@ -563,7 +563,10 @@
     // the demo: search, pick, take, clear, repeat
     const script = [..."iron"].map((ch) => () => { st.query += ch; st.selected = 1; })
       .concat([() => { st.selected = 2; }, () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; },
-        ...[..."log"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; }]);
+        ...[..."log"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; },
+        // a village builder asks for blocks, then the delivery chest gets tidied
+        () => { items[0].count -= 192; st.msg = ["Sent 192 items to turtle #14.", "lightBlue"]; }, () => {}, () => {},
+        () => { items[0].count += 12; st.msg = ["Put away 12 items from the delivery chest.", "lightGray"]; }, () => {}, () => { st.msg = ["", "lightGray"]; }]);
     let step = 0;
     setInterval(() => {
       if (!st.auto) return;

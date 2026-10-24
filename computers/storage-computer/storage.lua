@@ -158,8 +158,10 @@ end
 local function fetch(match, amount, to)
   local sent = 0
   for _, name in ipairs(stores) do
+    local touched = false -- only re-read chests items came from: each read takes a tick
     for slot, item in pairs(contents[name] or {}) do
       if match(item) then
+        touched = true
         local ok, moved = pcall(peripheral.call, to, "pullItems", name, slot, amount - sent)
         if ok then sent = sent + moved end
         if not ok or moved == 0 then
@@ -169,7 +171,7 @@ local function fetch(match, amount, to)
         if sent >= amount then break end
       end
     end
-    rescan(name)
+    if touched then rescan(name) end
     if sent >= amount then break end
   end
   return sent
@@ -371,21 +373,31 @@ local function netLoop()
       for _, item in pairs(okL and list or {}) do
         if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
       end
+      -- ready: how many now wait in the chest; stock: how many are left in storage
+      local ready, names, short = {}, {}, false
       for name, n in pairs(msg.items) do
         if type(name) == "string" and type(n) == "number" and n > 0 then
           n = math.floor(n)
           local have = math.min(present[name] or 0, n)
           sent[name] = have < n and fetch(plain(name), n - have, to) or 0
+          ready[name] = have + sent[name]
+          if ready[name] < n then short = true end
           total = total + sent[name]
-          if setup.delivery then reserved[name] = { n = have + sent[name], at = os.clock() } end
+          names[#names + 1] = name
+          if setup.delivery then reserved[name] = { n = ready[name], at = os.clock() } end
         end
       end
-      rednet.send(from, { re = "deliver", sent = sent }, NET_PROTOCOL)
-      if total > 0 then
+      rednet.send(from, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names),
+        to = setup.delivery and "delivery" or "output" }, NET_PROTOCOL)
+      if total > 0 and not setup.delivery then
+        message = { ("Sent %d items to the output chest for turtle #%d: no delivery chest set."):format(total, from), "orange" }
+      elseif total > 0 then
         message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
-        if report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
-        os.queueEvent("storage_changed")
+      elseif short then
+        message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }
       end
+      if total > 0 and report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
+      os.queueEvent("storage_changed")
     end
   end
 end

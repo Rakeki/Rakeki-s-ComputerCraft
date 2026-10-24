@@ -143,50 +143,67 @@
     highlight();
   }
 
-  // How the programs talk to each other.
+  // How the programs talk to each other. Every program reports to the
+  // dashboard (the lime bus and the lime corner on each box); the coloured
+  // lines are the other ways they work together.
   function diagram() {
     const N = {
-      status: [530, 62, 220, "status-server", "Status Dashboard", "computer", "cyan"],
-      server: [160, 220, 200, "mine-server", "AutoMine Server", "computer", "yellow"],
-      miners: [160, 400, 200, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
-      hosts: [950, 220, 180, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
-      deployer: [950, 400, 180, "gps-deployer", "GPS Deployer", "turtle", "purple"],
-      excavate: [340, 400, 136, "excavate-turtle", "Excavator", "turtle", "orange"],
-      strip: [486, 400, 136, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
-      village: [632, 400, 136, "village-turtle", "Village", "turtle", "lime"],
-      mob: [778, 400, 136, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
+      status: [600, 60, 240, "status-server", "Status Dashboard", "computer", "cyan"],
+      server: [130, 220, 190, "mine-server", "AutoMine Server", "computer", "yellow"],
+      projector: [390, 220, 200, "blueprint-projector", "Blueprint Projector", "computer", "magenta"],
+      storage: [690, 220, 180, "storage-computer", "Storage System", "computer", "blue"],
+      colony: [900, 220, 190, "colony-dashboard", "Colony Dashboard", "computer", "orange"],
+      hosts: [1100, 220, 160, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
+      miners: [130, 380, 190, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
+      village: [540, 380, 150, "village-turtle", "Village", "turtle", "lime"],
+      tree: [740, 380, 150, "tree-farm-turtle", "Tree Farm", "turtle", "green"],
+      crop: [920, 380, 150, "crop-farm-turtle", "Crop Farm", "turtle", "yellow"],
+      deployer: [1100, 380, 160, "gps-deployer", "GPS Deployer", "turtle", "purple"],
+      excavate: [340, 540, 150, "excavate-turtle", "Excavator", "turtle", "orange"],
+      strip: [540, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
+      mob: [740, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
     };
     const P = CC.PALETTE;
+    const line = (d, c, w = 2.5, extra = "") => `<path class="flow" d="${d}" stroke="${c}" stroke-width="${w}" fill="none"${extra}/>`;
     const curve = (x1, y1, x2, y2) => `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
     let edges = "";
-    // report: everything to the dashboard
-    for (const k of ["server", "miners", "excavate", "strip", "village", "mob"]) {
-      const [x, y] = N[k];
-      const tx = 460 + (["server", "miners", "excavate", "strip", "village", "mob"].indexOf(k)) * 24;
-      edges += `<path class="flow" d="${curve(x + (k === "miners" ? 50 : 0), y - 28, tx, 90)}" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
-    }
-    edges += `<path class="flow" d="M${N.hosts[0]},${N.hosts[1] - 28} C${N.hosts[0]},62 780,62 640,62" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
-    // rednet jobs
-    edges += `<path class="flow" d="M140,248 L140,372" stroke="${P.orange}" stroke-width="3" fill="none"/><path class="flow" d="M180,372 L180,248" stroke="${P.orange}" stroke-width="3" fill="none"/>`;
-    // builds
-    edges += `<path class="flow" d="M995,372 L995,248" stroke="${P.purple}" stroke-width="3" fill="none"/>`;
-    // gps bus
-    edges += `<path class="flow" d="M905,248 L905,318 L215,318 L215,372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
-    for (const k of ["excavate", "strip", "village", "mob"]) edges += `<path class="flow" d="M${N[k][0]},318 L${N[k][0]},372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
+    // status: a bus under the dashboard to the row of computers (turtles report too: see the corners)
+    edges += line("M600,88 L600,140 M130,140 L1100,140", P.lime, 2.5, ` opacity=".75"`);
+    for (const k of ["server", "projector", "storage", "colony", "hosts"]) edges += line(`M${N[k][0]},140 L${N[k][0]},192`, P.lime, 2.5, ` opacity=".75"`);
+    // AutoMine jobs and docking
+    edges += line("M100,248 L100,352", P.orange, 3) + line("M150,352 L150,248", P.orange, 3);
+    // the deployer builds the GPS hosts
+    edges += line("M1100,352 L1100,248", P.purple, 3);
+    // GPS: from the hosts to every turtle that checks its position
+    edges += line("M1040,248 L1040,300 L200,300", P.lightBlue);
+    for (const x of [200, 480, 690, 870]) edges += line(`M${x},300 L${x},352`, P.lightBlue);
+    edges += line("M440,300 L440,470 M300,470 L700,470", P.lightBlue);
+    for (const x of [300, 500, 700]) edges += line(`M${x},470 L${x},512`, P.lightBlue);
+    // the village shares its current building with the projector
+    edges += line(curve(430, 248, 510, 352), P.magenta, 3);
+    // the storage system sends the village its blocks
+    edges += line(curve(650, 248, 575, 352), P.blue, 3);
+    // farms drop their harvest into the storage system's input chest
+    edges += line(curve(740, 352, 715, 248), P.green);
+    edges += line(curve(900, 352, 760, 248), P.green);
 
     let nodes = "";
-    for (const [x, y, w, link, title, dev, col] of Object.values(N)) {
+    for (const [key, [x, y, w, link, title, dev, col]] of Object.entries(N)) {
       nodes += `<a href="${progUrl(link)}"><g class="node">
         <rect x="${x - w / 2 + 4}" y="${y - 24}" width="${w}" height="56" fill="#000" opacity=".5"/>
         <rect class="face" x="${x - w / 2}" y="${y - 28}" width="${w}" height="56" fill="#1d1d24" stroke="#000" stroke-width="2"/>
         <rect x="${x - w / 2}" y="${y - 28}" width="${w}" height="4" fill="${P[col]}"/>
+        ${key === "status" ? "" : `<rect x="${x + w / 2 - 12}" y="${y - 20}" width="7" height="7" fill="${P.lime}"/>`}
         <image href="${icon(dev)}" x="${x - w / 2 + 8}" y="${y - 16}" width="32" height="32" style="image-rendering:pixelated"/>
-        <text x="${x - w / 2 + 46}" y="${y + 5}" data-room="${w - 54}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 160 ? 14 : 16}">${esc(title)}</text>
+        <text x="${x - w / 2 + 46}" y="${y + 5}" data-room="${w - 64}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 160 ? 14 : 16}">${esc(title)}</text>
       </g></a>`;
     }
     const tag = (x, y, t, c) => `<text x="${x}" y="${y}" fill="${c}" font-family="VT323, monospace" font-size="19">${t}</text>`;
-    const labels = tag(250, 150, "report.set()", P.lime) + tag(30, 315, "rednet", P.orange) + tag(362, 308, "gps.locate()", P.lightBlue) + tag(1003, 315, "builds", P.purple);
-    return `<svg viewBox="0 0 1060 450" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
+    const labels = tag(612, 124, "report.set()", P.lime) + tag(30, 305, "rednet", P.orange)
+      + tag(210, 292, "gps.locate()", P.lightBlue) + tag(1110, 305, "builds", P.purple)
+      + tag(262, 340, "current building", P.magenta) + tag(588, 290, "blocks", P.blue)
+      + tag(912, 337, "harvest", P.green);
+    return `<svg viewBox="0 0 1200 600" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 
   //---------------------------------------------------------------- program page

@@ -124,7 +124,8 @@
         "Medieval, desert, nordic and japanese themes",
         "Surveys each plot and picks a building that fits the terrain",
         "Streets with curbs, lamp posts and stairs on slopes",
-        "Saves after every block: survives any number of reboots"
+        "Saves after every block: survives any number of reboots",
+        "Optional: fetches blocks from the storage system and shows its next building on the projector"
       ],
       "setup": [
         "Stand the turtle on fairly flat ground at the village centre, facing the village's \"forward\".",

@@ -179,9 +179,15 @@ chest, and the turtle takes them from there.
 Then, when it checks the materials for a building, whatever the storage
 system holds counts as well. Each time the turtle loads up for the next
 stretch, it asks the storage system to send what's missing to the supply
-chest, then takes it. It asks for coal the same way when it's low on fuel.
-If the storage system runs short too, the turtle waits as usual and asks
-again every 10 seconds.
+chest, then takes it. When it's low on fuel it asks for coal the same way
+(or charcoal, or coal blocks, if that's what the storage has). If the storage
+system runs short too, the turtle waits as usual and asks again every 10
+seconds.
+
+If nothing arrives, the turtle's screen says why: no storage system
+answered (check its wireless modem and range), it has no delivery chest set
+(run `storage setup` and pick the supply chest), it has none of that item,
+or the supply chest is full.
 
 The storage system keeps the supply chest clear apart from what the turtle
 has asked for: leftovers and empty buckets go back into storage. So put

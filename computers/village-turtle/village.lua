@@ -60,6 +60,8 @@ local PLAN_PROTOCOL = "village_plan"
 local USE_STORAGE = true
 local STORAGE_PROTOCOL = "storage"
 local STORAGE_RETRY = 60 -- seconds before looking for a storage computer again after not finding one
+-- Fuel asked for when low, in this order, and how much of it.
+local STORAGE_FUEL = { { "minecraft:coal", 64 }, { "minecraft:charcoal", 64 }, { "minecraft:coal_block", 8 } }
 
 local FUEL = {}
 for _, n in ipairs({ "minecraft:coal", "minecraft:charcoal", "minecraft:coal_block", "minecraft:lava_bucket",
@@ -721,7 +723,11 @@ local function ensureFuel(target)
       refuelFromInventory(target)
     end
     if fuelLevel() < target then
-      orderFromStorage({ ["minecraft:coal"] = 64 })
+      -- whichever fuel the storage system has: coal first
+      for _, f in ipairs(STORAGE_FUEL) do
+        local r = orderFromStorage({ [f[1]] = f[2] })
+        if not r or r.enough or (r.ready[f[1]] or 0) > 0 then break end
+      end
       fetch(function(n) return FUEL[n] end, 64, fuelItems)
       refuelFromInventory(target)
     end
@@ -969,13 +975,22 @@ local function askStorage(msg)
   end
   rednet.send(storageId, msg, STORAGE_PROTOCOL)
   while true do
-    local id, reply = rednet.receive(STORAGE_PROTOCOL, 5)
+    local id, reply = rednet.receive(STORAGE_PROTOCOL, 10)
     if not id then
       storageId = nil -- gone quiet: look it up again next time
       return nil
     end
     if id == storageId and type(reply) == "table" and reply.re == msg.type then return reply end
   end
+end
+
+-- Say what the storage system did, but not the same thing over and over
+-- (orders repeat every 10 seconds while waiting).
+local lastNotes = {}
+local function storageNote(text)
+  if lastNotes[text] and os.clock() - lastNotes[text] < 120 then return end
+  lastNotes[text] = os.clock()
+  print(text)
 end
 
 -- How much of each item the storage system has (name -> count), or nil.
@@ -1004,11 +1019,29 @@ orderFromStorage = function(needs)
     local short = n - (have[item] or 0)
     if short > 0 then order[item], any = short, true end
   end
-  if not any then return end
+  if not any then return { enough = true } end
   local r = askStorage({ type = "deliver", items = order })
+  if not r then
+    storageNote("No storage system answered. It needs a wireless or ender modem, to be running 'storage', and to be in range of me.")
+    return nil
+  end
   local total = 0
-  for _, n in pairs(r and r.sent or {}) do total = total + n end
-  if total > 0 then print(("The storage system sent %d items to the supply chest."):format(total)) end
+  for _, n in pairs(r.sent or {}) do total = total + n end
+  if r.to == "output" then
+    storageNote("The storage system has no delivery chest, so it sends to its output chest. Run 'storage setup' on it and pick my supply chest.")
+  elseif total > 0 then
+    storageNote(("The storage system sent %d items to the supply chest."):format(total))
+  end
+  for item, n in pairs(order) do
+    local ready = r.ready and r.ready[item] or 0
+    if ready < n and r.stock and r.stock[item] == 0 then
+      storageNote(("The storage system has no %s (left)."):format(shortName(item)))
+    elseif ready < n then
+      storageNote(("Only part of the %s fitted in my supply chest."):format(shortName(item)))
+    end
+  end
+  r.ready = r.ready or {}
+  return r
 end
 
 local function skipPlot(why)
