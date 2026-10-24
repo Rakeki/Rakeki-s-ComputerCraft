@@ -417,7 +417,7 @@
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Built-in plans", "2"],
+        ["Built-in plans", "3"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [

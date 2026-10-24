@@ -32,9 +32,10 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-Two plans come built in: a **cottage** (7×7, 8 high) and a **watchtower**
-(7×7, 11 high). Your own plans go in the `/plans` folder (see
-[Plans](#plans)).
+Three plans come built in: a **cottage** (7×7, 8 high), a **watchtower**
+(7×7, 11 high) and a five-storey **pagoda** (31×32, 59 high, over 9,000
+blocks) with balconies, upturned eaves and a gold spire. Your own plans go
+in the `/plans` folder (see [Plans](#plans)).
 
 ## Files
 
@@ -55,7 +56,7 @@ Two plans come built in: a **cottage** (7×7, 8 high) and a **watchtower**
 
 ```
 projector                  -- show the last plan (startup does this)
-projector watchtower       -- show a plan: built in, or /plans/<name>.lua
+projector pagoda          -- show a plan: built in, or /plans/<name>.lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
