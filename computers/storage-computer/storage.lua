@@ -9,6 +9,7 @@
 --
 --   storage          start (asks which chest is input and output the first time)
 --   storage setup    choose the input, output and delivery chests again
+--   storage test     move one item to the delivery chest and back, to check it works
 --
 -- Connect the computer and every chest with networking cable and wired
 -- modems: a full-block wired modem touching each chest (small modems only go
@@ -154,7 +155,7 @@ local function storeInput()
 end
 
 -- Send up to amount of the items matching match(item) to the chest named to.
--- Returns how many went.
+-- Returns how many went, and the error if a move failed outright.
 local function fetch(match, amount, to)
   local sent = 0
   for _, name in ipairs(stores) do
@@ -163,8 +164,12 @@ local function fetch(match, amount, to)
       if match(item) then
         touched = true
         local ok, moved = pcall(peripheral.call, to, "pullItems", name, slot, amount - sent)
-        if ok then sent = sent + moved end
-        if not ok or moved == 0 then
+        if not ok then
+          rescan(name)
+          return sent, tostring(moved) -- e.g. the chest isn't on the same network
+        end
+        sent = sent + moved
+        if moved == 0 then
           rescan(name)
           return sent -- that chest is full
         end
@@ -356,6 +361,8 @@ end
 local function netLoop()
   local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
   if not modem then
+    message = { "No wireless modem: turtles can't ask me for items.", "orange" }
+    os.queueEvent("storage_changed")
     while true do sleep(3600) end
   end
   local side = peripheral.getName(modem)
@@ -374,12 +381,17 @@ local function netLoop()
         if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
       end
       -- ready: how many now wait in the chest; stock: how many are left in storage
-      local ready, names, short = {}, {}, false
+      local ready, names, short, failed = {}, {}, false, nil
       for name, n in pairs(msg.items) do
         if type(name) == "string" and type(n) == "number" and n > 0 then
           n = math.floor(n)
           local have = math.min(present[name] or 0, n)
-          sent[name] = have < n and fetch(plain(name), n - have, to) or 0
+          sent[name] = 0
+          if have < n then
+            local err
+            sent[name], err = fetch(plain(name), n - have, to)
+            failed = failed or err
+          end
           ready[name] = have + sent[name]
           if ready[name] < n then short = true end
           total = total + sent[name]
@@ -388,8 +400,10 @@ local function netLoop()
         end
       end
       rednet.send(from, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names),
-        to = setup.delivery and "delivery" or "output" }, NET_PROTOCOL)
-      if total > 0 and not setup.delivery then
+        to = setup.delivery and "delivery" or "output", error = failed }, NET_PROTOCOL)
+      if failed then
+        message = { "Couldn't move items for a turtle: " .. failed, "red" }
+      elseif total > 0 and not setup.delivery then
         message = { ("Sent %d items to the output chest for turtle #%d: no delivery chest set."):format(total, from), "orange" }
       elseif total > 0 then
         message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
@@ -518,6 +532,41 @@ end
 
 print("Scanning chests...")
 scanAll()
+
+-- 'storage test': move one item into the delivery (or output) chest and back,
+-- and say what went wrong if it can't.
+if args[1] == "test" then
+  local to = setup.delivery or setup.output
+  print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "delivery" or "output", to))
+  local pick
+  for _, it in ipairs((totals())) do
+    if not it.key:find("#", 1, true) then pick = it break end
+  end
+  if not pick then
+    print("Storage is empty: put something in the input chest first.")
+    return
+  end
+  local sent, err = fetch(function(item) return keyOf(item) == pick.key end, 1, to)
+  if sent > 0 then
+    print(("OK: moved 1 %s there."):format(pick.displayName))
+    local okL, list = pcall(peripheral.call, to, "list")
+    for slot, item in pairs(okL and list or {}) do
+      if keyOf(item) == pick.key then
+        putAway(to, slot, item, 1)
+        break
+      end
+    end
+    print("Moved it back. Deliveries work.")
+  else
+    print("Couldn't move it: " .. (err or "that chest is full"))
+    print("Check its modem is red and joined by cable to the storage chests.")
+  end
+  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
+  print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
+    or "No wireless modem: turtles can't ask me for items.")
+  return
+end
+
 term.clear()
 
 if report then report.init("storage") end

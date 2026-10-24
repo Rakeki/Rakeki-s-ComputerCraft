@@ -961,13 +961,29 @@ end
 local storageId -- the storage computer, once found
 local noStorageUntil = 0 -- don't look again before this (os.clock)
 
+-- Say what the storage system did, but not the same thing over and over
+-- (orders repeat every 10 seconds while waiting).
+local lastNotes = {}
+local function storageNote(text)
+  if lastNotes[text] and os.clock() - lastNotes[text] < 120 then return end
+  lastNotes[text] = os.clock()
+  print(text)
+end
+
 -- Send msg to the storage computer and wait for its reply. nil when there's
 -- no storage computer in range (or USE_STORAGE is off).
 local function askStorage(msg)
-  if not USE_STORAGE or os.clock() < noStorageUntil or not openWireless() then return nil end
+  if not USE_STORAGE or os.clock() < noStorageUntil then return nil end
+  if not openWireless() then
+    storageNote("I have no wireless modem, so I can't ask the storage system for blocks.")
+    noStorageUntil = os.clock() + STORAGE_RETRY
+    return nil
+  end
   if not storageId then
     storageId = rednet.lookup(STORAGE_PROTOCOL)
     if not storageId then
+      storageNote("No storage system answered. It needs a wireless or ender modem, to be running")
+      storageNote("'storage', and to be in range (wireless modems reach about 64 blocks).")
       noStorageUntil = os.clock() + STORAGE_RETRY
       return nil
     end
@@ -977,20 +993,12 @@ local function askStorage(msg)
   while true do
     local id, reply = rednet.receive(STORAGE_PROTOCOL, 10)
     if not id then
+      storageNote(("The storage system (computer #%d) stopped answering."):format(storageId))
       storageId = nil -- gone quiet: look it up again next time
       return nil
     end
     if id == storageId and type(reply) == "table" and reply.re == msg.type then return reply end
   end
-end
-
--- Say what the storage system did, but not the same thing over and over
--- (orders repeat every 10 seconds while waiting).
-local lastNotes = {}
-local function storageNote(text)
-  if lastNotes[text] and os.clock() - lastNotes[text] < 120 then return end
-  lastNotes[text] = os.clock()
-  print(text)
 end
 
 -- How much of each item the storage system has (name -> count), or nil.
@@ -1021,12 +1029,13 @@ orderFromStorage = function(needs)
   end
   if not any then return { enough = true } end
   local r = askStorage({ type = "deliver", items = order })
-  if not r then
-    storageNote("No storage system answered. It needs a wireless or ender modem, to be running 'storage', and to be in range of me.")
-    return nil
-  end
+  if not r then return nil end
   local total = 0
   for _, n in pairs(r.sent or {}) do total = total + n end
+  if r.error then
+    storageNote("The storage system couldn't move items: " .. tostring(r.error))
+    storageNote("Run 'storage test' on it to check its delivery chest.")
+  end
   if r.to == "output" then
     storageNote("The storage system has no delivery chest, so it sends to its output chest. Run 'storage setup' on it and pick my supply chest.")
   elseif total > 0 then

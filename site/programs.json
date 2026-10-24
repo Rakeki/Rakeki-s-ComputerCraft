@@ -604,7 +604,8 @@
       ],
       "commands": [
         ["storage", "start (asks for the input and output chests the first time)"],
-        ["storage setup", "pick the input, output and delivery chests again"]
+        ["storage setup", "pick the input, output and delivery chests again"],
+        ["storage test", "check a turtle delivery works, and the wireless modem"]
       ],
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],

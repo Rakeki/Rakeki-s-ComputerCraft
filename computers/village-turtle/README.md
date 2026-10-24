@@ -184,10 +184,12 @@ chest, then takes it. When it's low on fuel it asks for coal the same way
 system runs short too, the turtle waits as usual and asks again every 10
 seconds.
 
-If nothing arrives, the turtle's screen says why: no storage system
-answered (check its wireless modem and range), it has no delivery chest set
-(run `storage setup` and pick the supply chest), it has none of that item,
-or the supply chest is full.
+If nothing arrives, the turtle's screen says why: it has no wireless modem
+itself, no storage system answered (check the storage computer's wireless
+modem and that it's within about 64 blocks, or use ender modems), it has no
+delivery chest set (run `storage setup` and pick the supply chest), it has
+none of that item, or the supply chest is full. Running `storage test` on the
+storage computer checks its side.
 
 The storage system keeps the supply chest clear apart from what the turtle
 has asked for: leftovers and empty buckets go back into storage. So put

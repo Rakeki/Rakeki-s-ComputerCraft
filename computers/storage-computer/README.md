@@ -46,6 +46,12 @@ seconds anything else in it (leftovers from an earlier load, empty buckets,
 things dropped in by hand) is put back into storage. Items a turtle asked
 for wait there until it takes them, or for 10 minutes if it never does.
 
+If a turtle says nothing arrives, run `storage test`. It moves one item into
+the delivery chest and back, says why if it can't (usually a modem that
+isn't red, or a chest not joined by cable to the others), and whether this
+computer has the wireless modem turtles need to reach it. Without one, the
+footer says "No wireless modem: turtles can't ask me for items."
+
 ## Files
 
 - `storage.lua`: the program. Check intervals and which blocks count as storage are at the top.
@@ -72,6 +78,7 @@ for wait there until it takes them, or for 10 minutes if it never does.
    ```
    storage                   -- start
    storage setup             -- pick the input, output and delivery chests again
+   storage test              -- check a turtle delivery works: moves one item there and back
    ```
 
 Then reboot, and it starts on its own from then on.
