@@ -144,7 +144,8 @@
       "integrates": [
         ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
         ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."],
-        ["blueprint-projector", "With a wireless modem, 'projector village' shows the building it's working on, right on its plot."]
+        ["blueprint-projector", "With a wireless modem, 'projector village' shows the building it's working on, right on its plot."],
+        ["storage-computer", "Counts what's in the storage system and has it sent to the supply chest as each load is needed."]
       ],
       "render": {
         "kind": "gallery",
@@ -593,21 +594,22 @@
         "Type to search every chest at once",
         "Enter sends a stack to the output chest, Right arrow just one",
         "Puts new items next to the same item when it can",
-        "Monitor shows how full it is and what there's most of"
+        "Turtles can ask for items over rednet; the village builder stocks itself from it"
       ],
       "setup": [
-        "Put a wired modem on the computer and every chest, join them with cable, and right-click each modem.",
-        "Run storage and pick which chest is the input and which is the output.",
+        "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
+        "Run storage and pick the input, output and (optional) delivery chests.",
         "Reboot. Every other chest is storage."
       ],
       "commands": [
         ["storage", "start (asks for the input and output chests the first time)"],
-        ["storage setup", "pick the input and output chests again"]
+        ["storage setup", "pick the input, output and delivery chests again"]
       ],
       "integrates": [
+        ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
-        ["status-server", "Reports how many items and slots are in use."]
+        ["status-server", "Reports how many items and slots are in use, and each delivery."]
       ],
       "render": {
         "kind": "screen",

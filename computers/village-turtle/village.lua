@@ -55,6 +55,12 @@ local STAIR_FLIP = false
 local SHARE_PLAN = true
 local PLAN_PROTOCOL = "village_plan"
 
+-- With a wireless modem, ask a storage-computer for building blocks and
+-- fuel. Its delivery chest must be this village's supply chest.
+local USE_STORAGE = true
+local STORAGE_PROTOCOL = "storage"
+local STORAGE_RETRY = 60 -- seconds before looking for a storage computer again after not finding one
+
 local FUEL = {}
 for _, n in ipairs({ "minecraft:coal", "minecraft:charcoal", "minecraft:coal_block", "minecraft:lava_bucket",
   "minecraft:blaze_rod", "minecraft:dried_kelp_block" }) do FUEL[n] = true end
@@ -690,6 +696,9 @@ local function dump(keep, keepFill)
   turtle.select(1)
 end
 
+-- Defined with the storage system further down (it needs the chest helpers).
+local orderFromStorage
+
 local function fuelItems()
   local n = 0
   for slot = 1, 16 do
@@ -708,6 +717,11 @@ local function ensureFuel(target)
   local function topUp()
     refuelFromInventory(target)
     if fuelLevel() < target then
+      fetch(function(n) return FUEL[n] end, 64, fuelItems)
+      refuelFromInventory(target)
+    end
+    if fuelLevel() < target then
+      orderFromStorage({ ["minecraft:coal"] = 64 })
       fetch(function(n) return FUEL[n] end, 64, fuelItems)
       refuelFromInventory(target)
     end
@@ -874,14 +888,15 @@ local function niceName(bp) return themes[job.theme].names[bp] or bp end
 
 ---------------------------------------------------------------- sharing with a projector
 
-local function planModem()
-  if not SHARE_PLAN then return false end
+local function openWireless()
   if rednet.isOpen() then return true end
   local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
   if not modem then return false end
   rednet.open(peripheral.getName(modem))
   return true
 end
+
+local function planModem() return SHARE_PLAN and openWireless() end
 
 -- Once a building is chosen its place is known (job.cur has bp, rot, ax, base).
 local function hasPlan()
@@ -933,6 +948,58 @@ local function planServer()
       sleep(60)
     end
   end
+end
+
+---------------------------------------------------------------- the storage system
+
+local storageId -- the storage computer, once found
+local noStorageUntil = 0 -- don't look again before this (os.clock)
+
+-- Send msg to the storage computer and wait for its reply. nil when there's
+-- no storage computer in range (or USE_STORAGE is off).
+local function askStorage(msg)
+  if not USE_STORAGE or os.clock() < noStorageUntil or not openWireless() then return nil end
+  if not storageId then
+    storageId = rednet.lookup(STORAGE_PROTOCOL)
+    if not storageId then
+      noStorageUntil = os.clock() + STORAGE_RETRY
+      return nil
+    end
+    print(("Found the storage system (computer #%d)."):format(storageId))
+  end
+  rednet.send(storageId, msg, STORAGE_PROTOCOL)
+  while true do
+    local id, reply = rednet.receive(STORAGE_PROTOCOL, 5)
+    if not id then
+      storageId = nil -- gone quiet: look it up again next time
+      return nil
+    end
+    if id == storageId and type(reply) == "table" and reply.re == msg.type then return reply end
+  end
+end
+
+-- How much of each item the storage system has (name -> count), or nil.
+local function storageCounts(names)
+  if #names == 0 then return nil end
+  local r = askStorage({ type = "count", items = names })
+  return r and r.counts
+end
+
+-- At home: have the storage system send whatever of needs (name -> count)
+-- isn't already at home to the supply chest.
+orderFromStorage = function(needs)
+  if not USE_STORAGE then return end
+  local stock = stockAtHome()
+  local order, any = {}, false
+  for item, n in pairs(needs) do
+    local short = n - (stock[item] or 0)
+    if short > 0 then order[item], any = short, true end
+  end
+  if not any then return end
+  local r = askStorage({ type = "deliver", items = order })
+  local total = 0
+  for _, n in pairs(r and r.sent or {}) do total = total + n end
+  if total > 0 then print(("The storage system sent %d items to the supply chest."):format(total)) end
 end
 
 local function skipPlot(why)
@@ -1041,6 +1108,14 @@ local function doChoose(c)
   local function check()
     local stock, supply = stockAtHome()
     missing = shortfall(needs, stock)
+    -- what the storage system holds counts too: it's sent over as the build needs it
+    local names = {}
+    for _, m in ipairs(missing) do names[#names + 1] = m.item end
+    local counts = storageCounts(names)
+    if counts then
+      for item, n in pairs(counts) do stock[item] = (stock[item] or 0) + n end
+      missing = shortfall(needs, stock)
+    end
     if not supply then table.insert(missing, 1, { item = "supply chest (behind me)", n = 1 }) end
     return #missing == 0
   end
@@ -1119,6 +1194,11 @@ local function restock(want, fillWant, why)
   goHome()
   dump(want, fillWant)
   ensureFuel(FUEL_RESERVE + 2 * homeDistance()) -- before the slots fill up
+  local short = {}
+  for item, n in pairs(want) do
+    if count(item) < n then short[item] = n - count(item) end
+  end
+  if next(short) then orderFromStorage(short) end
   for item, n in pairs(want) do
     if count(item) < n then fetch(function(x) return x == item end, n, function() return count(item) end) end
   end
@@ -1243,6 +1323,7 @@ local function doBuild(c)
       -- still nothing? wait for the player to bring some
       if r == "missing" and count(s.item) == 0 then
         waitUntil(function()
+          orderFromStorage({ [s.item] = want[s.item] or 1 })
           fetch(function(x) return x == s.item end, want[s.item] or 1, function() return count(s.item) end)
           faceLocal(0)
           return count(s.item) > 0

@@ -3,11 +3,16 @@
 -- to search on the terminal and press Enter to have a stack sent to the
 -- output chest. A monitor, if attached, shows what's stored most.
 --
---   storage          start (asks which chest is input and output the first time)
---   storage setup    choose the input and output chests again
+-- With a wireless modem too, turtles can ask it over rednet how much of an
+-- item is stored and have it sent to a delivery chest (the village builder
+-- uses this to stock its supply chest).
 --
--- Connect the computer and every chest to each other with networking cable
--- and a wired modem on each (right-click the modem so it turns red).
+--   storage          start (asks which chest is input and output the first time)
+--   storage setup    choose the input, output and delivery chests again
+--
+-- Connect the computer and every chest with networking cable and wired
+-- modems: a full-block wired modem touching each chest (small modems only go
+-- on full blocks like barrels). Right-click each modem so it turns red.
 local report = fs.exists("lib/report.lua") and require("lib.report")
 
 local SETUP_FILE = "/.storage_setup"
@@ -15,12 +20,13 @@ local SETUP_FILE = "/.storage_setup"
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans (catches items moved by hand)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
+local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 
 -- Inventories that count as storage, matched against the peripheral type
 -- (e.g. "minecraft:chest"). Furnaces, hoppers and turtles never do.
 local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer" }
 
-local setup -- { input = name, output = name }
+local setup -- { input = name, output = name, delivery = name or nil }
 local stores = {} -- peripheral names of the storage inventories
 local contents = {} -- store name -> its list() result
 local sizes = {} -- store name -> number of slots
@@ -37,7 +43,7 @@ local function isInventory(name)
 end
 
 local function isStorage(name)
-  if name == setup.input or name == setup.output then return false end
+  if name == setup.input or name == setup.output or name == setup.delivery then return false end
   local t = peripheral.getType(name)
   for _, s in ipairs(STORAGE_TYPES) do
     if t:find(s, 1, true) then return true end
@@ -136,17 +142,18 @@ local function storeInput()
   return true
 end
 
--- Send up to amount of an item to the output chest. Returns how many went.
-local function fetch(key, amount)
+-- Send up to amount of the items matching match(item) to the chest named to.
+-- Returns how many went.
+local function fetch(match, amount, to)
   local sent = 0
   for _, name in ipairs(stores) do
     for slot, item in pairs(contents[name] or {}) do
-      if keyOf(item) == key then
-        local ok, moved = pcall(peripheral.call, setup.output, "pullItems", name, slot, amount - sent)
+      if match(item) then
+        local ok, moved = pcall(peripheral.call, to, "pullItems", name, slot, amount - sent)
         if ok then sent = sent + moved end
         if not ok or moved == 0 then
           rescan(name)
-          return sent -- the output chest is full
+          return sent -- that chest is full
         end
         if sent >= amount then break end
       end
@@ -270,7 +277,7 @@ local function take(amount)
   local list = matches()
   local it = list[selected]
   if not it then return end
-  local sent = fetch(it.key, amount)
+  local sent = fetch(function(item) return keyOf(item) == it.key end, amount, setup.output)
   if sent > 0 then
     message = { ("Sent %d %s to the output chest."):format(sent, it.displayName), "lime" }
   else
@@ -316,6 +323,53 @@ local function inputLoop()
   end
 end
 
+-- Requests from turtles over rednet:
+--   { type = "count", items = { name, ... } }      -> { re = "count", counts = { [name] = n } }
+--   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
+-- Items with extra data (enchantments, names) are never counted or sent.
+local function plain(name) return function(item) return item.name == name and not item.nbt end end
+
+local function countPlain(names)
+  local counts = {}
+  for _, n in ipairs(names) do counts[n] = 0 end
+  for _, store in ipairs(stores) do
+    for _, item in pairs(contents[store] or {}) do
+      if counts[item.name] and not item.nbt then counts[item.name] = counts[item.name] + item.count end
+    end
+  end
+  return counts
+end
+
+local function netLoop()
+  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
+  if not modem then
+    while true do sleep(3600) end
+  end
+  local side = peripheral.getName(modem)
+  if not rednet.isOpen(side) then rednet.open(side) end
+  rednet.host(NET_PROTOCOL, os.getComputerLabel() or ("storage-" .. os.getComputerID()))
+  while true do
+    local from, msg = rednet.receive(NET_PROTOCOL)
+    if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
+      rednet.send(from, { re = "count", counts = countPlain(msg.items) }, NET_PROTOCOL)
+    elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
+      local to, sent, total = setup.delivery or setup.output, {}, 0
+      for name, n in pairs(msg.items) do
+        if type(name) == "string" and type(n) == "number" and n > 0 then
+          sent[name] = fetch(plain(name), math.floor(n), to)
+          total = total + sent[name]
+        end
+      end
+      rednet.send(from, { re = "deliver", sent = sent }, NET_PROTOCOL)
+      if total > 0 then
+        message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
+        if report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
+        os.queueEvent("storage_changed")
+      end
+    end
+  end
+end
+
 local function rescanLoop()
   while true do
     sleep(RESCAN_EVERY)
@@ -335,8 +389,8 @@ local function chooseChests()
   if #invs < 3 then
     print("I can only see " .. #invs .. " chests. I need at least three on the")
     print("network: an input, an output, and one or more for storage.")
-    print("Put a wired modem on each chest, connect them with cable,")
-    print("and right-click each modem so it turns red.")
+    print("Put a full-block wired modem against each chest, connect")
+    print("them with cable, and right-click each modem so it turns red.")
     return nil
   end
   print("Chests on the network:")
@@ -347,17 +401,22 @@ local function chooseChests()
     print(("%2d  %s%s"):format(i, name, n > 0 and (" (" .. n .. " stacks)") or ""))
   end
   print("Tip: right-clicking a modem shows its chest's name in chat.")
-  local function ask(prompt, not1)
+  local function ask(prompt, taken, optional)
     while true do
       write(prompt)
-      local n = tonumber(read())
-      if n and invs[n] and invs[n] ~= not1 then return invs[n] end
-      print("Type one of the numbers above.")
+      local text = read()
+      if optional and text == "" then return nil end
+      local n = tonumber(text)
+      if n and invs[n] and not taken[invs[n]] then return invs[n] end
+      print("Type one of the numbers above" .. (optional and ", or just Enter." or "."))
     end
   end
   local s = {}
-  s.input = ask("Which is the input chest? ")
-  s.output = ask("Which is the output chest? ", s.input)
+  s.input = ask("Which is the input chest? ", {})
+  s.output = ask("Which is the output chest? ", { [s.input] = true })
+  print("Turtles (like the village builder) can have items sent to")
+  print("their own chest. Leave it blank to use the output chest.")
+  s.delivery = ask("Which is the delivery chest? [none] ", { [s.input] = true, [s.output] = true }, true)
   local f = fs.open(SETUP_FILE, "w")
   f.write(textutils.serialize(s))
   f.close()
@@ -381,8 +440,8 @@ if args[1] == "setup" or not loadSetup() then
 else
   setup = loadSetup()
 end
-for _, which in ipairs({ "input", "output" }) do
-  if not peripheral.isPresent(setup[which]) then
+for _, which in ipairs({ "input", "output", "delivery" }) do
+  if setup[which] and not peripheral.isPresent(setup[which]) then
     print(("Can't find the %s chest (%s). Check its modem is red, or run 'storage setup'."):format(which, setup[which]))
     return
   end
@@ -393,7 +452,7 @@ scanAll()
 term.clear()
 
 if report then report.init("storage") end
-local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop,
+local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netLoop,
   report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)

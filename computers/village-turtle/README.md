@@ -149,7 +149,8 @@ Copy these to the turtle:
 ### Materials
 
 - Before each building, the turtle checks that the **supply and spoil
-  chests together hold everything** for it and its street. If not, it waits
+  chests together hold everything** for it and its street (plus the
+  [storage system](#getting-blocks-from-the-storage-system), if it has one). If not, it waits
   at home showing what's missing (also on the status server, e.g. `needs 87
   oak_planks, 70 spruce_stairs, ...`). Top up the chest and it carries on by
   itself within 10 seconds. Press **S** to skip that building and pick
@@ -160,6 +161,27 @@ Copy these to the turtle:
   end up there too. If the spoil chest is full, it throws the extra away, so
   empty it now and then.
 - Water buckets come back empty and go back in the supply chest.
+
+### Getting blocks from the storage system
+
+Optional. With a [storage computer](../storage-computer/README.md) the turtle
+doesn't need everything in its supply chest up front:
+
+1. Connect the village's **supply chest** to the storage system's wired
+   network (a full-block wired modem touching the chest, and networking cable
+   back to the storage; cable can run as far as you like).
+2. Run `storage setup` on the storage computer and choose the supply chest
+   as the **delivery chest**.
+3. Give both the turtle and the storage computer a wireless modem.
+
+Then, when it checks the materials for a building, whatever the storage
+system holds counts as well. Each time the turtle loads up for the next
+stretch, it asks the storage system to send what's missing to the supply
+chest, then takes it. It asks for coal the same way when it's low on fuel.
+If the storage system runs short too, the turtle waits as usual and asks
+again every 10 seconds.
+
+To turn this off, set `USE_STORAGE = false` at the top of `village.lua`.
 
 Example: a medieval cottage is 87 spruce_stairs, 66 oak_planks, 60
 cobblestone, 35 spruce_planks, 24 oak_log, 22 stripped_oak_log, 11

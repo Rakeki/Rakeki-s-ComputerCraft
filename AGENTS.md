@@ -151,7 +151,7 @@ Existing computers:
 | `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls | report (if present) |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report |
-| `storage-computer` | Wired chest network as one searchable store, input/output chests | report (if present) |
+| `storage-computer` | Wired chest network as one searchable store; serves item requests from turtles over rednet | report (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | report (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
