@@ -1,0 +1,79 @@
+# crafter-turtle
+
+- **Type:** crafty turtle (a turtle with a crafting table), plus a wireless or ender modem
+- **Computer ID:** 
+- **Label:** 
+- **Location:** 
+
+## What it does
+
+The crafting arm of the [storage system](../storage-computer/README.md). When
+a turtle asks the storage computer for something it doesn't have (say the
+[village builder](../village-turtle/README.md) wants 40 jungle fences), but it
+could be made from what is stored, the storage computer works out the crafts
+and has this turtle make them, ingredients first: jungle logs into planks,
+planks into sticks, then the fences.
+
+For each batch the storage computer puts the ingredients in this turtle's
+chest, one chest slot per crafting-grid cell. The turtle takes them into its
+grid, crafts, and puts everything back in the chest, and the storage computer
+puts the results away. The turtle that asked gets them on its next request:
+the village builder asks again every 10 seconds while it waits.
+
+It knows the recipes for everything the village themes use that can be
+crafted (planks, slabs, stairs, fences, doors, beds, dyed wool, lanterns,
+torches, deepslate tiles, sandstone, glass panes and more; the list is in
+[`recipes.lua`](../storage-computer/recipes.lua) on the storage computer).
+Smelted blocks like smooth sandstone can't be crafted. Teach it anything else
+with `crafter learn`.
+
+## Files
+
+- `crafter.lua`: the program
+- `startup.lua`: starts it on boot and restarts it if it stops
+- [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
+
+The recipes and the planning live on the storage computer (`recipes.lua` and
+`crafting.lua` there), not on this turtle.
+
+## Setup
+
+1. Craft a **crafty turtle** (a turtle with a crafting table) and put a
+   **wireless or ender modem** on its other side.
+2. Place it near the storage network with a **chest directly in front of
+   it**.
+3. Connect that chest to the storage network: a **full-block wired modem**
+   touching the chest (not between the chest and the turtle), networking cable
+   back to the storage, and right-click the modem so it turns red.
+4. On the storage computer, run `storage setup` and choose that chest as the
+   **crafter chest**. The storage computer needs a wireless modem too.
+5. Install this program on the turtle and reboot it.
+
+   ```
+   crafter                   -- start (startup.lua does this on boot)
+   crafter learn             -- teach the storage system a recipe (see below)
+   ```
+
+### Teaching it a recipe
+
+1. Stop the crafter (hold Ctrl+T) and put one set of the recipe in its
+   crafting grid: slots 1-3 are the top row, 5-7 the middle and 9-11 the
+   bottom. Leave every other slot empty.
+2. Run `crafter learn`. It crafts it once to see what it makes and sends the
+   recipe to the storage computer, which saves it (updating the programs never
+   loses it). A new recipe for an item replaces an old learnt one.
+3. Take the items back out, or just start the crafter again: it puts
+   anything left in itself into its chest, and the storage computer puts it
+   away.
+
+## Things to know
+
+- One craft job at a time, up to 64 crafts per batch (fewer for things that
+  don't stack to 64, and never more than 6 stacks of output). Big orders are
+  split into batches.
+- If something it needs runs out half way, it stops that order and the
+  storage computer's footer says what was missing. The turtle that asked will
+  ask again, and it starts again once there's enough.
+- It uses whichever matching item there's most of where a recipe takes any
+  planks or any coal.
+- Items with extra data (enchanted or named) are never used as ingredients.

@@ -147,7 +147,8 @@
         ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
         ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."],
         ["blueprint-projector", "With a wireless modem, 'projector village' shows the building it's working on, right on its plot."],
-        ["storage-computer", "Counts what's in the storage system and has it sent to the supply chest as each load is needed."]
+        ["storage-computer", "Counts what's in the storage system and has it sent to the supply chest as each load is needed."],
+        ["crafter-turtle", "Blocks that can be crafted from what's stored count as available, and get made when it asks."]
       ],
       "render": {
         "kind": "gallery",
@@ -597,20 +598,22 @@
         "Type to search every chest at once",
         "Enter sends a stack to the output chest, Right arrow just one",
         "Puts new items next to the same item when it can",
-        "Turtles can ask for items over rednet; the village builder stocks itself from it"
+        "Turtles can ask for items over rednet; the village builder stocks itself from it",
+        "With a crafting turtle, makes what it's asked for but doesn't have"
       ],
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
-        "Run storage and pick the input, output and (optional) delivery chests.",
+        "Run storage and pick the input, output and (optional) delivery and crafter chests.",
         "Reboot. Every other chest is storage."
       ],
       "commands": [
         ["storage", "start (asks for the input and output chests the first time)"],
-        ["storage setup", "pick the input, output and delivery chests again"],
+        ["storage setup", "pick the input, output, delivery and crafter chests again"],
         ["storage test", "check a turtle delivery works, and the wireless modem"]
       ],
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
+        ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
@@ -621,6 +624,58 @@
         "caption": "The storage terminal: type to search, Enter for a stack. Click a row to pick it, and again to take a stack."
       },
       "terminal": null
+    },
+    {
+      "name": "crafter-turtle",
+      "title": "Crafter",
+      "command": "crafter",
+      "device": "turtle",
+      "deviceLabel": "Crafty turtle",
+      "color": "brown",
+      "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
+      "libs": ["report"],
+      "autostart": true,
+      "stats": [
+        ["Recipes", "119 built in"],
+        ["Batch", "up to 64 crafts"],
+        ["Plans", "6 crafts deep"],
+        ["Teach", "crafter learn"]
+      ],
+      "features": [
+        "Plans whole chains: logs into planks into sticks into fences",
+        "Knows everything craftable the village themes use",
+        "Teach it any recipe by laying it out in its grid",
+        "Never crafts an order twice while it's being made"
+      ],
+      "setup": [
+        "A crafty turtle with a wireless modem, and a chest directly in front of it.",
+        "Connect the chest to the storage network with a full-block wired modem.",
+        "Run storage setup on the storage computer and pick it as the crafter chest. Install and reboot the turtle."
+      ],
+      "commands": [
+        ["crafter", "start (runs on boot)"],
+        ["crafter learn", "teach the storage system the recipe laid out in the grid"]
+      ],
+      "integrates": [
+        ["storage-computer", "Plans the crafts and loads the ingredients into the crafter chest, grid-style."],
+        ["village-turtle", "Fences, slabs, beds and lanterns get made as the village builder asks for them."],
+        ["status-server", "Shows what it's crafting."]
+      ],
+      "render": {
+        "kind": "voxel",
+        "scene": "crafter",
+        "caption": "The storage wall and its computer, and the crafty turtle with its chest, all on one wired network."
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "crafter", "cmd"],
+          ["Crafter ready (computer #22). Waiting for jobs from the storage system.", "", "lime"],
+          ["Crafted 72 jungle planks.", "", "white"],
+          ["Crafted 28 stick.", "", "white"],
+          ["Crafted 42 jungle fence.", "", "white"]
+        ]
+      }
     },
     {
       "name": "colony-dashboard",

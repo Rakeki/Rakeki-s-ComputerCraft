@@ -216,6 +216,11 @@ blocks and coal into the storage system's input chest rather than the supply
 chest (anything put in the supply chest just gets moved into storage, and
 comes back when the turtle asks for it).
 
+With a [crafting turtle](../crafter-turtle/README.md) on the storage system,
+blocks that aren't stored but can be crafted from what is (fences from logs,
+slabs from smooth sandstone, lanterns from iron and coal...) count as
+available too, and get made when the turtle asks for them.
+
 To turn this off, set `USE_STORAGE = false` at the top of `village.lua`.
 
 Example: a medieval cottage is 87 spruce_stairs, 66 oak_planks, 60

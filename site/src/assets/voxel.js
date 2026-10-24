@@ -388,7 +388,28 @@
     return { world: w.rotated(2) };
   }
 
-  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm };
+  // Crafter: a storage wall of chests with wired modems on top, the storage
+  // computer, and the crafty turtle with its chest in front of it.
+  function crafter() {
+    const w = new World();
+    w.box(-1, 9, -1, -1, -1, 6, "stone");
+    for (let x = 0; x <= 5; x++) {
+      w.set(x, 0, 0, "chest"); w.set(x, 1, 0, "chest");
+      if (x % 2 === 0) w.set(x, 2, 0, "modem");
+    }
+    w.set(7, 0, 0, "computer"); w.set(7, 1, 0, "modem");
+    w.set(3, 0, 3, "chest"); w.set(3, 1, 3, "modem");
+    w.set(3, 0, 4, "turtle");
+    w.set(7, 0, 4, "chest"); // the delivery chest for the village builder
+    w.set(7, 1, 4, "modem");
+    return {
+      world: w,
+      labels: [[2.5, 3.4, 0, "storage chests", "#dede6c"], [7, 2.2, 0, "storage computer", "#99b2f2"],
+        [3, 2.2, 3.5, "crafter + its chest", "#f2b233"], [7, 1.8, 4, "delivery chest", "#7fcc19"]],
+    };
+  }
+
+  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter };
 
   //---------------------------------------------------------------- mounting
 

@@ -155,6 +155,7 @@
       colony: [900, 220, 190, "colony-dashboard", "Colony Dashboard", "computer", "orange"],
       hosts: [1100, 220, 160, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
       miners: [130, 380, 190, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
+      crafter: [345, 380, 140, "crafter-turtle", "Crafter", "turtle", "brown"],
       village: [540, 380, 150, "village-turtle", "Village", "turtle", "lime"],
       tree: [740, 380, 150, "tree-farm-turtle", "Tree Farm", "turtle", "green"],
       crop: [920, 380, 150, "crop-farm-turtle", "Crop Farm", "turtle", "yellow"],
@@ -183,6 +184,8 @@
     edges += line(curve(430, 248, 510, 352), P.magenta, 3);
     // the storage system sends the village its blocks
     edges += line(curve(650, 248, 575, 352), P.blue, 3);
+    // the storage system hands crafting jobs to the crafter
+    edges += line(curve(615, 248, 380, 352), P.brown, 3);
     // farms drop their harvest into the storage system's input chest
     edges += line(curve(740, 352, 715, 248), P.green);
     edges += line(curve(900, 352, 760, 248), P.green);
@@ -201,8 +204,8 @@
     const tag = (x, y, t, c) => `<text x="${x}" y="${y}" fill="${c}" font-family="VT323, monospace" font-size="19">${t}</text>`;
     const labels = tag(612, 124, "report.set()", P.lime) + tag(30, 305, "rednet", P.orange)
       + tag(210, 292, "gps.locate()", P.lightBlue) + tag(1110, 305, "builds", P.purple)
-      + tag(262, 340, "current building", P.magenta) + tag(588, 290, "blocks", P.blue)
-      + tag(912, 337, "harvest", P.green);
+      + tag(262, 340, "current building", P.magenta) + tag(628, 322, "blocks", P.blue)
+      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown);
     return `<svg viewBox="0 0 1200 600" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 

@@ -1010,10 +1010,14 @@ local function askStorage(msg)
 end
 
 -- How much of each item the storage system has (name -> count), or nil.
+-- What it can craft (with a crafting turtle) counts too.
 local function storageCounts(names)
   if #names == 0 then return nil end
   local r = askStorage({ type = "count", items = names })
-  return r and r.counts
+  if not r then return nil end
+  local counts = r.counts or {}
+  for name, n in pairs(r.craftable or {}) do counts[name] = (counts[name] or 0) + n end
+  return counts
 end
 
 -- At home: have the storage system fill the supply chest with what's needed
@@ -1051,7 +1055,10 @@ orderFromStorage = function(needs)
   end
   for item, n in pairs(order) do
     local ready = r.ready and r.ready[item] or 0
-    if ready < n and r.stock and r.stock[item] == 0 then
+    local making = r.crafting and r.crafting[item]
+    if ready < n and making then
+      storageNote(("The storage system is crafting %d %s for me."):format(making, shortName(item)))
+    elseif ready < n and r.stock and r.stock[item] == 0 then
       storageNote(("The storage system has no %s (left)."):format(shortName(item)))
     elseif ready < n then
       storageNote(("Only part of the %s fitted in my supply chest."):format(shortName(item)))

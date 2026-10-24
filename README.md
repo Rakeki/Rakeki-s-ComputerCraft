@@ -35,6 +35,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
 - [storage-computer](computers/storage-computer/README.md): turns a network of chests into one searchable store with an input and an output chest
+- [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
 
 ## Adding a computer
