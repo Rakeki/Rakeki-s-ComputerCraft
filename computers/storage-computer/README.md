@@ -17,7 +17,9 @@ the computer's wired network is storage, except the ones you choose for:
   item turns up here.
 - **Delivery chest** (optional): where items asked for by turtles go, such
   as the [village builder's](../village-turtle/README.md#getting-blocks-from-the-storage-system)
-  supply chest. Without one, they go to the output chest.
+  supply chest. It's kept clear: anything in it the turtle hasn't asked for
+  goes back into storage. Without one, deliveries go to the output chest
+  (which is never cleared out).
 
 The terminal shows every stored item with its count, biggest first. Type to
 search (by name, as you'd see it in game), pick with the arrow keys or the
@@ -38,6 +40,11 @@ much of an item it holds and have some sent to the delivery chest. The
 village builder does this to get building blocks and coal. Turtles never see
 or take items with extra data (enchanted or named ones). The footer shows
 each delivery, e.g. "Sent 192 items to turtle #14."
+
+The delivery chest only ever holds what a turtle has asked for. Every 5
+seconds anything else in it (leftovers from an earlier load, empty buckets,
+things dropped in by hand) is put back into storage. Items a turtle asked
+for wait there until it takes them, or for 10 minutes if it never does.
 
 ## Files
 

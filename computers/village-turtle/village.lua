@@ -985,14 +985,23 @@ local function storageCounts(names)
   return r and r.counts
 end
 
--- At home: have the storage system send whatever of needs (name -> count)
--- isn't already at home to the supply chest.
+-- At home: have the storage system fill the supply chest with what's needed
+-- (name -> count) beyond what's on board and in the spoil chest. It counts
+-- what's already in the supply chest itself and holds it there for us;
+-- anything else in that chest goes back into storage.
 orderFromStorage = function(needs)
   if not USE_STORAGE then return end
-  local stock = stockAtHome()
+  local have = {}
+  faceSpoil()
+  addChest(have)
+  faceLocal(0)
+  for slot = 1, 16 do
+    local it = turtle.getItemDetail(slot)
+    if it then have[it.name] = (have[it.name] or 0) + it.count end
+  end
   local order, any = {}, false
   for item, n in pairs(needs) do
-    local short = n - (stock[item] or 0)
+    local short = n - (have[item] or 0)
     if short > 0 then order[item], any = short, true end
   end
   if not any then return end
@@ -1194,11 +1203,7 @@ local function restock(want, fillWant, why)
   goHome()
   dump(want, fillWant)
   ensureFuel(FUEL_RESERVE + 2 * homeDistance()) -- before the slots fill up
-  local short = {}
-  for item, n in pairs(want) do
-    if count(item) < n then short[item] = n - count(item) end
-  end
-  if next(short) then orderFromStorage(short) end
+  if next(want) then orderFromStorage(want) end
   for item, n in pairs(want) do
     if count(item) < n then fetch(function(x) return x == item end, n, function() return count(item) end) end
   end
@@ -1863,10 +1868,21 @@ else
   }
   faceSupply()
   local chest = frontChest()
+  local found, behind = turtle.inspect()
   faceLocal(0)
   if not chest then
+    if not found then
+      print("There's nothing directly behind me.")
+    elseif behind.name:find("modem", 1, true) then
+      print("Behind me is a modem, not a chest. Put the supply chest")
+      print("there and the modem against the chest's other side.")
+    else
+      print(("Behind me is %s, not a chest."):format(shortName(behind.name)))
+    end
     print("I need a supply chest directly behind me (and a spoil")
-    print("chest on my left). Place them and run village again.")
+    print("chest on my left). With a storage system I still need it:")
+    print("that's where the storage sends my blocks.")
+    print("Place them and run village again.")
     return
   end
   print(("%s village, up to %d blocks out (about %d plots)."):format(themes[theme].name, radius, #plotOrder()))

@@ -165,7 +165,9 @@ Copy these to the turtle:
 ### Getting blocks from the storage system
 
 Optional. With a [storage computer](../storage-computer/README.md) the turtle
-doesn't need everything in its supply chest up front:
+doesn't need everything in its supply chest up front. It still needs the
+supply and spoil chests at home: the storage sends its blocks to the supply
+chest, and the turtle takes them from there.
 
 1. Connect the village's **supply chest** to the storage system's wired
    network (a full-block wired modem touching the chest, and networking cable
@@ -180,6 +182,12 @@ stretch, it asks the storage system to send what's missing to the supply
 chest, then takes it. It asks for coal the same way when it's low on fuel.
 If the storage system runs short too, the turtle waits as usual and asks
 again every 10 seconds.
+
+The storage system keeps the supply chest clear apart from what the turtle
+has asked for: leftovers and empty buckets go back into storage. So put
+blocks and coal into the storage system's input chest rather than the supply
+chest (anything put in the supply chest just gets moved into storage, and
+comes back when the turtle asks for it).
 
 To turn this off, set `USE_STORAGE = false` at the top of `village.lua`.
 

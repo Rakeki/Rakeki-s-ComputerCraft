@@ -21,6 +21,8 @@ local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans (catches items moved by hand)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
+local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
+local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest before going back
 
 -- Inventories that count as storage, matched against the peripheral type
 -- (e.g. "minecraft:chest"). Furnaces, hoppers and turtles never do.
@@ -32,6 +34,9 @@ local contents = {} -- store name -> its list() result
 local sizes = {} -- store name -> number of slots
 local details = {} -- item key -> { name, displayName }
 local message = { "", "lightGray" } -- shown in the footer
+-- Items waiting in the delivery chest for a turtle: name -> { n, at }.
+-- Everything else in that chest goes back into storage.
+local reserved = {}
 
 ---------------------------------------------------------------- inventories
 
@@ -112,28 +117,34 @@ end
 
 -- Put everything in the input chest away: into chests that already hold
 -- that item first, then anywhere with space.
+-- Move up to count of the item in slot of chest from into storage. Returns
+-- how many didn't fit.
+local function putAway(from, slot, item, count)
+  local key, left = keyOf(item), count
+  local order = {}
+  for _, name in ipairs(stores) do
+    for _, have in pairs(contents[name] or {}) do
+      if keyOf(have) == key then order[#order + 1] = name break end
+    end
+  end
+  for _, name in ipairs(stores) do order[#order + 1] = name end
+  for _, name in ipairs(order) do
+    local okP, moved = pcall(peripheral.call, from, "pushItems", name, slot, left)
+    if okP and moved > 0 then
+      left = left - moved
+      rescan(name)
+    end
+    if left <= 0 then break end
+  end
+  return left
+end
+
 local function storeInput()
   local ok, list = pcall(peripheral.call, setup.input, "list")
   if not ok or not next(list) then return false end
   local full = false
   for slot, item in pairs(list) do
-    local key, left = keyOf(item), item.count
-    local order = {}
-    for _, name in ipairs(stores) do
-      for _, have in pairs(contents[name] or {}) do
-        if keyOf(have) == key then order[#order + 1] = name break end
-      end
-    end
-    for _, name in ipairs(stores) do order[#order + 1] = name end
-    for _, name in ipairs(order) do
-      local okP, moved = pcall(peripheral.call, setup.input, "pushItems", name, slot, left)
-      if okP and moved > 0 then
-        left = left - moved
-        rescan(name)
-      end
-      if left <= 0 then break end
-    end
-    if left > 0 then full = true end
+    if putAway(setup.input, slot, item, item.count) > 0 then full = true end
   end
   if full then
     message = { "Storage is full: some items are still in the input chest.", "red" }
@@ -353,17 +364,63 @@ local function netLoop()
     if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
       rednet.send(from, { re = "count", counts = countPlain(msg.items) }, NET_PROTOCOL)
     elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
+      -- top the chest up to n of each item: what's already there counts
       local to, sent, total = setup.delivery or setup.output, {}, 0
+      local okL, list = pcall(peripheral.call, to, "list")
+      local present = {}
+      for _, item in pairs(okL and list or {}) do
+        if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
+      end
       for name, n in pairs(msg.items) do
         if type(name) == "string" and type(n) == "number" and n > 0 then
-          sent[name] = fetch(plain(name), math.floor(n), to)
+          n = math.floor(n)
+          local have = math.min(present[name] or 0, n)
+          sent[name] = have < n and fetch(plain(name), n - have, to) or 0
           total = total + sent[name]
+          if setup.delivery then reserved[name] = { n = have + sent[name], at = os.clock() } end
         end
       end
       rednet.send(from, { re = "deliver", sent = sent }, NET_PROTOCOL)
       if total > 0 then
         message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
         if report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
+        os.queueEvent("storage_changed")
+      end
+    end
+  end
+end
+
+-- Keep the delivery chest clear apart from what a turtle has asked for (and
+-- not yet taken, for up to HOLD seconds): anything else goes back into
+-- storage. As the turtle takes its items, its reservations shrink to match.
+local function sweepLoop()
+  while true do
+    sleep(SWEEP_EVERY)
+    local ok, list = false, nil
+    if setup.delivery then ok, list = pcall(peripheral.call, setup.delivery, "list") end
+    if ok then
+      local allow, held, swept = {}, {}, 0
+      for name, r in pairs(reserved) do
+        if os.clock() - r.at > HOLD then reserved[name] = nil else allow[name] = r.n end
+      end
+      for slot, item in pairs(list) do
+        local keep = 0
+        if not item.nbt and allow[item.name] then
+          keep = math.min(allow[item.name], item.count)
+          allow[item.name] = allow[item.name] - keep
+          held[item.name] = (held[item.name] or 0) + keep
+        end
+        if item.count > keep then
+          local extra = item.count - keep
+          swept = swept + extra - putAway(setup.delivery, slot, item, extra)
+        end
+      end
+      for name, r in pairs(reserved) do
+        r.n = held[name] or 0
+        if r.n == 0 then reserved[name] = nil end
+      end
+      if swept > 0 then
+        message = { ("Put away %d items from the delivery chest."):format(swept), "lightGray" }
         os.queueEvent("storage_changed")
       end
     end
@@ -452,7 +509,7 @@ scanAll()
 term.clear()
 
 if report then report.init("storage") end
-local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netLoop,
+local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netLoop, sweepLoop,
   report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)
