@@ -7,38 +7,134 @@ before calling it done and say that it hasn't been run in-game.
 ## Layout
 
 ```
-computers/
-  _template/        Copy this to start a new computer
-  <name>/           One folder per in-game computer or turtle program
-    README.md       Type, ID, label, location, peripherals, what it does, files, use
-    startup.lua     Runs on boot (often: resume an unfinished job)
-    <program>.lua   The program itself
-lib/                Shared modules, loaded with require("lib.<module>")
-  nav.lua           Turtle position tracking + safe movement (saved across reboots, optional GPS)
-  report.lua        Sends status to the status server; no-op without a modem
-site/               The GitHub Pages website and in-game installer (see below)
-README.md           Project overview, list of computers, how to get code in-game
+computers/                  In-game programs, one folder each (never in the repo root)
+  _template/                Copy this to start a new computer; not published
+  <name>/                   One in-game computer or turtle program
+    README.md               The player's manual (format below); shown on the website
+    <program>.lua           The program; its file name is the command typed in-game
+    startup.lua             Runs on boot (resume an unfinished job, or keep a service running)
+    <helper>.lua            Optional modules loaded with require("<helper>"), e.g. ui.lua
+    config.lua              Optional player settings; list it under "keep" in programs.json
+    preview/*.svg           Optional renders, linked from the README and the website
+lib/                        Shared modules, copied to /lib/ in-game, loaded with require("lib.<module>")
+  README.md                 One line per module: what it does and which programs use it
+  nav.lua                   Turtle position tracking + safe movement (saved across reboots, optional GPS)
+  report.lua                Sends status to the status server; no-op without a modem
+site/                       The website and in-game installer
+  programs.json             Website + installer data for every program and lib (schema below)
+  build.mjs                 Builds _site/ (Node, no dependencies)
+  serve.mjs                 Local preview of _site/ on http://localhost:8080
+  install.lua               The in-game installer; {{SITE_URL}} is filled in by the build
+  src/index.html            Home page template
+  src/page.html             Template for every program and library page
+  src/404.html              Not-found page
+  src/assets/app.js         Builds the pages from programs.json
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard)
+  src/assets/voxel.js       Isometric block renders of each program's build
+  src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
+.claude/skills/             Detailed guides for agents (see Skills)
+.claude/launch.json         Preview server config ("site")
+.github/workflows/pages.yml Builds and publishes the website on every push to main
+_site/                      Build output; git-ignored, never edit by hand
+README.md                   Project overview, website link, list of computers, how to install
+AGENTS.md                   This file (CLAUDE.md just includes it)
 ```
 
-**New programs never go in the repo root.** Every program lives in its own
-`computers/<name>/` folder made from `_template`, and gets a line in the
-root `README.md` under "Computers". If it uses a lib, add it to that lib's
-"Used by" list in `lib/README.md`. It also needs an entry in
-`site/programs.json` to show up on the website and in the installer.
+## Documentation
+
+Every piece of documentation has one home. When behaviour changes, update
+each place that describes it in the same change.
+
+| Where | Audience | What goes in it |
+|---|---|---|
+| `computers/<name>/README.md` | Player | The full manual for that program (format below) |
+| Program header comment | Player + agent | What it does and its usage lines |
+| `README.md` (root) | Visitor | Overview, website link, one line per computer, how to install |
+| `lib/README.md` | Programmer | One line per module and the programs that use it |
+| `site/programs.json` | Website + installer | Card text, stats, setup steps, commands, renders |
+| `.claude/skills/*/SKILL.md` | Agent | APIs, patterns and checklists for writing code here |
+| `AGENTS.md` | Agent | Layout, documentation rules, conventions |
+
+### Program README format
+
+The website shows each README as the program's "full manual", so its shape
+matters:
+
+```markdown
+# <name>                         -- folder name; the website drops this heading
+
+- **Type:** mining turtle, plus a wireless or ender modem for ...
+- **Computer ID:**               -- left blank in the repo: the website hides
+- **Label:**                     -- empty ID / Label / Location lines,
+- **Location:**                  -- the player fills them in for their world
+- **Peripherals:** (computers only)
+
+## What it does                 -- plain English, default sizes/layout, what
+                                 -- happens when the chest fills or fuel runs out
+## Files                        -- each file, one line: what it is
+## Use  (or "Setup")            -- numbered steps, then a code block of
+                                 -- commands with `--` comments
+## Staying on track             -- optional: GPS, resume, moved turtles
+## Things to know               -- optional: gotchas, limits, tips
+```
+
+- Write for the player: what it does, what to place where, what to type.
+  No code internals; those belong in comments and skills.
+- Use `##` for sections and `###` below them. Headings become link anchors
+  (`#staying-on-track`), so renaming one breaks links to it.
+- Link with relative paths only: `../<other>/README.md` (becomes that
+  program's page), `../../lib/<module>.lua` (becomes the library page),
+  `preview/<file>.svg` (opens the image). No absolute GitHub URLs.
+- Renders go in `preview/` as SVG and get linked from "What it does".
+
+### `site/programs.json`
+
+One entry per program under `programs`, in the order they appear on the site:
+
+| Field | Meaning |
+|---|---|
+| `name` | Folder name under `computers/` |
+| `title`, `tagline` | Card title and one-sentence summary |
+| `command` | The program file (`<command>.lua`) and what the player types |
+| `device`, `deviceLabel` | `"turtle"` or `"computer"`, and the label shown on the card |
+| `color` | CC colour name for its accent (`orange`, `lime`, `lightBlue`, ...) |
+| `libs` | Modules from `lib/` the installer adds |
+| `keep` | Files the installer never overwrites (player settings) |
+| `autostart` | `true` if `startup.lua` runs it, so the installer says "reboot" |
+| `stats` | Four `[label, value]` pairs for the stat boxes |
+| `features`, `setup` | Short bullet points and numbered setup steps |
+| `commands` | `[command, what it does]` pairs |
+| `integrates` | `[program or lib name, how they work together]` pairs |
+| `render` | `voxel` (a scene in `voxel.js`), `screen` (a scene in `cc.js`) or `gallery` (SVGs from `preview/`) |
+| `terminal` | A scripted session for the typing demo, or `null`. Use the program's real `print` text |
+
+`libraries` has one entry per `lib/` module (`usage` snippet, `api` table,
+`notes`). The installer takes every `.lua` in the program folder plus its
+`libs`. Keep `programs.json` text consistent with the README; the README is
+the source of truth.
+
+### Adding or changing a program
+
+1. New program: copy `computers/_template/` to `computers/<name>/` and write
+   the program, `startup.lua` and the README in the format above.
+2. Add or update its line in the root `README.md` under "Computers" and the
+   table below.
+3. If it uses a lib, add it to that lib's "Used by" line in `lib/README.md`.
+4. Add or update its entry in `site/programs.json`. If its sizes or printed
+   text changed, update its scene in `voxel.js` or `cc.js` too.
+5. Run `node site/build.mjs`, then `node site/serve.mjs`, and check its page.
+   Pushing to `main` publishes it to
+   https://rakeki.github.io/Rakeki-s-ComputerCraft/.
 
 ## Website
 
-`site/build.mjs` (Node, no dependencies) builds `_site/`: pages from
-`site/src/`, data from `site/programs.json`, a copy of `computers/` and
-`lib/` for wget, `manifest.json` + `install.lua` for the in-game installer,
-and a ZIP per program. GitHub Actions (`.github/workflows/pages.yml`) builds
-and publishes it on every push to `main`. Preview locally with
-`node site/build.mjs && node site/serve.mjs` (http://localhost:8080).
-The installer copies every `.lua` in a program's folder plus its `libs`;
-files listed under `keep` (like `config.lua`) are never overwritten.
-The 3D renders (`site/src/assets/voxel.js`) and terminal mock-ups
-(`cc.js`) use the programs' real dimensions and output text, so update them
-when those change.
+`site/build.mjs` builds `_site/`: pages from `site/src/`, data from
+`site/programs.json`, a copy of `computers/` (minus `_template`) and `lib/`
+for wget, `manifest.json` + `install.lua` for the installer, and a ZIP per
+program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
+`SITE_URL`, and defaults to http://localhost:8080. In-game,
+`wget run <site>/install.lua <program>` installs a program with its libs, and
+`install update` reinstalls everything installed on that computer.
 
 Existing computers:
 
@@ -88,8 +184,8 @@ Detailed guides live in `.claude/skills/`:
   so they keep their files when broken.
 - **Junk list**: cobblestone, cobbled_deepslate, stone, deepslate, dirt, gravel,
   andesite, diorite, granite, tuff, calcite, netherrack.
-- **READMEs** are written for the player: what it does, setup steps, commands,
-  things to know. Keep them in sync when behaviour changes.
+- **READMEs** follow the format in [Documentation](#documentation) and are
+  kept in sync with behaviour, along with `site/programs.json`.
 
 ## CC: Tweaked notes
 
