@@ -118,6 +118,11 @@
     }));
 
     $("#diagram").innerHTML = diagram();
+    // squeeze any title that renders wider than its box
+    document.querySelectorAll("#diagram text[data-room]").forEach((t) => {
+      const room = +t.dataset.room;
+      if (t.getComputedTextLength() > room) { t.setAttribute("textLength", room); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); }
+    });
 
     const example = byName["excavate-turtle"];
     $("#way-installer").innerHTML = field(installCmd("excavate-turtle"));
@@ -141,15 +146,15 @@
   // How the programs talk to each other.
   function diagram() {
     const N = {
-      status: [530, 62, 190, "status-server", "Status Dashboard", "computer", "cyan"],
-      server: [160, 220, 180, "mine-server", "AutoMine Server", "computer", "yellow"],
-      miners: [160, 400, 180, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
-      hosts: [920, 220, 170, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
-      deployer: [920, 400, 170, "gps-deployer", "GPS Deployer", "turtle", "purple"],
-      excavate: [370, 400, 120, "excavate-turtle", "Excavator", "turtle", "orange"],
-      strip: [500, 400, 120, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
-      village: [630, 400, 120, "village-turtle", "Village", "turtle", "lime"],
-      mob: [760, 400, 120, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
+      status: [530, 62, 220, "status-server", "Status Dashboard", "computer", "cyan"],
+      server: [160, 220, 200, "mine-server", "AutoMine Server", "computer", "yellow"],
+      miners: [160, 400, 200, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
+      hosts: [950, 220, 180, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
+      deployer: [950, 400, 180, "gps-deployer", "GPS Deployer", "turtle", "purple"],
+      excavate: [340, 400, 136, "excavate-turtle", "Excavator", "turtle", "orange"],
+      strip: [486, 400, 136, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
+      village: [632, 400, 136, "village-turtle", "Village", "turtle", "lime"],
+      mob: [778, 400, 136, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
     };
     const P = CC.PALETTE;
     const curve = (x1, y1, x2, y2) => `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
@@ -160,13 +165,13 @@
       const tx = 460 + (["server", "miners", "excavate", "strip", "village", "mob"].indexOf(k)) * 24;
       edges += `<path class="flow" d="${curve(x + (k === "miners" ? 50 : 0), y - 28, tx, 90)}" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
     }
-    edges += `<path class="flow" d="M${N.hosts[0]},${N.hosts[1] - 28} C${N.hosts[0]},62 760,62 625,62" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
+    edges += `<path class="flow" d="M${N.hosts[0]},${N.hosts[1] - 28} C${N.hosts[0]},62 780,62 640,62" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
     // rednet jobs
     edges += `<path class="flow" d="M140,248 L140,372" stroke="${P.orange}" stroke-width="3" fill="none"/><path class="flow" d="M180,372 L180,248" stroke="${P.orange}" stroke-width="3" fill="none"/>`;
     // builds
-    edges += `<path class="flow" d="M960,372 L960,248" stroke="${P.purple}" stroke-width="3" fill="none"/>`;
+    edges += `<path class="flow" d="M995,372 L995,248" stroke="${P.purple}" stroke-width="3" fill="none"/>`;
     // gps bus
-    edges += `<path class="flow" d="M880,248 L880,318 L215,318 L215,372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
+    edges += `<path class="flow" d="M905,248 L905,318 L215,318 L215,372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
     for (const k of ["excavate", "strip", "village", "mob"]) edges += `<path class="flow" d="M${N[k][0]},318 L${N[k][0]},372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
 
     let nodes = "";
@@ -176,11 +181,11 @@
         <rect class="face" x="${x - w / 2}" y="${y - 28}" width="${w}" height="56" fill="#1d1d24" stroke="#000" stroke-width="2"/>
         <rect x="${x - w / 2}" y="${y - 28}" width="${w}" height="4" fill="${P[col]}"/>
         <image href="${icon(dev)}" x="${x - w / 2 + 8}" y="${y - 16}" width="32" height="32" style="image-rendering:pixelated"/>
-        <text x="${x - w / 2 + 46}" y="${y + 5}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 150 ? 14 : 16}">${esc(title)}</text>
+        <text x="${x - w / 2 + 46}" y="${y + 5}" data-room="${w - 54}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 160 ? 14 : 16}">${esc(title)}</text>
       </g></a>`;
     }
     const tag = (x, y, t, c) => `<text x="${x}" y="${y}" fill="${c}" font-family="VT323, monospace" font-size="19">${t}</text>`;
-    const labels = tag(250, 150, "report.set()", P.lime) + tag(30, 315, "rednet", P.orange) + tag(420, 340, "gps.locate()", P.lightBlue) + tag(970, 315, "builds", P.purple);
+    const labels = tag(250, 150, "report.set()", P.lime) + tag(30, 315, "rednet", P.orange) + tag(362, 308, "gps.locate()", P.lightBlue) + tag(1003, 315, "builds", P.purple);
     return `<svg viewBox="0 0 1060 450" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 
