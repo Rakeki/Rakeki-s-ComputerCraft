@@ -1,5 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
-// a typing terminal, and mock-ups of the AutoMine map and status dashboard.
+// a typing terminal, and mock-ups of the AutoMine map, status dashboard and
+// blueprint projector panel.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -380,5 +381,127 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard } };
+  //---------------------------------------------------------------- blueprint projector
+
+  // The projector's monitor panel with the built-in cottage: same layout as
+  // computers/blueprint-projector/ui.lua, and the buttons work.
+  function projector(el) {
+    const W = 58, H = 24;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const mats = {
+      C: ["cobblestone", 0x7a7a7a], P: ["oak_planks", 0xb8945f], L: ["oak_log", 0xb8945f],
+      G: ["glass_pane", 0xa8d8ea], D: ["oak_door", 0xb8945f], S: ["spruce_planks", 0x72543a],
+    };
+    const rgb = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+    for (const m of Object.values(mats)) {
+      const r = (m[1] >> 16) & 255, g = (m[1] >> 8) & 255, b = m[1] & 255;
+      let best = "white", bestD = Infinity;
+      for (const [name, hex] of Object.entries(PALETTE)) {
+        const [pr, pg, pb] = rgb(hex), d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+        if (d < bestD) { best = name; bestD = d; }
+      }
+      m.push(best, 0.3 * r + 0.59 * g + 0.11 * b > 140);
+    }
+    const ring = (a, b, c) => [a, ...Array(5).fill(b), c];
+    const full = (ch) => Array(7).fill(ch.repeat(7));
+    const layers = [
+      full("C"),
+      ["LPPDPPL", ...Array(5).fill("P.....P"), "LPPPPPL"],
+      ["LPGDGPL", "P.....P", "G.....G", "P.....P", "G.....G", "P.....P", "LPPGPPL"],
+      ring("LPPPPPL", "P.....P", "LPPPPPL"),
+      full("S"),
+      [".......", ...Array(5).fill(".SSSSS."), "......."],
+      [".......", ".......", "..SSS..", "..SSS..", "..SSS..", ".......", "......."],
+      [".......", ".......", ".......", "...S...", ".......", ".......", "......."],
+    ];
+    const plans = ["Cottage", "Watchtower"];
+    const st = { plan: 0, x: 100, y: 64, z: -15, turn: 0, view: "whole", layer: 8, step: 1, hidden: false };
+    const FACING = ["north", "east", "south", "west"], STEPS = [1, 5, 16], VIEWS = ["whole", "layer", "outline"];
+    const LABEL = { whole: "Whole", layer: "Layer", outline: "Outline" };
+    let status = ["Showing 39 shapes", "lime"], timer = null;
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    // cell (x, z) of the plan as seen from above after turning, north up
+    const cellAt = (layer, col, row) => {
+      let x = col, z = row;
+      for (let i = 0; i < st.turn; i++) [x, z] = [z, 6 - x];
+      const ch = (layers[layer] || [])[z]?.[x];
+      return ch && ch !== "." ? ch : null;
+    };
+    const busy = () => {
+      status = ["Moving...", "lightGray"];
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const shapes = st.hidden ? 0 : st.view === "outline" ? 1 : st.view === "layer" ? 2 + layers[st.layer - 1].join("").replace(/\./g, "").length : [2, 12, 29, 35, 36, 37, 38, 39][st.layer - 1];
+        status = st.hidden ? ["Hidden. Tap Show to project it again.", "lightGray"] : [`Showing ${shapes} shapes`, "lime"];
+        draw();
+      }, 700);
+    };
+    const act = {
+      north: () => { st.z -= st.step; }, south: () => { st.z += st.step; }, west: () => { st.x -= st.step; }, east: () => { st.x += st.step; },
+      up: () => { st.y += st.step; }, down: () => { st.y -= st.step; },
+      turnLeft: () => { st.turn = (st.turn + 3) % 4; }, turnRight: () => { st.turn = (st.turn + 1) % 4; },
+      step: () => { st.step = STEPS[(STEPS.indexOf(st.step) + 1) % STEPS.length]; },
+      layerUp: () => { st.layer = Math.min(8, st.layer + 1); }, layerDown: () => { st.layer = Math.max(1, st.layer - 1); },
+      view: () => { st.view = VIEWS[(VIEWS.indexOf(st.view) + 1) % 3]; st.layer = st.view === "layer" ? 1 : st.view === "whole" ? 8 : st.layer; },
+      here: () => { st.x = 100; st.y = 64; st.z = -15; }, hide: () => { st.hidden = !st.hidden; },
+    };
+    const btn = (x, y, label, name, fg = "black", bg = "lightGray") => s.button(x, y, label, fg, bg, () => {
+      if (name === "plan") { status = ["This preview only has the cottage.", "orange"]; return; }
+      act[name](); busy();
+    });
+    const label = (x, y, t, fg = "lightGray") => { s.put(x, y, t, fg); return x + t.length; };
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      btn(1, 1, "◄", "plan", "white");
+      const count = ` 1/${plans.length}`;
+      s.put(5, 1, fitT("Cottage", W - 9 - count.length), "yellow", "gray");
+      s.put(W - 4 - count.length, 1, count, "lightGray", "gray");
+      btn(W - 2, 1, "►", "plan", "white");
+      s.put(1, 2, fitT(` X ${st.x}  Y ${st.y}  Z ${st.z}   front faces ${FACING[st.turn]}`, W), "lightGray");
+      let x = label(2, 4, "Move ");
+      for (const [l, a] of [["N", "north"], ["S", "south"], ["W", "west"], ["E", "east"]]) x = btn(x, 4, l, a);
+      x = label(x, 4, "Step ");
+      btn(x, 4, String(st.step), "step", "white", "blue");
+      x = label(2, 5, "     ");
+      x = btn(x, 5, "Up", "up"); x = btn(x, 5, "Down", "down");
+      x = label(x, 5, "Turn ");
+      x = btn(x, 5, "←", "turnLeft"); btn(x, 5, "→", "turnRight");
+      x = label(2, 6, "View ");
+      x = btn(x, 6, LABEL[st.view], "view", "white", "cyan");
+      x = label(x, 6, "Layer ");
+      x = btn(x, 6, "-", "layerDown");
+      x = label(x, 6, `${st.layer}/8 `, "white");
+      btn(x, 6, "+", "layerUp");
+      x = btn(7, 7, "Here", "here", "white", "blue");
+      btn(x, 7, st.hidden ? "Show" : "Hide", "hide", "white", st.hidden ? "green" : "red");
+      s.put(2, 9, fitT(status[0], W - 2), status[1]);
+      s.put(2, 11, `Layer ${st.layer}, north is up`, "yellow");
+      const counts = {};
+      for (let l = st.view === "whole" ? 1 : st.layer; l <= st.layer; l++) for (const ch of layers[l - 1].join("")) if (ch !== ".") counts[ch] = (counts[ch] || 0) + 1;
+      for (let row = 0; row < 7; row++) for (let col = 0; col < 7; col++) {
+        const ch = cellAt(st.layer - 1, col, row);
+        if (ch) { const m = mats[ch]; s.put(2 + col, 12 + row, ch, m[3] ? "black" : "white", m[2]); }
+        else if (cellAt(st.layer - 2, col, row)) s.put(2 + col, 12 + row, "·", "lightGray", "gray");
+        else s.put(2 + col, 12 + row, " ", "white", "gray");
+      }
+      const list = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const total = list.reduce((n, [, c]) => n + c, 0);
+      s.put(11, 12, st.view === "whole" ? `Layers 1-${st.layer}: ${total}` : `Layer ${st.layer}: ${total}`, "yellow");
+      list.forEach(([ch, n], i) => {
+        const m = mats[ch];
+        s.put(11, 13 + i, ch, m[3] ? "black" : "white", m[2]);
+        s.put(13, 13 + i, m[0]);
+        s.put(W - 1 - String(n).length, 13 + i, String(n), "lightGray");
+      });
+      s.render();
+    }
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector } };
 })();

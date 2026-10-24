@@ -403,6 +403,61 @@
           ["All 4 GPS hosts are running.", "", "lime"]
         ]
       }
+    },
+    {
+      "name": "blueprint-projector",
+      "title": "Blueprint Projector",
+      "command": "projector",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor + Spatial Projector",
+      "color": "magenta",
+      "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
+      "libs": ["report"],
+      "autostart": true,
+      "stats": [
+        ["Needs", "CC: Spatial Projector"],
+        ["Views", "whole, layer, outline"],
+        ["Built-in plans", "2"],
+        ["Shapes", "up to 1,000"]
+      ],
+      "features": [
+        "Loads your own plans from /plans: each layer drawn as rows of letters",
+        "Move, raise and turn the building from the monitor",
+        "Layer view outlines every block of one layer to build from",
+        "Top-down map of the layer and the blocks it needs"
+      ],
+      "setup": [
+        "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
+        "Right-click the projector with Spatial Goggles to bind them, and wear them.",
+        "Install and reboot: the cottage appears 2 blocks south of the projector.",
+        "Tap the arrows on the monitor to pick a plan, then move it into place."
+      ],
+      "commands": [
+        ["projector", "show the last plan (startup does this)"],
+        ["projector <plan>", "show a built-in plan or /plans/<plan>.lua"],
+        ["projector list", "every plan, with its size"],
+        ["projector check <plan>", "load a plan and list the blocks it needs"],
+        ["projector clear", "remove the projection"]
+      ],
+      "integrates": [
+        ["status-server", "Shows which plan is up, where it is and the layer you're on."],
+        ["report", "Optional: without lib/report.lua or a modem it just projects."]
+      ],
+      "render": { "kind": "screen", "scene": "projector", "caption": "The control panel on an advanced monitor. Tap the buttons: the map shows the current layer, north up." },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "projector check cottage", "cmd"],
+          ["Cottage: 7 wide, 7 deep, 8 high, 205 blocks", "", "white"],
+          ["Shows as 38 shapes (whole view).", "", "lightGray"],
+          ["  S minecraft:spruce_planks      84", "", "white"],
+          ["  P minecraft:oak_planks         51", "", "white"],
+          ["  C minecraft:cobblestone        49", "", "white"],
+          ["  L minecraft:oak_log            12", "", "white"],
+          ["  G minecraft:glass_pane         7", "", "white"],
+          ["  D minecraft:oak_door           2", "", "white"]
+        ]
+      }
     }
   ],
   "libraries": [

@@ -148,6 +148,7 @@ Existing computers:
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report |
 | `village-turtle` | Turtle that builds themed villages | nav, report |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report |
+| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls | report (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the

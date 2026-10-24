@@ -31,6 +31,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides
 - [village-turtle](computers/village-turtle/README.md): turtle that builds a themed village and keeps expanding it, picking buildings to suit the terrain
 - [mob-farm-turtle](computers/mob-farm-turtle/README.md): standalone turtle that builds a mob farm: a dark spawning room with water channels, a drop shaft and a collection chest
+- [blueprint-projector](computers/blueprint-projector/README.md): projects a building plan into the world with CC: Spatial Projector; move and turn it from a monitor, then build it layer by layer
 
 ## Adding a computer
 

@@ -8,4 +8,4 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `mine-turtle`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle` and `gps-deployer`.
 - `report.lua`: sends this computer's status to the
   [status server](../computers/status-server/README.md). Used by `mine-turtle`,
-  `mine-server`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle` and the computer template.
+  `mine-server`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle`, `blueprint-projector` (if present) and the computer template.
