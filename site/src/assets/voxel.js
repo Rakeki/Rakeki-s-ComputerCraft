@@ -32,6 +32,13 @@
     hopper: { c: "#454549", tex: "noise", amt: 0.05 },
     cloud: { c: "#f4f4f4", tex: "flat", alpha: 0.85, clear: true, box: [0, 1, 0.3, 0.7, 0, 1] },
     flag: { c: "#dede6c", tex: "flat", box: [0.44, 0.56, 0, 1, 0.44, 0.56], clear: true },
+    leaves: { c: "#3f7a2a", tex: "noise", amt: 0.22 },
+    sapling: { c: "#4f8f2f", top: "#5fa83a", tex: "flat", box: [0.28, 0.72, 0, 0.66, 0.28, 0.72], clear: true },
+    farmland: { c: "#6b4a2c", top: "#4a321c", tex: "noise", amt: 0.12 },
+    wheat: { c: "#c9a83e", top: "#dcbf55", tex: "noise", amt: 0.18, box: [0.08, 0.92, 0, 0.82, 0.08, 0.92], clear: true },
+    carrots: { c: "#4f9a2f", top: "#e0862a", tex: "noise", amt: 0.16, box: [0.1, 0.9, 0, 0.55, 0.1, 0.9], clear: true },
+    potatoes: { c: "#4f9a2f", top: "#cfae62", tex: "noise", amt: 0.16, box: [0.1, 0.9, 0, 0.55, 0.1, 0.9], clear: true },
+    sprout: { c: "#6fb33f", tex: "noise", amt: 0.15, box: [0.18, 0.82, 0, 0.26, 0.18, 0.82], clear: true },
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 
@@ -327,7 +334,61 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, gps, automine: automineScene };
+  // Tree farm: the default 4 columns of 6 trees, 3 apart. Lanes run down the
+  // left of each column; the turtle is half way up a tree in the third column,
+  // with the trees it has visited replanted and some ahead still growing.
+  function treefarm() {
+    const COLS = 4, ROWS = 6, S = 3, FAR = (ROWS - 1) * S + 2;
+    const w = new World(), r = rand(9);
+    w.box(-2, (COLS - 1) * S + 3, -2, -1, -3, FAR + 2, (x, y) => (y === -1 ? "grass" : "dirt"));
+    w.set(0, 0, -1, "chest");
+    // canopies are drawn a little smaller than in game so the lanes show
+    const tree = (x, z, trunk) => {
+      for (let y = 0; y < trunk; y++) w.set(x, y, z, "log");
+      for (let y = trunk - 2; y <= trunk + 1; y++) {
+        for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+          const far = Math.abs(dx) + Math.abs(dz);
+          const keep = y === trunk + 1 ? far <= 1 : y === trunk ? far <= 1 || (far === 2 && dx && dz && r() < 0.5) : far <= 2 && Math.max(Math.abs(dx), Math.abs(dz)) <= 1 || (far === 2 && r() < 0.3);
+          if (keep && (dx || dz || y >= trunk) && !w.get(x + dx, y, z + dz)) w.set(x + dx, y, z + dz, "leaves");
+        }
+      }
+    };
+    const visited = 2 * ROWS + 3; // trees done this round, in the order the turtle visits them
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const c = Math.floor(i / ROWS), j = i % ROWS, row = c % 2 === 0 ? j : ROWS - 1 - j;
+      const x = c * S + 1, z = 1 + row * S;
+      if (i < visited) w.set(x, 0, z, "sapling");
+      else if (i === visited) {
+        // being chopped: the bottom of the trunk is gone, the turtle is in it
+        tree(x, z, 7);
+        w.set(x, 0, z, null); w.set(x, 1, z, null); w.set(x, 2, z, "turtle");
+      } else if (r() < 0.7) tree(x, z, 4 + Math.floor(r() * 3));
+      else w.set(x, 0, z, "sapling");
+    }
+    return { world: w.rotated(2) };
+  }
+
+  // Crop farm: a 9x9 field with water in the middle, wheat, carrots and
+  // potatoes in bands. Behind the turtle it's harvested and replanted.
+  function cropfarm() {
+    const N = 9, w = new World();
+    w.box(-1, N, -1, -1, -2, N, "dirt");
+    w.box(-1, N, 0, 0, -2, N, "grass");
+    w.box(0, N - 1, 0, 0, 0, N - 1, "farmland");
+    const mid = (N - 1) / 2;
+    w.set(mid, 0, mid, "water");
+    w.set(0, 1, -1, "log"); w.set(0, 2, -1, "chest");
+    const at = 3 * N + 4; // the cell the turtle is over, in its snaking order
+    for (let i = 0; i < N * N; i++) {
+      const z = Math.floor(i / N), x = z % 2 === 0 ? i % N : N - 1 - (i % N);
+      if (x === mid && z === mid) continue;
+      w.set(x, 1, z, i < at ? "sprout" : z < 3 ? "wheat" : z < 6 ? "carrots" : "potatoes");
+      if (i === at) w.set(x, 2, z, "turtle");
+    }
+    return { world: w.rotated(2) };
+  }
+
+  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm };
 
   //---------------------------------------------------------------- mounting
 

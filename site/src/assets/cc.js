@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
-// a typing terminal, and mock-ups of the AutoMine map, status dashboard and
-// blueprint projector panel.
+// a typing terminal, and mock-ups of the AutoMine map, status dashboard,
+// blueprint projector panel and storage terminal.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -503,5 +503,86 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector } };
+  //---------------------------------------------------------------- storage terminal
+
+  // The storage computer's search screen: same layout as
+  // computers/storage-computer/storage.lua. It types a few searches on its own
+  // until clicked; then click a row to pick it and click it again for a stack.
+  function storage(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const items = [
+      ["Cobblestone", 5120], ["Oak Log", 1388], ["Wheat", 912], ["Dirt", 840], ["Carrot", 455],
+      ["Iron Ingot", 302], ["Coal", 268], ["Redstone Dust", 197], ["Oak Sapling", 140], ["Iron Ore", 96],
+      ["Gold Ingot", 75], ["Potato", 64], ["Diamond", 23], ["Raw Iron", 18], ["Enchanted Book", 3], ["Iron Pickaxe", 1],
+    ].map(([name, count]) => ({ name, count }));
+    const SLOTS = 27 * 12;
+    const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true };
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const countText = (n) => n >= 64 ? `${n} (${Math.floor(n / 64)}x64${n % 64 ? `+${n % 64}` : ""})` : String(n);
+    const matches = () => items.filter((it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase())).sort((a, b) => b.count - a.count);
+
+    function take(n) {
+      const it = matches()[st.selected - 1];
+      if (!it) return;
+      const sent = Math.min(n, it.count);
+      it.count -= sent;
+      st.msg = [`Sent ${sent} ${it.name} to the output chest.`, "lime"];
+    }
+
+    function draw() {
+      const list = matches();
+      const used = items.reduce((k, it) => k + Math.ceil(it.count / 64), 0);
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Storage", "yellow", "gray");
+      const stat = `12 chests, ${used}/${SLOTS} slots`;
+      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      s.put(1, 2, "Search: ", "lightGray");
+      s.put(9, 2, st.query, "white");
+      const rows = H - 4;
+      st.selected = Math.max(1, Math.min(st.selected, list.length));
+      if (st.selected <= st.scroll) st.scroll = st.selected - 1;
+      if (st.selected > st.scroll + rows) st.scroll = st.selected - rows;
+      for (let i = 1; i <= rows; i++) {
+        const it = list[st.scroll + i - 1];
+        if (!it) continue;
+        const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black", c = countText(it.count);
+        s.put(1, 2 + i, fitT(" " + it.name, W - c.length - 1), "white", bg);
+        s.put(W - c.length, 2 + i, c + " ", sel ? "white" : "lightGray", bg);
+        const idx = st.scroll + i;
+        s.zones.push({ x1: 1, x2: W, y1: 2 + i, y2: 2 + i, action: () => { if (st.selected === idx) take(64); else st.selected = idx; } });
+      }
+      if (!list.length) s.put(2, 4, "No matches.", "lightGray");
+      s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+      s.put(1, H, fitT("Enter: a stack  Right: one  Up/Down: pick", W), "gray");
+      s.render({ x: 9 + st.query.length, y: 2 });
+    }
+
+    // the demo: search, pick, take, clear, repeat
+    const script = [..."iron"].map((ch) => () => { st.query += ch; st.selected = 1; })
+      .concat([() => { st.selected = 2; }, () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; },
+        ...[..."log"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; }]);
+    let step = 0;
+    setInterval(() => {
+      if (!st.auto) return;
+      script[step % script.length]();
+      step++;
+      if (step % script.length === 0) items.forEach((it) => { it.count = it.base ?? it.count; });
+      draw();
+    }, 900);
+    items.forEach((it) => { it.base = it.count; });
+
+    el.addEventListener("click", (ev) => {
+      if (st.auto) { st.auto = false; st.query = ""; st.msg = ["", "lightGray"]; }
+      const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y);
+      if (z) z.action();
+      draw();
+    });
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage } };
 })();

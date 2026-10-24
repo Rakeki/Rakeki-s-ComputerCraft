@@ -233,6 +233,116 @@
       }
     },
     {
+      "name": "tree-farm-turtle",
+      "title": "Tree Farm",
+      "command": "treefarm",
+      "device": "turtle",
+      "deviceLabel": "Felling or mining turtle",
+      "color": "green",
+      "tagline": "Plants a grid of saplings, chops each tree as it grows, replants it and hauls the logs to a chest. For ever.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Trees", "4 × 6"],
+        ["Spacing", "3 blocks"],
+        ["Farm", "11 × 18"],
+        ["Fuel", "burns its own logs"]
+      ],
+      "features": [
+        "Walks lanes beside the trees, never through them",
+        "Picks up saplings and apples that drop from the leaves",
+        "Uses bone meal on young saplings if you give it some",
+        "Burns some of its logs when fuel runs low, so it runs itself"
+      ],
+      "setup": [
+        "Clear a flat patch of dirt or grass at least 11 × 18.",
+        "Place the turtle at the near left corner, facing along the farm. Chest directly behind it.",
+        "Give it saplings, some coal and any bone meal. Run the command and press Enter."
+      ],
+      "commands": [
+        ["treefarm", "4 columns of 6 trees, 3 apart"],
+        ["treefarm 6 8", "6 columns of 8 trees"],
+        ["treefarm 6 8 4", "...4 blocks apart"],
+        ["treefarm resume", "carry on after stopping it"],
+        ["treefarm here", "no GPS: you put it back on its start block"],
+        ["treefarm cancel", "stop farming and forget the farm"]
+      ],
+      "integrates": [
+        ["status-server", "Shows which round and tree it's on, and how many logs so far."],
+        ["storage-computer", "Make its chest the storage system's input and the logs get put away."],
+        ["gps-deployer", "Optional GPS keeps it on the farm if it gets moved."]
+      ],
+      "render": {
+        "kind": "voxel",
+        "scene": "treefarm",
+        "caption": "The default farm part way through a round: grown trees, fresh saplings, and one being chopped."
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "treefarm", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["24 trees in 4 columns of 6, 3 apart. The farm is 11 wide and 18 long.", "", "white"],
+          ["I have 16 saplings; 24 would plant every spot.", "", "white"],
+          ["Coal in my inventory stays there; I burn logs too when I'm low.", "", "lightGray"],
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
+      "name": "crop-farm-turtle",
+      "title": "Crop Farm",
+      "command": "cropfarm",
+      "device": "turtle",
+      "deviceLabel": "Farming turtle",
+      "color": "yellow",
+      "tagline": "Flies over a field, harvests whatever is ripe, replants it from its own seeds and drops the harvest in a chest.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Field", "9 × 9"],
+        ["Crops", "5 kinds + melons"],
+        ["Rounds", "every 10 min"],
+        ["Fuel", "~100 a round"]
+      ],
+      "features": [
+        "Wheat, carrots, potatoes, beetroot and nether wart, mixed any way",
+        "Only harvests fully grown crops and replants straight away",
+        "Picks melons and pumpkins, leaves the stems",
+        "Keeps a stack of each seed, the rest goes in the chest"
+      ],
+      "setup": [
+        "Place the turtle one block above a corner of the field, facing along one edge.",
+        "Put a chest directly behind it, at the same height.",
+        "Give it some coal. Run the command and press Enter."
+      ],
+      "commands": [
+        ["cropfarm", "a 9 x 9 field"],
+        ["cropfarm 15 20", "width (to the right), length (forward)"],
+        ["cropfarm resume", "carry on after stopping it"],
+        ["cropfarm here", "no GPS: you put it back on its start block"],
+        ["cropfarm cancel", "stop farming and forget the field"]
+      ],
+      "integrates": [
+        ["status-server", "Shows its round, how far across the field it is and the harvest so far."],
+        ["storage-computer", "Make its chest the storage system's input and the harvest gets put away."]
+      ],
+      "render": {
+        "kind": "voxel",
+        "scene": "cropfarm",
+        "caption": "A 9 × 9 field with water in the middle: harvested and replanted behind the turtle, ripe ahead of it."
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "cropfarm", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Field 9 wide and 9 long, starting under me. About 99 fuel a round.", "", "white"],
+          ["I fly one block above the crops, so keep that layer clear.", "", "lightGray"],
+          ["Coal in my inventory stays there. Chest goes directly behind me.", "", "white"],
+          ["Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
       "name": "mine-server",
       "title": "AutoMine Server",
       "command": "server",
@@ -458,6 +568,49 @@
           ["  D minecraft:oak_door           2", "", "white"]
         ]
       }
+    },
+    {
+      "name": "storage-computer",
+      "title": "Storage System",
+      "command": "storage",
+      "device": "computer",
+      "deviceLabel": "Computer + wired modems",
+      "color": "blue",
+      "tagline": "Turns a wall of networked chests into one searchable store: drop items in one chest, take anything out of another.",
+      "libs": ["report"],
+      "autostart": true,
+      "stats": [
+        ["Chests", "as many as you cable"],
+        ["Put away", "every 2 s"],
+        ["Rescan", "every 60 s"],
+        ["Monitor", "optional"]
+      ],
+      "features": [
+        "Type to search every chest at once",
+        "Enter sends a stack to the output chest, Right arrow just one",
+        "Puts new items next to the same item when it can",
+        "Monitor shows how full it is and what there's most of"
+      ],
+      "setup": [
+        "Put a wired modem on the computer and every chest, join them with cable, and right-click each modem.",
+        "Run storage and pick which chest is the input and which is the output.",
+        "Reboot. Every other chest is storage."
+      ],
+      "commands": [
+        ["storage", "start (asks for the input and output chests the first time)"],
+        ["storage setup", "pick the input and output chests again"]
+      ],
+      "integrates": [
+        ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
+        ["crop-farm-turtle", "Same for the harvest."],
+        ["status-server", "Reports how many items and slots are in use."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "storage",
+        "caption": "The storage terminal: type to search, Enter for a stack. Click a row to pick it, and again to take a stack."
+      },
+      "terminal": null
     }
   ],
   "libraries": [

@@ -33,7 +33,7 @@ Turtles also send fuel and fuel limit automatically.
 
 One lowercase word. The dashboard colours them: green working, grey idle,
 yellow/orange waiting or paused, blue travelling, red error. Words used so far:
-`starting`, `digging`, `mining`, `building`, `sealing`, `unloading`,
+`starting`, `digging`, `mining`, `building`, `sealing`, `farming`, `unloading`,
 `travelling`, `waiting`, `paused`, `idle`, `stuck`, `done`, `error`.
 A state change is also logged as an activity event.
 
