@@ -67,7 +67,11 @@ order twice while one is already being made.
 
 When a turtle asks how much of something there is, what could be crafted
 counts as well, so the village builder doesn't wait for blocks that can be
-made. The footer shows what it's crafting, and why if it couldn't.
+made. While the village builder waits for a building's materials it also
+asks the storage computer to start crafting what's short, so the crafting
+happens while it clears the plot. The footer shows what it's crafting, and
+why if it can't (no crafter chest, no crafting turtle answering, or not
+enough to make it from). `storage test` checks the crafting side too.
 
 The recipes are in `recipes.lua`: everything craftable that the village
 themes use, plus the usual basics. Teach it more with `crafter learn` on the
@@ -103,7 +107,7 @@ be stocked.
    ```
    storage                   -- start
    storage setup             -- pick the input, output, delivery and crafter chests again
-   storage test              -- check a turtle delivery works: moves one item there and back
+   storage test              -- check deliveries (one item there and back) and the crafting turtle
    ```
 
 Then reboot, and it starts on its own from then on.

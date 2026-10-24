@@ -83,6 +83,15 @@ end
 
 function crafting.canMake(name) return byMake[name] ~= nil and #byMake[name] > 0 end
 
+-- How many different items it knows how to make.
+function crafting.count()
+  local n = 0
+  for _, list in pairs(byMake) do
+    if #list > 0 then n = n + 1 end
+  end
+  return n
+end
+
 ---------------------------------------------------------------- matching
 
 local function glob(pattern, name)

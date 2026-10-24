@@ -1010,6 +1010,26 @@ local function askStorage(msg)
 end
 
 -- How much of each item the storage system has (name -> count), or nil.
+-- Say what the storage system is crafting for us, or why it can't.
+local function craftNotes(r, order)
+  for item in pairs(order) do
+    local making = r.crafting and r.crafting[item]
+    local why = r.cantCraft and r.cantCraft[item]
+    if making then
+      storageNote(("The storage system is crafting %d %s for me."):format(making, shortName(item)))
+    elseif why and why ~= "no recipe for it" then
+      storageNote(("The storage system can't craft %s: %s."):format(shortName(item), why))
+    end
+  end
+end
+
+-- Before a building: have the storage system start crafting what's
+-- missing (name -> count, beyond what's at home), while it waits.
+local function prepareFromStorage(want)
+  local r = askStorage({ type = "prepare", items = want })
+  if r then craftNotes(r, want) end
+end
+
 -- What it can craft (with a crafting turtle) counts too.
 local function storageCounts(names)
   if #names == 0 then return nil end
@@ -1056,8 +1076,11 @@ orderFromStorage = function(needs)
   for item, n in pairs(order) do
     local ready = r.ready and r.ready[item] or 0
     local making = r.crafting and r.crafting[item]
+    local why = r.cantCraft and r.cantCraft[item]
     if ready < n and making then
       storageNote(("The storage system is crafting %d %s for me."):format(making, shortName(item)))
+    elseif ready < n and why and why ~= "no recipe for it" then
+      storageNote(("The storage system can't craft %s: %s."):format(shortName(item), why))
     elseif ready < n and r.stock and r.stock[item] == 0 then
       storageNote(("The storage system has no %s (left)."):format(shortName(item)))
     elseif ready < n then
@@ -1177,9 +1200,14 @@ local function doChoose(c)
   local function check()
     local stock, supply = stockAtHome()
     missing = shortfall(needs, stock)
-    -- what the storage system holds counts too: it's sent over as the build needs it
-    local names = {}
-    for _, m in ipairs(missing) do names[#names + 1] = m.item end
+    -- what the storage system holds counts too: it's sent over as the build
+    -- needs it. Have it start crafting whatever it's short of meanwhile.
+    local names, want = {}, {}
+    for _, m in ipairs(missing) do
+      names[#names + 1] = m.item
+      want[m.item] = m.n
+    end
+    if #names > 0 then prepareFromStorage(want) end
     local counts = storageCounts(names)
     if counts then
       for item, n in pairs(counts) do stock[item] = (stock[item] or 0) + n end

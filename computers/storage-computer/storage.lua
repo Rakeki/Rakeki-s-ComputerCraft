@@ -11,7 +11,7 @@
 --
 --   storage          start (asks which chest is input and output the first time)
 --   storage setup    choose the input, output, delivery and crafter chests again
---   storage test     move one item to the delivery chest and back, to check it works
+--   storage test     check deliveries (one item there and back) and the crafting turtle
 --
 -- Connect the computer and every chest with networking cable and wired
 -- modems: a full-block wired modem touching each chest (small modems only go
@@ -375,11 +375,14 @@ local function planningStock()
   return avail
 end
 
--- Queue the crafts that make count of name. Returns true if it can be done.
+-- Queue the crafts that make count of name. Returns true if it can be done,
+-- or false and why not.
 local function orderCraft(name, count)
-  if not (crafting and setup.crafter) then return false end
+  if not crafting then return false, "crafting.lua is missing: run 'install update'" end
+  if not crafting.canMake(name) then return false, "no recipe for it" end
+  if not setup.crafter then return false, "no crafter chest: run 'storage setup'" end
   local jobs = crafting.plan(name, count, planningStock())
-  if not jobs then return false end
+  if not jobs then return false, "not enough to make it from" end
   planCount = planCount + 1
   for _, job in ipairs(jobs) do
     job.plan = planCount
@@ -527,6 +530,31 @@ local function netLoop()
         end
       end
       rednet.send(from, { re = "count", counts = countPlain(msg.items), craftable = craftable }, NET_PROTOCOL)
+    elseif type(msg) == "table" and msg.type == "prepare" and type(msg.items) == "table" then
+      -- a turtle waiting for materials: start crafting what it'll need,
+      -- beyond what's stored and what's already being made
+      local stock, making, cantCraft = planningStock(), {}, {}
+      for name, n in pairs(msg.items) do
+        if type(name) == "string" and type(n) == "number" then
+          local missing = math.floor(n) - math.max(0, stock[name] or 0) - (pendingCraft[name] or 0)
+          if missing > 0 then
+            local okC, why = orderCraft(name, missing)
+            if okC then making[name] = missing else cantCraft[name] = why end
+            stock = planningStock()
+          end
+          if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
+        end
+      end
+      rednet.send(from, { re = "prepare", crafting = making, cantCraft = cantCraft }, NET_PROTOCOL)
+      local first, why = next(cantCraft)
+      local kinds = 0
+      for _ in pairs(making) do kinds = kinds + 1 end
+      if kinds > 0 then
+        message = { ("Crafting %d kinds of item for turtle #%d."):format(kinds, from), "lightBlue" }
+      elseif first and why ~= "no recipe for it" then
+        message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(first), from, why), "orange" }
+      end
+      os.queueEvent("storage_changed")
     elseif type(msg) == "table" and msg.type == "learn" then
       local okL, err = false, "this storage computer can't craft (crafting.lua is missing)"
       if crafting then okL, err = crafting.learn(msg.recipe) end
@@ -561,14 +589,17 @@ local function netLoop()
         end
       end
       -- what isn't there yet and isn't already being made: craft it if we can
-      local making = {}
+      local making, cantCraft = {}, {}
       for _, name in ipairs(names) do
         local missing = math.floor(msg.items[name]) - ready[name] - (pendingCraft[name] or 0)
-        if missing > 0 and orderCraft(name, missing) then making[name] = missing end
+        if missing > 0 then
+          local okC, why = orderCraft(name, missing)
+          if okC then making[name] = missing else cantCraft[name] = why end
+        end
         if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
       end
       rednet.send(from, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), crafting = making,
-        to = setup.delivery and "delivery" or "output", error = failed }, NET_PROTOCOL)
+        cantCraft = cantCraft, to = setup.delivery and "delivery" or "output", error = failed }, NET_PROTOCOL)
       if failed then
         message = { "Couldn't move items for a turtle: " .. failed, "red" }
       elseif total > 0 and not setup.delivery then
@@ -577,6 +608,9 @@ local function netLoop()
         message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
       elseif short and next(making) then
         message = { ("Turtle #%d asked for items I'm crafting now."):format(from), "lightBlue" }
+      elseif short and next(cantCraft) and select(2, next(cantCraft)) ~= "no recipe for it" then
+        local item, why = next(cantCraft)
+        message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(item), from, why), "orange" }
       elseif short then
         message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }
       end
@@ -739,6 +773,27 @@ if args[1] == "test" then
   local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
   print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
     or "No wireless modem: turtles can't ask me for items.")
+  -- crafting
+  if not crafting then
+    print("crafting.lua is missing, so I can't craft: run 'install update'.")
+  elseif not setup.crafter then
+    print(("I know %d recipes, but there's no crafter chest: run 'storage setup'."):format(crafting.count()))
+  else
+    print(("I know %d recipes. Crafter chest: %s."):format(crafting.count(), setup.crafter))
+    if modem then
+      if not rednet.isOpen(peripheral.getName(modem)) then rednet.open(peripheral.getName(modem)) end
+      local id = rednet.lookup(CRAFT_PROTOCOL)
+      if id then
+        rednet.send(id, { type = "ping", id = 0 }, CRAFT_PROTOCOL)
+        local from, reply = rednet.receive(CRAFT_PROTOCOL, 5)
+        print(from == id and type(reply) == "table" and reply.type == "pong"
+          and ("Crafting turtle #%d answered: crafting works."):format(id)
+          or ("Crafting turtle #%d didn't answer a ping."):format(id))
+      else
+        print("No crafting turtle answered: is it running 'crafter', with a wireless modem?")
+      end
+    end
+  end
   return
 end
 
