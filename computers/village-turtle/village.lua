@@ -17,6 +17,9 @@
 -- up into the spoil chest (and takes dirt and stone back out of it to fill in
 -- foundations).
 --
+-- It starts by building its depot, a hut round home and both chests with a
+-- hole in the roof to fly in and out of.
+--
 -- The village is a grid of 13x13 plots with 3-wide streets between them. The
 -- middle plot is the plaza with a well; the rest are built ring by ring.
 local nav = require("lib.nav")
@@ -30,7 +33,12 @@ local JOB_FILE = "/.village_job"
 local PITCH = 18 -- plot centre to plot centre
 local HALF = 6 -- plots reach 6 blocks either side of their centre; 5-wide streets fill the gap
 local DEFAULT_RADIUS = 48 -- blocks from home; only plots whose centre is inside get built
-local WELL_AT = { x = 0, z = 3 } -- the plaza well, in front of home
+local WELL_AT = { x = 0, z = 4 } -- the plaza well, in front of home
+local OLD_WELL_Z = 3 -- where it went in villages started before the depot
+-- The depot, a hut over home and its chests, is built first. Its middle is
+-- one block behind home, and its door faces the turtle's right.
+local DEPOT_AT = { x = 0, z = -1 }
+local DEPOT_ROT = 3
 local SAMPLES = { -6, -3, 0, 3, 6 } -- survey grid across a plot (5 x 5 spots)
 
 -- Terrain
@@ -854,7 +862,7 @@ end
 local function builtCounts()
   local counts, total = {}, 0
   for _, b in ipairs(job.built) do
-    if b.bp ~= "well" then
+    if b.bp ~= "well" and b.bp ~= "depot" then
       counts[b.bp] = (counts[b.bp] or 0) + 1
       total = total + 1
     end
@@ -1125,8 +1133,11 @@ end
 
 local function doChoose(c)
   local site = c.site
-  if site.class == "plaza" then
-    c.bp, c.rot, c.ax, c.az = "well", 0, WELL_AT.x, WELL_AT.z
+  if site.class == "plaza" and job.depot == false then
+    c.bp, c.rot, c.ax, c.az = "depot", DEPOT_ROT, DEPOT_AT.x, DEPOT_AT.z
+  elseif site.class == "plaza" then
+    -- job.depot is nil for villages started before there was a depot
+    c.bp, c.rot, c.ax, c.az = "well", 0, WELL_AT.x, job.depot == nil and OLD_WELL_Z or WELL_AT.z
   else
     c.bp = pickBuilding(c)
     if not c.bp then return skipPlot("nothing left that suits a " .. site.class .. " site") end
@@ -1139,7 +1150,7 @@ local function doChoose(c)
   local b = building()
   sharePlan(true)
   c.segs = site.class == "plaza" and {} or routeToPlaza(c.i, c.j, b.front)
-  if site.class == "plaza" then
+  if c.bp == "well" then
     for _, s in ipairs(PLAZA_SEGS) do
       if not job.paved[s] then c.segs[#c.segs + 1] = s end
     end
@@ -1177,6 +1188,7 @@ local function doChoose(c)
   end
   if not ready then
     print("Skipped the " .. niceName(c.bp) .. ".")
+    if c.bp == "depot" then job.depot = true end -- carry on without one
     c.rejected[c.bp] = true
     c.bp = nil
     save()
@@ -1670,6 +1682,17 @@ end
 
 local function finishPlot(c)
   for _, s in ipairs(c.segs) do job.paved[s] = true end
+  if c.bp == "depot" then
+    -- the plaza isn't done yet: the well comes next, on the same survey
+    job.depot = true
+    job.built[#job.built + 1] = { i = c.i, j = c.j, bp = c.bp, rot = c.rot, base = c.base, ax = c.ax, az = c.az }
+    job.cur = { i = c.i, j = c.j, stage = "choose", step = 0, samples = c.samples, rejected = {}, site = c.site }
+    bld = nil
+    save()
+    print(("Finished the %s. Now the plaza."):format(niceName(c.bp)))
+    report.log(("finished the %s"):format(niceName(c.bp)))
+    return
+  end
   job.plots[plotKey(c.i, c.j)] = { status = "built", bp = c.bp }
   job.built[#job.built + 1] = { i = c.i, j = c.j, bp = c.bp, rot = c.rot, base = c.base, ax = c.ax, az = c.az }
   job.cur, bld = nil, nil
@@ -1773,7 +1796,9 @@ end
 local function listBuildings(themeKey)
   local theme = themes[themeKey]
   local lines = { theme.name .. " buildings and what each needs:" }
-  for _, name in ipairs(theme.buildings) do
+  local names = { "depot", "well" }
+  for _, name in ipairs(theme.buildings) do names[#names + 1] = name end
+  for _, name in ipairs(names) do
     local b = blueprints.make(name, theme)
     local needs, total = {}, 0
     for _, k in ipairs(b.blocks) do
@@ -1906,7 +1931,7 @@ else
   job = {
     theme = theme, radius = radius, gps = hasGps, seed = os.getComputerID() * 1000 + math.floor(os.clock() * 100) % 1000,
     origin = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading() },
-    topY = 8, plots = {}, paved = {}, built = {},
+    topY = 8, plots = {}, paved = {}, built = {}, depot = false,
   }
   faceSupply()
   local chest = frontChest()

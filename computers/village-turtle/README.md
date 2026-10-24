@@ -8,7 +8,8 @@
 ## What it does
 
 Builds a themed village and keeps growing it for as long as it runs. You pick
-a theme when it starts. It then works outward from where you placed it, one
+a theme when it starts. First it builds its **depot** round itself (see
+[The depot](#the-depot)), then it works outward from where you placed it, one
 plot at a time:
 
 1. **Survey** the plot: drop onto 25 spots across it (a 5×5 grid, 3 blocks
@@ -23,7 +24,8 @@ plot at a time:
 
 Previews of every building in each theme (rendered from the real blueprints):
 [medieval](preview/medieval.svg), [desert](preview/desert.svg),
-[nordic](preview/nordic.svg), [japanese](preview/japanese.svg).
+[nordic](preview/nordic.svg), [japanese](preview/japanese.svg), and
+[the depot in each theme](preview/depot.svg).
 
 A 12-building village it built in the simulator, on test terrain with a lake,
 a hill and a cliff, in 3D for each theme:
@@ -35,11 +37,27 @@ and [as a plan](preview/village-plan.svg).
 
 The village is a grid of 13×13 plots with 5-wide streets between them (18
 blocks from plot centre to plot centre). The middle plot is the **plaza**:
-home (where the turtle starts, with the chests), a well in front of it, and
-streets round all four sides. The turtle builds the plaza first, then the
-plots ring by ring outward, out to the radius you give it (default 48 blocks,
+the depot round home (where the turtle starts, with the chests), a well in
+front of it, and streets round all four sides. The turtle builds the depot
+and then the rest of the plaza first, then the plots ring by ring outward, out to the radius you give it (default 48 blocks,
 about 21 plots). Every building faces the plaza. Its street runs along the
 plaza-facing side of its plot and joins up with the streets already built.
+
+### The depot
+
+The very first thing the turtle builds is a small hut round its home block
+and both chests, so it isn't left standing half way into the plaza. It's
+5×5 and 3 high in the theme's blocks, with windows, lanterns on the roof
+corners and a door on the turtle's right for you to get to the chests
+(desert depots have an open doorway). The roof has a one-block hole straight
+above the home block: the turtle flies in and out through it, so its trips
+home work just as before. It needs about 82 blocks, for example in medieval:
+31 spruce planks, 27 cobblestone, 8 oak logs, 8 oak planks, 4 lanterns, 3
+glass panes and an oak door. Like any building it waits for the blocks, and
+you can press **S** to skip it.
+
+Villages started before the depot existed carry on without one (their well
+is a block closer to home, where the depot would go).
 
 ### Roads
 
@@ -141,9 +159,10 @@ Copy these to the turtle:
    best) and the **spoil chest** directly to its **left**.
 3. Fill the supply chest with the theme's blocks and some coal. Run
    `village list medieval` (or another theme) to see what each building needs.
-   The plaza is the biggest first order: the well (92 blocks) plus its four
-   stretches of main road: about 380 stone bricks, 32 fences and 16 lanterns
-   for medieval, and some cobblestone stairs if the ground slopes.
+   The first order is the depot (about 82 blocks), then the plaza, the
+   biggest: the well (92 blocks) plus its four stretches of main road: about
+   380 stone bricks, 32 fences and 16 lanterns for medieval, and some
+   cobblestone stairs if the ground slopes.
 4. Run `village`. Pick a theme, give a radius (Enter for 48), and press Enter.
 
 ### Materials

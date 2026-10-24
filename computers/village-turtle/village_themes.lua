@@ -27,7 +27,7 @@ T.medieval = {
   style = { roof = "gable", rise = 1, overhang = 1, posts = true, chimney = true, tower = "crenel" },
   buildings = { "cottage", "townhouse", "tavern", "tower", "farm", "stall", "dock" },
   names = { cottage = "cottage", townhouse = "town house", tavern = "tavern", tower = "watchtower",
-    farm = "farm", stall = "market stall", dock = "dock", well = "well" },
+    farm = "farm", stall = "market stall", dock = "dock", well = "well", depot = "turtle depot" },
   palette = {
     foundation = "minecraft:cobblestone", floor = "minecraft:spruce_planks",
     wallBase = "minecraft:cobblestone", wall = "minecraft:oak_planks", beam = "minecraft:stripped_oak_log",
@@ -50,7 +50,7 @@ T.desert = {
   style = { roof = "flat", overhang = 0, vigas = true, tower = "crenel", towerWall = "masonry" },
   buildings = { "cottage", "townhouse", "tavern", "tower", "farm", "stall", "dock" },
   names = { cottage = "adobe house", townhouse = "courtyard house", tavern = "caravanserai", tower = "lookout",
-    farm = "oasis farm", stall = "bazaar stall", dock = "jetty", well = "well" },
+    farm = "oasis farm", stall = "bazaar stall", dock = "jetty", well = "well", depot = "turtle depot" },
   palette = {
     foundation = "minecraft:sandstone", floor = "minecraft:smooth_sandstone",
     wallBase = "minecraft:sandstone", wall = "minecraft:smooth_sandstone", beam = "minecraft:cut_sandstone",
@@ -73,7 +73,7 @@ T.nordic = {
   style = { roof = "gable", rise = 2, overhang = 1, posts = true, chimney = true, tower = "crenel" },
   buildings = { "cottage", "townhouse", "tavern", "tower", "farm", "stall", "dock" },
   names = { cottage = "hut", townhouse = "longhouse", tavern = "mead hall", tower = "watchtower",
-    farm = "farm", stall = "trading post", dock = "boathouse pier", well = "well" },
+    farm = "farm", stall = "trading post", dock = "boathouse pier", well = "well", depot = "turtle depot" },
   palette = {
     foundation = "minecraft:cobblestone", floor = "minecraft:spruce_planks",
     wallBase = "minecraft:cobblestone", wall = "minecraft:spruce_planks", beam = "minecraft:stripped_spruce_log",
@@ -96,7 +96,7 @@ T.japanese = {
   style = { roof = "hip", overhang = 1, upturn = true, posts = true, tower = "pagoda", towerWall = "wall", towerPillar = true },
   buildings = { "cottage", "townhouse", "tavern", "tower", "farm", "stall", "dock" },
   names = { cottage = "machiya", townhouse = "minka", tavern = "tea house", tower = "pagoda",
-    farm = "field", stall = "market stall", dock = "pier", well = "well" },
+    farm = "field", stall = "market stall", dock = "pier", well = "well", depot = "turtle depot" },
   palette = {
     foundation = "minecraft:stone_bricks", floor = "minecraft:birch_planks",
     wallBase = "minecraft:dark_oak_planks", wall = "minecraft:birch_planks", beam = "minecraft:dark_oak_planks",

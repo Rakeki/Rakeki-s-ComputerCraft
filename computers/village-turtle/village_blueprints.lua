@@ -321,6 +321,36 @@ local function farm()
   return { blocks = s.list(), entrance = 5, top = 2 }
 end
 
+-- The turtle's depot, built round its home block before anything else: a
+-- 5x5 hut over home and its two chests, with a hole in the roof straight
+-- above home for the turtle to come and go, and a door for the player.
+-- village.lua turns it so the front (z = 0) faces the turtle's right; then
+-- home is at (3, 2), the supply chest behind it at (2, 2) and the spoil
+-- chest on its left at (3, 3). There's no floor under the chests (the turtle
+-- can't stand in them to lay it).
+local function depot()
+  local s = shape()
+  local n = 5
+  local chest = { ["2,2"] = true, ["3,3"] = true }
+  for x = 0, n - 1 do
+    for z = 0, n - 1 do
+      local edge = x == 0 or x == n - 1 or z == 0 or z == n - 1
+      local corner = (x == 0 or x == n - 1) and (z == 0 or z == n - 1)
+      if not chest[x .. "," .. z] then s.set(x, 0, z, edge and "foundation" or "floor") end
+      if edge then
+        s.set(x, 1, z, corner and "pillar" or "wallBase")
+        local window = not corner and z ~= 0 and (x == 2 or z == 2)
+        s.set(x, 2, z, corner and "pillar" or window and "window" or "wall")
+      end
+      if not (x == 3 and z == 2) then s.set(x, 3, z, "roofBlock") end
+    end
+  end
+  s.clear(2, 2, 0)
+  s.set(2, 1, 0, "door", 2, true)
+  for _, c in ipairs({ { 0, 0 }, { n - 1, 0 }, { 0, n - 1 }, { n - 1, n - 1 } }) do s.set(c[1], 4, c[2], "light") end
+  return { blocks = s.list(), entrance = 2, top = 4 }
+end
+
 -- The plaza well in front of the turtle's home block.
 local function well()
   local s = shape()
@@ -342,7 +372,8 @@ local function well()
   end
   s.set(2, 5, 2, "roofBlock")
   s.set(2, 6, 2, "light")
-  return { blocks = s.list(), top = 6 }
+  -- no clearing margin: the depot stands right behind it
+  return { blocks = s.list(), top = 6, margin = 0 }
 end
 
 -- Market stall: posts, a counter at the front, shelves at the back and a
@@ -433,6 +464,10 @@ B.catalogue = {
   well = {
     suits = {},
     make = function() return well() end,
+  },
+  depot = {
+    suits = {},
+    make = function() return depot() end,
   },
 }
 
