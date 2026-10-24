@@ -1,0 +1,409 @@
+// Builds the home page and the program / library pages from window.SITE.
+(function () {
+  const SITE = window.SITE;
+  const ROOT = document.body.dataset.root || "./";
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const h = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const cc = (name) => `var(--cc-${name})`;
+  const icon = (device) => `${ROOT}assets/${device === "turtle" ? "turtle" : "computer"}.svg`;
+  const progUrl = (name) => `${ROOT}programs/${name}/`;
+  const libUrl = (name) => `${ROOT}libraries/${name}/`;
+  const byName = Object.fromEntries(SITE.programs.map((p) => [p.name, p]));
+  const libByName = Object.fromEntries(SITE.libraries.map((l) => [l.name, l]));
+
+  //---------------------------------------------------------------- copy
+
+  let toastT;
+  function toast(text) {
+    let t = $(".toast");
+    if (!t) { t = h(`<div class="toast" role="status"></div>`); document.body.append(t); }
+    t.textContent = text; t.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1600);
+  }
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-copy]");
+    if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copy); } catch {
+      const ta = h(`<textarea></textarea>`); ta.value = b.dataset.copy; document.body.append(ta); ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    b.classList.add("done"); const old = b.textContent; b.textContent = "Copied";
+    setTimeout(() => { b.classList.remove("done"); b.textContent = old; }, 1400);
+    toast("Copied. Paste it in-game with Ctrl+V");
+  });
+
+  const installCmd = (name) => `wget run ${SITE.url}/install.lua${name ? " " + name : ""}`;
+  function cmdHtml(cmd) {
+    return esc(cmd)
+      .replace(/^(wget|mkdir)( run)?/, (m) => `<span class="p">${m}</span>`)
+      .replace(/(https?:\/\/\S+)/, `<span class="u">$1</span>`)
+      .replace(/(\.lua|\.json) (\S+)$/, `$1 <span class="a">$2</span>`);
+  }
+  const field = (cmd) => `<div class="mc-field"><code>${cmdHtml(cmd)}</code><button class="copy-btn" data-copy="${esc(cmd)}" aria-label="Copy command">Copy</button></div>`;
+
+  //---------------------------------------------------------------- renders
+
+  function lazy(el, fn) {
+    if (!("IntersectionObserver" in window)) return fn();
+    const io = new IntersectionObserver((es) => { if (es[0].isIntersecting) { io.disconnect(); fn(); } }, { rootMargin: "200px" });
+    io.observe(el);
+  }
+
+  function screenEl(scene, compact) {
+    const kind = scene === "dashboard" ? "monitor" : "advanced";
+    const b = h(`<div class="bezel ${kind} lit"><div class="screen"><pre class="cc-term"></pre></div></div>`);
+    if (compact) { b.style.padding = "8px 8px 14px"; b.style.boxShadow = "inset 3px 3px 0 var(--frame-hi), inset -3px -3px 0 var(--frame-lo)"; }
+    CC.screens[scene]($("pre", b));
+    return b;
+  }
+
+  function thumb(p, holder) {
+    const r = p.render;
+    if (r.kind === "voxel") {
+      const c = document.createElement("canvas");
+      holder.append(c);
+      lazy(holder, () => Voxel.mount(c, r.scene, { width: holder.clientWidth, aspect: 16 / 10, labels: false, detail: 2, animate: false, pad: 0.07 }));
+    } else if (r.kind === "gallery") {
+      holder.append(h(`<img class="cover" loading="lazy" alt="${esc(r.images[0][0])}" src="${ROOT}${r.images[0][1]}">`));
+    } else {
+      const b = screenEl(r.scene, true);
+      b.style.width = "86%";
+      holder.append(b);
+    }
+  }
+
+  //---------------------------------------------------------------- home
+
+  function home() {
+    // hero terminal: install a program, then run it
+    const scripts = ["excavate-turtle", "village-turtle", "gps-deployer"].map((name) => {
+      const p = byName[name];
+      const lines = [["> ", installCmd(name), "cmd"], [`Connecting to ${SITE.url}/install.lua... Success.`, "", "lightGray"], [`Installing ${p.title}...`, "", "yellow"]];
+      p.files.forEach((f) => lines.push([`  ${f.dest} ok`, "", "lime"]));
+      lines.push([`${p.title} is installed.`, "", "lime"]);
+      lines.push(...p.terminal.lines.slice(0, 5));
+      return lines;
+    });
+    new CC.Typer($("#hero-term"), 51, 19, scripts, { header: [["CraftOS 1.9", "yellow"]] });
+    $("#hero-cmd").innerHTML = field(installCmd(""));
+
+    const lua = new Set(); let lines = 0;
+    for (const p of SITE.programs) for (const f of p.files) if (!lua.has(f.src)) { lua.add(f.src); lines += f.lines; }
+    $("#stat-programs").textContent = SITE.programs.length;
+    $("#stat-libs").textContent = SITE.libraries.length;
+    $("#stat-lines").textContent = lines.toLocaleString("en");
+
+    const grid = $("#programs-grid");
+    for (const p of SITE.programs) {
+      const card = h(`
+        <a class="card" href="${progUrl(p.name)}" style="--c:${cc(p.color)}" data-device="${p.device}">
+          <div class="thumb"><span class="tag">${esc(p.deviceLabel)}</span></div>
+          <div class="body">
+            <h3>${esc(p.title)} <code>${esc(p.command)}</code></h3>
+            <p>${esc(p.tagline)}</p>
+            <div class="meta">
+              ${p.libs.map((l) => `<span class="pill lib">lib/${l}</span>`).join("")}
+              ${p.files.length ? `<span class="pill">${p.files.length} files</span>` : ""}
+              <span class="go">Open &rarr;</span>
+            </div>
+          </div>
+        </a>`);
+      grid.append(card);
+      thumb(p, $(".thumb", card));
+    }
+    document.querySelectorAll(".filters .chip").forEach((chip) => chip.addEventListener("click", () => {
+      document.querySelectorAll(".filters .chip").forEach((c) => c.setAttribute("aria-pressed", c === chip));
+      const f = chip.dataset.filter;
+      grid.querySelectorAll(".card").forEach((c) => { c.hidden = f !== "all" && c.dataset.device !== f; });
+    }));
+
+    $("#diagram").innerHTML = diagram();
+
+    const example = byName["excavate-turtle"];
+    $("#way-installer").innerHTML = field(installCmd("excavate-turtle"));
+    $("#way-wget").innerHTML = field(`wget ${SITE.url}/${example.files[0].src} ${example.files[0].dest}`);
+
+    const libs = $("#libs");
+    for (const l of SITE.libraries) {
+      const card = h(`
+        <a class="lib-card" href="${libUrl(l.name)}">
+          <h3><code>require("lib.${l.name}")</code></h3>
+          <p>${esc(l.tagline)}</p>
+          <pre class="code"><code class="language-lua"></code></pre>
+          <div class="meta">${l.usedBy.map((n) => `<span class="pill">${esc(byName[n].title)}</span>`).join(" ")}</div>
+        </a>`);
+      $("pre code", card).textContent = l.usage;
+      libs.append(card);
+    }
+    highlight();
+  }
+
+  // How the programs talk to each other.
+  function diagram() {
+    const N = {
+      status: [530, 62, 190, "status-server", "Status Dashboard", "computer", "cyan"],
+      server: [160, 220, 180, "mine-server", "AutoMine Server", "computer", "yellow"],
+      miners: [160, 400, 180, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
+      hosts: [920, 220, 170, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
+      deployer: [920, 400, 170, "gps-deployer", "GPS Deployer", "turtle", "purple"],
+      excavate: [370, 400, 120, "excavate-turtle", "Excavator", "turtle", "orange"],
+      strip: [500, 400, 120, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
+      village: [630, 400, 120, "village-turtle", "Village", "turtle", "lime"],
+      mob: [760, 400, 120, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
+    };
+    const P = CC.PALETTE;
+    const curve = (x1, y1, x2, y2) => `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
+    let edges = "";
+    // report: everything to the dashboard
+    for (const k of ["server", "miners", "excavate", "strip", "village", "mob"]) {
+      const [x, y] = N[k];
+      const tx = 460 + (["server", "miners", "excavate", "strip", "village", "mob"].indexOf(k)) * 24;
+      edges += `<path class="flow" d="${curve(x + (k === "miners" ? 50 : 0), y - 28, tx, 90)}" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
+    }
+    edges += `<path class="flow" d="M${N.hosts[0]},${N.hosts[1] - 28} C${N.hosts[0]},62 760,62 625,62" stroke="${P.lime}" stroke-width="2.5" fill="none" opacity=".75"/>`;
+    // rednet jobs
+    edges += `<path class="flow" d="M140,248 L140,372" stroke="${P.orange}" stroke-width="3" fill="none"/><path class="flow" d="M180,372 L180,248" stroke="${P.orange}" stroke-width="3" fill="none"/>`;
+    // builds
+    edges += `<path class="flow" d="M960,372 L960,248" stroke="${P.purple}" stroke-width="3" fill="none"/>`;
+    // gps bus
+    edges += `<path class="flow" d="M880,248 L880,318 L215,318 L215,372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
+    for (const k of ["excavate", "strip", "village", "mob"]) edges += `<path class="flow" d="M${N[k][0]},318 L${N[k][0]},372" stroke="${P.lightBlue}" stroke-width="2.5" fill="none"/>`;
+
+    let nodes = "";
+    for (const [x, y, w, link, title, dev, col] of Object.values(N)) {
+      nodes += `<a href="${progUrl(link)}"><g class="node">
+        <rect x="${x - w / 2 + 4}" y="${y - 24}" width="${w}" height="56" fill="#000" opacity=".5"/>
+        <rect class="face" x="${x - w / 2}" y="${y - 28}" width="${w}" height="56" fill="#1d1d24" stroke="#000" stroke-width="2"/>
+        <rect x="${x - w / 2}" y="${y - 28}" width="${w}" height="4" fill="${P[col]}"/>
+        <image href="${icon(dev)}" x="${x - w / 2 + 8}" y="${y - 16}" width="32" height="32" style="image-rendering:pixelated"/>
+        <text x="${x - w / 2 + 46}" y="${y + 5}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 150 ? 14 : 16}">${esc(title)}</text>
+      </g></a>`;
+    }
+    const tag = (x, y, t, c) => `<text x="${x}" y="${y}" fill="${c}" font-family="VT323, monospace" font-size="19">${t}</text>`;
+    const labels = tag(250, 150, "report.set()", P.lime) + tag(30, 315, "rednet", P.orange) + tag(420, 340, "gps.locate()", P.lightBlue) + tag(970, 315, "builds", P.purple);
+    return `<svg viewBox="0 0 1060 450" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
+  }
+
+  //---------------------------------------------------------------- program page
+
+  function installPanel(p) {
+    const wget = p.files.map((f) => `wget ${SITE.url}/${f.src} ${f.dest}`);
+    const hasLib = p.files.some((f) => f.lib);
+    return `
+      <div class="mc-panel install-panel">
+        <h3><img src="${ROOT}assets/floppy.svg" alt=""> Install</h3>
+        <div class="mc-tabs" role="tablist">
+          <button class="mc-tab" role="tab" aria-selected="true" data-tab="i">Installer</button>
+          <button class="mc-tab" role="tab" aria-selected="false" data-tab="w">wget</button>
+          <button class="mc-tab" role="tab" aria-selected="false" data-tab="d">Download</button>
+        </div>
+        <div class="tab-pane" data-pane="i">
+          ${field(installCmd(p.name))}
+          <p>Downloads ${p.files.length} files${hasLib ? `, including <code>lib/</code>,` : ""} onto the ${p.device === "turtle" ? "turtle" : "computer"}. Later, <code>install update</code> fetches the newest version${p.keep ? ` and keeps your <code>${p.keep.join(", ")}</code>` : ""}.</p>
+        </div>
+        <div class="tab-pane" data-pane="w" hidden>
+          <div class="wget-list">${wget.map(field).join("")}</div>
+          <p class="hint">Run each line in-game. CC pastes one line at a time.</p>
+        </div>
+        <div class="tab-pane" data-pane="d" hidden>
+          <p><a class="mc-btn small green" href="${ROOT}zips/${p.name}.zip" download>Download ZIP</a></p>
+          <p>Unzip into <code>saves/&lt;world&gt;/computercraft/computer/&lt;id&gt;/</code> (run <code>id</code> in-game for the number), or drag the files onto the computer's screen in-game to upload them.</p>
+        </div>
+      </div>`;
+  }
+  function wireTabs(root) {
+    root.querySelectorAll(".mc-tab").forEach((tab) => tab.addEventListener("click", () => {
+      const box = tab.closest(".mc-panel");
+      box.querySelectorAll(".mc-tab").forEach((t) => t.setAttribute("aria-selected", t === tab));
+      box.querySelectorAll(".tab-pane").forEach((pane) => { pane.hidden = pane.dataset.pane !== tab.dataset.tab; });
+    }));
+  }
+
+  function showcase(p, holder) {
+    const r = p.render;
+    if (r.kind === "voxel") {
+      const stage = h(`<figure class="stage" style="margin:0"><canvas aria-label="${esc(r.caption)}"></canvas><div class="tools"></div></figure>`);
+      holder.append(stage, h(`<p class="caption">${esc(r.caption)} Rendered in your browser from the program's own dimensions.</p>`));
+      requestAnimationFrame(() => {
+        const ctl = Voxel.mount($("canvas", stage), r.scene, { width: stage.clientWidth, maxH: 640, animate: r.animate });
+        const tools = $(".tools", stage);
+        const rb = h(`<button class="mc-btn small">Rotate</button>`); rb.onclick = () => ctl.rotate(); tools.append(rb);
+        if (ctl.hasReplay) { const pb = h(`<button class="mc-btn small green">Replay</button>`); pb.onclick = () => ctl.replay(); tools.append(pb); }
+      });
+    } else if (r.kind === "gallery") {
+      const tabs = h(`<div class="gallery-tabs"></div>`);
+      const stage = h(`<figure class="stage light" style="margin:0"><img alt=""><a class="mc-btn small open-full" target="_blank" rel="noopener">Open full size</a></figure>`);
+      const img = $("img", stage), open = $("a", stage);
+      const pick = (i) => {
+        const [title, src] = r.images[i];
+        img.src = ROOT + src; img.alt = title; open.href = ROOT + src;
+        tabs.querySelectorAll(".chip").forEach((c, j) => c.setAttribute("aria-pressed", i === j));
+      };
+      if (r.images.length > 1) r.images.forEach(([title], i) => { const c = h(`<button class="chip">${esc(title)}</button>`); c.onclick = () => pick(i); tabs.append(c); });
+      holder.append(tabs, stage, h(`<p class="caption">${esc(r.caption)}</p>`));
+      pick(0);
+    } else {
+      const stage = h(`<figure class="stage" style="margin:0"><div class="screen-holder"></div></figure>`);
+      $(".screen-holder", stage).append(screenEl(r.scene));
+      holder.append(stage, h(`<p class="caption">${esc(r.caption)}</p>`));
+    }
+  }
+
+  function filesSection(files, holder, openFirst) {
+    const slots = h(`<div class="slots"></div>`);
+    const viewer = h(`<div class="viewer" hidden><div class="bar"><span class="name"></span><span class="pill lines"></span><span class="grow"></span><a class="mc-btn small raw" target="_blank" rel="noopener">Raw</a><a class="mc-btn small gh" target="_blank" rel="noopener">GitHub</a></div><pre class="code"><code class="language-lua"></code></pre></div>`);
+    const show = async (f) => {
+      viewer.hidden = false;
+      $(".name", viewer).textContent = f.dest;
+      $(".lines", viewer).textContent = `${f.lines} lines`;
+      $(".raw", viewer).href = ROOT + f.src;
+      $(".gh", viewer).href = `https://github.com/${SITE.repo}/blob/main/${f.src}`;
+      const code = $("code", viewer);
+      code.textContent = "Loading...";
+      try {
+        code.textContent = await (await fetch(ROOT + f.src)).text();
+        delete code.dataset.highlighted;
+        if (window.hljs) hljs.highlightElement(code);
+      } catch { code.textContent = "Couldn't load this file."; }
+    };
+    for (const f of files) {
+      const s = h(`<button class="slot"><img class="ico" src="${ROOT}assets/${f.lib ? "book" : "floppy"}.svg" alt=""><span class="nm">${esc(f.dest)}<small>${f.lines} lines${f.keep ? " · your settings" : ""}</small></span></button>`);
+      s.onclick = () => show(f);
+      slots.append(s);
+    }
+    holder.append(slots, viewer);
+    if (openFirst) show(files[0]);
+  }
+
+  // README: drop the empty per-world fields, then point links at site pages.
+  async function readme(src, holder, baseDir) {
+    holder.innerHTML = `<div class="loading">Loading the guide</div>`;
+    try {
+      const md = await (await fetch(ROOT + src)).text();
+      const div = h(`<div class="readme"></div>`);
+      div.innerHTML = marked.parse(md);
+      div.querySelector("h1")?.remove();
+      div.querySelectorAll("li").forEach((li) => {
+        if (/^(Computer IDs?|Label|Location):\s*(\(.*\))?\s*$/.test(li.textContent.trim())) li.remove();
+      });
+      div.querySelectorAll("ul").forEach((ul) => { if (!ul.children.length) ul.remove(); });
+      const slug = (t) => t.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-");
+      div.querySelectorAll("h2, h3, h4").forEach((hd) => { hd.id = slug(hd.textContent); });
+      div.querySelectorAll("a[href]").forEach((a) => {
+        const href = a.getAttribute("href");
+        if (/^(https?:|#|mailto:)/.test(href)) return;
+        const [p, hash] = href.split("#");
+        const abs = new URL(p, `https://x/${baseDir}/`).pathname.slice(1);
+        let m;
+        if ((m = abs.match(/^computers\/([^/]+)\/(README\.md)?$/))) a.href = progUrl(m[1]) + (hash ? `#${hash}` : "#guide");
+        else if ((m = abs.match(/^lib\/(\w+)\.lua$/))) a.href = libUrl(m[1]);
+        else { a.href = ROOT + abs; a.target = "_blank"; }
+      });
+      div.querySelectorAll("pre code").forEach((c) => { if (!c.className) c.className = /^\s*(local|--|report\.|nav\.)/.test(c.textContent) ? "language-lua" : "language-plaintext"; });
+      holder.replaceChildren(div);
+      highlight();
+      if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+    } catch (e) {
+      holder.innerHTML = `<p class="caption">Couldn't load the guide. <a href="https://github.com/${SITE.repo}/blob/main/${src}">Read it on GitHub</a>.</p>`;
+    }
+  }
+
+  function highlight() { if (window.hljs) document.querySelectorAll("pre code[class*=language-]:not([data-highlighted])").forEach((c) => hljs.highlightElement(c)); }
+
+  function programPage(p) {
+    document.body.style.setProperty("--c", cc(p.color));
+    const main = $("main");
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#programs">Programs</a> / ${esc(p.title)}</div>
+          <div class="p-title"><img class="icon" src="${icon(p.device)}" alt=""><h1>${esc(p.title)}<small>computers/${esc(p.name)}</small></h1></div>
+          <p class="lead">${esc(p.tagline)}</p>
+          <div class="meta">
+            <span class="pill">${esc(p.deviceLabel)}</span>
+            ${p.libs.map((l) => `<a class="pill lib" href="${libUrl(l)}">lib/${l}</a>`).join("")}
+            <a class="pill" href="https://github.com/${SITE.repo}/tree/main/computers/${p.name}">Source on GitHub</a>
+          </div>
+          <div class="stats">${p.stats.map(([k, v]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>
+        </div>
+        ${installPanel(p)}
+      </div></section>
+      <section class="wrap showcase" id="render"></section>
+      <section class="block"><div class="wrap two">
+        <div class="box"><h3>Setting it up</h3><ol class="steps">${p.setup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          <ul class="features">${p.features.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>
+        <div class="watch">${p.terminal ? `<div class="bezel ${p.terminal.device === "turtle" ? "turtle" : "advanced"} lit" style="margin-bottom:28px"><div class="screen"><pre class="cc-term" id="watch-term"></pre></div></div>` : ""}
+          <div class="box"><h3>Commands</h3><div class="cmds">${p.commands.map(([c, d]) => `<div><code>${esc(c)}</code><span>${esc(d)}</span></div>`).join("")}</div></div>
+        </div>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Integration</small>Works with</h2></div>
+        <div class="integrations">${p.integrates.map(([n, why]) => {
+          const t = byName[n] || libByName[n];
+          const href = byName[n] ? progUrl(n) : libUrl(n);
+          const img = byName[n] ? icon(t.device) : `${ROOT}assets/book.svg`;
+          return `<a href="${href}"><img src="${img}" alt=""><div><b>${esc(t.title)}</b><span>${esc(why)}</span></div></a>`;
+        }).join("")}</div>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Source</small>Files</h2><p>Click a file to read it.</p></div>
+        <div id="files"></div>
+      </div></section>
+      <section class="block" id="guide"><div class="wrap">
+        <div class="sec-head"><h2><small>Guide</small>The full manual</h2></div>
+        <div id="readme"></div>
+      </div></section>`;
+    wireTabs(main);
+    showcase(p, $("#render"));
+    if (p.terminal) new CC.Typer($("#watch-term"), p.terminal.device === "turtle" ? 39 : 51, p.terminal.device === "turtle" ? 13 : 19, [p.terminal.lines], { pause: 6000 });
+    filesSection(p.files, $("#files"));
+    readme(`computers/${p.name}/README.md`, $("#readme"), `computers/${p.name}`);
+  }
+
+  function libraryPage(l) {
+    document.body.style.setProperty("--c", cc(l.color));
+    const main = $("main");
+    const file = { src: l.file, dest: l.file, lines: l.lines, lib: true };
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#libraries">Libraries</a> / ${esc(l.title)}</div>
+          <div class="p-title"><img class="icon" src="${ROOT}assets/book.svg" alt=""><h1>${esc(l.title)}<small>require("lib.${l.name}")</small></h1></div>
+          <p class="lead">${esc(l.tagline)}</p>
+          <div class="meta"><span class="pill">${l.lines} lines</span><a class="pill" href="https://github.com/${SITE.repo}/blob/main/${l.file}">Source on GitHub</a></div>
+        </div>
+        <div class="mc-panel install-panel">
+          <h3><img src="${ROOT}assets/book.svg" alt=""> Install</h3>
+          ${field(`wget ${SITE.url}/${l.file} ${l.file}`)}
+          <p>Every program that needs it gets it from the installer automatically. Use this to add it to a program of your own.</p>
+        </div>
+      </div></section>
+      <section class="block" style="padding-top:30px"><div class="wrap two">
+        <div class="box"><h3>Quick start</h3><pre class="code"><code class="language-lua"></code></pre><p class="caption">${esc(l.notes)}</p></div>
+        <div class="box"><h3>API</h3><table class="api">${l.api.map(([c, d]) => `<tr><td>${esc(c)}</td><td>${esc(d)}</td></tr>`).join("")}</table></div>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Used by</small>Programs</h2></div>
+        <div class="integrations">${l.usedBy.map((n) => `<a href="${progUrl(n)}"><img src="${icon(byName[n].device)}" alt=""><div><b>${esc(byName[n].title)}</b><span>${esc(byName[n].tagline)}</span></div></a>`).join("")}</div>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Source</small>${esc(l.file)}</h2></div>
+        <div id="files"></div>
+      </div></section>`;
+    $(".box pre code", main).textContent = l.usage;
+    filesSection([file], $("#files"), true);
+    highlight();
+  }
+
+  //---------------------------------------------------------------- go
+
+  const kind = document.body.dataset.kind;
+  const name = document.body.dataset.name;
+  const start = () => {
+    if (kind === "program") programPage(byName[name]);
+    else if (kind === "library") libraryPage(libByName[name]);
+    else home();
+  };
+  // fonts first, so canvases and terminals measure correctly
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(start);
+})();

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rakeki's ComputerCraft</title>
+  <meta name="description" content="CC: Tweaked programs for turtles and computers: excavators, strip miners, village builders, mob farms, AutoMine fleets, GPS and a live status dashboard. Install any of them in-game with one line.">
+  <meta property="og:title" content="Rakeki's ComputerCraft">
+  <meta property="og:description" content="Turtles that dig, build and report back. Install in-game with one line.">
+  <link rel="icon" href="{{ROOT}}assets/turtle.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body data-root="{{ROOT}}">
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="{{ROOT}}"><img src="{{ROOT}}assets/turtle.svg" alt=""><span><span class="long">Rakeki's </span><em>Computer</em>Craft</span></a>
+      <nav class="nav">
+        <a href="#programs">Programs</a>
+        <a href="#network">How it fits</a>
+        <a href="#install">Install</a>
+        <a href="#libraries">Libraries</a>
+        <a class="mc-btn small" id="gh-link" href="#">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <span class="kicker">For CC: Tweaked &middot; Minecraft 1.18+</span>
+          <h1>Turtles that <span class="hl">dig</span>, <span class="hl2">build</span> &amp; report back.</h1>
+          <p class="lead">A set of Lua programs for ComputerCraft turtles and computers. They carve out halls, strip-mine, raise whole villages, build mob farms, run an AutoMine fleet and put everything on one live dashboard. They all pick up where they left off after a reboot.</p>
+          <div class="actions">
+            <a class="mc-btn green" href="#programs">Browse programs</a>
+            <a class="mc-btn" href="#install">How to install</a>
+          </div>
+          <div class="quick">
+            <label>See every program from in-game:</label>
+            <div id="hero-cmd"></div>
+          </div>
+        </div>
+        <div class="device">
+          <div class="bezel advanced lit"><div class="screen"><pre class="cc-term" id="hero-term" aria-label="An in-game computer installing and running a program"></pre></div></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="statbar">
+      <div class="wrap">
+        <div><b id="stat-programs">8</b><span>programs</span></div>
+        <div><b id="stat-libs">2</b><span>shared libraries</span></div>
+        <div><b id="stat-lines">0</b><span>lines of Lua</span></div>
+        <div><b>1</b><span>line to install</span></div>
+      </div>
+    </div>
+
+    <section class="block" id="programs">
+      <div class="wrap">
+        <div class="sec-head">
+          <h2><small>The collection</small>Programs</h2>
+          <div class="filters" role="group" aria-label="Filter programs">
+            <button class="chip" data-filter="all" aria-pressed="true">All</button>
+            <button class="chip" data-filter="turtle" aria-pressed="false">Turtles</button>
+            <button class="chip" data-filter="computer" aria-pressed="false">Computers</button>
+          </div>
+        </div>
+        <div class="grid" id="programs-grid"></div>
+      </div>
+    </section>
+
+    <section class="block" id="network">
+      <div class="wrap">
+        <div class="sec-head">
+          <h2><small>Integration</small>How it all fits together</h2>
+          <p>Every program works on its own. Add a modem and they start talking: miners take jobs from the AutoMine server, GPS keeps turtles on course, and the dashboard shows everyone.</p>
+        </div>
+        <div class="diagram-wrap"><div id="diagram"></div>
+          <div class="legend">
+            <span><i style="color:var(--cc-lime)"></i>status over rednet (lib/report)</span>
+            <span><i style="color:var(--cc-orange)"></i>AutoMine jobs and docking</span>
+            <span><i style="color:var(--cc-lightBlue)"></i>GPS position checks</span>
+            <span><i style="color:var(--cc-purple)"></i>builds the GPS hosts</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="install">
+      <div class="wrap">
+        <div class="sec-head">
+          <h2><small>Getting it in-game</small>Three ways to install</h2>
+          <p>Paste into any computer or turtle with Ctrl+V. Needs http enabled in the ComputerCraft config, which it is by default.</p>
+        </div>
+        <div class="ways">
+          <div class="mc-panel">
+            <span class="num">1 &middot; Easiest</span>
+            <h3>The installer</h3>
+            <p>One line fetches the program and the libraries it needs, and saves itself as <code>install</code> so <code>install update</code> gets newer versions later.</p>
+            <div id="way-installer"></div>
+          </div>
+          <div class="mc-panel">
+            <span class="num">2</span>
+            <h3>wget each file</h3>
+            <p>Every program page lists a <code>wget</code> line per file, for when you only want one file or want to see exactly what goes where.</p>
+            <div id="way-wget"></div>
+          </div>
+          <div class="mc-panel">
+            <span class="num">3</span>
+            <h3>Download &amp; copy</h3>
+            <p>Grab a ZIP from any program page. Unzip it into <code>saves/&lt;world&gt;/computercraft/computer/&lt;id&gt;/</code>, or drag the files onto the computer's screen to upload them.</p>
+            <div class="mc-field"><code>saves/<span class="u">world</span>/computercraft/computer/<span class="a">id</span>/</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="libraries">
+      <div class="wrap">
+        <div class="sec-head">
+          <h2><small>For your own programs</small>Libraries</h2>
+          <p>The building blocks every program here uses. Drop them into your own scripts.</p>
+        </div>
+        <div class="libs" id="libs"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <a class="brand" href="{{ROOT}}"><img src="{{ROOT}}assets/turtle.svg" alt=""><span>Rakeki's <em>Computer</em>Craft</span></a>
+      <span>Made for <a href="https://tweaked.cc">CC: Tweaked</a>. Not affiliated with Mojang or the CC: Tweaked team.</span>
+    </div>
+  </footer>
+  <div class="grass"></div>
+
+  <script src="{{ROOT}}assets/site-data.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/lua.min.js"></script>
+  <script src="{{ROOT}}assets/cc.js"></script>
+  <script src="{{ROOT}}assets/voxel.js"></script>
+  <script src="{{ROOT}}assets/app.js"></script>
+  <script>document.getElementById("gh-link").href = "https://github.com/" + SITE.repo;</script>
+</body>
+</html>

@@ -1,0 +1,444 @@
+{
+  "programs": [
+    {
+      "name": "excavate-turtle",
+      "title": "Excavator",
+      "command": "excavate",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "orange",
+      "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Hall", "21 × 21 × 16"],
+        ["Rooms", "24 on 2 floors"],
+        ["Fuel", "~16,000"],
+        ["Server", "none needed"]
+      ],
+      "features": [
+        "Seals every cave, ravine and lava gap it opens with cobblestone",
+        "Asks what you want the ledge and stairs built from",
+        "Deep mode digs a shaft down and builds the hall 10 above bedrock",
+        "Resumes after reboots, chunk unloads, or being picked up"
+      ],
+      "setup": [
+        "Place the turtle at floor level in one corner of the hall-to-be. The hall grows forward and to the right.",
+        "Put a chest directly behind it with some coal in. Loot goes in there too.",
+        "Run the command. It prints the layout and the fuel it needs, then gets to work."
+      ],
+      "commands": [
+        ["excavate", "21×21×16 hall, digging up from the turtle"],
+        ["excavate 21 21 16 down", "dig downwards instead"],
+        ["excavate deep", "shaft down, hall floor 10 above bedrock"],
+        ["excavate resume", "carry on after stopping it"],
+        ["excavate here", "no GPS: you put it back on its start block"],
+        ["excavate cancel", "forget the current job"]
+      ],
+      "integrates": [
+        ["status-server", "Shows its progress, position and fuel on the dashboard."],
+        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."]
+      ],
+      "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hall: rooms on two floors, the ledge and the stairs." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "excavate", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Hall 21x21x16 (up), 24 rooms on 2 floors, ledge.", "", "white"],
+          ["Needs about 16000 fuel (have 5000). I refuel from the chest", "", "white"],
+          ["behind me, so put coal in it. Mined coal goes there too.", "", "white"],
+          ["When it's time to build I'll ask for 224 ledge blocks (slots 1-4)", "", "lightGray"],
+          ["and 88 stair blocks (slots 5-8).", "", "lightGray"],
+          ["Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
+      "name": "strip-mine-turtle",
+      "title": "Strip Miner",
+      "command": "stripmine",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "lightBlue",
+      "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, torches every 8 blocks, loot hauled home.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Main tunnel", "3 × 3 × 64"],
+        ["Branches", "10 pairs × 32"],
+        ["Fuel", "~5,000"],
+        ["Torches", "every 8 blocks"]
+      ],
+      "features": [
+        "Throws junk away and only brings back the good stuff",
+        "Places torches from its inventory as it goes",
+        "Never digs chests, spawners or ComputerCraft blocks",
+        "Refuels from the chest, including coal it mined itself"
+      ],
+      "setup": [
+        "Place the turtle on the floor where the tunnel starts, facing the way to dig.",
+        "Put a chest directly behind it with some coal in.",
+        "Optional: give it torches. Run the command and press Enter."
+      ],
+      "commands": [
+        ["stripmine", "64 long, 32 long branches, 3 blocks apart"],
+        ["stripmine 100 48 2", "main length, branch length, gap"],
+        ["stripmine 80 0", "just the main tunnel"],
+        ["stripmine resume", "carry on after stopping it"],
+        ["stripmine here", "no GPS: you put it back on its start block"],
+        ["stripmine cancel", "forget the current job"]
+      ],
+      "integrates": [
+        ["status-server", "Reports what it's digging and how far along it is."],
+        ["gps-deployer", "Optional GPS keeps it on route if it gets moved."]
+      ],
+      "render": { "kind": "voxel", "scene": "stripmine", "animate": true, "caption": "A smaller strip mine being dug: main tunnel first, each pair of branches as it passes them." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "stripmine", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Main tunnel 64 long, 10 pairs of branches 32 long, 3 blocks apart.", "", "white"],
+          ["Needs about 5000 fuel (have 1200). I refuel from the chest", "", "white"],
+          ["behind me, so put coal in it. Mined coal goes there too.", "", "white"],
+          ["Torches in my inventory get placed every 8 blocks.", "", "lightGray"],
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
+      "name": "village-turtle",
+      "title": "Village Builder",
+      "command": "village",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "lime",
+      "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Themes", "4"],
+        ["Buildings", "7 per theme"],
+        ["Radius", "48 blocks"],
+        ["Fuel", "~1,900 / building"]
+      ],
+      "features": [
+        "Medieval, desert, nordic and japanese themes",
+        "Surveys each plot and picks a building that fits the terrain",
+        "Streets with curbs, lamp posts and stairs on slopes",
+        "Saves after every block: survives any number of reboots"
+      ],
+      "setup": [
+        "Stand the turtle on fairly flat ground at the village centre, facing the village's \"forward\".",
+        "Supply chest directly behind it (a double chest is best), spoil chest to its left.",
+        "Fill the supply chest. 'village list medieval' shows what each building needs.",
+        "Run 'village', pick a theme and a radius."
+      ],
+      "commands": [
+        ["village", "start a new village here"],
+        ["village list [theme]", "blocks each building needs"],
+        ["village status", "what's built so far"],
+        ["village grow <radius>", "let a finished village grow further"],
+        ["village resume", "carry on (startup does this)"],
+        ["village here", "no GPS: reset to its home block"],
+        ["village cancel", "forget the village (buildings stay)"]
+      ],
+      "integrates": [
+        ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
+        ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."]
+      ],
+      "render": {
+        "kind": "gallery",
+        "caption": "Rendered from the real blueprints and from a 12-building village built in the simulator.",
+        "images": [
+          ["Medieval village", "computers/village-turtle/preview/example-medieval.svg"],
+          ["Desert village", "computers/village-turtle/preview/example-desert.svg"],
+          ["Nordic village", "computers/village-turtle/preview/example-nordic.svg"],
+          ["Japanese village", "computers/village-turtle/preview/example-japanese.svg"],
+          ["Village plan", "computers/village-turtle/preview/village-plan.svg"],
+          ["Medieval buildings", "computers/village-turtle/preview/medieval.svg"],
+          ["Desert buildings", "computers/village-turtle/preview/desert.svg"],
+          ["Nordic buildings", "computers/village-turtle/preview/nordic.svg"],
+          ["Japanese buildings", "computers/village-turtle/preview/japanese.svg"]
+        ]
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "village", "cmd"],
+          ["Village themes:", "", "yellow"],
+          ["1) Medieval: timber frame, cobble, spruce roofs", "", "white"],
+          ["2) Desert: sandstone, flat roofs, open doorways", "", "white"],
+          ["3) Nordic: spruce longhouses, steep dark roofs", "", "white"],
+          ["4) Japanese: dark wood, pale walls, tiled hip roofs", "", "white"],
+          ["Medieval village, up to 48 blocks out (about 21 plots).", "", "white"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
+      "name": "mob-farm-turtle",
+      "title": "Mob Farm Builder",
+      "command": "mobfarm",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "red",
+      "tagline": "Builds a classic drop-tower mob farm: dark spawning room, water channels, drop shaft and collection chest.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Spawn room", "18 × 18"],
+        ["Drop", "32 (or 22 for XP)"],
+        ["Blocks", "~1,200"],
+        ["Fuel", "~2,000"]
+      ],
+      "features": [
+        "Default drop kills everything; loot collects in the chest",
+        "XP mode leaves mobs on half a heart at a kill window",
+        "2-block headroom keeps endermen out",
+        "Builds with any block you put in slot 1"
+      ],
+      "setup": [
+        "Pick a spot with open sky. Over an ocean or far from caves works best.",
+        "Place the turtle where you want to stand to collect, facing the way the farm should go.",
+        "Supply chest directly behind it. 'mobfarm list' shows what goes in it.",
+        "Run the command and press Enter."
+      ],
+      "commands": [
+        ["mobfarm", "default farm, 32 block drop"],
+        ["mobfarm 22", "XP farm: mobs land on half a heart"],
+        ["mobfarm list", "what to put in the chest"],
+        ["mobfarm resume", "carry on after stopping it"],
+        ["mobfarm here", "no GPS: you put it back on its start block"],
+        ["mobfarm cancel", "forget the current job"]
+      ],
+      "integrates": [
+        ["status-server", "Shows which part of the farm it's building and what it's waiting for."],
+        ["gps-deployer", "Same GPS position checks as the excavator."]
+      ],
+      "render": {
+        "kind": "gallery",
+        "caption": "The default farm: finished, cut open, and a close-up of the bottom of the shaft.",
+        "images": [["Mob farm", "computers/mob-farm-turtle/preview/mobfarm.svg"]]
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "mobfarm", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Mob farm with a 32 block drop: 18x18 spawning room 32 blocks up,", "", "white"],
+          ["high enough to kill everything that falls.", "", "white"],
+          ["Building with cobblestone (from slot 1).", "", "lightGray"],
+          ["Needs about 2000 fuel (have 900); I refuel from the chest.", "", "white"],
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
+      "name": "mine-server",
+      "title": "AutoMine Server",
+      "command": "server",
+      "device": "computer",
+      "deviceLabel": "Advanced computer",
+      "color": "yellow",
+      "tagline": "The brain of AutoMine: hands chunks out to a fleet of mining turtles and shows a touch map for planning.",
+      "libs": ["report"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Turtles", "as many as you like"],
+        ["Map", "touch, chunk by chunk"],
+        ["State", "survives restarts"],
+        ["Needs", "ender / wireless modem"]
+      ],
+      "features": [
+        "Queue chunks for turtles, or reserve some for yourself",
+        "Status board on any attached monitor",
+        "Pause sends every turtle home; resume sends them back",
+        "Turtles keep mining while the server is down"
+      ],
+      "setup": [
+        "Place an advanced computer with a modem, plus any monitors.",
+        "Build the dock: open sky above, deposit chest below, fuel chest beside it.",
+        "Set the dock coordinates in config.lua ('edit config.lua').",
+        "Reboot. The server starts on its own and restarts if it ever stops."
+      ],
+      "commands": [
+        ["edit config.lua", "dock location, cruise height, depth, monitors"],
+        ["reboot", "start the server"]
+      ],
+      "integrates": [
+        ["mine-turtle", "Every miner asks this server for its next chunk over rednet."],
+        ["status-server", "Reports job totals to the dashboard."]
+      ],
+      "render": { "kind": "screen", "scene": "automine", "caption": "The AutoMine touch map. Pick a tool and tap chunks to try it." },
+      "terminal": null
+    },
+    {
+      "name": "mine-turtle",
+      "title": "AutoMine Turtle",
+      "command": "miner",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle + modem",
+      "color": "orange",
+      "tagline": "Same code on every miner. Asks the server for a chunk, flies there and mines it out, layer by layer.",
+      "libs": ["nav", "report"],
+      "autostart": true,
+      "stats": [
+        ["Pattern", "3-high layers"],
+        ["Depth", "y 60 to -59"],
+        ["Per chunk", "a few hours"],
+        ["Needs", "mine-server"]
+      ],
+      "features": [
+        "Flies at its own cruise lane so miners don't collide",
+        "Drops junk as it goes, docks to unload and refuel",
+        "Picks up where it stopped after a reboot",
+        "Parks beside the dock when there's nothing queued"
+      ],
+      "setup": [
+        "Craft a mining turtle with an ender modem (or wireless modem).",
+        "Place it, give it a bit of coal and run 'refuel all'.",
+        "Install and reboot. It names itself Miner-<id>.",
+        "With GPS it finds its own position. Without, it asks once (use F3)."
+      ],
+      "commands": [
+        ["refuel all", "before the first start"],
+        ["reboot", "start mining"]
+      ],
+      "integrates": [
+        ["mine-server", "Gets jobs and dock access from the server."],
+        ["gps-deployer", "GPS lets new miners find their position and facing on their own."],
+        ["status-server", "Each miner shows up with its chunk, progress and fuel."]
+      ],
+      "render": { "kind": "voxel", "scene": "automine", "caption": "Three chunks: one mined out, one in progress, one still queued." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["AutoMine turtle Miner-7", "", "yellow"],
+          ["travelling: to chunk 3,-2", "", "lightBlue"],
+          ["mining: chunk 3,-2 layer 4/40", "", "lime"],
+          ["mining: chunk 3,-2 layer 5/40", "", "lime"],
+          ["docking: inventory full", "", "lightBlue"],
+          ["mining: chunk 3,-2 layer 6/40", "", "lime"]
+        ]
+      }
+    },
+    {
+      "name": "status-server",
+      "title": "Status Dashboard",
+      "command": "server",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "cyan",
+      "tagline": "A live monitor wall of every computer and turtle: state, what it's doing, where it is and its fuel.",
+      "libs": [],
+      "autostart": true,
+      "stats": [
+        ["Setup per computer", "none"],
+        ["Offline after", "30 s"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["History", "saved"]
+      ],
+      "features": [
+        "Colour-coded cards: working, idle, waiting, travelling, error",
+        "Tap a card for its details and recent activity",
+        "Shows GPS or tracked positions",
+        "Pages through big fleets"
+      ],
+      "setup": [
+        "Place an advanced computer with a modem and an advanced monitor.",
+        "Install and reboot. Anything running lib/report.lua shows up on its own."
+      ],
+      "commands": [["reboot", "start the dashboard"]],
+      "integrates": [
+        ["mine-turtle", "Every program here reports to it through lib/report.lua."],
+        ["report", "Add two lines to any program of your own to put it on the dashboard."]
+      ],
+      "render": { "kind": "screen", "scene": "dashboard", "caption": "The dashboard on a 3×2 advanced monitor. It updates as computers report in." },
+      "terminal": null
+    },
+    {
+      "name": "gps-deployer",
+      "title": "GPS Deployer",
+      "command": "gps-deploy",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "purple",
+      "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on.",
+      "libs": ["nav", "report"],
+      "stats": [
+        ["Hosts", "4"],
+        ["Height", "as high as it can"],
+        ["Fuel", "~750"],
+        ["Range", "unlimited with ender modems"]
+      ],
+      "features": [
+        "Finds the build limit itself, whatever the modpack",
+        "Hosts label themselves and restart gps host on boot",
+        "Tests the new GPS when it lands",
+        "Re-run after a problem: finished hosts are skipped"
+      ],
+      "setup": [
+        "Load the turtle: 4 computers, 4 modems, a disk drive, a floppy disk and fuel.",
+        "Place it somewhere with open sky above it.",
+        "Run the command and enter its X, Y, Z and facing from F3."
+      ],
+      "commands": [
+        ["gps-deploy", "build as high as possible"],
+        ["gps-deploy 200", "build at a lower height"]
+      ],
+      "integrates": [
+        ["mine-turtle", "Every turtle here uses GPS to find and check its position."],
+        ["status-server", "Hosts appear on the dashboard as \"gps host\"."]
+      ],
+      "render": { "kind": "voxel", "scene": "gps", "caption": "The four hosts high above the start, one raised so they're not all in one plane." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "gps-deploy", "cmd"],
+          ["I'll climb as high as I can go and build the GPS just below that.", "", "white"],
+          ["Make sure the sky above me is clear. Press Enter to start.", "", "yellow"],
+          ["Building at Y 310-316.", "", "white"],
+          ["GPS-1 at 102, 310, -38", "", "lightGray"],
+          ["GPS-2 at 110, 310, -38", "", "lightGray"],
+          ["All 4 GPS hosts are running.", "", "lime"]
+        ]
+      }
+    }
+  ],
+  "libraries": [
+    {
+      "name": "nav",
+      "title": "lib/nav",
+      "file": "lib/nav.lua",
+      "color": "green",
+      "tagline": "Turtle position tracking and safe movement. Saved after every move, corrected by GPS, never digs your chests.",
+      "usage": "local nav = require(\"lib.nav\")\n\nif not nav.init() then            -- loads saved position, calibrates with GPS\n  nav.setPosition(0, 0, 0, \"north\")\nend\n\nlocal ok, err = nav.forward()     -- digs through anything that isn't protected\nif not ok then print(\"Stuck: \" .. err) end\n\nnav.goTo(10, 64, -5)              -- rises first, then x, then z, then down\nnav.writeFile(\"/.myjob_job\", job) -- crash-safe state file",
+      "api": [
+        ["nav.init(useGps)", "Load the saved position; calibrate with GPS unless useGps is false. Returns true if the position is known."],
+        ["nav.setPosition(x, y, z, h)", "Set position and heading outright (h is 0-3 or north/east/south/west)."],
+        ["nav.forward() / up() / down()", "Move, digging whatever is in the way. Returns ok, err (nofuel, protected, bedrock, undiggable, blocked)."],
+        ["nav.turnLeft() / turnRight() / face(h)", "Turn; face picks the shortest way round."],
+        ["nav.digUp() / digDown()", "Clear the block above or below, waiting out falling gravel."],
+        ["nav.goTo(x, y, z)", "Travel: rise to y, then x, then z, then descend. Climbs and retries if blocked."],
+        ["nav.getPos() / getHeading()", "Current position { x, y, z } and heading 0-3."],
+        ["nav.writeFile / readFile / deleteFile", "Crash-safe state files (temp file, then move)."]
+      ],
+      "notes": "Headings: 0 north (-z), 1 east (+x), 2 south (+z), 3 west (-x). Never dug: chests, barrels, shulker boxes, hoppers, furnaces, spawners and anything from ComputerCraft."
+    },
+    {
+      "name": "report",
+      "title": "lib/report",
+      "file": "lib/report.lua",
+      "color": "cyan",
+      "tagline": "Put any computer on the status dashboard with a few lines. Does nothing without a modem, so it's always safe to include.",
+      "usage": "local report = require(\"lib.report\")\nreport.init(\"wheat farm\")              -- what this computer is for\n\nlocal function main()\n  report.set(\"harvesting\", \"row 3 of 8\") -- state + what it's doing\n  report.log(\"chest full\")              -- a line in its activity list\nend\n\nparallel.waitForAny(main, report.loop) -- keeps it online while main runs",
+      "api": [
+        ["report.init(role)", "Say what this computer is for, e.g. \"auto miner\". Call once."],
+        ["report.set(state, detail, extra)", "Current state and what it's doing. Cheap: only sends on change or as a heartbeat."],
+        ["report.log(text)", "A one-off line for the computer's activity list."],
+        ["report.loop()", "Heartbeat loop. Run it beside your program with parallel."]
+      ],
+      "notes": "States are one lowercase word. The dashboard colours them: green working, grey idle, yellow/orange waiting or paused, blue travelling, red error. Pass { pos = { x, y, z } } in extra if the program tracks its own position."
+    }
+  ]
+}
