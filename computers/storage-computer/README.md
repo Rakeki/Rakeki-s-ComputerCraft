@@ -73,6 +73,11 @@ happens while it clears the plot. The footer shows what it's crafting, and
 why if it can't (no crafter chest, no crafting turtle answering, or not
 enough to make it from). `storage test` checks the crafting side too.
 
+If there isn't enough to make the whole order, it makes as many as it can
+(the turtle that asked gets those, and is told why not the rest). If the
+crafting turtle stops answering, waiting turtles are told that crafting is
+stuck, and it carries on by itself once the turtle is back.
+
 The recipes are in `recipes.lua`: everything craftable that the village
 themes use, plus the usual basics. Teach it more with `crafter learn` on the
 crafting turtle; those are saved on this computer in `/.storage_recipes`.
@@ -121,3 +126,8 @@ Then reboot, and it starts on its own from then on.
 - If the storage is full, items stay in the input chest and the footer says so.
 - Furnaces, hoppers, droppers and turtles on the network are never used as
   storage.
+- If the delivery or crafter chest can't be found when it starts (a modem
+  not red, say), it carries on without that feature and the footer says
+  which chest is missing. A missing input or output chest stops it.
+- Turtles' requests are handled one at a time, in the order they arrive; none
+  are lost while it's busy with another.

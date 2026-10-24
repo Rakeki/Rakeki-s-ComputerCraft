@@ -8,10 +8,12 @@ local CARD_W, CARD_H = 25, 7
 local STATE_COLOR = {
   running = colors.lime, working = colors.lime, mining = colors.lime, digging = colors.lime,
   building = colors.lime, serving = colors.lime, sealing = colors.lime, farming = colors.lime,
+  crafting = colors.lime, clearing = colors.lime, paving = colors.lime, surveying = colors.lime,
+  restocking = colors.lightBlue, checking = colors.lightBlue, stuck = colors.orange,
   alert = colors.red,
   idle = colors.lightGray, starting = colors.lightGray, done = colors.green,
   waiting = colors.yellow, paused = colors.orange,
-  docking = colors.lightBlue, returning = colors.lightBlue, traveling = colors.lightBlue,
+  docking = colors.lightBlue, returning = colors.lightBlue, traveling = colors.lightBlue, travelling = colors.lightBlue,
   unloading = colors.lightBlue,
   error = colors.red,
 }

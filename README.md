@@ -38,6 +38,15 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
 
+## How they connect
+
+Every program works on its own. With a modem they work together: everything
+reports to the status server, AutoMine turtles take jobs from the AutoMine
+server, the GPS deployer's hosts keep turtles on course, the village builder
+gets its blocks from the storage system (which has the crafter make what it
+lacks) and shows its next building through the blueprint projector. The
+website has a diagram of it all.
+
 ## Adding a computer
 
 1. Copy `computers/_template` to `computers/<name>` (e.g. `computers/mining-turtle`).

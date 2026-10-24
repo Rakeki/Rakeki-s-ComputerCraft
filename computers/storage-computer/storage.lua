@@ -171,7 +171,7 @@ end
 -- (into slot toSlot, if given). Returns how many went, and the error if a
 -- move failed outright.
 local function fetch(match, amount, to, toSlot)
-  local sent = 0
+  local sent, misses = 0, 0
   for _, name in ipairs(stores) do
     local touched = false -- only re-read chests items came from: each read takes a tick
     for slot, item in pairs(contents[name] or {}) do
@@ -184,8 +184,15 @@ local function fetch(match, amount, to, toSlot)
         end
         sent = sent + moved
         if moved == 0 then
-          rescan(name)
-          return sent -- that chest is full
+          -- the slot was emptied meanwhile, or the chest is full: after a
+          -- few misses in a row, take it that it's full
+          misses = misses + 1
+          if misses >= 3 then
+            rescan(name)
+            return sent
+          end
+        else
+          misses = 0
         end
         if sent >= amount then break end
       end
@@ -375,14 +382,22 @@ local function planningStock()
   return avail
 end
 
--- Queue the crafts that make count of name. Returns true if it can be done,
--- or false and why not.
+-- Queue the crafts that make count of name, or as many as can be made.
+-- Returns how many it's making (and why not all of them), or false and why.
 local function orderCraft(name, count)
   if not crafting then return false, "crafting.lua is missing: run 'install update'" end
   if not crafting.canMake(name) then return false, "no recipe for it" end
   if not setup.crafter then return false, "no crafter chest: run 'storage setup'" end
-  local jobs = crafting.plan(name, count, planningStock())
-  if not jobs then return false, "not enough to make it from" end
+  local stock = planningStock()
+  local jobs, why = crafting.plan(name, count, stock), nil
+  if not jobs then
+    -- make what we can, so a build gets as far as it can meanwhile
+    local can = crafting.craftable(name, stock, count - 1)
+    if can == 0 then return false, "not enough to make it from" end
+    count, why = can, ("only enough to make %d"):format(can)
+    jobs = crafting.plan(name, count, stock)
+    if not jobs then return false, "not enough to make it from" end
+  end
   planCount = planCount + 1
   for _, job in ipairs(jobs) do
     job.plan = planCount
@@ -391,17 +406,25 @@ local function orderCraft(name, count)
   jobs[#jobs].top = count -- the item asked for: counted in pendingCraft until it's made
   pendingCraft[name] = (pendingCraft[name] or 0) + count
   os.queueEvent("storage_craft")
-  return true
+  return count, why
 end
 
--- Put away anything in the crafter chest.
+-- Put away anything in the crafter chest. Returns false if it couldn't all
+-- go (storage full), since the turtle would craft with it.
 local function clearCrafter()
   local ok, list = pcall(peripheral.call, setup.crafter, "list")
-  if not ok then return end
-  for slot, item in pairs(list) do putAway(setup.crafter, slot, item, item.count) end
+  if not ok then return false end
+  local empty = true
+  for slot, item in pairs(list) do
+    if putAway(setup.crafter, slot, item, item.count) > 0 then empty = false end
+  end
+  return empty
 end
 
 local crafterId -- the crafting turtle, once found
+-- Why crafting is stuck right now (nil when it's working), so turtles
+-- waiting on a craft can say so.
+local craftProblem
 local jobId = 0
 
 -- One job: in batches that fit the turtle, put the ingredients in the
@@ -416,7 +439,7 @@ local function runJob(job)
       batch = math.min(batch, details[item] and details[item].maxCount or 64)
     end
     batch = math.max(1, batch)
-    clearCrafter()
+    if not clearCrafter() then return false, "the crafter chest won't empty: is storage full?" end
     for k = 1, 9 do
       local item = job.grid[k]
       if item then
@@ -438,8 +461,10 @@ local function runJob(job)
     clearCrafter()
     if not reply then
       crafterId = nil
+      craftProblem = "its crafting turtle didn't answer"
       return false, "the crafting turtle didn't answer"
     end
+    craftProblem = nil
     if (reply.made or 0) == 0 then return false, reply.error or "the recipe didn't work" end
     left = left - batch
   end
@@ -460,6 +485,7 @@ local function craftLoop()
       crafterId = crafterId or rednet.lookup(CRAFT_PROTOCOL)
       if not crafterId then
         message = { "No crafting turtle answered: is it running 'crafter'?", "orange" }
+        craftProblem = "its crafting turtle isn't answering"
         os.queueEvent("storage_changed")
         sleep(10)
       else
@@ -492,7 +518,10 @@ end
 -- Requests from turtles over rednet:
 --   { type = "count", items = { name, ... } }      -> { re = "count", counts = { [name] = n } }
 --   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
+--   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
+-- Requests may carry an id, which the reply repeats. count may carry need
+-- (name -> how many the turtle wants), which keeps craftable quick.
 -- count also answers craftable (how many more could be crafted), and deliver
 -- answers crafting (how many it has started making).
 -- Items with extra data (enchantments, names) are never counted or sent.
@@ -509,7 +538,12 @@ local function countPlain(names)
   return counts
 end
 
-local function netLoop()
+-- A request is handled start to finish before the next, and handling one
+-- can take a while (moving items, planning crafts). Messages that arrive
+-- meanwhile wait here, so none are missed.
+local inbox = {}
+
+local function netReceive()
   local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
   if not modem then
     message = { "No wireless modem: turtles can't ask me for items.", "orange" }
@@ -521,102 +555,129 @@ local function netLoop()
   rednet.host(NET_PROTOCOL, os.getComputerLabel() or ("storage-" .. os.getComputerID()))
   while true do
     local from, msg = rednet.receive(NET_PROTOCOL)
-    if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
-      local craftable = {}
-      if crafting and setup.crafter then
-        local avail = planningStock()
-        for _, name in ipairs(msg.items) do
-          if type(name) == "string" then craftable[name] = crafting.craftable(name, avail) + (pendingCraft[name] or 0) end
+    if type(msg) == "table" then
+      inbox[#inbox + 1] = { from = from, msg = msg }
+      os.queueEvent("storage_inbox")
+    end
+  end
+end
+
+-- Replies carry the request's id, so a turtle never takes a late answer to
+-- an earlier request for the answer to a new one.
+local function answer(to, request, reply)
+  reply.id = request.id
+  rednet.send(to, reply, NET_PROTOCOL)
+end
+
+local function handleRequest(from, msg)
+  if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
+    local craftable = {}
+    if crafting and setup.crafter then
+      local avail = planningStock()
+      for _, name in ipairs(msg.items) do
+        if type(name) == "string" then
+          local need = type(msg.need) == "table" and tonumber(msg.need[name]) or nil
+          craftable[name] = crafting.craftable(name, avail, need) + (pendingCraft[name] or 0)
         end
       end
-      rednet.send(from, { re = "count", counts = countPlain(msg.items), craftable = craftable }, NET_PROTOCOL)
-    elseif type(msg) == "table" and msg.type == "prepare" and type(msg.items) == "table" then
-      -- a turtle waiting for materials: start crafting what it'll need,
-      -- beyond what's stored and what's already being made
-      local stock, making, cantCraft = planningStock(), {}, {}
-      for name, n in pairs(msg.items) do
-        if type(name) == "string" and type(n) == "number" then
-          local missing = math.floor(n) - math.max(0, stock[name] or 0) - (pendingCraft[name] or 0)
-          if missing > 0 then
-            local okC, why = orderCraft(name, missing)
-            if okC then making[name] = missing else cantCraft[name] = why end
-            stock = planningStock()
-          end
-          if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
-        end
-      end
-      rednet.send(from, { re = "prepare", crafting = making, cantCraft = cantCraft }, NET_PROTOCOL)
-      local first, why = next(cantCraft)
-      local kinds = 0
-      for _ in pairs(making) do kinds = kinds + 1 end
-      if kinds > 0 then
-        message = { ("Crafting %d kinds of item for turtle #%d."):format(kinds, from), "lightBlue" }
-      elseif first and why ~= "no recipe for it" then
-        message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(first), from, why), "orange" }
-      end
-      os.queueEvent("storage_changed")
-    elseif type(msg) == "table" and msg.type == "learn" then
-      local okL, err = false, "this storage computer can't craft (crafting.lua is missing)"
-      if crafting then okL, err = crafting.learn(msg.recipe) end
-      rednet.send(from, { re = "learn", ok = okL and true or false, error = not okL and err or nil }, NET_PROTOCOL)
-      if okL then message = { ("Learnt how to make %s."):format(nameOf(msg.recipe.make)), "lime" } end
-      os.queueEvent("storage_changed")
-    elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
-      -- top the chest up to n of each item: what's already there counts
-      local to, sent, total = setup.delivery or setup.output, {}, 0
-      local okL, list = pcall(peripheral.call, to, "list")
-      local present = {}
-      for _, item in pairs(okL and list or {}) do
-        if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
-      end
-      -- ready: how many now wait in the chest; stock: how many are left in storage
-      local ready, names, short, failed = {}, {}, false, nil
-      for name, n in pairs(msg.items) do
-        if type(name) == "string" and type(n) == "number" and n > 0 then
-          n = math.floor(n)
-          local have = math.min(present[name] or 0, n)
-          sent[name] = 0
-          if have < n then
-            local err
-            sent[name], err = fetch(plain(name), n - have, to)
-            failed = failed or err
-          end
-          ready[name] = have + sent[name]
-          if ready[name] < n then short = true end
-          total = total + sent[name]
-          names[#names + 1] = name
-          if setup.delivery then reserved[name] = { n = ready[name], at = os.clock() } end
-        end
-      end
-      -- what isn't there yet and isn't already being made: craft it if we can
-      local making, cantCraft = {}, {}
-      for _, name in ipairs(names) do
-        local missing = math.floor(msg.items[name]) - ready[name] - (pendingCraft[name] or 0)
+    end
+    answer(from, msg, { re = "count", counts = countPlain(msg.items), craftable = craftable })
+  elseif type(msg) == "table" and msg.type == "prepare" and type(msg.items) == "table" then
+    -- a turtle waiting for materials: start crafting what it'll need,
+    -- beyond what's stored and what's already being made
+    local stock, making, cantCraft = planningStock(), {}, {}
+    for name, n in pairs(msg.items) do
+      if type(name) == "string" and type(n) == "number" then
+        local missing = math.floor(n) - math.max(0, stock[name] or 0) - (pendingCraft[name] or 0)
         if missing > 0 then
-          local okC, why = orderCraft(name, missing)
-          if okC then making[name] = missing else cantCraft[name] = why end
+          local made, why = orderCraft(name, missing)
+          if made then making[name] = made end
+          if why then cantCraft[name] = why end
+          stock = planningStock()
         end
         if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
       end
-      rednet.send(from, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), crafting = making,
-        cantCraft = cantCraft, to = setup.delivery and "delivery" or "output", error = failed }, NET_PROTOCOL)
-      if failed then
-        message = { "Couldn't move items for a turtle: " .. failed, "red" }
-      elseif total > 0 and not setup.delivery then
-        message = { ("Sent %d items to the output chest for turtle #%d: no delivery chest set."):format(total, from), "orange" }
-      elseif total > 0 then
-        message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
-      elseif short and next(making) then
-        message = { ("Turtle #%d asked for items I'm crafting now."):format(from), "lightBlue" }
-      elseif short and next(cantCraft) and select(2, next(cantCraft)) ~= "no recipe for it" then
-        local item, why = next(cantCraft)
-        message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(item), from, why), "orange" }
-      elseif short then
-        message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }
-      end
-      if total > 0 and report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
-      os.queueEvent("storage_changed")
     end
+    answer(from, msg, { re = "prepare", crafting = making, cantCraft = cantCraft, craftProblem = craftProblem })
+    local first, why = next(cantCraft)
+    local kinds = 0
+    for _ in pairs(making) do kinds = kinds + 1 end
+    if kinds > 0 then
+      message = { ("Crafting %d kinds of item for turtle #%d."):format(kinds, from), "lightBlue" }
+    elseif first and why ~= "no recipe for it" then
+      message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(first), from, why), "orange" }
+    end
+    os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "learn" then
+    local okL, err = false, "this storage computer can't craft (crafting.lua is missing)"
+    if crafting then okL, err = crafting.learn(msg.recipe) end
+    answer(from, msg, { re = "learn", ok = okL and true or false, error = not okL and err or nil })
+    if okL then message = { ("Learnt how to make %s."):format(nameOf(msg.recipe.make)), "lime" } end
+    os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
+    -- top the chest up to n of each item: what's already there counts
+    local to, sent, total = setup.delivery or setup.output, {}, 0
+    local okL, list = pcall(peripheral.call, to, "list")
+    local present = {}
+    for _, item in pairs(okL and list or {}) do
+      if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
+    end
+    -- ready: how many now wait in the chest; stock: how many are left in storage
+    local ready, names, short, failed = {}, {}, false, nil
+    for name, n in pairs(msg.items) do
+      if type(name) == "string" and type(n) == "number" and n > 0 then
+        n = math.floor(n)
+        local have = math.min(present[name] or 0, n)
+        sent[name] = 0
+        if have < n then
+          local err
+          sent[name], err = fetch(plain(name), n - have, to)
+          failed = failed or err
+        end
+        ready[name] = have + sent[name]
+        if ready[name] < n then short = true end
+        total = total + sent[name]
+        names[#names + 1] = name
+        if setup.delivery then reserved[name] = { n = ready[name], at = os.clock() } end
+      end
+    end
+    -- what isn't there yet and isn't already being made: craft it if we can
+    local making, cantCraft = {}, {}
+    for _, name in ipairs(names) do
+      local missing = math.floor(msg.items[name]) - ready[name] - (pendingCraft[name] or 0)
+      if missing > 0 then
+        local made, why = orderCraft(name, missing)
+        if made then making[name] = made end
+        if why then cantCraft[name] = why end
+      end
+      if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
+    end
+    answer(from, msg, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), crafting = making,
+      cantCraft = cantCraft, craftProblem = craftProblem, to = setup.delivery and "delivery" or "output", error = failed })
+    if failed then
+      message = { "Couldn't move items for a turtle: " .. failed, "red" }
+    elseif total > 0 and not setup.delivery then
+      message = { ("Sent %d items to the output chest for turtle #%d: no delivery chest set."):format(total, from), "orange" }
+    elseif total > 0 then
+      message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
+    elseif short and next(making) then
+      message = { ("Turtle #%d asked for items I'm crafting now."):format(from), "lightBlue" }
+    elseif short and next(cantCraft) and select(2, next(cantCraft)) ~= "no recipe for it" then
+      local item, why = next(cantCraft)
+      message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(item), from, why), "orange" }
+    elseif short then
+      message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }
+    end
+    if total > 0 and report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
+    os.queueEvent("storage_changed")
+  end
+end
+
+local function netLoop()
+  while true do
+    while #inbox == 0 do os.pullEvent("storage_inbox") end
+    local req = table.remove(inbox, 1)
+    handleRequest(req.from, req.msg)
   end
 end
 
@@ -732,10 +793,20 @@ if args[1] == "setup" or not loadSetup() then
 else
   setup = loadSetup()
 end
-for _, which in ipairs({ "input", "output", "delivery", "crafter" }) do
-  if setup[which] and not peripheral.isPresent(setup[which]) then
+for _, which in ipairs({ "input", "output" }) do
+  if not peripheral.isPresent(setup[which]) then
     print(("Can't find the %s chest (%s). Check its modem is red, or run 'storage setup'."):format(which, setup[which]))
     return
+  end
+end
+-- the optional ones: carry on without them, and say so
+local missingChest
+for _, which in ipairs({ "delivery", "crafter" }) do
+  if setup[which] and not peripheral.isPresent(setup[which]) then
+    print(("Can't find the %s chest (%s), so I'll do without it."):format(which, setup[which]))
+    print("Check its modem is red, or run 'storage setup'.")
+    missingChest = ("No %s chest found (%s): check its modem."):format(which, setup[which])
+    setup[which] = nil
   end
 end
 
@@ -798,9 +869,10 @@ if args[1] == "test" then
 end
 
 term.clear()
+if missingChest then message = { missingChest, "orange" } end
 
 if report then report.init("storage") end
-local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netLoop, sweepLoop, craftLoop,
+local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
   report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)

@@ -90,8 +90,12 @@ local function craft(steps)
     end
   end
   turtle.select(OUT_SLOT)
-  local before = {}
+  local before, had = {}, {} -- per grid slot, and per item name
   for _, g in ipairs(GRID) do before[g] = turtle.getItemCount(g) end
+  for slot = 1, 16 do
+    local item = turtle.getItemDetail(slot)
+    if item then had[item.name] = (had[item.name] or 0) + item.count end
+  end
   local ok, err = turtle.craft(steps)
   -- some versions count the limit in items rather than crafts: carry on
   -- while there are ingredients left and it still works
@@ -104,14 +108,17 @@ local function craft(steps)
     if not left then break end
     ok = turtle.craft()
   end
-  -- what came out: anything outside the grid, plus grid slots that grew
-  local out, outName = 0, nil
+  -- what came out: the item there's now more of than before (output can
+  -- land back in the grid once the ingredients there are used up)
+  local now = {}
   for slot = 1, 16 do
     local item = turtle.getItemDetail(slot)
-    if item and (not before[slot] or before[slot] == 0) then
-      outName = outName or item.name
-      if item.name == outName then out = out + item.count end
-    end
+    if item then now[item.name] = (now[item.name] or 0) + item.count end
+  end
+  local out, outName = 0, nil
+  for name, n in pairs(now) do
+    local gained = n - (had[name] or 0)
+    if gained > out then out, outName = gained, name end
   end
   emptyOut()
   if out == 0 then return 0, err or "that isn't a recipe I can make" end

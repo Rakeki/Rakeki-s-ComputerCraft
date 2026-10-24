@@ -56,7 +56,8 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
 
 ### Teaching it a recipe
 
-1. Stop the crafter (hold Ctrl+T) and put one set of the recipe in its
+1. Stop the crafter: hold Ctrl+T, then hold it again while it says
+   "Restarting in 5s" so it doesn't start back up. Put one set of the recipe in its
    crafting grid: slots 1-3 are the top row, 5-7 the middle and 9-11 the
    bottom. Leave every other slot empty.
 2. Run `crafter learn`. It crafts it once to see what it makes and sends the
@@ -71,9 +72,12 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
 - One craft job at a time, up to 64 crafts per batch (fewer for things that
   don't stack to 64, and never more than 6 stacks of output). Big orders are
   split into batches.
-- If something it needs runs out half way, it stops that order and the
-  storage computer's footer says what was missing. The turtle that asked will
-  ask again, and it starts again once there's enough.
+- If there isn't enough to make a whole order, the storage computer has it
+  make as many as it can. If something runs out half way, that order stops
+  and the storage computer's footer says what was missing; the turtle that
+  asked will ask again, and it starts again once there's enough.
+- If this turtle is off or out of range, turtles waiting on a craft are told
+  crafting is stuck, and it all carries on once it's back.
 - It uses whichever matching item there's most of where a recipe takes any
   planks or any coal.
 - Items with extra data (enchanted or named) are never used as ingredients.

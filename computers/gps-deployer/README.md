@@ -3,6 +3,7 @@
 - **Type:** mining turtle (a wireless or ender modem as well lets it test the GPS at the end)
 - **Computer ID:** 
 - **Label:** 
+- **Location:** 
 
 ## What it does
 

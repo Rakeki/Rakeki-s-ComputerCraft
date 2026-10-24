@@ -160,6 +160,35 @@ resumable turtle job** (job file, local coordinates, chest behind the
 start, refuel from chest, resume after reboot). Copy its patterns rather than
 inventing new ones.
 
+## How the programs talk
+
+All over rednet on a wireless or ender modem, except chest-to-chest moves,
+which go over the storage system's wired network. Requests carry an `id`
+that the reply repeats, so a late reply is never taken for a newer one.
+
+| Protocol | From → to | Messages |
+|---|---|---|
+| `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
+| `automine` | mine-turtle ↔ mine-server | jobs, progress, docking; the turtle retries until answered |
+| `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
+| `storage` | village-turtle, crafter-turtle → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe) |
+| `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest, slot k = grid cell k), `ping`; replies `crafted`, `pong` |
+
+Rules that keep it from stalling:
+
+- The storage computer files incoming requests in an inbox (`netReceive`)
+  and a separate loop (`netLoop`) answers them, so a request that arrives
+  while another is being handled is never lost.
+- Anything that waits for a reply has a deadline and says on screen what
+  it's waiting for; nothing waits forever without saying why.
+- Crafting is planned all at once (`crafting.lua`), queued, and run one
+  batch at a time; `pendingCraft` stops the same order being queued twice.
+  When the whole amount can't be made, it makes as many as it can.
+- Long computations yield now and then (`crafting.lua`'s `breathe`) so CC
+  never stops the program for running too long without yielding.
+- Optional chests (delivery, crafter) that go missing turn their feature
+  off with a message instead of stopping the storage system.
+
 ## Skills
 
 Detailed guides live in `.claude/skills/`:

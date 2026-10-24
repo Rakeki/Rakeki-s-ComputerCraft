@@ -221,7 +221,9 @@ blocks that aren't stored but can be crafted from what is (fences from logs,
 slabs from smooth sandstone, lanterns from iron and coal...) count as
 available too. While it waits for a building's materials it asks the storage
 system to start crafting what's short, and its screen says what's being made
-(or why it can't be, such as no crafter chest set).
+(or why it can't be, such as no crafter chest set, or only enough to make
+some). If the crafting turtle is off, it says crafting is stuck, and carries
+on by itself once it's back.
 
 To turn this off, set `USE_STORAGE = false` at the top of `village.lua`.
 

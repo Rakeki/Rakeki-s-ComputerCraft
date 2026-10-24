@@ -747,7 +747,7 @@ local function ensureFuel(target)
     waitUntil(function()
       topUp()
       return fuelLevel() >= need
-    end, { ("Need fuel: have %d, want %d."):format(fuelLevel(), need), "Put coal in the supply chest or in me." },
+    end, { ("Need fuel: have %d, want %d."):format(fuelLevel(), need), "Put coal in me, or in the storage system if I use one." },
     "needs fuel")
   end
 end
@@ -968,6 +968,7 @@ end
 
 local storageId -- the storage computer, once found
 local noStorageUntil = 0 -- don't look again before this (os.clock)
+local requestId = 0
 
 -- Say what the storage system did, but not the same thing over and over
 -- (orders repeat every 10 seconds while waiting).
@@ -997,26 +998,33 @@ local function askStorage(msg)
     end
     print(("Found the storage system (computer #%d)."):format(storageId))
   end
+  -- each request has its own id, so a late answer to an earlier one is ignored
+  requestId = requestId + 1
+  msg.id = requestId
   rednet.send(storageId, msg, STORAGE_PROTOCOL)
+  local deadline = os.clock() + 10
   while true do
-    local id, reply = rednet.receive(STORAGE_PROTOCOL, 10)
-    if not id then
+    local id, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if not id or os.clock() >= deadline then
       storageNote(("The storage system (computer #%d) stopped answering."):format(storageId))
       storageId = nil -- gone quiet: look it up again next time
       return nil
     end
-    if id == storageId and type(reply) == "table" and reply.re == msg.type then return reply end
+    if id == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
   end
 end
 
--- How much of each item the storage system has (name -> count), or nil.
 -- Say what the storage system is crafting for us, or why it can't.
 local function craftNotes(r, order)
+  if r.craftProblem and r.crafting and next(r.crafting) then
+    storageNote(("The storage system's crafting is stuck: %s."):format(r.craftProblem))
+  end
   for item in pairs(order) do
     local making = r.crafting and r.crafting[item]
     local why = r.cantCraft and r.cantCraft[item]
     if making then
-      storageNote(("The storage system is crafting %d %s for me."):format(making, shortName(item)))
+      storageNote(("The storage system is crafting %d %s for me%s."):format(making, shortName(item),
+        why and why ~= "no recipe for it" and (" (" .. why .. ")") or ""))
     elseif why and why ~= "no recipe for it" then
       storageNote(("The storage system can't craft %s: %s."):format(shortName(item), why))
     end
@@ -1030,10 +1038,12 @@ local function prepareFromStorage(want)
   if r then craftNotes(r, want) end
 end
 
--- What it can craft (with a crafting turtle) counts too.
-local function storageCounts(names)
+-- How much of each item the storage system has (name -> count), or nil.
+-- What it can craft (with a crafting turtle) counts too, up to need
+-- (name -> how many we want).
+local function storageCounts(names, need)
   if #names == 0 then return nil end
-  local r = askStorage({ type = "count", items = names })
+  local r = askStorage({ type = "count", items = names, need = need })
   if not r then return nil end
   local counts = r.counts or {}
   for name, n in pairs(r.craftable or {}) do counts[name] = (counts[name] or 0) + n end
@@ -1064,6 +1074,9 @@ orderFromStorage = function(needs)
   if not r then return nil end
   local total = 0
   for _, n in pairs(r.sent or {}) do total = total + n end
+  if r.craftProblem and r.crafting and next(r.crafting) then
+    storageNote(("The storage system's crafting is stuck: %s."):format(r.craftProblem))
+  end
   if r.error then
     storageNote("The storage system couldn't move items: " .. tostring(r.error))
     storageNote("Run 'storage test' on it to check its delivery chest.")
@@ -1078,7 +1091,8 @@ orderFromStorage = function(needs)
     local making = r.crafting and r.crafting[item]
     local why = r.cantCraft and r.cantCraft[item]
     if ready < n and making then
-      storageNote(("The storage system is crafting %d %s for me."):format(making, shortName(item)))
+      storageNote(("The storage system is crafting %d %s for me%s."):format(making, shortName(item),
+        why and why ~= "no recipe for it" and (" (" .. why .. ")") or ""))
     elseif ready < n and why and why ~= "no recipe for it" then
       storageNote(("The storage system can't craft %s: %s."):format(shortName(item), why))
     elseif ready < n and r.stock and r.stock[item] == 0 then
@@ -1208,7 +1222,7 @@ local function doChoose(c)
       want[m.item] = m.n
     end
     if #names > 0 then prepareFromStorage(want) end
-    local counts = storageCounts(names)
+    local counts = storageCounts(names, want)
     if counts then
       for item, n in pairs(counts) do stock[item] = (stock[item] or 0) + n end
       missing = shortfall(needs, stock)
@@ -1421,7 +1435,7 @@ local function doBuild(c)
           fetch(function(x) return x == s.item end, want[s.item] or 1, function() return count(s.item) end)
           faceLocal(0)
           return count(s.item) > 0
-        end, { "Out of " .. shortName(s.item) .. ". Put some in the supply chest." }, "needs " .. shortName(s.item))
+        end, { "Out of " .. shortName(s.item) .. ". Put some in the supply chest", "(or the storage system's input chest, if I use one)." }, "needs " .. shortName(s.item))
       elseif r == "nofill" and countFill() == 0 then
         waitUntil(function()
           fetch(function(x) return FILL[x] end, FILL_LOAD, countFill)

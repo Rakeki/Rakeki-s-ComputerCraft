@@ -2,6 +2,8 @@
 
 - **Type:** mining turtle with an ender modem (or wireless modem) on the other side
 - **Computer IDs:** (list each miner here)
+- **Label:** 
+- **Location:** wherever the server sends it; home is the server's dock
 - **Peripherals:** diamond pickaxe + modem
 
 The same code runs on every miner. Make as many as you like.

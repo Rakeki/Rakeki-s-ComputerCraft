@@ -136,6 +136,17 @@ end
 
 local planItem -- defined below; the two call each other
 
+-- CC stops a program that runs too long without yielding, and a big plan
+-- (or many of them, for counts) can. Yield now and then.
+local calls = 0
+local function breathe()
+  calls = calls + 1
+  if calls % 200 == 0 and os and os.queueEvent then
+    os.queueEvent("crafting_yield")
+    os.pullEvent("crafting_yield")
+  end
+end
+
 -- One recipe, made count times over (rounded up to whole crafts).
 local function planRecipe(r, count, avail, jobs, depth, visiting)
   local steps = math.ceil(count / r.count)
@@ -184,6 +195,7 @@ end
 -- avail and jobs are left as they were.
 planItem = function(name, count, avail, jobs, depth, visiting)
   if count <= 0 then return true end
+  breathe()
   if depth > MAX_DEPTH or visiting[name] then return false end
   for _, r in ipairs(byMake[name] or {}) do
     local saved, savedJobs = copy(avail), #jobs
@@ -214,14 +226,17 @@ function crafting.plan(name, count, avail)
   return merged
 end
 
--- How many of name could be crafted from avail (on top of what's stored).
-function crafting.craftable(name, avail)
+-- How many of name could be crafted from avail (on top of what's stored),
+-- counting no higher than max (or MAX_CRAFTABLE).
+function crafting.craftable(name, avail, max)
   if not crafting.canMake(name) then return 0 end
+  max = math.max(1, math.min(max or MAX_CRAFTABLE, MAX_CRAFTABLE))
   local function can(n) return crafting.plan(name, n, avail) ~= nil end
   if not can(1) then return 0 end
+  if can(max) then return max end
   local lo, hi = 1, 2
-  while hi <= MAX_CRAFTABLE and can(hi) do lo, hi = hi, hi * 2 end
-  if hi > MAX_CRAFTABLE then return lo end
+  while hi < max and can(hi) do lo, hi = hi, hi * 2 end
+  hi = math.min(hi, max)
   while hi - lo > 1 do
     local mid = math.floor((lo + hi) / 2)
     if can(mid) then lo = mid else hi = mid end
