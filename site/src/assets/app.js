@@ -66,9 +66,22 @@
     } else if (r.kind === "gallery") {
       holder.append(h(`<img class="cover" loading="lazy" alt="${esc(r.images[0][0])}" src="${ROOT}${r.images[0][1]}">`));
     } else {
+      // a screen: below the tag, and narrow enough to fit the picture's
+      // height (its text grows with its width, so its shape stays the same)
+      holder.classList.add("screen-thumb");
       const b = screenEl(r.scene, true);
       b.style.width = "86%";
       holder.append(b);
+      let shape = 0;
+      const size = () => {
+        const cs = getComputedStyle(holder);
+        const room = holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        if (room <= 0 || !b.offsetHeight) return;
+        if (!shape) shape = b.offsetWidth / b.offsetHeight;
+        b.style.width = `${Math.floor(Math.min(holder.clientWidth * 0.86, room * shape))}px`;
+      };
+      requestAnimationFrame(() => requestAnimationFrame(size)); // once the text has been sized
+      window.addEventListener("resize", size);
     }
   }
 
