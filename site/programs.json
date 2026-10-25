@@ -599,21 +599,23 @@
         "Enter sends a stack to the output chest, Right arrow just one",
         "Puts new items next to the same item when it can",
         "Turtles can ask for items over rednet; the village builder stocks itself from it",
-        "With a crafting turtle, makes what it's asked for but doesn't have"
+        "With a crafting turtle, makes what it's asked for but doesn't have",
+        "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles"
       ],
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
-        "Run storage and pick the input, output and (optional) delivery and crafter chests.",
+        "Run storage and pick the input, output and (optional) delivery, crafter and fuel chests.",
         "Reboot. Every other chest is storage."
       ],
       "commands": [
         ["storage", "start (asks for the input and output chests the first time)"],
-        ["storage setup", "pick the input, output, delivery and crafter chests again"],
-        ["storage test", "check deliveries, the wireless modem and the crafting turtle"]
+        ["storage setup", "pick the input, output, delivery, crafter and fuel chests again"],
+        ["storage test", "check deliveries, the fuel chest, the wireless modem and the crafting turtle"]
       ],
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
         ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
+        ["smelter-computer", "Loads ores and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
@@ -674,6 +676,60 @@
           ["Crafted 72 jungle planks.", "", "white"],
           ["Crafted 28 stick.", "", "white"],
           ["Crafted 42 jungle fence.", "", "white"]
+        ]
+      }
+    },
+    {
+      "name": "smelter-computer",
+      "title": "Smelter",
+      "command": "smelter",
+      "device": "computer",
+      "deviceLabel": "Computer + wired modem",
+      "color": "red",
+      "tagline": "Keeps the storage system's furnaces busy: smelts ores as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
+      "libs": ["report"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Furnaces", "as many as you cable"],
+        ["Checks", "every 10 s"],
+        ["Fuel", "from the fuel chest"],
+        ["Charcoal", "on request"]
+      ],
+      "features": [
+        "Smelts raw metals, ore blocks and ancient debris from storage by itself",
+        "Shares the work out between furnaces, blast furnaces first",
+        "Fuels each furnace for what's in it, from the storage system's fuel chest",
+        "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
+        "Smelted goods go back into storage through the input chest"
+      ],
+      "setup": [
+        "Put a wired modem on each furnace and blast furnace and join them to the storage network with cable. Right-click each modem.",
+        "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
+        "Install and reboot. Change what gets smelted in config.lua."
+      ],
+      "commands": [
+        ["smelter", "start (runs on boot)"],
+        ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
+        ["smelter cancel", "stop making charcoal (or press X)"]
+      ],
+      "integrates": [
+        ["storage-computer", "Holds the ores and the fuel chest, and loads the furnaces when the smelter asks."],
+        ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
+        ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
+        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal order."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "smelter",
+        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal order."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "smelter charcoal 256 spruce", "cmd"],
+          ["Charcoal order saved: 256 from spruce.", "", "white"],
+          ["The smelter starts on it within 10 seconds, or when it's next started.", "", "white"]
         ]
       }
     },

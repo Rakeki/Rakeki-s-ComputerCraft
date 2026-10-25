@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modems and networking cable to every chest; optional monitor, a wireless modem for turtles and the status server, and a [crafting turtle](../crafter-turtle/README.md)
+- **Peripherals:** wired modems and networking cable to every chest; optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../smelter-computer/README.md)
 
 ## What it does
 
@@ -22,6 +22,9 @@ the computer's wired network is storage, except the ones you choose for:
   (which is never cleared out).
 - **Crafter chest** (optional): the chest in front of a
   [crafting turtle](../crafter-turtle/README.md). See [Crafting](#crafting).
+- **Fuel chest** (optional): where the coal and charcoal are kept, for the
+  [smelter's](../smelter-computer/README.md) furnaces and for turtles. See
+  [Fuel](#fuel).
 
 The terminal shows every stored item with its count, biggest first. Type to
 search (by name, as you'd see it in game), pick with the arrow keys or the
@@ -81,8 +84,24 @@ stuck, and it carries on by itself once the turtle is back.
 The recipes are in `recipes.lua`: everything craftable that the village
 themes use, plus the usual basics. Teach it more with `crafter learn` on the
 crafting turtle; those are saved on this computer in `/.storage_recipes`.
-Smelting isn't crafting: smooth sandstone, glass and the like still have to
-be stocked.
+Smelting isn't crafting: smooth sandstone, glass and the like aren't made
+on request. The [smelter](../smelter-computer/README.md) smelts ores as they
+come in, and anything else you add to its list.
+
+### Fuel
+
+With a fuel chest, coal, charcoal and coal blocks that come in (through the
+input chest, or put back from the delivery or crafter chest) go into the
+fuel chest first, and into storage only once it's full. Nothing else is
+ever put in it.
+
+The fuel chest still counts as part of the store: turtles that ask for coal
+or charcoal (the village builder does when it's low) get it from there, and
+it shows up in the search. The [smelter](../smelter-computer/README.md)
+fuels its furnaces from the fuel chest before coal kept anywhere else, and
+the charcoal it makes from spare logs comes back to it. A turtle parked
+next to the fuel chest can also take fuel straight from it; the storage
+computer re-counts it every 5 seconds.
 
 ## Files
 
@@ -107,12 +126,13 @@ be stocked.
    wireless modem on it for turtles and the status server.
 5. Run `storage`. The first time it lists the chests it can see by name and
    asks which is the input, which is the output, which (if any) is the
-   delivery chest for turtles, and which (if any) is the crafter chest.
+   delivery chest for turtles, which (if any) is the crafter chest, and
+   which (if any) is the fuel chest.
 
    ```
    storage                   -- start
-   storage setup             -- pick the input, output, delivery and crafter chests again
-   storage test              -- check deliveries (one item there and back) and the crafting turtle
+   storage setup             -- pick the input, output, delivery, crafter and fuel chests again
+   storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
    ```
 
 Then reboot, and it starts on its own from then on.
@@ -126,8 +146,10 @@ Then reboot, and it starts on its own from then on.
 - If the storage is full, items stay in the input chest and the footer says so.
 - Furnaces, hoppers, droppers and turtles on the network are never used as
   storage.
-- If the delivery or crafter chest can't be found when it starts (a modem
+- If the delivery, crafter or fuel chest can't be found when it starts (a modem
   not red, say), it carries on without that feature and the footer says
   which chest is missing. A missing input or output chest stops it.
+- The [smelter](../smelter-computer/README.md) asks for things over the
+  wired network's cable, so it works without a wireless modem.
 - Turtles' requests are handled one at a time, in the order they arrive; none
   are lost while it's busy with another.

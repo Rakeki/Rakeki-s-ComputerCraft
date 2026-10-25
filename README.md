@@ -36,6 +36,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
 - [storage-computer](computers/storage-computer/README.md): turns a network of chests into one searchable store with an input and an output chest
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
+- [smelter-computer](computers/smelter-computer/README.md): keeps the storage system's furnaces busy smelting ores, fuels them from its fuel chest, and burns spare logs into charcoal on request
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
 
 ## How they connect
@@ -44,7 +45,7 @@ Every program works on its own. With a modem they work together: everything
 reports to the status server, AutoMine turtles take jobs from the AutoMine
 server, the GPS deployer's hosts keep turtles on course, the village builder
 gets its blocks from the storage system (which has the crafter make what it
-lacks) and shows its next building through the blueprint projector. The
+lacks, and the smelter smelt its ores) and shows its next building through the blueprint projector. The
 website has a diagram of it all.
 
 ## Adding a computer

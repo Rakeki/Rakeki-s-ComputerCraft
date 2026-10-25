@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal and colony dashboard.
+// blueprint projector panel, storage terminal, smelter and colony dashboard.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -590,6 +590,95 @@
     return s;
   }
 
+  //---------------------------------------------------------------- smelter
+
+  // The smelter's screen: same layout as computers/smelter-computer/smelter.lua.
+  // Furnaces smelt down on their own and get reloaded from a pile of ores;
+  // click the footer (or the order line) to place a charcoal order.
+  function smelter(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const furnaces = [
+      { name: "blast furnace 0", blast: true, input: ["raw iron", 64], fuel: ["charcoal", 8] },
+      { name: "blast furnace 1", blast: true, input: ["raw gold", 23], fuel: ["charcoal", 3] },
+      { name: "furnace 0", input: ["raw copper", 40], fuel: ["coal", 5] },
+      { name: "furnace 1", input: ["raw copper", 40], fuel: ["coal", 5] },
+      { name: "furnace 2", input: null, fuel: null },
+      { name: "furnace 3", input: null, fuel: null },
+    ];
+    const ores = { "raw iron": 410, "raw copper": 96, "raw gold": 0 };
+    const st = { fuel: 2384, order: null, msg: ["Loaded 80 items into 2 furnaces.", "lightGray"], tick: 0 };
+
+    function load(f) {
+      if (!f.blast && st.order && st.order.loaded < st.order.count) {
+        const n = Math.min(64, st.order.count - st.order.loaded);
+        st.order.loaded += n;
+        f.input = ["spruce log", n];
+      } else {
+        const name = Object.keys(ores).sort((a, b) => ores[b] - ores[a])[0];
+        if (!ores[name]) return;
+        const n = Math.min(64, ores[name]);
+        ores[name] -= n;
+        f.input = [name, n];
+      }
+      const want = Math.ceil(f.input[1] / 8);
+      f.fuel = [f.fuel ? f.fuel[0] : "charcoal", Math.max(f.fuel ? f.fuel[1] : 0, want)];
+      st.msg = [`Loaded ${f.input[1]} ${f.input[0]} into ${f.name}.`, "lightGray"];
+    }
+
+    function step() {
+      st.tick++;
+      for (const f of furnaces) {
+        if (!f.input) { load(f); continue; }
+        const n = Math.min(f.input[1], f.blast ? 2 : 1);
+        f.input[1] -= n;
+        if (f.input[0] === "spruce log" && st.order) st.order.made += n;
+        if (st.tick % 8 === 0 && f.fuel) { f.fuel[1]--; st.fuel = Math.max(0, st.fuel - 8); }
+        if (f.fuel && f.fuel[1] <= 0) f.fuel = null;
+        if (f.input[1] <= 0) f.input = null;
+      }
+      if (st.order && st.order.made >= st.order.count) {
+        st.fuel += st.order.made * 8;
+        st.msg = [`Made ${st.order.made} charcoal. It's in the fuel chest.`, "lime"];
+        st.order = null;
+      }
+      if (!Object.values(ores).some((n) => n > 0) && !furnaces.some((f) => f.input)) Object.assign(ores, { "raw iron": 410, "raw copper": 96, "raw gold": 64 });
+    }
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Smelter", "yellow", "gray");
+      const stat = `fuel for ${st.fuel} items`;
+      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      const fuelX = W - 12;
+      s.put(2, 3, "Furnace", "yellow"); s.put(20, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
+      furnaces.forEach((f, i) => {
+        const y = 4 + i;
+        s.put(2, y, fitT(f.name, 17), f.blast ? "orange" : "white");
+        s.put(20, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - 21), f.input ? "white" : "gray");
+        s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
+      });
+      const o = st.order;
+      s.put(1, H - 2, fitT(" " + (o ? `Charcoal: ${o.made} of ${o.count} made from spruce log` : "No charcoal order."), W), o ? "lightBlue" : "gray");
+      s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+      s.put(1, H, fitT("C: make charcoal  X: cancel charcoal", W), "gray");
+      const order = () => {
+        st.order = st.order ? null : { count: 128, loaded: 0, made: 0 };
+        st.msg = st.order ? ["Making 128 charcoal from spruce log.", "lightBlue"] : ["Charcoal order cancelled. Logs already in furnaces still burn.", "lightGray"];
+      };
+      s.zones.push({ x1: 1, x2: W, y1: H - 2, y2: H, action: order });
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 900);
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- colony dashboard
 
   // The MineColonies dashboard on a monitor: same pages and layout as
@@ -671,5 +760,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, colony } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, colony } };
 })();

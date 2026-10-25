@@ -153,6 +153,7 @@ Existing computers:
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report |
 | `storage-computer` | Wired chest network as one searchable store; serves item requests from turtles over rednet and plans crafting | report (if present) |
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | report (if present) |
+| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | report (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | report (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
@@ -163,15 +164,17 @@ inventing new ones.
 ## How the programs talk
 
 All over rednet on a wireless or ender modem, except chest-to-chest moves,
-which go over the storage system's wired network. Requests carry an `id`
-that the reply repeats, so a late reply is never taken for a newer one.
+which go over the storage system's wired network, and the smelter, which
+sends rednet over that network's cable (the storage computer opens every
+modem it has). Requests carry an `id` that the reply repeats, so a late
+reply is never taken for a newer one.
 
 | Protocol | From → to | Messages |
 |---|---|---|
 | `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
 | `automine` | mine-turtle ↔ mine-server | jobs, progress, docking; the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
-| `storage` | village-turtle, crafter-turtle → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe) |
+| `storage` | village-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
 | `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest, slot k = grid cell k), `ping`; replies `crafted`, `pong` |
 
 Rules that keep it from stalling:
@@ -186,7 +189,10 @@ Rules that keep it from stalling:
   When the whole amount can't be made, it makes as many as it can.
 - Long computations yield now and then (`crafting.lua`'s `breathe`) so CC
   never stops the program for running too long without yielding.
-- Optional chests (delivery, crafter) that go missing turn their feature
+- Only the storage computer takes items out of storage chests (it caches
+  their contents); the smelter asks it to fill furnaces and only empties
+  them into the input chest itself.
+- Optional chests (delivery, crafter, fuel) that go missing turn their feature
   off with a message instead of stopping the storage system.
 
 ## Skills

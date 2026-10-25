@@ -163,6 +163,7 @@
       excavate: [340, 540, 150, "excavate-turtle", "Excavator", "turtle", "orange"],
       strip: [540, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
       mob: [740, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
+      smelter: [920, 540, 150, "smelter-computer", "Smelter", "computer", "red"],
     };
     const P = CC.PALETTE;
     const line = (d, c, w = 2.5, extra = "") => `<path class="flow" d="${d}" stroke="${c}" stroke-width="${w}" fill="none"${extra}/>`;
@@ -186,6 +187,8 @@
     edges += line(curve(650, 248, 575, 352), P.blue, 3);
     // the storage system hands crafting jobs to the crafter
     edges += line(curve(615, 248, 380, 352), P.brown, 3);
+    // the storage system loads the smelter's furnaces (down the gap between the farms)
+    edges += line("M770,248 L770,272 L830,272 L830,470 L900,470 L900,512", P.red, 3);
     // farms drop their harvest into the storage system's input chest
     edges += line(curve(740, 352, 715, 248), P.green);
     edges += line(curve(900, 352, 760, 248), P.green);
@@ -205,7 +208,7 @@
     const labels = tag(612, 124, "report.set()", P.lime) + tag(30, 305, "rednet", P.orange)
       + tag(210, 292, "gps.locate()", P.lightBlue) + tag(1110, 305, "builds", P.purple)
       + tag(262, 340, "current building", P.magenta) + tag(628, 322, "blocks", P.blue)
-      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown);
+      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown) + tag(838, 462, "ores, fuel", P.red);
     return `<svg viewBox="0 0 1200 600" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 

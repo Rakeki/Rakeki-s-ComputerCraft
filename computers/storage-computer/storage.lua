@@ -8,10 +8,13 @@
 -- uses this to stock its supply chest). With a crafting turtle as well
 -- (computers/crafter-turtle), anything asked for that isn't stored but can be
 -- made from what is gets crafted (recipes.lua, plus recipes taught in-game).
+-- An optional fuel chest holds the coal and charcoal: fuel that comes in is
+-- put there first, turtles asking for coal are served from it, and the
+-- smelter (computers/smelter-computer) fuels its furnaces from it.
 --
 --   storage          start (asks which chest is input and output the first time)
---   storage setup    choose the input, output, delivery and crafter chests again
---   storage test     check deliveries (one item there and back) and the crafting turtle
+--   storage setup    choose the input, output, delivery, crafter and fuel chests again
+--   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
 --
 -- Connect the computer and every chest with networking cable and wired
 -- modems: a full-block wired modem touching each chest (small modems only go
@@ -32,11 +35,15 @@ local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle 
 local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
 
+-- Fuel, in the order furnaces are given it, with how many items each one
+-- smelts. These go into the fuel chest first when they're put away.
+local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
+
 -- Inventories that count as storage, matched against the peripheral type
 -- (e.g. "minecraft:chest"). Furnaces, hoppers and turtles never do.
 local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer" }
 
-local setup -- { input = name, output = name, delivery = name or nil, crafter = name or nil }
+local setup -- { input = name, output = name, delivery, crafter, fuel = name or nil }
 local stores = {} -- peripheral names of the storage inventories
 local contents = {} -- store name -> its list() result
 local sizes = {} -- store name -> number of slots
@@ -61,6 +68,7 @@ local function isInventory(name)
 end
 
 local function isStorage(name)
+  if name == setup.fuel then return true end -- a store, but only fuel is put in it
   if name == setup.input or name == setup.output or name == setup.delivery or name == setup.crafter then return false end
   local t = peripheral.getType(name)
   for _, s in ipairs(STORAGE_TYPES) do
@@ -71,6 +79,10 @@ end
 
 -- Items with NBT (enchanted books, named tools) are kept apart from plain ones.
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
+
+local fuelSmelts = {}
+for _, f in ipairs(FUEL) do fuelSmelts[f[1]] = f[2] end
+local function isFuel(item) return fuelSmelts[item.name] ~= nil and not item.nbt end
 
 local function shortName(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
@@ -129,19 +141,24 @@ end
 
 ---------------------------------------------------------------- moving items
 
--- Put everything in the input chest away: into chests that already hold
--- that item first, then anywhere with space.
--- Move up to count of the item in slot of chest from into storage. Returns
--- how many didn't fit.
+-- Move up to count of the item in slot of chest from into storage: fuel
+-- into the fuel chest first, then into chests that already hold that item,
+-- then anywhere with space (never the fuel chest, for anything but fuel).
+-- Returns how many didn't fit.
 local function putAway(from, slot, item, count)
   local key, left = keyOf(item), count
   local order = {}
+  if setup.fuel and isFuel(item) then order[1] = setup.fuel end
   for _, name in ipairs(stores) do
-    for _, have in pairs(contents[name] or {}) do
-      if keyOf(have) == key then order[#order + 1] = name break end
+    if name ~= setup.fuel then
+      for _, have in pairs(contents[name] or {}) do
+        if keyOf(have) == key then order[#order + 1] = name break end
+      end
     end
   end
-  for _, name in ipairs(stores) do order[#order + 1] = name end
+  for _, name in ipairs(stores) do
+    if name ~= setup.fuel then order[#order + 1] = name end
+  end
   for _, name in ipairs(order) do
     local okP, moved = pcall(peripheral.call, from, "pushItems", name, slot, left)
     if okP and moved > 0 then
@@ -168,11 +185,12 @@ local function storeInput()
 end
 
 -- Send up to amount of the items matching match(item) to the chest named to
--- (into slot toSlot, if given). Returns how many went, and the error if a
--- move failed outright.
-local function fetch(match, amount, to, toSlot)
+-- (into slot toSlot, if given), taking from the stores in the order of the
+-- list from (all of them by default). Returns how many went, and the error
+-- if a move failed outright.
+local function fetch(match, amount, to, toSlot, from)
   local sent, misses = 0, 0
-  for _, name in ipairs(stores) do
+  for _, name in ipairs(from or stores) do
     local touched = false -- only re-read chests items came from: each read takes a tick
     for slot, item in pairs(contents[name] or {}) do
       if match(item) then
@@ -520,12 +538,51 @@ end
 --   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
 --   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
+--   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter)
+--   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
+--   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 -- Requests may carry an id, which the reply repeats. count may carry need
 -- (name -> how many the turtle wants), which keeps craftable quick.
 -- count also answers craftable (how many more could be crafted), and deliver
 -- answers crafting (how many it has started making).
 -- Items with extra data (enchantments, names) are never counted or sent.
 local function plain(name) return function(item) return item.name == name and not item.nbt end end
+
+-- Every plain item stored, the fuel chest included: name -> count.
+local function countAll()
+  local counts = {}
+  for _, store in ipairs(stores) do
+    for _, item in pairs(contents[store] or {}) do
+      if not item.nbt then counts[item.name] = (counts[item.name] or 0) + item.count end
+    end
+  end
+  return counts
+end
+
+-- How many items all the stored fuel would smelt.
+local function fuelValue(counts)
+  local n = 0
+  for _, f in ipairs(FUEL) do n = n + (counts[f[1]] or 0) * f[2] end
+  return n
+end
+
+-- The stores with the fuel chest first, so furnaces burn what's in it
+-- before coal kept anywhere else.
+local function fuelFirst()
+  if not setup.fuel then return stores end
+  local order = { setup.fuel }
+  for _, name in ipairs(stores) do
+    if name ~= setup.fuel then order[#order + 1] = name end
+  end
+  return order
+end
+
+-- Only furnaces are loaded for the smelter, so a stray message can't empty
+-- the store into some other chest.
+local function isFurnace(name)
+  local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
+  return t and (t:find("furnace", 1, true) or t:find("smoker", 1, true)) and true or false
+end
 
 local function countPlain(names)
   local counts = {}
@@ -544,14 +601,18 @@ end
 local inbox = {}
 
 local function netReceive()
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then
+  -- turtles reach us by wireless; the smelter can by the wired network's cable
+  local wireless = false
+  for _, side in ipairs(peripheral.getNames()) do
+    if peripheral.getType(side) == "modem" then
+      if not rednet.isOpen(side) then rednet.open(side) end
+      wireless = wireless or peripheral.call(side, "isWireless")
+    end
+  end
+  if not wireless then
     message = { "No wireless modem: turtles can't ask me for items.", "orange" }
     os.queueEvent("storage_changed")
-    while true do sleep(3600) end
   end
-  local side = peripheral.getName(modem)
-  if not rednet.isOpen(side) then rednet.open(side) end
   rednet.host(NET_PROTOCOL, os.getComputerLabel() or ("storage-" .. os.getComputerID()))
   while true do
     local from, msg = rednet.receive(NET_PROTOCOL)
@@ -613,6 +674,39 @@ local function handleRequest(from, msg)
     if crafting then okL, err = crafting.learn(msg.recipe) end
     answer(from, msg, { re = "learn", ok = okL and true or false, error = not okL and err or nil })
     if okL then message = { ("Learnt how to make %s."):format(nameOf(msg.recipe.make)), "lime" } end
+    os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "stock" then
+    local counts = countAll()
+    answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })
+  elseif type(msg) == "table" and msg.type == "send" then
+    local sent, failed = {}, nil
+    if not isFurnace(msg.to) then
+      failed = ("%s isn't a furnace on my network"):format(tostring(msg.to))
+    elseif msg.slot == 2 then
+      -- fuel for this many more items, of the first kind there is (a fuel
+      -- slot only takes one kind), from the fuel chest first
+      local want = tonumber(msg.fuel) or 0
+      for _, f in ipairs(FUEL) do
+        if want > 0 and (msg.item == nil or msg.item == f[1]) then
+          local got, err = fetch(plain(f[1]), math.min(64, math.ceil(want / f[2])), msg.to, 2, fuelFirst())
+          failed = failed or err
+          if got > 0 then
+            sent[f[1]] = got
+            break
+          end
+        end
+      end
+    elseif msg.slot == 1 and type(msg.items) == "table" then
+      for name, n in pairs(msg.items) do
+        if type(name) == "string" and type(n) == "number" and n > 0 then
+          local err
+          sent[name], err = fetch(plain(name), math.min(64, math.floor(n)), msg.to, 1)
+          failed = failed or err
+        end
+      end
+    end
+    answer(from, msg, { re = "send", sent = sent, fuel = fuelValue(countAll()), error = failed })
+    if failed then message = { "Couldn't load a furnace: " .. failed, "red" } end
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
     -- top the chest up to n of each item: what's already there counts
@@ -715,6 +809,8 @@ local function sweepLoop()
         os.queueEvent("storage_changed")
       end
     end
+    -- turtles may refuel straight from the fuel chest: keep its count fresh
+    if setup.fuel then rescan(setup.fuel) end
   end
 end
 
@@ -770,6 +866,10 @@ local function chooseChests()
   local taken = { [s.input] = true, [s.output] = true }
   if s.delivery then taken[s.delivery] = true end
   s.crafter = ask("Which is the crafter chest? [none] ", taken, true)
+  print("A fuel chest keeps the coal and charcoal for the smelter's")
+  print("furnaces and for turtles. Leave blank if there isn't one.")
+  if s.crafter then taken[s.crafter] = true end
+  s.fuel = ask("Which is the fuel chest? [none] ", taken, true)
   local f = fs.open(SETUP_FILE, "w")
   f.write(textutils.serialize(s))
   f.close()
@@ -801,7 +901,7 @@ for _, which in ipairs({ "input", "output" }) do
 end
 -- the optional ones: carry on without them, and say so
 local missingChest
-for _, which in ipairs({ "delivery", "crafter" }) do
+for _, which in ipairs({ "delivery", "crafter", "fuel" }) do
   if setup[which] and not peripheral.isPresent(setup[which]) then
     print(("Can't find the %s chest (%s), so I'll do without it."):format(which, setup[which]))
     print("Check its modem is red, or run 'storage setup'.")
@@ -841,6 +941,8 @@ if args[1] == "test" then
     print("Couldn't move it: " .. (err or "that chest is full"))
     print("Check its modem is red and joined by cable to the storage chests.")
   end
+  print(setup.fuel and ("Fuel chest: %s. Fuel stored for %d items."):format(setup.fuel, fuelValue(countAll()))
+    or "No fuel chest: fuel is kept with everything else.")
   local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
   print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
     or "No wireless modem: turtles can't ask me for items.")
