@@ -54,7 +54,8 @@ The list is saved to `/.status_state`, so a restart keeps it.
 2. Copy the files on and reboot.
 
 Without a monitor, the dashboard shows on the computer's own screen (click
-instead of tap).
+instead of tap). A monitor added (or removed) while it runs is picked up
+straight away.
 
 ## Reporting from a computer
 

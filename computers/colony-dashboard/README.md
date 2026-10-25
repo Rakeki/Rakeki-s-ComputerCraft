@@ -57,7 +57,8 @@ shows it as an alert.
 ## Things to know
 
 - Without a monitor it draws on the computer's own screen; click the tabs
-  instead of tapping them. Narrow screens get shorter tab names.
+  instead of tapping them. Narrow screens get shorter tab names. A monitor
+  added (or removed) while it runs is picked up straight away.
 - "Not inside a colony" means the computer is outside the colony's borders:
   move it closer to the town hall.
 - It only reads the colony; it never changes anything.

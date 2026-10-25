@@ -23,7 +23,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   nav.lua                   Turtle position tracking + safe movement (saved across reboots, optional GPS)
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
-  screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go)
+  screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
   claim.lua                 Tells the storage computer which of its chests is next to this turtle (delivery / crafter chest)
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
@@ -263,8 +263,10 @@ Detailed guides live in `.claude/skills/`:
 - **Screens:** every monitor and terminal UI draws through `lib/screen.lua`:
   `local win, w, h = s:frame()`, draw, `s:show()`. Never clear a monitor (or
   the terminal) and redraw it in place: it flashes. A screen redrawn on every
-  event skips unchanged frames with `s:same(key)`. Add `screen` to the
-  program's `libs` in programs.json.
+  event skips unchanged frames with `s:same(key)`. Monitors come from
+  `screen.find` (it picks and scales them, and `s:refresh()` on `peripheral` /
+  `peripheral_detach` follows them): never find, wrap or `setTextScale` a
+  monitor yourself. Add `screen` to the program's `libs` in programs.json.
 - **Status:** long-running programs call `report.init(role)`, `report.set(state, detail)`
   as they work, and run `parallel.waitForAny(main, report.loop)`; wrap `main` in
   `errlog.pcall` and report `"error"` on failure.

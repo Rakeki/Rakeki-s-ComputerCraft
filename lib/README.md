@@ -24,5 +24,6 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `crafter-turtle`.
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into a
   hidden window and shown in one go, and frames that haven't changed can be
-  skipped. Used by `storage-computer`, `smelter-computer`, `colony-dashboard`,
+  skipped. `screen.find` picks the monitor, sets its text scale once and
+  follows monitors as they're added or removed. Used by `storage-computer`, `smelter-computer`, `colony-dashboard`,
   `blueprint-projector`, `mine-server` and `status-server`.

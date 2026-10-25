@@ -57,51 +57,32 @@ end
 
 ---------------------------------------------------------------- displays
 
-local screen = term.current()
-local mapMonitorName -- nil when the map is on the computer's screen
-local view, board
+local view = ui.new(config.mapMonitor)
+view.viewX, view.viewZ = baseCx, baseCz
+local board = config.statusMonitor ~= false and statusBoard.new(config.statusMonitor, view.display) or nil
 
 local function log(text)
   table.insert(state.events, { t = now(), text = text })
   while #state.events > MAX_EVENTS do table.remove(state.events, 1) end
   saveDue = true
-  if mapMonitorName then print(text) end -- the computer's screen is free for logging
+  if view.display.name then print(text) end -- the computer's screen is free for logging
   report.log(text)
 end
 
-local function monitorNamed(name)
-  if name and peripheral.getType(name) == "monitor" then return peripheral.wrap(name) end
+-- With the map on a monitor, this computer's screen shows the log.
+local function announce()
+  if not view.display.name then return end
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("AutoMine server running. The map is on monitor " .. view.display.name .. ".")
 end
 
--- (Re)pick displays from config and whatever monitors are attached right now.
-local function setupDisplays()
-  local mapMon = monitorNamed(config.mapMonitor)
-  mapMonitorName = mapMon and peripheral.getName(mapMon)
-
-  local statusMon
-  if config.statusMonitor ~= false then
-    statusMon = monitorNamed(config.statusMonitor) or (not config.statusMonitor and peripheral.find("monitor",
-      function(name) return name ~= mapMonitorName end))
-  end
-
-  local old = view
-  if mapMon then
-    mapMon.setTextScale(0.5)
-    view = ui.new(mapMon)
-    screen.setBackgroundColor(colors.black)
-    screen.clear()
-    screen.setCursorPos(1, 1)
-    print("AutoMine server running. The map is on monitor " .. mapMonitorName .. ".")
-  else
-    view = ui.new(screen)
-  end
-  if old then
-    view.viewX, view.viewZ, view.brush, view.selected = old.viewX, old.viewZ, old.brush, old.selected
-  else
-    view.viewX, view.viewZ = baseCx, baseCz
-  end
-
-  board = statusMon and statusBoard.new(statusMon) or nil
+-- A monitor came or went, or a turtle drove past (same events): each screen
+-- only moves (and rescales) if its own monitor changed.
+local function refreshDisplays()
+  if view.display:refresh() then announce() end
+  if board then board.display:refresh() end
 end
 
 ---------------------------------------------------------------- jobs
@@ -288,7 +269,7 @@ local function reportStatus()
   end
   report.set(state.paused and "paused" or "serving", ("%d/%d turtles, %d queued"):format(online, total, queued))
 end
-setupDisplays()
+announce()
 log("Server started")
 save()
 
@@ -323,15 +304,14 @@ local function handle(ev)
       local reply = handlers[msg.type](id, msg)
       if reply then rednet.send(id, reply, PROTOCOL) end
     end
-  elseif name == "monitor_touch" and ev[2] == mapMonitorName then
-    apply(view:click(ev[3], ev[4]))
-  elseif (name == "mouse_click" or name == "mouse_drag") and not mapMonitorName then
-    apply(view:click(ev[3], ev[4], name == "mouse_drag"))
+  elseif view.display:clicked(ev) then
+    apply(view:click(view.display:clicked(ev))) -- x, y, and whether it's a drag
   elseif name == "key" then
     view:key(ev[2])
-  elseif name == "peripheral" or name == "peripheral_detach" or name == "monitor_resize" or name == "term_resize" then
-    setupDisplays()
+  elseif name == "peripheral" or name == "peripheral_detach" then
+    refreshDisplays()
   end
+  -- monitor_resize / term_resize: the next frame is made at the new size
 end
 
 local timer = os.startTimer(2)

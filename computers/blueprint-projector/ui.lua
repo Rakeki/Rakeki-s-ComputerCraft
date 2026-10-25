@@ -12,17 +12,13 @@ local VIEW_LABEL = { whole = "Whole", layer = "Layer", outline = "Outline" }
 
 local put, fit = screen.put, screen.fit
 
-function ui.new(target, isMonitor)
-  if isMonitor then
-    -- largest text that still fits the panel
-    for _, scale in ipairs({ 1, 0.5 }) do
-      target.setTextScale(scale)
-      local w, h = target.getSize()
-      if w >= MIN_W and h >= MIN_H then break end
-    end
-  end
+-- On the first advanced (colour) monitor found, with the largest text that
+-- still fits the panel, else on this computer's screen.
+function ui.new()
+  local display = screen.find({ filter = function(_, m) return m.isColor() end, scales = { 1, 0.5 },
+    minW = MIN_W, minH = MIN_H, fallback = term.current() })
   -- self.win is the window the panel being drawn goes into (set by draw)
-  return setmetatable({ target = target, display = screen.new(target), buttons = {} }, ui)
+  return setmetatable({ display = display, buttons = {} }, ui)
 end
 
 function ui:button(x, y, label, action, fg, bg)

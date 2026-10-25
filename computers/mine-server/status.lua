@@ -18,17 +18,17 @@ local STATE_COLOR = {
 
 local put, pad = screen.put, screen.fit
 
-function status.new(mon)
-  -- largest text that still fits a useful amount of information
-  for _, scale in ipairs({ 1.5, 1, 0.5 }) do
-    mon.setTextScale(scale)
-    local w, h = mon.getSize()
-    if w >= 39 and h >= 12 then break end
-  end
-  return setmetatable({ display = screen.new(mon) }, status)
+-- On the monitor called monitorName, or (nil) any monitor that isn't the
+-- map's, with the largest text that still fits a useful amount of information.
+-- Draws nothing while there's no such monitor.
+function status.new(monitorName, mapScreen)
+  local display = screen.find({ name = monitorName, filter = function(name) return name ~= mapScreen.name end,
+    scales = { 1.5, 1, 0.5 }, minW = 39, minH = 12 })
+  return setmetatable({ display = display }, status)
 end
 
 function status:draw(m)
+  if not self.display.target then return end
   local win, w, h = self.display:frame()
 
   put(win, 1, 1, string.rep(" ", w), colors.white, colors.gray)

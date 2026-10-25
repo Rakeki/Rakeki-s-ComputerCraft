@@ -80,23 +80,18 @@ load()
 peripheral.find("modem", rednet.open)
 if not rednet.isOpen() then error("Attach a wireless or ender modem", 0) end
 
-local screen = term.current()
-local monitorName, view
+local view = dashboard.new()
 
-local function setupDisplay()
-  local mon = peripheral.find("monitor")
-  monitorName = mon and peripheral.getName(mon)
-  local old = view
-  view = dashboard.new(mon or screen, mon ~= nil)
-  if old then view.selected, view.page = old.selected, old.page end
-  if mon then
-    screen.setBackgroundColor(colors.black)
-    screen.clear()
-    screen.setCursorPos(1, 1)
-    print("Status server running. Dashboard is on monitor " .. monitorName .. ".")
-  end
+-- With the dashboard on a monitor, this computer's screen says where it is
+-- and shows any errors.
+local function announce()
+  if not view.display.name then return end
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Status server running. Dashboard is on monitor " .. view.display.name .. ".")
 end
-setupDisplay()
+announce()
 
 local function apply(action)
   if action and action.type == "forget" then
@@ -107,14 +102,14 @@ end
 
 local function handle(ev)
   local name = ev[1]
+  local x, y, drag = view.display:clicked(ev)
   if name == "rednet_message" and ev[4] == PROTOCOL then
     if type(ev[3]) == "table" and ev[3].type == "status" then receive(ev[2], ev[3]) end
-  elseif name == "monitor_touch" and ev[2] == monitorName then
-    apply(view:click(ev[3], ev[4], computers))
-  elseif name == "mouse_click" and not monitorName then
-    apply(view:click(ev[3], ev[4], computers))
-  elseif name == "peripheral" or name == "peripheral_detach" or name == "monitor_resize" or name == "term_resize" then
-    setupDisplay()
+  elseif x and not drag then
+    apply(view:click(x, y))
+  elseif name == "peripheral" or name == "peripheral_detach" then
+    -- also fired by turtles driving past: only acts if the monitor came or went
+    if view.display:refresh() then announce() end
   end
 end
 
@@ -129,8 +124,8 @@ while true do
   else
     -- one bad message or touch shouldn't take the dashboard down
     local ok, err = errlog.pcall(handle, ev)
-    if not ok and monitorName then print("Error: " .. tostring(err)) end
+    if not ok and view.display.name then print("Error: " .. tostring(err)) end
   end
   local ok, err = errlog.pcall(view.draw, view, computers, now())
-  if not ok and monitorName then print("Display error: " .. tostring(err)) end
+  if not ok and view.display.name then print("Display error: " .. tostring(err)) end
 end

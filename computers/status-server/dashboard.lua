@@ -63,16 +63,12 @@ local function fuelText(c)
   return "fuel " .. c.fuel
 end
 
-function dashboard.new(target, isMonitor)
-  if isMonitor then
-    -- largest text that still fits two columns of cards
-    for _, scale in ipairs({ 1, 0.5 }) do
-      target.setTextScale(scale)
-      if target.getSize() >= CARD_W * 2 + 3 then break end
-    end
-  end
+-- On the first monitor found, with the largest text that still fits two
+-- columns of cards, else on this computer's screen.
+function dashboard.new()
+  local display = screen.find({ scales = { 1, 0.5 }, minW = CARD_W * 2 + 3, fallback = term.current() })
   -- self.win is the window the frame being drawn goes into (set by draw)
-  return setmetatable({ display = screen.new(target), page = 1, buttons = {} }, dashboard)
+  return setmetatable({ display = display, page = 1, buttons = {} }, dashboard)
 end
 
 function dashboard:button(x, y, label, fg, bg, action)
@@ -208,10 +204,32 @@ function dashboard:drawDetail(c, id, t)
   end
 end
 
+-- Everything the frame shows, as text, so an unchanged frame isn't sent again.
+function dashboard:key(computers, t)
+  local parts = { tostring(self.selected), self.page }
+  for _, id in ipairs(sortedIds(computers)) do
+    local c = computers[id]
+    local shown = { id, c.label, c.kind, c.role, c.state, c.detail, c.fuel, c.fuelLimit,
+      posText(c), c.posFrom, c.offline, ago(t - c.lastSeen) }
+    for i = 1, 12 do shown[i] = tostring(shown[i]) end
+    table.insert(parts, table.concat(shown, "\0"))
+  end
+  local c = self.selected and computers[self.selected]
+  if c then
+    local last = c.events[#c.events]
+    table.insert(parts, ("%s|%d|%s|%s"):format(tostring(c.uptime and ago(c.uptime)), #c.events,
+      tostring(last and last.t), tostring(last and last.text)))
+  end
+  return table.concat(parts, "\1")
+end
+
+-- Called every second and on every message; a frame that would look the same
+-- is skipped (the last frame's buttons still match it).
 function dashboard:draw(computers, t)
+  if self.selected and not computers[self.selected] then self.selected = nil end
+  if self.display:same(self:key(computers, t)) then return end
   self.win = self.display:frame()
   self.buttons = {}
-  if self.selected and not computers[self.selected] then self.selected = nil end
   if self.selected then
     self:drawDetail(computers[self.selected], self.selected, t)
   else

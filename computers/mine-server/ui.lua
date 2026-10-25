@@ -29,19 +29,17 @@ local put = screen.put
 
 local function chunkOf(p) return math.floor(p.x / 16), math.floor(p.z / 16) end
 
-function ui.new(target)
-  local self = setmetatable({ target = target, viewX = 0, viewZ = 0, brush = "look", buttons = {} }, ui)
-  self:resize()
-  return self
-end
-
--- self.win is the window the frame being drawn goes into (set by draw).
-function ui:resize()
-  self.display = screen.new(self.target)
+-- The map on the monitor named in config (small text, so it shows plenty of
+-- chunks), else on this computer's screen.
+function ui.new(monitorName)
+  local display = monitorName and screen.find({ name = monitorName, scales = { 0.5 }, fallback = term.current() })
+    or screen.new(term.current())
+  -- self.win is the window the frame being drawn goes into (set by draw)
+  return setmetatable({ display = display, viewX = 0, viewZ = 0, brush = "look", buttons = {} }, ui)
 end
 
 function ui:layout()
-  local w, h = self.target.getSize()
+  local w, h = self.display:size()
   local panelW = w >= 40 and PANEL_W or 0
   return { w = w, h = h, panelX = w - panelW + 1, panelW = panelW, cols = math.floor((w - panelW) / 2), rows = h - 2 }
 end

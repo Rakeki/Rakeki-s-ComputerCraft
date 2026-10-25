@@ -286,7 +286,7 @@ end
 
 -- Both screens draw through lib/screen.lua, so they don't flash.
 local termScreen = screen.new(term.current()) -- this program's terminal (its own tab on an advanced computer)
-local monScreen, monName -- the monitor's, and which monitor
+local monScreen = screen.find({ scales = { MONITOR_SCALE } }) -- the monitor's, if there is one
 
 local function drawTerminal()
   local t, w, h = termScreen:frame()
@@ -346,14 +346,10 @@ local function drawTerminal()
 end
 
 local function drawMonitor()
-  local mon = peripheral.find("monitor")
-  if not mon then return end
-  local name = peripheral.getName(mon)
-  if name ~= monName then
-    mon.setTextScale(MONITOR_SCALE)
-    monName, monScreen = name, screen.new(mon)
-  end
-  local w, h = mon.getSize()
+  -- cheap while the monitor is still there; picks one up (and scales it once) when it's attached
+  monScreen:refresh()
+  if not monScreen.target then return end
+  local w, h = monScreen:size()
   local list = totals()
   local used, total, text = store.space()
   -- the uiLoop redraws on every event: only touch the monitor when what it
@@ -365,6 +361,7 @@ local function drawMonitor()
     sig[#sig + 1] = it.displayName .. "=" .. tostring(it.count) .. (it.craftable and "+" or "")
   end
   if monScreen:same(table.concat(sig, "|")) then return end
+  local mon
   mon, w, h = monScreen:frame()
   put(mon, 1, 1, (" "):rep(w), "white", "gray")
   put(mon, 2, 1, "Storage", "yellow", "gray")

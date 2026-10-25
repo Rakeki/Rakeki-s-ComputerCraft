@@ -672,42 +672,40 @@ local PANEL_EVENTS = {
 }
 
 local function panelLoop()
-  local screen = term.current()
-  local monitorName, panel
+  local panel = ui.new()
 
-  local function setup()
-    local mon = peripheral.find("monitor", function(_, m) return m.isColor() end)
-    monitorName = mon and peripheral.getName(mon)
-    panel = ui.new(mon or screen, mon ~= nil)
-    if mon then
-      screen.setBackgroundColor(colors.black)
-      screen.clear()
-      screen.setCursorPos(1, 1)
-      print(("Projecting plans. Controls are on monitor %s."):format(monitorName))
-      print("Keys here: arrows move, PgUp/PgDn up and down, Q/E turn, [ ] layer, V view, N/P plan, H hide, B build.")
-    end
+  -- With the panel on a monitor, this computer's screen lists the keys.
+  local function announce()
+    local monitorName = panel.display.name
+    if not monitorName then return end
+    term.setBackgroundColor(colors.black)
+    term.clear()
+    term.setCursorPos(1, 1)
+    print(("Projecting plans. Controls are on monitor %s."):format(monitorName))
+    print("Keys here: arrows move, PgUp/PgDn up and down, Q/E turn, [ ] layer, V view, N/P plan, H hide, B build.")
   end
 
   local function show()
     local ok, err = pcall(panel.draw, panel, model())
-    if not ok and monitorName then print("Display error: " .. tostring(err)) end
+    if not ok and panel.display.name then print("Display error: " .. tostring(err)) end
   end
 
-  setup()
+  announce()
   show()
   while true do
     local ev = { os.pullEvent() }
     local name = ev[1]
     if PANEL_EVENTS[name] then
-      if name == "monitor_touch" and ev[2] == monitorName then
-        act(panel:click(ev[3], ev[4]))
-      elseif name == "mouse_click" and not monitorName then
-        act(panel:click(ev[3], ev[4]))
+      local x, y, drag = panel.display:clicked(ev)
+      if x and not drag then
+        act(panel:click(x, y))
       elseif name == "key" then
         act(KEYS[ev[2]])
-      elseif name ~= "projector_status" and name ~= "monitor_touch" and name ~= "mouse_click" then
-        setup()
+      elseif name == "peripheral" or name == "peripheral_detach" then
+        -- also fired by turtles driving past: only acts if the monitor came or went
+        if panel.display:refresh() then announce() end
       end
+      -- monitor_resize / term_resize: the next frame is made at the new size
       show()
     end
   end

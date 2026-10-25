@@ -86,7 +86,7 @@ projector clear            -- remove the projection (Ctrl+T first to stop it)
 | **Build / Stop** | have a [builder turtle](../builder-turtle/README.md) build it here, or stop it |
 
 Without a monitor, the panel shows on the computer's screen: click instead of
-tap. The keyboard works too: arrows move, PgUp/PgDn raise and lower, Q/E
+tap. A monitor added (or removed) while it runs is picked up straight away. The keyboard works too: arrows move, PgUp/PgDn raise and lower, Q/E
 turn, `[` `]` change layer, V view, S step, N/P plan, H hide, Home here,
 B build.
 

@@ -913,9 +913,13 @@
       "file": "lib/screen.lua",
       "color": "lightBlue",
       "tagline": "Flicker-free monitors and terminals: each frame is drawn hidden and shown in one go, and frames that haven't changed are skipped.",
-      "usage": "local screen = require(\"lib.screen\")\nlocal s = screen.new(peripheral.find(\"monitor\")) -- or term.current()\n\nif not s:same(key) then             -- optional: skip a frame that looks the same\n  local win, w, h = s:frame()       -- hidden and cleared\n  screen.put(win, 1, 1, \"Hello\", \"yellow\", \"gray\")\n  s:show()                          -- up it goes, all at once\nend",
+      "usage": "local screen = require(\"lib.screen\")\nlocal s = screen.find({ scales = { 1, 0.5 }, minW = 40, fallback = term.current() })\n\nif not s:same(key) then             -- optional: skip a frame that looks the same\n  local win, w, h = s:frame()       -- hidden and cleared\n  screen.put(win, 1, 1, \"Hello\", \"yellow\", \"gray\")\n  s:show()                          -- up it goes, all at once\nend",
       "api": [
-        ["screen.new(target)", "Wrap a monitor or terminal."],
+        ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor."],
+        ["s:refresh()", "Call on peripheral / peripheral_detach: keeps a monitor that's still there, else moves to another or the fallback. True when it moved."],
+        ["s:clicked(ev)", "x, y (and true for a drag) when the event is a tap on its monitor, or a click while it's on the terminal."],
+        ["s.target, s.name", "What it draws on now (nil: nothing to draw on), and the monitor's name (nil on the terminal)."],
+        ["screen.new(target)", "Wrap the terminal (term.current()) or a fixed target."],
         ["s:frame(bg)", "A hidden, cleared window the size of the screen to draw the next frame in, and its width and height. Made again when the screen is resized."],
         ["s:show()", "Show the frame in one go. Set the cursor on the window first if it should blink somewhere."],
         ["s:same(key)", "True when key matches the last frame at this size, so drawing can be skipped."],
@@ -923,7 +927,7 @@
         ["screen.put(t, x, y, text, fg, bg)", "Write text in colours: names (\"lime\") or numbers (colors.lime); bg is black if left out."],
         ["screen.fit(text, w)", "Cut or pad text to exactly w characters."]
       ],
-      "notes": "Clearing a monitor and redrawing it in place makes it flash, so every program with a screen draws through this. Skipping unchanged frames also saves sending them to every player who can see the monitor."
+      "notes": "Clearing a monitor and redrawing it in place makes it flash, so every program with a screen draws through this. Skipping unchanged frames also saves sending them to every player who can see the monitor. Turtles driving past fire peripheral events, so refresh() never rescales a monitor that is still there: rescaling is what flashes it."
     }
   ]
 }

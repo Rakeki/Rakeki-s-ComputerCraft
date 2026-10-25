@@ -88,10 +88,8 @@ end
 
 ---------------------------------------------------------------- drawing
 
-local target -- the monitor, or term
-local display -- lib/screen.lua over target: each page is drawn hidden and shown in one go
+local display -- lib/screen.lua on the monitor, or this computer's screen: each page is drawn hidden and shown in one go
 local win -- the window the page being drawn goes into
-local onTerm = false -- no monitor: the page is on this computer's screen, and clicks work
 
 local function put(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
 
@@ -300,10 +298,21 @@ local function alarmLoop()
   end
 end
 
+-- With the dashboard on a monitor, this computer's screen says so (and logs attacks).
+local function announce()
+  if not display.name then return end
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Colony dashboard running on the monitor.")
+  print("Hold Ctrl+T to stop.")
+end
+
 local function touchLoop()
   while true do
-    local event, _, x, y = os.pullEvent()
-    if event == "monitor_touch" or (event == "mouse_click" and onTerm) then
+    local ev = { os.pullEvent() }
+    local event = ev[1]
+    local x, y, drag = display:clicked(ev)
+    if x and not drag then
       for _, z in ipairs(ui.zones) do
         if y == z.y and x >= z.x1 and x <= z.x2 then
           z.action()
@@ -311,8 +320,14 @@ local function touchLoop()
           break
         end
       end
+    elseif event == "peripheral" or event == "peripheral_detach" then
+      -- also fired by turtles driving past: only acts if the monitor came or went
+      if display:refresh() then
+        announce()
+        draw()
+      end
     elseif event == "monitor_resize" or event == "term_resize" then
-      draw()
+      draw() -- made at the new size
     end
   end
 end
@@ -326,18 +341,8 @@ if not colony then
   return
 end
 
-local monitor = peripheral.find("monitor")
-if monitor then
-  monitor.setTextScale(MONITOR_SCALE)
-  target = monitor
-  term.clear()
-  term.setCursorPos(1, 1)
-  print("Colony dashboard running on the monitor.")
-  print("Hold Ctrl+T to stop.")
-else
-  target, onTerm = term.current(), true
-end
-display = screen.new(target)
+display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+announce()
 
 if report then report.init("colony dashboard") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop, alarmLoop,
