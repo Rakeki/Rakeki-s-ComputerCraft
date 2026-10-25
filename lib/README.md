@@ -5,12 +5,12 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 
 - `nav.lua`: turtle position tracking (saved across reboots, optional GPS) and
   movement that digs through anything except protected blocks. Used by
-  `excavate-turtle`, `strip-mine-turtle`, `village-turtle`, `mob-farm-turtle`,
+  `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`, `gps-deployer` and
   `builder-turtle`.
 - `report.lua`: sends this computer's status to the [status
   server](../computers/status-server/README.md). Used by `excavate-turtle`,
-  `strip-mine-turtle`, `village-turtle`, `mob-farm-turtle`,
+  `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `gps-deployer` (if present), `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
@@ -19,7 +19,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
   trace), skipping repeats and trimming old entries. Used by
-  `excavate-turtle`, `strip-mine-turtle`, `village-turtle`, `mob-farm-turtle`,
+  `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
@@ -46,12 +46,12 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
   `writeFile` / `readFile` / `deleteFile` are these. Used by
-  `excavate-turtle`, `strip-mine-turtle`, `village-turtle`, `mob-farm-turtle`,
+  `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer` and `smelter-computer`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
-  board. Used by `excavate-turtle`, `strip-mine-turtle`, `village-turtle`,
+  board. Used by `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,
   `mob-farm-turtle`, `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`,
   `gps-deployer` and `builder-turtle`.

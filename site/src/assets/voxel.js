@@ -23,6 +23,13 @@
     redstone: { c: "#4f4f57", tex: "ore", ore: "#d42a2a", amt: 0.07 },
     water: { c: "#3d6fe0", tex: "noise", amt: 0.05, alpha: 0.72, clear: true },
     lava: { c: "#e66a1c", tex: "noise", amt: 0.12 },
+    // the Nether
+    netherrack: { c: "#6e3533", tex: "noise", amt: 0.14 },
+    quartz: { c: "#6e3533", tex: "ore", ore: "#e8e1d6", amt: 0.12 },
+    nethergold: { c: "#6e3533", tex: "ore", ore: "#f5da3a", amt: 0.12 },
+    soulsand: { c: "#51402f", tex: "noise", amt: 0.16 },
+    glowstone: { c: "#d9b24a", tex: "noise", amt: 0.22 },
+    gravel: { c: "#857b78", tex: "noise", amt: 0.22 },
     chest: { c: "#a2702a", tex: "chest", amt: 0.04, box: [0.06, 0.94, 0, 0.88, 0.06, 0.94], clear: true },
     computer: { c: "#b9b9b9", tex: "computer", amt: 0.03 },
     advanced: { c: "#d6b444", tex: "computer", amt: 0.03 },
@@ -342,6 +349,49 @@
     return { world: w, steps };
   }
 
+  // Nether tunnel, scaled down: 36 long through netherrack, past a cave on
+  // the left, over a lava lake and by a lava pocket on the right. Each slice
+  // is dug out and every hole in its walls and floor patched with cobblestone.
+  // The ceiling (y 3) is left off so you can see in.
+  function nethertunnel() {
+    const LEN = 36;
+    const w = new World(), r = rand(66);
+    w.box(-2, LEN + 1, -4, 2, -6, 6, () => {
+      const v = r();
+      return v < 0.03 ? "quartz" : v < 0.04 ? "nethergold" : v < 0.06 ? "soulsand" : "netherrack";
+    });
+    // a cave breaking into the left wall, lit by a bit of glowstone
+    w.box(7, 12, 0, 2, -5, -2, null);
+    w.set(9, 2, -6, "glowstone"); w.set(10, 2, -6, "glowstone");
+    // a lava lake: the tunnel crosses it as a sealed bridge
+    w.box(17, 25, -2, 2, -6, 6, null);
+    w.box(17, 25, -4, -3, -6, 6, "lava");
+    // a lava pocket against the right wall, and a source in the way
+    w.box(29, 31, 0, 1, 2, 4, "lava"); w.box(29, 31, 2, 2, 2, 4, null);
+    w.set(14, 0, 0, "lava"); w.set(14, 0, 1, "lava");
+    // gravel in the wall gets swapped for a solid block
+    w.set(4, 2, -2, "gravel"); w.set(5, 1, 2, "gravel");
+    w.set(-1, 0, 0, "chest");
+    const hole = (x, y, z) => { const b = w.get(x, y, z); return !b || b === "lava" || b === "gravel"; };
+    const steps = [];
+    for (let x = 0; x < LEN; x++) {
+      const cells = [], place = [];
+      for (let z = -1; z <= 1; z++) for (let y = 0; y <= 2; y++) cells.push([x, y, z]);
+      const shell = [];
+      for (let z = -1; z <= 1; z++) shell.push([x, -1, z]);
+      for (let y = 0; y <= 2; y++) shell.push([x, y, -2], [x, y, 2]);
+      if (x === LEN - 1) for (let z = -1; z <= 1; z++) for (let y = 0; y <= 2; y++) shell.push([LEN, y, z]);
+      for (const p of shell) if (hole(...p)) place.push([...p, "cobble"]);
+      const torch = x % 8 === 0 && x > 0 ? [x, 0, 0] : null;
+      steps.push({ cells, place, turtle: [x, 0, 0], torch });
+    }
+    return {
+      world: w, steps,
+      labels: [[9.5, 3.4, -4, "cave wall patched", "#f0f0f0"], [21, 3.4, 0, "sealed over the lava lake", "#f2b233"],
+        [30, 3, 3, "lava walled off", "#cc4c4c"]],
+    };
+  }
+
   // GPS: four hosts high above the start (start +2/+10/+6), the fourth 6 higher.
   function gps() {
     const H = 12;
@@ -574,7 +624,7 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter, builder,
+  const SCENES = { excavate, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder,
     storageChests, storageUpgrades, storageBase, storageAe };
 
   //---------------------------------------------------------------- mounting
@@ -643,6 +693,7 @@
           for (let n = 0; n < perFrame && i < scene.steps.length; n++, i++) {
             const st = scene.steps[i];
             for (const [x, y, z] of st.cells) world.set(x, y, z, null);
+            for (const [x, y, z, b] of st.place || []) world.set(x, y, z, b);
             if (st.torch) world.set(...st.torch, "torch");
             if (turtle.at) world.set(...turtle.at, null);
             turtle.at = st.turtle; world.set(...st.turtle, "turtle");
@@ -664,7 +715,11 @@
       if (opts.animate) replay();
       else {
         world = scene.world.clone();
-        for (const st of scene.steps) { for (const [x, y, z] of st.cells) world.set(x, y, z, null); if (st.torch) world.set(...st.torch, "torch"); }
+        for (const st of scene.steps) {
+          for (const [x, y, z] of st.cells) world.set(x, y, z, null);
+          for (const [x, y, z, b] of st.place || []) world.set(x, y, z, b);
+          if (st.torch) world.set(...st.torch, "torch");
+        }
         world.set(0, 0, 0, "turtle");
         draw();
       }

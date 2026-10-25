@@ -30,6 +30,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system
 - [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hall with two floors of rooms, a ledge and stairs
 - [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides
+- [nether-tunnel-turtle](computers/nether-tunnel-turtle/README.md): standalone turtle that digs a sealed 3x3 tunnel through the Nether, patching holes and walling off lava
 - [village-turtle](computers/village-turtle/README.md): turtle that builds a themed village and keeps expanding it, picking buildings to suit the terrain
 - [mob-farm-turtle](computers/mob-farm-turtle/README.md): standalone turtle that builds a mob farm: a dark spawning room with water channels, a drop shaft and a collection chest
 - [blueprint-projector](computers/blueprint-projector/README.md): projects a building plan into the world with CC: Spatial Projector; move and turn it from a monitor, then build it layer by layer, or tap Build and a builder turtle builds it

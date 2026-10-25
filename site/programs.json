@@ -106,6 +106,60 @@
       }
     },
     {
+      "name": "nether-tunnel-turtle",
+      "title": "Nether Tunnel",
+      "command": "nethertunnel",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "red",
+      "tagline": "A sealed 3×3 tunnel through the Nether: holes patched, lava walled off or scooped up for fuel.",
+      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "stats": [
+        ["Tunnel", "3 × 3 × 128"],
+        ["Overworld", "~1,000 blocks"],
+        ["Fuel", "~1,500"],
+        ["Lava", "1,000 fuel / bucket"]
+      ],
+      "features": [
+        "Patches holes in the walls, floor and ceiling: caves, ravines, open air over lava lakes",
+        "Walls off lava beside the tunnel and fills in lava in the way, so none gets in",
+        "Scoops up lava sources with a bucket and burns them for fuel",
+        "Replaces gravel, fire and plants in the walls with solid blocks",
+        "Throws junk away, keeps 128 patch blocks, brings the loot home"
+      ],
+      "setup": [
+        "Place the turtle on the floor where the tunnel starts, facing the way to dig.",
+        "Put a chest directly behind it with some coal in, and a few stacks of cobblestone for stronger walls.",
+        "Optional: give it an empty bucket and torches. Run the command and press Enter."
+      ],
+      "commands": [
+        ["nethertunnel", "128 long"],
+        ["nethertunnel 300", "300 long"],
+        ["nethertunnel resume", "carry on after stopping it"],
+        ["nethertunnel here", "no GPS: you put it back on its start block"],
+        ["nethertunnel cancel", "forget the current job"]
+      ],
+      "integrates": [
+        ["status-server", "Reports how far along the tunnel it is."],
+        ["gps-deployer", "Optional GPS keeps it on route if it gets moved."]
+      ],
+      "render": { "kind": "voxel", "scene": "nethertunnel", "animate": true, "caption": "A shorter tunnel being dug through netherrack: a cave wall patched, a sealed bridge over a lava lake, a lava pocket walled off." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "nethertunnel", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Tunnel 128 long, 3 wide and 3 high.", "", "white"],
+          ["Needs about 1536 fuel (have 1200). I refuel from the chest", "", "white"],
+          ["behind me, so put coal in it.", "", "white"],
+          ["I'll scoop up lava with my bucket and burn it.", "", "orange"],
+          ["Patch blocks on board: 128. I use netherrack I dig, but", "", "lightGray"],
+          ["cobblestone makes stronger walls.", "", "lightGray"],
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
       "name": "village-turtle",
       "title": "Village Builder",
       "command": "village",

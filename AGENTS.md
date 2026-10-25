@@ -158,6 +158,7 @@ Existing computers:
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
 | `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
+| `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog, inv, files |
 | `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, net, files, report, errlog (if present) |
