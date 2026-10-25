@@ -24,6 +24,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go)
+  claim.lua                 Tells the storage computer which of its chests is next to this turtle (delivery / crafter chest)
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
@@ -154,14 +155,14 @@ Existing computers:
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, errlog, report (if present) |
 | `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs | nav, report, errlog |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog |
-| `village-turtle` | Turtle that builds themed villages | nav, report, errlog |
+| `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog |
 | `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, report, errlog (if present) |
-| `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog |
+| `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog |
 | `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | screen, report, errlog (if present) |
-| `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | report, errlog (if present) |
+| `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, report, errlog (if present) |
 | `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, report, errlog (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
 
@@ -186,7 +187,7 @@ reply field.
 | `automine` | mine-turtle ↔ mine-server | jobs, progress, docking; the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords) → `accepted` / `busy` / `refused`; `stop`, `status`; the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped) |
-| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
+| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
 | `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |
 
 Rules that keep it from stalling:
@@ -226,6 +227,11 @@ Rules that keep it from stalling:
   transfer chest.
 - Optional chests (delivery, crafter, fuel, transfer) that go missing turn
   their feature off with a message instead of stopping the storage system.
+- Turtles find their own chest (`claim`, `lib/claim.lua`): the turtle sends
+  its chest's `list()`, the storage computer drops one item into each chest
+  that could be it until the turtle sees it arrive, then records it in
+  `setup.deliveries[turtle id]` (or `setup.crafter`). Never ask the player
+  to pick a turtle's chest in `storage setup`.
 
 ## Skills
 

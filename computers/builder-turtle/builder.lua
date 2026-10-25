@@ -18,6 +18,7 @@
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local claim = require("lib.claim") -- tells the storage computer my supply chest is my delivery chest
 
 local JOB_FILE = "/.builder_job" -- the building: blocks and materials (written once per building)
 local PROGRESS_FILE = "/.builder_progress" -- how far along it is (rewritten after every block, so kept small)
@@ -33,8 +34,9 @@ local MAX_DISTANCE = 256 -- furthest a building may be from home, in blocks
 local PLACE_TRIES = 3 -- tries at placing a block (a mob in the way) before skipping it
 local REPORT_EVERY = 10 -- blocks between progress messages to the projector
 local CHECK_EVERY = 50 -- blocks between GPS position checks
-local USE_STORAGE = true -- order blocks from a storage computer; its delivery chest must be my supply chest
+local USE_STORAGE = true -- order blocks from a storage computer, delivered to my supply chest (it needs a wired modem on the storage cable)
 local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
+local CLAIM_RETRY = 300 -- seconds before trying again to hook my supply chest up to the storage system, if it didn't work
 -- Fuel asked for when low, in this order, and how much of it.
 local STORAGE_FUEL = { { "minecraft:coal", 64 }, { "minecraft:charcoal", 64 }, { "minecraft:coal_block", 8 } }
 
@@ -371,6 +373,8 @@ end
 local storageId
 local noStorageUntil = 0
 local requestId = 0
+local supplyClaimed = false -- the storage system knows my supply chest is mine
+local claimAfter = 0 -- don't try that again before this (os.clock)
 
 -- Ask a storage computer something; nil if there isn't one in range.
 local function askStorage(msg)
@@ -401,12 +405,26 @@ local function orderFromStorage(needs)
     if short > 0 then order[item], any = short, true end
   end
   if not any then return nil end
+  -- first time: tell the storage system which of its chests is my supply chest
+  if not supplyClaimed and os.clock() >= claimAfter then
+    faceSupply()
+    local ok, why = claim.chest(askStorage, "delivery", "front")
+    if ok then
+      supplyClaimed = true
+      print(("The storage system sends my blocks to my supply chest (%s)."):format(why))
+    else
+      -- nil: no answer (not running, or too old to know 'claim')
+      claimAfter = os.clock() + (ok == false and CLAIM_RETRY or 60)
+      if ok == false then print("Couldn't hook my supply chest up to the storage system: " .. why) end
+    end
+  end
   local r = askStorage({ type = "deliver", items = order })
   if r then
     local sent = 0
     for _, n in pairs(r.sent or {}) do sent = sent + n end
-    if sent > 0 then print(("The storage system sent %d blocks to my supply chest."):format(sent)) end
-    if r.to == "output" then print("The storage system has no delivery chest: set mine as it in 'storage setup'.") end
+    if sent > 0 then print(("The storage system sent %d blocks to %s."):format(sent,
+      r.to == "output" and "its output chest" or "my supply chest")) end
+    if r.to ~= "own" then supplyClaimed = false end -- it was set up again: find my chest again next time
   end
   return r
 end

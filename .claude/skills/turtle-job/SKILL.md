@@ -151,9 +151,11 @@ its own real position. Copy `computers/builder-turtle/builder.lua`:
 ## Materials from the storage system
 
 A job that places blocks can restock from the storage system as well as its
-home chest: make its supply chest the storage computer's delivery chest and
-`deliver` what the next trip needs (see [[storage-system]]; builder.lua's
-`orderFromStorage` and village.lua's `restock`). Without a storage computer
+home chest: at home, facing the supply chest, `claim.chest(askStorage,
+"delivery", "front")` (`lib/claim.lua`) once so the storage computer sends
+to that chest, then `deliver` what the next trip needs (see
+[[storage-system]]; builder.lua's `orderFromStorage` and village.lua's
+`restock`). Claim again when a `deliver` reply's `to` isn't `"own"`. Without a storage computer
 in range it just uses the chest.
 
 ## Blocked moves

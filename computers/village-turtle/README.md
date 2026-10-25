@@ -149,6 +149,7 @@ Copy these to the turtle:
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): status server reporting (copy to `/lib/report.lua`); does nothing without a modem
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
+- [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is the supply chest (copy to `/lib/claim.lua`)
 
 `preview/` is just the pictures; it doesn't go on the turtle.
 
@@ -191,10 +192,15 @@ chest, and the turtle takes them from there.
 
 1. Connect the village's **supply chest** to the storage system's wired
    network (a full-block wired modem touching the chest, and networking cable
-   back to the storage; cable can run as far as you like).
-2. Run `storage setup` on the storage computer and choose the supply chest
-   as the **delivery chest**.
-3. Give both the turtle and the storage computer a wireless modem.
+   back to the storage; cable can run as far as you like). Right-click the
+   modem so it turns red.
+2. Give both the turtle and the storage computer a wireless modem.
+
+There's nothing to pick on the storage computer: the first time the turtle
+orders something, it tells the storage computer which chest is its supply
+chest ("The storage system sends my blocks to the supply chest (...)").
+Several villages can share one storage system, each with its own supply
+chest.
 
 Then, when it checks the materials for a building, whatever the storage
 system holds counts as well. Each time the turtle loads up for the next
@@ -206,8 +212,9 @@ seconds.
 
 If nothing arrives, the turtle's screen says why: it has no wireless modem
 itself, no storage system answered (check the storage computer's wireless
-modem and that it's within about 64 blocks, or use ender modems), it has no
-delivery chest set (run `storage setup` and pick the supply chest), it has
+modem and that it's within about 64 blocks, or use ender modems), it can't
+find the supply chest (no wired modem on it, or the modem isn't red;
+it tries again 5 minutes later), it has
 none of that item, or the supply chest is full. Running `storage test` on the
 storage computer checks its side.
 

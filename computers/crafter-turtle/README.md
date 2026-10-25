@@ -37,6 +37,7 @@ with `crafter learn`.
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is its crafter chest (copy to `/lib/claim.lua`). Needed.
 
 The recipes and the planning live on the storage computer (`recipes.lua` and
 `crafting.lua` there), not on this turtle.
@@ -50,12 +51,17 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
 3. Connect that chest to the storage network: a **full-block wired modem**
    touching the chest (not between the chest and the turtle), networking cable
    back to the storage, and right-click the modem so it turns red.
-4. On the storage computer, run `storage setup` and choose that chest as the
-   **crafter chest**. The storage computer needs a wireless modem too: the
-   two talk by wireless. Or, instead of wireless modems on both, put a
-   **full-block wired modem** against the back of the turtle, joined to the
-   storage cable, and they talk over the cable.
-5. Install this program on the turtle and reboot it.
+4. The storage computer needs a wireless modem too: the two talk by
+   wireless. Or, instead of wireless modems on both, put a **full-block
+   wired modem** against the back of the turtle, joined to the storage
+   cable, and they talk over the cable.
+5. Install this program on the turtle and reboot it. It tells the storage
+   computer that the chest in front of it is the **crafter chest** (the
+   storage computer drops one item into each chest that could be it until
+   the turtle sees it arrive), and says "The storage system uses my chest
+   (...)". There's nothing to pick in `storage setup`. It checks again
+   every 5 minutes, and if the storage computer isn't running yet it keeps
+   trying until it is.
 
    ```
    crafter                   -- start (startup.lua does this on boot)

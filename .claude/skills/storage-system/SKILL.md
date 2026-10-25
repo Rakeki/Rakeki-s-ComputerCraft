@@ -13,8 +13,12 @@ Refined Storage without changes.
 
 ## Asking for items (client side)
 
-A turtle that needs blocks has a **supply chest** next to its home, and that
-chest is the storage computer's **delivery chest** (`storage setup`). Copy
+A turtle that needs blocks has a **supply chest** next to its home, with a
+wired modem on the storage cable. Facing it, the turtle calls
+`claim.chest(askStorage, "delivery", "front")` (`lib/claim.lua`) once, and
+from then on its deliveries go there (each turtle has its own; nothing is
+picked in `storage setup`). Claim again when a `deliver` reply's `to`
+isn't `"own"` (the storage computer was set up again). Copy
 `askStorage` from `computers/builder-turtle/builder.lua` (or village.lua):
 
 ```lua
@@ -49,16 +53,17 @@ end
 | Request | Reply fields | Use |
 |---|---|---|
 | `{ type = "count", items = { name, ... }, need = { [name] = n } }` | `counts`, `craftable` (how many more could be crafted, up to `need`) | before starting: is there enough? Add `craftable` to `counts`. |
-| `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `crafting`, `cantCraft` (name → why), `craftProblem`, `to` (`"delivery"` or `"output"`), `error` | tops the delivery chest **up to** n of each (what's already there counts) and **starts crafting** what's missing. Ask again every ~10 s while waiting. |
+| `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `crafting`, `cantCraft` (name → why), `craftProblem`, `to` (`"own"`, `"delivery"` or `"output"`), `error` | tops the turtle's chest **up to** n of each (what's already there counts) and **starts crafting** what's missing. Ask again every ~10 s while waiting. |
 | `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft`, `craftProblem` | start crafting what a coming job lacks, before it's needed |
 | `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts) | the smelter |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
+| `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
 Fuel: order `minecraft:coal`, then `charcoal`, then `coal_block` (first one
 with `ready > 0` wins; see `STORAGE_FUEL` in builder.lua). Items with NBT
 (enchanted, named) are never counted or sent. Things to report to the player:
-`to == "output"` (no delivery chest set), `error`, `cantCraft[name]` unless it
+`to == "output"` (it has no chest for you), `error`, `cantCraft[name]` unless it
 is `"no recipe for it"`, `craftProblem` while `crafting` is non-empty.
 
 Putting things away: drop them in the storage computer's **input chest**
@@ -96,8 +101,10 @@ craftable item takes too long.
 - **Fuel chest** sits above the backend in storage.lua: fuel goes there
   first on `putAway`, `fetch(..., fuelFirst)` takes from it first, and its
   contents count as stock.
-- **Special chests** (`setup`): input, output, delivery, crafter, fuel,
-  transfer. Only input and output are required; a missing optional one
+- **Special chests** (`setup`): input, output, delivery (shared), crafter,
+  fuel, transfer, and `deliveries` (turtle id → its own chest, from
+  `claim`; `claimChest` probes, `assign` records it in the setup file too,
+  `storage setup` keeps them). `reserved` is per chest. Only input and output are required; a missing optional one
   turns its feature off with a footer message.
 - **Loops** run in `parallel`: UI, input, rescan, `netReceive` (files requests
   in `inbox`) + `netLoop` (answers them one at a time), sweep (keeps the

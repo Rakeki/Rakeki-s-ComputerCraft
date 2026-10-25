@@ -11,9 +11,11 @@
 -- Needs a crafty turtle (a crafting table on one side) with a wireless or
 -- ender modem on the other, or a full-block wired modem against it joined
 -- to the storage cable (then the storage computer needs no wireless modem).
--- Put its chest directly in front of it, connect the chest to the storage
--- network with a full-block wired modem, and choose it as the crafter chest
+-- Put its chest directly in front of it and connect the chest to the storage
+-- network with a full-block wired modem: the turtle tells the storage
+-- computer which chest is its own (lib/claim.lua), so there's nothing to pick
 -- in 'storage setup'.
+local claim = require("lib.claim") -- tells the storage computer which chest is mine
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -23,8 +25,11 @@ local GRID = { 1, 2, 3, 5, 6, 7, 9, 10, 11 } -- turtle slots of the 3x3 crafting
 local STAGE = { 4, 8, 12, 13, 14, 15 } -- slots outside the grid, for sorting ingredients into it
 local OUT_SLOT = 16 -- crafted items land here first
 local MAX_SUCKS = 64 -- most stacks taken from the chest for one batch, before giving up
+local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
+local CLAIM_EVERY = 300 -- seconds between checks that the storage computer still has my chest as its crafter chest
 
 local made = 0 -- items crafted since starting, for the status
+local busy = false -- crafting now: don't look for my chest meanwhile
 
 ---------------------------------------------------------------- helpers
 
@@ -66,6 +71,49 @@ local function emptyOut()
     end
   end
   turtle.select(1)
+end
+
+---------------------------------------------------------------- my chest
+
+local storageId
+local requestId = 0
+
+-- Ask the storage computer something; nil if it doesn't answer.
+local function askStorage(msg)
+  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
+  if not storageId then return nil end
+  requestId = requestId + 1
+  msg.id = requestId
+  rednet.send(storageId, msg, STORAGE_PROTOCOL)
+  local deadline = os.clock() + STORAGE_WAIT
+  while os.clock() < deadline do
+    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
+  end
+  storageId = nil -- gone quiet: look it up again next time
+  return nil
+end
+
+-- Make sure the storage computer uses the chest in front of me as its
+-- crafter chest: on start, then now and then (it may have been set up
+-- again), waiting while it's not running.
+local function claimLoop()
+  local said
+  while true do
+    while busy do sleep(1) end
+    local ok, why = claim.chest(askStorage, "crafter", "front")
+    local text
+    if ok then
+      text = ("The storage system uses my chest (%s)."):format(why)
+    elseif ok == false then
+      text = "Couldn't hook my chest up to the storage system: " .. why
+    else
+      text = "No storage system answered yet: is it running 'storage'?"
+    end
+    if text ~= said then print(text) said = text end
+    if not ok then status("waiting", ok == false and why or "no storage system") end
+    sleep(ok and CLAIM_EVERY or 30)
+  end
 end
 
 ---------------------------------------------------------------- crafting
@@ -190,6 +238,7 @@ local function serve()
   while true do
     local from, msg = rednet.receive(CRAFT_PROTOCOL)
     if type(msg) == "table" and msg.type == "craft" and type(msg.steps) == "number" then
+      busy = true
       status("crafting", ("%d crafts"):format(msg.steps))
       local grid = type(msg.grid) == "table" and msg.grid or nil
       local n, err, name = craft(math.max(1, math.min(64, math.floor(msg.steps))), grid)
@@ -200,6 +249,7 @@ local function serve()
       end
       -- item: what came out, so the storage computer can tell a wrong craft
       rednet.send(from, { type = "crafted", id = msg.id, made = n, item = name, error = err }, CRAFT_PROTOCOL)
+      busy = false
       status("idle", ("%d items crafted"):format(made))
     elseif type(msg) == "table" and msg.type == "ping" then
       rednet.send(from, { type = "pong", id = msg.id }, CRAFT_PROTOCOL)
@@ -301,8 +351,8 @@ if not openModems() then
   return
 end
 if not frontChest() then
-  print("Put my chest directly in front of me (connected to the storage")
-  print("network with a full-block wired modem), then start me again.")
+  print("Put my chest directly in front of me (with a full-block wired")
+  print("modem on it, on the storage cable), then start me again.")
   return
 end
 rednet.host(CRAFT_PROTOCOL, os.getComputerLabel())
@@ -315,4 +365,4 @@ parallel.waitForAny(function()
     status("error", tostring(err))
     error(err, 0)
   end
-end, report and report.loop or function() while true do sleep(3600) end end)
+end, claimLoop, report and report.loop or function() while true do sleep(3600) end end)

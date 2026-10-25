@@ -16,8 +16,12 @@
 -- turtles asking for coal are served from it, and the smelter
 -- (computers/smelter-computer) fuels its furnaces from it.
 --
+-- Turtles find their own chest: a village builder, builder or crafting turtle
+-- placed against a chest on this network tells me which one it is
+-- (lib/claim.lua), and its items go there. No need to pick it in setup.
+--
 --   storage          start (asks how it's set up the first time)
---   storage setup    choose the store and the input, output, delivery, crafter, fuel and transfer chests again
+--   storage setup    choose the store and the input, output, shared delivery, crafter, fuel and transfer chests again
 --   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
 --   storage tidy     show the storage's slot sizes and sort bulk items into the roomiest now
 --
@@ -67,18 +71,25 @@ local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest 
 local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle takes jobs on
 local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
+-- Kinds of inventory a turtle may claim as its chest (matched against the
+-- peripheral type, e.g. "minecraft:chest"): never furnaces or hoppers.
+local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
 
 -- Fuel, in the order furnaces are given it, with how many items each one
 -- smelts. These go into the fuel chest first when they're put away.
 local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
 
--- { backend = "chests" or "bridge", input, output = name, delivery, crafter, fuel, transfer = name or nil }
+-- { backend = "chests" or "bridge", input, output = name, delivery, crafter, fuel, transfer = name or nil,
+--   deliveries = { [turtle id] = name } }
+-- deliveries are the turtles' own chests, and crafter can be, too: each
+-- turtle finds its chest on the network itself (lib/claim.lua, the "claim"
+-- request). delivery is the shared one for turtles without their own.
 local setup
 local store -- the backend: chests.lua or bridge.lua
 local fuelList = {} -- the fuel chest's list()
 local message = { "", "lightGray" } -- shown in the footer
--- Items waiting in the delivery chest for a turtle: name -> { n, at }.
--- Everything else in that chest goes back into storage.
+-- Items waiting in a delivery chest for a turtle: chest -> name -> { n, at }.
+-- Everything else in those chests goes back into storage.
 local reserved = {}
 -- Crafting: jobs waiting for the crafting turtle (from crafting.plan), and
 -- how many of each item asked for by a turtle are already being made.
@@ -108,6 +119,31 @@ local function isInventory(name)
     if t == "inventory" then return true end
   end
   return false
+end
+
+local function loadSetup()
+  if not fs.exists(SETUP_FILE) then return nil end
+  local f = fs.open(SETUP_FILE, "r")
+  local s = textutils.unserialize(f.readAll())
+  f.close()
+  return s
+end
+
+local function saveSetup(s)
+  local f = fs.open(SETUP_FILE, "w")
+  f.write(textutils.serialize(s))
+  f.close()
+end
+
+-- Every delivery chest: the shared one and each turtle's own.
+local function deliveryChests()
+  local list, seen = {}, {}
+  local function add(name)
+    if name and not seen[name] then list[#list + 1], seen[name] = name, true end
+  end
+  add(setup.delivery)
+  for _, name in pairs(setup.deliveries) do add(name) end
+  return list
 end
 
 ---------------------------------------------------------------- what's stored
@@ -486,7 +522,7 @@ function orderCraft(name, count)
   end
   if not crafting then return false, "crafting.lua is missing: run 'install update'" end
   if not crafting.canMake(name) then return false, "no recipe for it" end
-  if not setup.crafter then return false, "no crafter chest: run 'storage setup'" end
+  if not setup.crafter then return false, "no crafter chest: start the crafting turtle against one on my network" end
   local stock, reach = planningStock(), reachNow()
   local jobs, why = crafting.plan(name, count, stock, reach), nil
   if not jobs then
@@ -651,6 +687,9 @@ end
 --   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter)
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
+--   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
+-- deliver sends to the turtle's own chest if it has claimed one ("own"),
+-- else the shared delivery chest, else the output chest (reply field to).
 -- Requests may carry an id, which the reply repeats. count may carry need
 -- (name -> how many the turtle wants), which keeps craftable quick.
 -- count also answers craftable (how many more could be crafted), and deliver
@@ -684,6 +723,171 @@ end
 local function isFurnace(name)
   local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
   return t and (t:find("furnace", 1, true) or t:find("smoker", 1, true)) and true or false
+end
+
+---------------------------------------------------------------- turtles finding their chest
+
+-- A turtle next to a chest on the network tells us what's in it (lib/claim.lua),
+-- and that chest becomes its delivery chest, or the crafter chest:
+--   { type = "claim", role = "delivery" or "crafter", items = its list() }
+--     -> { re = "claim", ok = true, chest } when it's the one we have for it
+--     -> { re = "claim", probe = item } once we've put one item in a chest it could be
+--   { type = "claim", role, seen = true or false }  (did the item turn up?)
+--     -> the same answers, or { ok = false, error } once no chest is left to try
+-- The probe item is taken back each time.
+local claims = {} -- turtle id -> { role, candidates, i, at = chest the item is in, marker }
+
+-- Chests a turtle's chest could be: any chest or barrel apart from the ones
+-- the storage computer needs for itself (furnaces and the like never).
+local function claimable(name)
+  for _, which in ipairs({ "input", "output", "fuel", "transfer" }) do
+    if name == setup[which] then return false end
+  end
+  if not isInventory(name) then return false end
+  local t = peripheral.getType(name)
+  for _, kind in ipairs(CLAIM_TYPES) do
+    if t:find(kind, 1, true) then return true end
+  end
+  return false
+end
+
+local function sameItems(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  local n = 0
+  for slot, it in pairs(a) do
+    local other = b[slot]
+    if type(other) ~= "table" or other.name ~= it.name or other.count ~= it.count then return false end
+    n = n + 1
+  end
+  for _ in pairs(b) do n = n - 1 end
+  return n == 0
+end
+
+local function takeMarker(c)
+  if not c.at then return end
+  local ok, list = pcall(peripheral.call, c.at, "list")
+  for slot, item in pairs(ok and list or {}) do
+    if item.name == c.marker and not item.nbt then
+      putAway(c.at, slot, item, 1)
+      break
+    end
+  end
+  c.at = nil
+end
+
+-- Put one item in the next chest to try. The item is one that chest
+-- doesn't already hold, so the turtle can tell it arrived.
+local function nextProbe(from, c)
+  local items = allItems()
+  while c.i < #c.candidates do
+    c.i = c.i + 1
+    local name = c.candidates[c.i]
+    local ok, list = pcall(peripheral.call, name, "list")
+    if ok then
+      local has = {}
+      for _, item in pairs(list) do has[item.name] = true end
+      local marker = c.marker and not has[c.marker] and items[c.marker] and c.marker
+      if not marker then
+        for key, it in pairs(items) do
+          if not it.nbt and it.count > 0 and not has[key] then marker = key break end
+        end
+      end
+      if marker and fetch(marker, 1, name) > 0 then
+        c.at, c.marker = name, marker
+        return { re = "claim", probe = marker }
+      end
+    end
+  end
+  claims[from] = nil
+  if not next(allItems()) then
+    return { re = "claim", ok = false, error = "the storage system is empty: it needs one item to find your chest with" }
+  end
+  return { re = "claim", ok = false, error = "your chest isn't on its network: put a wired modem on it, on the storage cable, and right-click the modem so it turns red" }
+end
+
+-- The chest is the turtle's: record it (in the setup file too).
+local function assign(from, role, chest)
+  if role == "delivery" and chest == setup.crafter then
+    return { re = "claim", ok = false, error = "that chest is the crafting turtle's" }
+  end
+  local s = loadSetup() or setup
+  s.deliveries = s.deliveries or {}
+  for _, t in ipairs({ setup, s }) do
+    if role == "crafter" then
+      t.crafter = chest
+      if t.delivery == chest then t.delivery = nil end
+      for id, name in pairs(t.deliveries) do
+        if name == chest then t.deliveries[id] = nil end
+      end
+    else
+      t.deliveries[from] = chest
+      if t.delivery == chest then t.delivery = nil end
+    end
+  end
+  saveSetup(s)
+  if role == "crafter" then crafterId = from end
+  store.scan() -- it may have been storage until now
+  message = { ("Turtle #%d's %s chest is %s."):format(from, role, chest), "lime" }
+  if report then report.log(("turtle #%d uses %s"):format(from, chest)) end
+  os.queueEvent("storage_changed")
+  return { re = "claim", ok = true, chest = chest }
+end
+
+local function claimChest(from, msg)
+  local role = msg.role == "crafter" and "crafter" or "delivery"
+  local c = claims[from]
+  if msg.seen ~= nil then
+    if not c then return { re = "claim", ok = false, error = "I lost track of where I was: try again" } end
+    takeMarker(c)
+    if msg.seen then
+      claims[from] = nil
+      return assign(from, c.role, c.candidates[c.i])
+    end
+    return nextProbe(from, c)
+  end
+  if c then takeMarker(c) end
+  -- the chest we already have for it, if it still holds what the turtle sees
+  local mine = role == "crafter" and setup.crafter or setup.deliveries[from]
+  if mine then
+    local ok, list = pcall(peripheral.call, mine, "list")
+    if ok and sameItems(list, msg.items) then
+      claims[from] = nil
+      if role == "crafter" then crafterId = from end
+      return { re = "claim", ok = true, chest = mine }
+    end
+  end
+  -- every chest that could be it, those holding just what the turtle sees
+  -- first (often only one), other turtles' chests last
+  local names, lists = {}, {}
+  for _, name in ipairs(peripheral.getNames()) do
+    if claimable(name) then names[#names + 1] = name end
+  end
+  local jobs = {}
+  for _, name in ipairs(names) do
+    jobs[#jobs + 1] = function()
+      local ok, list = pcall(peripheral.call, name, "list")
+      lists[name] = ok and list or nil
+    end
+  end
+  -- each call takes a game tick, so ask every chest at once
+  if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+  local taken = {}
+  for _, name in pairs(setup.deliveries) do taken[name] = true end
+  taken[setup.crafter or ""] = true
+  local candidates, rank = {}, {}
+  for _, name in ipairs(names) do
+    if lists[name] then
+      candidates[#candidates + 1] = name
+      rank[name] = (sameItems(lists[name], msg.items) and 0 or 2) + (taken[name] and 1 or 0)
+    end
+  end
+  table.sort(candidates, function(a, b)
+    if rank[a] ~= rank[b] then return rank[a] < rank[b] end
+    return a < b
+  end)
+  c = { role = role, candidates = candidates, i = 0 }
+  claims[from] = c
+  return nextProbe(from, c)
 end
 
 -- A request is handled start to finish before the next, and handling one
@@ -769,6 +973,8 @@ local function handleRequest(from, msg)
     answer(from, msg, { re = "learn", ok = okL and true or false, error = not okL and err or nil })
     if okL then message = { ("Learnt how to make %s."):format(nameOf(msg.recipe.make)), "lime" } end
     os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "claim" then
+    answer(from, msg, claimChest(from, msg))
   elseif type(msg) == "table" and msg.type == "stock" then
     local counts = countAll()
     answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })
@@ -804,7 +1010,10 @@ local function handleRequest(from, msg)
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
     -- top the chest up to n of each item: what's already there counts
-    local to, sent, total = setup.delivery or setup.output, {}, 0
+    local own = setup.deliveries[from]
+    local to, sent, total = own or setup.delivery or setup.output, {}, 0
+    local held = to ~= setup.output and (reserved[to] or {}) or nil
+    reserved[to] = held
     local okL, list = pcall(peripheral.call, to, "list")
     local present = {}
     for _, item in pairs(okL and list or {}) do
@@ -826,7 +1035,7 @@ local function handleRequest(from, msg)
         if ready[name] < n then short = true end
         total = total + sent[name]
         names[#names + 1] = name
-        if setup.delivery then reserved[name] = { n = ready[name], at = os.clock() } end
+        if held then held[name] = { n = ready[name], at = os.clock() } end
       end
     end
     -- what isn't there yet and isn't already being made: craft it if we can
@@ -841,11 +1050,12 @@ local function handleRequest(from, msg)
       if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
     end
     answer(from, msg, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), crafting = making,
-      cantCraft = cantCraft, craftProblem = craftProblem, to = setup.delivery and "delivery" or "output", error = failed })
+      cantCraft = cantCraft, craftProblem = craftProblem, error = failed,
+      to = own and "own" or setup.delivery and "delivery" or "output" })
     if failed then
       message = { "Couldn't move items for a turtle: " .. failed, "red" }
-    elseif total > 0 and not setup.delivery then
-      message = { ("Sent %d items to the output chest for turtle #%d: no delivery chest set."):format(total, from), "orange" }
+    elseif total > 0 and to == setup.output then
+      message = { ("Sent %d items to the output chest for turtle #%d: it has no chest here."):format(total, from), "orange" }
     elseif total > 0 then
       message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
     elseif short and next(making) then
@@ -875,33 +1085,36 @@ end
 local function sweepLoop()
   while true do
     sleep(SWEEP_EVERY)
-    local ok, list = false, nil
-    if setup.delivery then ok, list = pcall(peripheral.call, setup.delivery, "list") end
-    if ok then
-      local allow, held, swept = {}, {}, 0
-      for name, r in pairs(reserved) do
-        if os.clock() - r.at > HOLD then reserved[name] = nil else allow[name] = r.n end
-      end
-      for slot, item in pairs(list) do
-        local keep = 0
-        if not item.nbt and allow[item.name] then
-          keep = math.min(allow[item.name], item.count)
-          allow[item.name] = allow[item.name] - keep
-          held[item.name] = (held[item.name] or 0) + keep
+    local swept = 0
+    for _, chest in ipairs(deliveryChests()) do
+      local ok, list = pcall(peripheral.call, chest, "list")
+      if ok then
+        local res = reserved[chest] or {}
+        local allow, held = {}, {}
+        for name, r in pairs(res) do
+          if os.clock() - r.at > HOLD then res[name] = nil else allow[name] = r.n end
         end
-        if item.count > keep then
-          local extra = item.count - keep
-          swept = swept + extra - putAway(setup.delivery, slot, item, extra)
+        for slot, item in pairs(list) do
+          local keep = 0
+          if not item.nbt and allow[item.name] then
+            keep = math.min(allow[item.name], item.count)
+            allow[item.name] = allow[item.name] - keep
+            held[item.name] = (held[item.name] or 0) + keep
+          end
+          if item.count > keep then
+            local extra = item.count - keep
+            swept = swept + extra - putAway(chest, slot, item, extra)
+          end
+        end
+        for name, r in pairs(res) do
+          r.n = held[name] or 0
+          if r.n == 0 then res[name] = nil end
         end
       end
-      for name, r in pairs(reserved) do
-        r.n = held[name] or 0
-        if r.n == 0 then reserved[name] = nil end
-      end
-      if swept > 0 then
-        message = { ("Put away %d items from the delivery chest."):format(swept), "lightGray" }
-        os.queueEvent("storage_changed")
-      end
+    end
+    if swept > 0 then
+      message = { ("Put away %d items from the delivery chests."):format(swept), "lightGray" }
+      os.queueEvent("storage_changed")
     end
     -- turtles may refuel straight from the fuel chest: keep its count fresh
     readFuel()
@@ -1049,11 +1262,13 @@ local function chooseChests()
   end
   s.input = ask("Which is the input chest? ")
   s.output = ask("Which is the output chest? ")
-  print("Turtles (like the village builder) can have items sent to")
-  print("their own chest. Leave it blank to use the output chest.")
-  s.delivery = ask("Which is the delivery chest? [none] ", true)
-  print("A crafting turtle can make what's asked for but not stored.")
-  print("Its chest sits in front of it. Leave blank if there isn't one.")
+  print("Turtles (village builder, builder, crafter) find their own")
+  print("chest on the network when they start: no need to pick those.")
+  print("A shared delivery chest is for turtles that can't: leave it")
+  print("blank to send their items to the output chest.")
+  s.delivery = ask("Which is the shared delivery chest? [none] ", true)
+  print("The crafting turtle's chest sits in front of it. Leave blank")
+  print("to let the turtle find it.")
   s.crafter = ask("Which is the crafter chest? [none] ", true)
   print("A fuel chest keeps the coal and charcoal for the smelter's")
   print("furnaces and for turtles. Leave blank if there isn't one.")
@@ -1064,19 +1279,16 @@ local function chooseChests()
     print("chest. Leave blank if you use neither.")
     s.transfer = ask("Which is the transfer chest? [none] ", true)
   end
-  local f = fs.open(SETUP_FILE, "w")
-  f.write(textutils.serialize(s))
-  f.close()
+  -- the turtles' own chests stay theirs, unless picked for something else
+  local old = loadSetup()
+  s.deliveries = {}
+  for id, name in pairs(old and old.deliveries or {}) do
+    if not taken[name] then s.deliveries[id] = name end
+  end
+  if not s.crafter and old and old.crafter and not taken[old.crafter] then s.crafter = old.crafter end
+  saveSetup(s)
   print(s.backend == "bridge" and ("Saved. Items are stored in the %s system."):format(kind)
     or "Saved. Every other chest is storage.")
-  return s
-end
-
-local function loadSetup()
-  if not fs.exists(SETUP_FILE) then return nil end
-  local f = fs.open(SETUP_FILE, "r")
-  local s = textutils.unserialize(f.readAll())
-  f.close()
   return s
 end
 
@@ -1102,6 +1314,13 @@ for _, which in ipairs({ "delivery", "crafter", "fuel", "transfer" }) do
     print("Check its modem is red, or run 'storage setup'.")
     missingChest = ("No %s chest found (%s): check its modem."):format(which, setup[which])
     setup[which] = nil
+  end
+end
+setup.deliveries = setup.deliveries or {}
+for id, name in pairs(setup.deliveries) do
+  if not peripheral.isPresent(name) then
+    print(("Can't find turtle #%s's chest (%s): it'll find it again when it next asks."):format(tostring(id), name))
+    setup.deliveries[id] = nil
   end
 end
 
@@ -1159,8 +1378,14 @@ if args[1] == "test" then
       or "Every chest holds 64 a slot (no stack upgrades).")
   end
   if store.problem then print(("The %s Bridge says: %s"):format(store.kind, store.problem)) end
+  local turtles = 0
+  for id, name in pairs(setup.deliveries) do
+    print(("Turtle #%s's chest: %s."):format(tostring(id), name))
+    turtles = turtles + 1
+  end
+  if turtles == 0 then print("No turtle has found its own chest yet (they do when they first ask for items).") end
   local to = setup.delivery or setup.output
-  print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "delivery" or "output", to))
+  print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "shared delivery" or "output", to))
   local pick
   for _, it in ipairs(totals()) do
     if not it.nbt and not it.craftable then pick = it break end
@@ -1218,7 +1443,8 @@ if args[1] == "test" then
   if not crafting then
     print("crafting.lua is missing, so I can't craft: run 'install update'.")
   elseif not setup.crafter then
-    print(("I know %d recipes, but there's no crafter chest: run 'storage setup'."):format(crafting.count()))
+    print(("I know %d recipes, but there's no crafter chest yet. Start the crafting"):format(crafting.count()))
+    print("turtle against a chest on my network and it'll find it.")
   else
     print(("I know %d recipes. Crafter chest: %s."):format(crafting.count(), setup.crafter))
     if packError then

@@ -24,13 +24,18 @@ storage, except the ones you choose for:
   seconds, into a chest that already holds that item if there is one.
 - **Output chest:** search on the computer, press Enter, and a stack of that
   item turns up here.
-- **Delivery chest** (optional): where items asked for by turtles go, such
-  as the [village builder's](../village-turtle/README.md#getting-blocks-from-the-storage-system)
-  supply chest. It's kept clear: anything in it the turtle hasn't asked for
-  goes back into storage. Without one, deliveries go to the output chest
+- **Turtles' chests** (nothing to choose): the
+  [village builder](../village-turtle/README.md#getting-blocks-from-the-storage-system)
+  and [builder](../builder-turtle/README.md) turtles each get their items in
+  their own supply chest. Put a wired modem on that chest, on this network,
+  and the turtle tells the storage computer which chest it is the first time
+  it asks for something. See [Turtles asking for items](#turtles-asking-for-items).
+- **Shared delivery chest** (optional): where items go for a turtle that
+  hasn't found its own chest. Without one, they go to the output chest
   (which is never cleared out).
 - **Crafter chest** (optional): the chest in front of a
-  [crafting turtle](../crafter-turtle/README.md). See [Crafting](#crafting).
+  [crafting turtle](../crafter-turtle/README.md). The turtle finds it itself
+  when it starts, so you can leave it blank. See [Crafting](#crafting).
 - **Fuel chest** (optional): where the coal and charcoal are kept, for the
   [smelter's](../smelter-computer/README.md) furnaces and for turtles. See
   [Fuel](#fuel).
@@ -82,21 +87,31 @@ big stack.
 ### Turtles asking for items
 
 With a wireless modem, turtles can ask the storage computer over rednet how
-much of an item it holds and have some sent to the delivery chest. The
-village builder does this to get building blocks and coal. Turtles never see
-or take items with extra data (enchanted or named ones). The footer shows
-each delivery, e.g. "Sent 192 items to turtle #14."
+much of an item it holds and have some sent to their chest. The village
+builder and builder do this to get building blocks and coal. Turtles never
+see or take items with extra data (enchanted or named ones). The footer
+shows each delivery, e.g. "Sent 192 items to turtle #14."
 
-The delivery chest only ever holds what a turtle has asked for. Every 5
+Each turtle has its own chest, so any number of builders can work off one
+storage system. A turtle finds its chest on the network by itself: it tells
+the storage computer what's in the chest next to it, and the storage
+computer drops a single item into each chest that could be it until the
+turtle sees it turn up (then takes it back). The footer then says e.g.
+"Turtle #14's delivery chest is minecraft:chest_7." That chest stops being
+storage, and it's remembered. Move the turtle to another chest and it finds
+the new one the next time it asks. This needs at least one item in storage.
+
+A turtle's chest only ever holds what the turtle has asked for. Every 5
 seconds anything else in it (leftovers from an earlier load, empty buckets,
 things dropped in by hand) is put back into storage. Items a turtle asked
 for wait there until it takes them, or for 10 minutes if it never does.
 
-If a turtle says nothing arrives, run `storage test`. It moves one item into
-the delivery chest and back, says why if it can't (usually a modem that
-isn't red, or a chest not joined by cable to the others), and whether this
-computer has the wireless modem turtles need to reach it. Without one, the
-footer says "No wireless modem: turtles can't ask me for items."
+If a turtle says nothing arrives, run `storage test`. It lists each turtle's
+chest, moves one item into the shared delivery (or output) chest and back,
+says why if it can't (usually a modem that isn't red, or a chest not joined
+by cable to the others), and whether this computer has the wireless modem
+turtles need to reach it. Without one, the footer says "No wireless modem:
+turtles can't ask me for items."
 
 ### Crafting
 
@@ -248,8 +263,8 @@ The chest wall plus everything that works with it, on the same cable:
 - the [smelter](../smelter-computer/README.md): its computer and a row of
   furnaces, each furnace with a small wired modem
 - a fuel chest, for the furnaces and turtles
-- the delivery chest, with the [village builder](../village-turtle/README.md)
-  taking its blocks from it
+- the [village builder's](../village-turtle/README.md) supply chest, with a
+  wired modem on this cable: its blocks are delivered there
 
 ### AE2 with Advanced Peripherals
 
@@ -295,7 +310,8 @@ and answer yes when it finds the bridge. A Refined Storage system with an
 6. Run `storage`. The first time it asks whether to use the ME or RS system
    (if it found a bridge), then lists the chests it can see by name and asks
    which is the input, which is the output, and which (if any) are the
-   delivery, crafter, fuel and transfer chests.
+   shared delivery, crafter, fuel and transfer chests. Turtles' chests and
+   the crafter chest can be left blank: the turtles find their own.
 
    ```
    storage                   -- start
@@ -322,7 +338,12 @@ the turtles and the smelter carry on without being changed.
   storage.
 - If the delivery, crafter, fuel or transfer chest can't be found when it
   starts (a modem not red, say), it carries on without that feature and the
-  footer says which chest is missing. A missing input or output chest, or a
+  footer says which chest is missing. A missing turtle's chest is forgotten,
+  and the turtle finds it again the next time it asks for items.
+- `storage setup` keeps the chests turtles have found, unless you pick one
+  of them for something else.
+- A turtle's chest can't be the input, output, fuel or transfer chest, and
+  only chests, barrels, shulker boxes and crates count (never furnaces). A missing input or output chest, or a
   missing bridge in ME or RS mode, stops it.
 - The ME or RS system's own patterns are trusted: a turtle is told an item
   can be made as soon as there's a pattern for it, even if the system turns

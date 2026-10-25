@@ -113,7 +113,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "claim"],
       "stats": [
         ["Themes", "4"],
         ["Buildings", "7 per theme"],
@@ -130,7 +130,7 @@
       ],
       "setup": [
         "Stand the turtle on fairly flat ground at the village centre, facing the village's \"forward\".",
-        "Supply chest directly behind it (a double chest is best), spoil chest to its left.",
+        "Supply chest directly behind it (a double chest is best), spoil chest to its left. With a storage system, put a wired modem on the supply chest, on the storage cable: the turtle hooks it up itself.",
         "Fill the supply chest. 'village list medieval' shows what each building needs.",
         "Run 'village', pick a theme and a radius."
       ],
@@ -589,7 +589,7 @@
       "deviceLabel": "Mining turtle + wireless modem",
       "color": "pink",
       "tagline": "Builds whatever the blueprint projector is showing, right where it's shown: tap Build and watch it go up layer by layer.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "claim"],
       "autostart": true,
       "stats": [
         ["Plans from", "the projector"],
@@ -607,7 +607,7 @@
       "setup": [
         "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left.",
         "Run builder: with GPS it finds its position, otherwise type its X Y Z and facing (F3). Reboot.",
-        "Fill the supply chest with the plan's blocks and coal, then tap Build on the projector."
+        "Fill the supply chest with the plan's blocks and coal (or put a wired modem on it, on the storage cable, and the storage system fills it), then tap Build on the projector."
       ],
       "commands": [
         ["builder", "wait for a building from a projector (runs on boot)"],
@@ -618,7 +618,7 @@
       ],
       "integrates": [
         ["blueprint-projector", "Sends it the plan when you tap Build, and shows its progress on the panel."],
-        ["storage-computer", "Orders each load of blocks and coal into its supply chest (the storage system's delivery chest)."],
+        ["storage-computer", "Orders each load of blocks and coal into its supply chest, which it tells the storage system is its own."],
         ["gps-deployer", "With GPS it finds its own position and checks it as it builds."],
         ["nav", "All its moves go through lib/nav.lua, so chests and computers are never dug."]
       ],
@@ -655,7 +655,8 @@
         "Enter sends a stack to the output chest, Right arrow just one",
         "Puts new items next to the same item when it can",
         "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
-        "Turtles can ask for items over rednet; the village builder stocks itself from it",
+        "Turtles can ask for items over rednet; the village builder and builder stock themselves from it",
+        "Turtles find their own chest on the network: place one against a chest with a wired modem and its items go there",
         "With a crafting turtle, makes what it's asked for but doesn't have",
         "Crafts what turtles ask for but isn't stored; an optional Craftable tab lists what could be made",
         "Knows every crafting recipe in your modpack, not just vanilla (tools/recipes.mjs)",
@@ -665,12 +666,12 @@
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
         "For AE2 or Refined Storage: put an ME Bridge or RS Bridge against the system, with a wired modem on the same cable.",
-        "Run storage and answer its questions: the store, then the input, output and (optional) delivery, crafter, fuel and transfer chests. Reboot."
+        "Run storage and answer its questions: the store, then the input, output and (optional) shared delivery, crafter, fuel and transfer chests. Turtles' chests need no picking: they find their own. Reboot."
       ],
       "commands": [
         ["storage", "start (asks how it's set up the first time)"],
         ["storage setup", "choose the store and the chests again"],
-        ["storage test", "check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
+        ["storage test", "list the turtles' chests, check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
         ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"]
       ],
       "integrates": [
@@ -689,7 +690,7 @@
       "layouts": [
         { "title": "Chest wall", "scene": "storageChests", "caption": "The basic setup: a wall of chests joined by full-block modems and cable, input and output chests, and the computer with a monitor and a wireless modem for turtles." },
         { "title": "Stack upgrades", "scene": "storageUpgrades", "caption": "Sophisticated Storage barrels: the ones with the most stack upgrades get the items there are 256+ of; plain ones keep small amounts." },
-        { "title": "Full base", "scene": "storageBase", "caption": "Storage with everything joined to one cable: the crafter and its chest, the smelter and its furnaces, a fuel chest, and the delivery chest the village builder stocks from." },
+        { "title": "Full base", "scene": "storageBase", "caption": "Storage with everything joined to one cable: the crafter and its chest, the smelter and its furnaces, a fuel chest, and the village builder's supply chest, which the storage system fills." },
         { "title": "AE2 + Advanced Peripherals", "scene": "storageAe", "caption": "An ME system does the storing: an ME Bridge on the ME cable, with a wired modem joining it to the computer's cable. Input, output, fuel and transfer chests stay real chests. An RS Bridge on Refined Storage works the same." }
       ],
       "terminal": null
@@ -702,7 +703,7 @@
       "deviceLabel": "Crafty turtle",
       "color": "brown",
       "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
-      "libs": ["report", "errlog"],
+      "libs": ["claim", "report", "errlog"],
       "autostart": true,
       "stats": [
         ["Recipes", "119 built in"],
@@ -719,7 +720,7 @@
       "setup": [
         "A crafty turtle with a wireless modem, and a chest directly in front of it.",
         "Connect the chest to the storage network with a full-block wired modem.",
-        "Run storage setup on the storage computer and pick it as the crafter chest. Install and reboot the turtle."
+        "Install and reboot the turtle: it tells the storage computer that chest is the crafter chest, so there's nothing to pick in storage setup."
       ],
       "commands": [
         ["crafter", "start (runs on boot)"],
@@ -893,6 +894,18 @@
         ["errlog.clear()", "Delete the log."]
       ],
       "notes": "Each entry: [real time | game day and time] LEVEL program (label #id), then the message, the fields, fuel on turtles and the stack trace, indented, with a blank line after. The same error within a minute is counted instead of written again, Ctrl+T is never logged, and the file is trimmed to its newest 8 KB once it passes 16 KB. Read it in-game with edit /errors.log."
+    },
+    {
+      "name": "claim",
+      "title": "lib/claim",
+      "file": "lib/claim.lua",
+      "color": "yellow",
+      "tagline": "Place a turtle against a chest on the storage network and it tells the storage computer that chest is its own. Nothing to pick in storage setup.",
+      "usage": "local claim = require(\"lib.claim\")\n\n-- askStorage(msg): your request function on the \"storage\" protocol\nlocal ok, chest = claim.chest(askStorage, \"delivery\", \"front\")\nif ok then\n  print(\"Deliveries go to \" .. chest)\nelseif ok == false then\n  print(\"Couldn't hook my chest up: \" .. chest)\nend -- nil: no storage system answered",
+      "api": [
+        ["claim.chest(ask, role, side)", "Tell the storage computer the chest on that side is mine. role is \"delivery\" (my orders go there) or \"crafter\". Returns true and the chest's network name, false and why not, or nil if nothing answered."]
+      ],
+      "notes": "The turtle sends what's in its chest. If that's the chest the storage computer already has for it, it answers at once; otherwise it drops one item into each chest that could be it until the turtle sees it arrive, and takes it back each time. The storage system needs at least one item in it. The chest needs a wired modem on the storage cable."
     },
     {
       "name": "screen",

@@ -42,6 +42,7 @@ and on the [status server](../status-server/README.md).
 - [`lib/nav.lua`](../../lib/nav.lua): position tracking and movement (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
+- [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is the supply chest (copy to `/lib/claim.lua`)
 
 ## Setup
 
@@ -68,10 +69,18 @@ builder cancel       -- forget the building it's working on
 
 ### Getting blocks from the storage system
 
-With a [storage computer](../storage-computer/README.md) in range and this
-turtle's supply chest set as its **delivery chest**, the builder orders each
-load of blocks (and coal) from it before taking them from the chest. With
-crafting set up there, things like stairs and slabs get crafted as needed.
+With a [storage computer](../storage-computer/README.md) in range and a
+**wired modem on the supply chest**, joined to the storage cable, the
+builder orders each load of blocks (and coal) from it before taking them
+from the chest. With crafting set up there, things like stairs and slabs get
+crafted as needed.
+
+There's nothing to set up on the storage computer: the first time the
+builder orders something, it tells the storage computer which chest is its
+supply chest and says "The storage system sends my blocks to my supply chest
+(...)". Several builders can share one storage system, each with its own
+supply chest. If it can't find the chest (no modem on it, or the modem isn't
+red) it says so and tries again 5 minutes later.
 
 ## Staying on track
 

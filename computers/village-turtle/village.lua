@@ -25,6 +25,7 @@
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local claim = require("lib.claim") -- tells the storage computer my supply chest is my delivery chest
 local themes = require("village_themes")
 local blueprints = require("village_blueprints")
 
@@ -65,10 +66,12 @@ local SHARE_PLAN = true
 local PLAN_PROTOCOL = "village_plan"
 
 -- With a wireless modem, ask a storage-computer for building blocks and
--- fuel. Its delivery chest must be this village's supply chest.
+-- fuel. They're delivered to the supply chest, which needs a wired modem on
+-- the storage cable (the turtle tells the storage computer which chest it is).
 local USE_STORAGE = true
 local STORAGE_PROTOCOL = "storage"
 local STORAGE_RETRY = 60 -- seconds before looking for a storage computer again after not finding one
+local CLAIM_RETRY = 300 -- seconds before trying again to hook the supply chest up to the storage system, if it didn't work
 -- Fuel asked for when low, in this order, and how much of it.
 local STORAGE_FUEL = { { "minecraft:coal", 64 }, { "minecraft:charcoal", 64 }, { "minecraft:coal_block", 8 } }
 
@@ -970,6 +973,8 @@ end
 local storageId -- the storage computer, once found
 local noStorageUntil = 0 -- don't look again before this (os.clock)
 local requestId = 0
+local supplyClaimed = false -- the storage system knows the supply chest is mine
+local claimAfter = 0 -- don't try that again before this (os.clock)
 
 -- Say what the storage system did, but not the same thing over and over
 -- (orders repeat every 10 seconds while waiting).
@@ -1071,8 +1076,23 @@ orderFromStorage = function(needs)
     if short > 0 then order[item], any = short, true end
   end
   if not any then return { enough = true } end
+  -- first time: tell the storage system which of its chests is my supply chest
+  if not supplyClaimed and os.clock() >= claimAfter then
+    faceSupply()
+    local ok, why = claim.chest(askStorage, "delivery", "front")
+    faceLocal(0)
+    if ok then
+      supplyClaimed = true
+      storageNote(("The storage system sends my blocks to the supply chest (%s)."):format(why))
+    else
+      -- nil: no answer (not running, or too old to know 'claim')
+      claimAfter = os.clock() + (ok == false and CLAIM_RETRY or STORAGE_RETRY)
+      if ok == false then storageNote("Couldn't hook the supply chest up to the storage system: " .. why) end
+    end
+  end
   local r = askStorage({ type = "deliver", items = order })
   if not r then return nil end
+  if r.to ~= "own" then supplyClaimed = false end -- it was set up again: find my chest again next time
   local total = 0
   for _, n in pairs(r.sent or {}) do total = total + n end
   if r.craftProblem and r.crafting and next(r.crafting) then
@@ -1083,7 +1103,7 @@ orderFromStorage = function(needs)
     storageNote("Run 'storage test' on it to check its delivery chest.")
   end
   if r.to == "output" then
-    storageNote("The storage system has no delivery chest, so it sends to its output chest. Run 'storage setup' on it and pick my supply chest.")
+    storageNote("The storage system can't find my supply chest, so it sends to its output chest. Put a wired modem on the supply chest, on the storage cable.")
   elseif total > 0 then
     storageNote(("The storage system sent %d items to the supply chest."):format(total))
   end

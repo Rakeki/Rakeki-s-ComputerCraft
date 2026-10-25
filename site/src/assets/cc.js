@@ -587,7 +587,7 @@
         ...[..."log"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => take(64), () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; },
         // a village builder asks for blocks, then the delivery chest gets tidied
         () => { items[0].count -= 192; st.msg = ["Sent 192 items to turtle #14.", "lightBlue"]; }, () => {}, () => {},
-        () => { items[0].count += 12; st.msg = ["Put away 12 items from the delivery chest.", "lightGray"]; }, () => {},
+        () => { items[0].count += 12; st.msg = ["Put away 12 items from the delivery chests.", "lightGray"]; }, () => {},
         // and something it hasn't got, made by the crafting turtle
         () => { st.msg = ["Crafting 24 Smooth Sandstone Slab...", "lightBlue"]; }, () => {},
         () => { st.msg = ["Crafted 24 Smooth Sandstone Slab.", "lime"]; }, () => {}, () => { st.msg = ["", "lightGray"]; },

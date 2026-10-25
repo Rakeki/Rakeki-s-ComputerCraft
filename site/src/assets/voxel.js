@@ -444,7 +444,7 @@
     return {
       world: w,
       labels: [[2.5, 3.4, 0, "storage chests", "#dede6c"], [7, 2.2, 0, "storage computer", "#99b2f2"],
-        [3, 2.2, 3.5, "crafter + its chest", "#f2b233"], [7, 1.8, 4, "delivery chest", "#7fcc19"]],
+        [3, 2.2, 3.5, "crafter + its chest", "#f2b233"], [7, 1.8, 4, "turtle's chest", "#7fcc19"]],
     };
   }
 
@@ -522,7 +522,7 @@
       world: w,
       labels: [[4, 2.6, 0, "storage chests", Y], [14.5, 2.4, 1, "storage computer", B], [4, 1.5, 3, "input", G],
         [6, 1.5, 3, "output", O], [8, 1.5, 3, "fuel", R], [2, 1.5, 4, "crafter", O], [10, 1.5, 5, "furnaces", W],
-        [11, 1.5, 8, "smelter", R], [14, 1.6, 5, "delivery chest", G]],
+        [11, 1.5, 8, "smelter", R], [14, 1.6, 5, "supply chest", G]],
     };
   }
 
