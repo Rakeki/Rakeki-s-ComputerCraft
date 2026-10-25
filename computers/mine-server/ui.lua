@@ -1,5 +1,6 @@
 -- Chunk map and turtle panel for the AutoMine server. Draws to a terminal or
 -- monitor and turns clicks into actions for server.lua.
+local screen = require("lib.screen") -- flicker-free drawing
 local ui = {}
 ui.__index = ui
 
@@ -24,12 +25,7 @@ local BRUSHES = {
 local PANEL_W = 20
 local OFFLINE_AFTER = 30
 
-local function put(win, x, y, text, fg, bg)
-  win.setCursorPos(x, y)
-  win.setTextColor(fg)
-  win.setBackgroundColor(bg)
-  win.write(text)
-end
+local put = screen.put
 
 local function chunkOf(p) return math.floor(p.x / 16), math.floor(p.z / 16) end
 
@@ -39,13 +35,13 @@ function ui.new(target)
   return self
 end
 
+-- self.win is the window the frame being drawn goes into (set by draw).
 function ui:resize()
-  local w, h = self.target.getSize()
-  self.win = window.create(self.target, 1, 1, w, h, true)
+  self.display = screen.new(self.target)
 end
 
 function ui:layout()
-  local w, h = self.win.getSize()
+  local w, h = self.target.getSize()
   local panelW = w >= 40 and PANEL_W or 0
   return { w = w, h = h, panelX = w - panelW + 1, panelW = panelW, cols = math.floor((w - panelW) / 2), rows = h - 2 }
 end
@@ -69,11 +65,10 @@ function ui:pan(dx, dz)
 end
 
 function ui:draw(m)
-  local win, L = self.win, self:layout()
+  local win = self.display:frame()
+  local L = self:layout()
+  self.win = win
   self.buttons = {}
-  win.setVisible(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
 
   local queue = {}
   for k, c in pairs(m.chunks) do
@@ -207,7 +202,7 @@ function ui:draw(m)
   self:button(L.w - #label - 1, L.h, label, colors.white, m.paused and colors.green or colors.red,
     function() return { type = "togglePause" } end)
 
-  win.setVisible(true)
+  self.display:show()
 end
 
 -- Returns an action for the server ({type = "paint" | "togglePause"}) or nil.

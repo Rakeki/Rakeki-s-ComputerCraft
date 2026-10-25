@@ -17,3 +17,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `gps-deployer`, `storage-computer` (if present), `colony-dashboard` (if present),
   `crafter-turtle` (if present), `smelter-computer` (if present), `builder-turtle`,
   `blueprint-projector` (if present) and the computer template.
+- `screen.lua`: flicker-free monitors and terminals: each frame is drawn into a
+  hidden window and shown in one go, and frames that haven't changed can be
+  skipped. Used by `storage-computer`, `smelter-computer`, `colony-dashboard`,
+  `blueprint-projector`, `mine-server` and `status-server`.

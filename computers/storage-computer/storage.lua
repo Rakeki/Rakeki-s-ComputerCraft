@@ -25,6 +25,7 @@
 -- with networking cable and wired modems: a full-block wired modem touching
 -- each chest (small modems only go on full blocks like barrels). Right-click
 -- each modem so it turns red.
+local screen = require("lib.screen") -- flicker-free drawing on the terminal and monitor
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local crafting = fs.exists("crafting.lua") and require("crafting")
@@ -237,17 +238,7 @@ local function matches()
   return tab == "craft" and craft or stored, stored, craft
 end
 
-local function put(t, x, y, text, fg, bg)
-  t.setCursorPos(x, y)
-  t.setTextColor(colors[fg])
-  t.setBackgroundColor(colors[bg or "black"])
-  t.write(text)
-end
-
-local function fitText(text, w)
-  if #text > w then return text:sub(1, w) end
-  return text .. (" "):rep(w - #text)
-end
+local put, fitText = screen.put, screen.fit
 
 local function countText(n)
   if n >= 64 then
@@ -257,28 +248,12 @@ local function countText(n)
   return tostring(n)
 end
 
--- Each screen is drawn into a hidden window and then shown in one go:
--- clearing a monitor (or the terminal) and redrawing it in place makes it
--- flash. A window is made again when its screen changes size.
-local screen = term.current() -- this program's terminal (a tab of its own on an advanced computer)
-local termWin
-local monWin, monName, monLast -- the monitor's window, which monitor, and what it last showed
-
-local function frameFor(win, target)
-  local w, h = target.getSize()
-  local ww, wh = 0, 0
-  if win then ww, wh = win.getSize() end
-  if not win or ww ~= w or wh ~= h then win = window.create(target, 1, 1, w, h, false) end
-  win.setVisible(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
-  return win, w, h
-end
+-- Both screens draw through lib/screen.lua, so they don't flash.
+local termScreen = screen.new(term.current()) -- this program's terminal (its own tab on an advanced computer)
+local monScreen, monName -- the monitor's, and which monitor
 
 local function drawTerminal()
-  local t, w, h
-  termWin, w, h = frameFor(termWin, screen)
-  t = termWin
+  local t, w, h = termScreen:frame()
   if tab == "craft" and not canCraftAny() then tab = "stored" end
   local list, stored, craft = matches()
   put(t, 1, 1, (" "):rep(w), "white", "gray")
@@ -331,7 +306,7 @@ local function drawTerminal()
   t.setCursorPos(9 + #query, 3)
   t.setTextColor(colors.white)
   t.setCursorBlink(true)
-  t.setVisible(true)
+  termScreen:show()
 end
 
 local function drawMonitor()
@@ -340,24 +315,21 @@ local function drawMonitor()
   local name = peripheral.getName(mon)
   if name ~= monName then
     mon.setTextScale(MONITOR_SCALE)
-    monName, monWin, monLast = name, nil, nil
+    monName, monScreen = name, screen.new(mon)
   end
   local w, h = mon.getSize()
   local list = totals()
   local used, total, text = store.space()
   -- the uiLoop redraws on every event: only touch the monitor when what it
   -- shows has changed (each change is sent to every player who can see it)
-  local sig = { w, h, text, used or "", total or "" }
+  local sig = { text, used or "", total or "" }
   for i = 1, h - 5 do
     local it = list[i]
     if not it then break end
     sig[#sig + 1] = it.displayName .. "=" .. tostring(it.count) .. (it.craftable and "+" or "")
   end
-  sig = table.concat(sig, "|")
-  if sig == monLast then return end
-  monLast = sig
-  monWin, w, h = frameFor(monWin, mon)
-  mon = monWin
+  if monScreen:same(table.concat(sig, "|")) then return end
+  mon, w, h = monScreen:frame()
   put(mon, 1, 1, (" "):rep(w), "white", "gray")
   put(mon, 2, 1, "Storage", "yellow", "gray")
   -- how full it is, as a bar (when the store can say)
@@ -377,7 +349,7 @@ local function drawMonitor()
     put(mon, 2, 5 + i, fitText(it.displayName, w - #count - 3), it.craftable and "lightBlue" or "white")
     put(mon, w - #count, 5 + i, count, it.craftable and "lightBlue" or "lightGray")
   end
-  mon.setVisible(true)
+  monScreen:show()
 end
 
 local function redraw()

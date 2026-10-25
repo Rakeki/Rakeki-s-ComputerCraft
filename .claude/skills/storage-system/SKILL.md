@@ -103,8 +103,8 @@ craftable item takes too long.
   in `inbox`) + `netLoop` (answers them one at a time), sweep (keeps the
   delivery chest to what turtles reserved), craft, tidy, output, craft view.
   Anything that waits has a deadline and a footer message.
-- **Screens** draw into hidden windows (`frameFor`); the monitor skips
-  unchanged frames.
+- **Screens** draw through `lib/screen.lua` (`termScreen`, `monScreen`); the
+  monitor skips unchanged frames with `same()` ([[lib-screen]]).
 - `storage test` / `storage tidy` are the diagnostics to point players at.
 
 Related: [[new-computer]], [[lib-report]], [[lib-errlog]].

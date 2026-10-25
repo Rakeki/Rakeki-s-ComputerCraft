@@ -2,6 +2,7 @@
 -- through the projected building, a top-down map of the current layer and
 -- the blocks it needs. Draws to a monitor or the computer's own screen and
 -- turns clicks into action names for projector.lua.
+local screen = require("lib.screen") -- flicker-free drawing
 local ui = {}
 ui.__index = ui
 
@@ -9,18 +10,7 @@ local MIN_W, MIN_H = 32, 16 -- smallest panel with the buttons and a few rows of
 local COUNTS_W = 18         -- block list beside the map, when there's room
 local VIEW_LABEL = { whole = "Whole", layer = "Layer", outline = "Outline" }
 
-local function put(win, x, y, text, fg, bg)
-  win.setCursorPos(x, y)
-  win.setTextColor(fg)
-  win.setBackgroundColor(bg)
-  win.write(text)
-end
-
-local function fit(text, width)
-  text = tostring(text or "")
-  if #text > width then return text:sub(1, width) end
-  return text .. string.rep(" ", width - #text)
-end
+local put, fit = screen.put, screen.fit
 
 function ui.new(target, isMonitor)
   if isMonitor then
@@ -31,10 +21,8 @@ function ui.new(target, isMonitor)
       if w >= MIN_W and h >= MIN_H then break end
     end
   end
-  local self = setmetatable({ target = target, buttons = {} }, ui)
-  local w, h = target.getSize()
-  self.win = window.create(target, 1, 1, w, h, true)
-  return self
+  -- self.win is the window the panel being drawn goes into (set by draw)
+  return setmetatable({ target = target, display = screen.new(target), buttons = {} }, ui)
 end
 
 function ui:button(x, y, label, action, fg, bg)
@@ -90,12 +78,10 @@ function ui:drawCounts(m, x0, y0, width, rows)
 end
 
 function ui:draw(m)
-  local win, s = self.win, m.state
-  local w, h = win.getSize()
+  local s = m.state
+  local win, w, h = self.display:frame()
+  self.win = win
   self.buttons = {}
-  win.setVisible(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
 
   -- header: which plan, and arrows to change it
   put(win, 1, 1, string.rep(" ", w), colors.white, colors.gray)
@@ -160,7 +146,7 @@ function ui:draw(m)
     if rows - mapRows >= 3 then self:drawCounts(m, 2, top + mapRows + 2, w - 2, rows - mapRows - 1) end
   end
 
-  win.setVisible(true)
+  self.display:show()
 end
 
 return ui

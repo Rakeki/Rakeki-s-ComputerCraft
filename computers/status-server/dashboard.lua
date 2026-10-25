@@ -1,5 +1,6 @@
 -- Dashboard for the status server: a card per computer, tap one for details
 -- and recent activity.
+local screen = require("lib.screen") -- flicker-free drawing
 local dashboard = {}
 dashboard.__index = dashboard
 
@@ -18,18 +19,7 @@ local STATE_COLOR = {
   error = colors.red,
 }
 
-local function put(win, x, y, text, fg, bg)
-  win.setCursorPos(x, y)
-  win.setTextColor(fg)
-  win.setBackgroundColor(bg)
-  win.write(text)
-end
-
-local function fit(text, width)
-  text = tostring(text or "")
-  if #text > width then return text:sub(1, width) end
-  return text .. string.rep(" ", width - #text)
-end
+local put, fit = screen.put, screen.fit
 
 local function ago(seconds)
   seconds = math.max(0, math.floor(seconds))
@@ -81,8 +71,8 @@ function dashboard.new(target, isMonitor)
       if target.getSize() >= CARD_W * 2 + 3 then break end
     end
   end
-  local w, h = target.getSize()
-  return setmetatable({ win = window.create(target, 1, 1, w, h, true), page = 1, buttons = {} }, dashboard)
+  -- self.win is the window the frame being drawn goes into (set by draw)
+  return setmetatable({ display = screen.new(target), page = 1, buttons = {} }, dashboard)
 end
 
 function dashboard:button(x, y, label, fg, bg, action)
@@ -219,18 +209,15 @@ function dashboard:drawDetail(c, id, t)
 end
 
 function dashboard:draw(computers, t)
-  local win = self.win
+  self.win = self.display:frame()
   self.buttons = {}
-  win.setVisible(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
   if self.selected and not computers[self.selected] then self.selected = nil end
   if self.selected then
     self:drawDetail(computers[self.selected], self.selected, t)
   else
     self:drawGrid(computers, t)
   end
-  win.setVisible(true)
+  self.display:show()
 end
 
 -- Returns an action for the server ({ type = "forget", id }) or nil.

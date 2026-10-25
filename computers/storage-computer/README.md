@@ -272,6 +272,7 @@ and answer yes when it finds the bridge. A Refined Storage system with an
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 
 ## Setup
 

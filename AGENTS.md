@@ -23,6 +23,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   nav.lua                   Turtle position tracking + safe movement (saved across reboots, optional GPS)
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
+  screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go)
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
@@ -147,22 +148,22 @@ Existing computers:
 
 | Folder | What | Libs |
 |---|---|---|
-| `mine-server` | AutoMine server: hands out chunks, planning map | report, errlog |
+| `mine-server` | AutoMine server: hands out chunks, planning map | report, errlog, screen |
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog |
-| `status-server` | Monitor dashboard of every computer's status | errlog |
+| `status-server` | Monitor dashboard of every computer's status | errlog, screen |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, errlog, report (if present) |
 | `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs | nav, report, errlog |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog |
-| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | report, errlog (if present) |
+| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, report, errlog (if present) |
 | `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog |
-| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | report, errlog (if present) |
+| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | screen, report, errlog (if present) |
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | report, errlog (if present) |
-| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | report, errlog (if present) |
-| `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | report, errlog (if present) |
+| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, report, errlog (if present) |
+| `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the
@@ -234,6 +235,7 @@ Detailed guides live in `.claude/skills/`:
 - `lib-nav`: the `lib/nav.lua` API, heading convention and gotchas
 - `lib-report`: the `lib/report.lua` API and status states
 - `lib-errlog`: the `lib/errlog.lua` API and the error log format
+- `lib-screen`: the `lib/screen.lua` API for flicker-free monitors and terminals
 - `turtle-job`: the standalone resumable turtle job pattern (from excavate-turtle), and jobs in world coordinates (builder-turtle)
 - `storage-system`: asking the storage computer for items (messages, replies, crafting on request) and how it works inside
 
@@ -252,10 +254,11 @@ Detailed guides live in `.claude/skills/`:
   never read or empty storage chests (or an ME / RS system) themselves.
 - **Movement:** turtles use `lib/nav.lua` (never raw `turtle.forward` for moves
   that change position) so position is saved and protected blocks are never dug.
-- **Screens:** never clear a monitor (or the terminal) and redraw it in place: it
-  flashes. Draw each frame into a hidden `window.create(target, 1, 1, w, h, false)`,
-  then `setVisible(true)` (see storage.lua's `frameFor`). A monitor redrawn on every
-  event should also skip frames that haven't changed.
+- **Screens:** every monitor and terminal UI draws through `lib/screen.lua`:
+  `local win, w, h = s:frame()`, draw, `s:show()`. Never clear a monitor (or
+  the terminal) and redraw it in place: it flashes. A screen redrawn on every
+  event skips unchanged frames with `s:same(key)`. Add `screen` to the
+  program's `libs` in programs.json.
 - **Status:** long-running programs call `report.init(role)`, `report.set(state, detail)`
   as they work, and run `parallel.waitForAny(main, report.loop)`; wrap `main` in
   `errlog.pcall` and report `"error"` on failure.

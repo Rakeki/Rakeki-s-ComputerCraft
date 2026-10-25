@@ -7,6 +7,7 @@
 --
 -- The computer and its Colony Integrator must be inside the colony's borders.
 -- Without a monitor it draws on the computer's own screen (click instead of tap).
+local screen = require("lib.screen") -- flicker-free drawing
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -72,12 +73,7 @@ local function pretty(s)
   return (s:gsub("^%l", string.upper))
 end
 
-local function fit(text, w)
-  text = tostring(text or "")
-  if w <= 0 then return "" end
-  if #text > w then return text:sub(1, w) end
-  return text .. (" "):rep(w - #text)
-end
+local fit = screen.fit
 
 local function jobOf(c)
   if c.work and c.work.job then return pretty(c.work.job) end
@@ -92,16 +88,12 @@ end
 
 ---------------------------------------------------------------- drawing
 
-local screen -- what's drawn on: a hidden window over the monitor (or term), shown once a page is drawn
 local target -- the monitor, or term
+local display -- lib/screen.lua over target: each page is drawn hidden and shown in one go
+local win -- the window the page being drawn goes into
 local onTerm = false -- no monitor: the page is on this computer's screen, and clicks work
 
-local function put(x, y, text, fg, bg)
-  screen.setCursorPos(x, y)
-  screen.setTextColor(colors[fg or "white"])
-  screen.setBackgroundColor(colors[bg or "black"])
-  screen.write(text)
-end
+local function put(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
 
 local function zone(x1, x2, y, action) ui.zones[#ui.zones + 1] = { x1 = x1, x2 = x2, y = y, action = action } end
 
@@ -114,7 +106,7 @@ end
 -- A scrolling list: rows from y0 to y1, with up/down buttons on the right
 -- of the row under the tabs when it doesn't all fit.
 local function list(items, y0, y1, row)
-  local w = screen.getSize()
+  local w = win.getSize()
   local rows = y1 - y0 + 1
   local maxScroll = math.max(0, #items - rows)
   ui.scroll = math.max(0, math.min(ui.scroll, maxScroll))
@@ -256,18 +248,12 @@ end
 
 local PAGES = { drawOverview, drawCitizens, drawBuildings, drawRequests, drawBuilds }
 
--- Drawn into a hidden window and shown in one go: clearing the monitor and
--- redrawing it in place makes it flash every refresh.
+-- Drawn through lib/screen.lua: clearing the monitor and redrawing it in
+-- place would make it flash every refresh.
 local function draw()
   ui.zones = {}
-  local tw, th = target.getSize()
-  local sw, sh = 0, 0
-  if screen then sw, sh = screen.getSize() end
-  if not screen or sw ~= tw or sh ~= th then screen = window.create(target, 1, 1, tw, th, false) end
-  screen.setVisible(false)
-  screen.setBackgroundColor(colors.black)
-  screen.clear()
-  local w, h = screen.getSize()
+  local w, h
+  win, w, h = display:frame()
   if not data.inColony then
     put(2, 2, "Not inside a colony.", "red")
     put(2, 4, "Move this computer and its Colony Integrator", "white")
@@ -276,7 +262,7 @@ local function draw()
     drawTabs(w)
     PAGES[ui.tab](w, h)
   end
-  screen.setVisible(true)
+  display:show()
 end
 
 ---------------------------------------------------------------- loops
@@ -351,6 +337,7 @@ if monitor then
 else
   target, onTerm = term.current(), true
 end
+display = screen.new(target)
 
 if report then report.init("colony dashboard") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop, alarmLoop,

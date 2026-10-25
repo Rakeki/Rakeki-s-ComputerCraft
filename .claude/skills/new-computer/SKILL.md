@@ -49,8 +49,9 @@ repo root.
   `report.init` / `report.set` as it goes ([[lib-errlog]], [[lib-report]]).
 - **Items:** if it needs items or fuel from storage, ask the storage computer
   ([[storage-system]]); never read or empty storage chests directly.
-- **Screens:** draw each frame into a hidden `window.create(target, 1, 1, w, h, false)`
-  and `setVisible(true)` it; clearing a monitor and redrawing in place flashes.
+- **Screens:** draw every monitor or terminal UI through `lib/screen.lua`
+  (`s:frame()`, draw, `s:show()`), and add `screen` to its libs
+  ([[lib-screen]]); clearing a monitor and redrawing in place flashes.
 - **Settings:** player settings go in `config.lua`, listed under `keep` in
   programs.json so `install update` leaves them alone.
 - **Big optional files** (like a modpack's recipes) go in a `packs/`
@@ -77,6 +78,7 @@ when the chest fills or fuel runs out.
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
+- [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). For programs with a screen.
 
 ## Use
 1. Numbered setup steps (where to place the turtle, chest, fuel).
@@ -99,4 +101,4 @@ files go in `saves/<world>/computercraft/computer/<id>/` (run `id` in-game).
 Copy the program, `startup.lua`, and any used `lib/*.lua` to `/lib/`.
 Modules load with `require("lib.nav")`.
 
-Related: [[lib-nav]], [[lib-report]], [[lib-errlog]], [[turtle-job]], [[storage-system]].
+Related: [[lib-nav]], [[lib-report]], [[lib-errlog]], [[lib-screen]], [[turtle-job]], [[storage-system]].

@@ -1,5 +1,6 @@
 -- Read-only status board for a monitor: job totals, every turtle's progress,
 -- and recent events.
+local screen = require("lib.screen") -- flicker-free drawing
 local status = {}
 status.__index = status
 
@@ -15,18 +16,7 @@ local STATE_COLOR = {
   error = colors.red,
 }
 
-local function put(win, x, y, text, fg, bg)
-  win.setCursorPos(x, y)
-  win.setTextColor(fg)
-  win.setBackgroundColor(bg or colors.black)
-  win.write(text)
-end
-
-local function pad(text, width)
-  text = tostring(text)
-  if #text > width then return text:sub(1, width) end
-  return text .. string.rep(" ", width - #text)
-end
+local put, pad = screen.put, screen.fit
 
 function status.new(mon)
   -- largest text that still fits a useful amount of information
@@ -35,16 +25,11 @@ function status.new(mon)
     local w, h = mon.getSize()
     if w >= 39 and h >= 12 then break end
   end
-  local w, h = mon.getSize()
-  return setmetatable({ win = window.create(mon, 1, 1, w, h, true) }, status)
+  return setmetatable({ display = screen.new(mon) }, status)
 end
 
 function status:draw(m)
-  local win = self.win
-  local w, h = win.getSize()
-  win.setVisible(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
+  local win, w, h = self.display:frame()
 
   put(win, 1, 1, string.rep(" ", w), colors.white, colors.gray)
   put(win, 2, 1, "AutoMine", colors.yellow, colors.gray)
@@ -130,7 +115,7 @@ function status:draw(m)
     end
   end
 
-  win.setVisible(true)
+  self.display:show()
 end
 
 return status

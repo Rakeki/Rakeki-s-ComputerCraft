@@ -48,6 +48,7 @@ in the `/plans` folder (see [Plans](#plans)).
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 
 ## Setup
 

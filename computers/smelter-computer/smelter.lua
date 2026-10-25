@@ -14,6 +14,7 @@
 -- (computers/storage-computer) running. It asks the storage computer for
 -- everything over rednet on the cable, so it needs no wireless modem. Which
 -- items get smelted is set in config.lua.
+local screen = require("lib.screen") -- flicker-free drawing
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -355,32 +356,17 @@ end
 
 ---------------------------------------------------------------- screen
 
--- The screen is drawn into a hidden window and shown in one go, so it
--- doesn't flash: clearing and redrawing in place does.
-local screen = term.current()
+-- Drawn through lib/screen.lua (a hidden window shown in one go), so it
+-- doesn't flash.
+local display = screen.new(term.current())
 local win
+local fitText = screen.fit
 
-local function put(x, y, text, fg, bg)
-  win.setCursorPos(x, y)
-  win.setTextColor(colors[fg])
-  win.setBackgroundColor(colors[bg or "black"])
-  win.write(text)
-end
-
-local function fitText(text, w)
-  if #text > w then return text:sub(1, w) end
-  return text .. (" "):rep(w - #text)
-end
+local function put(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
 
 local function draw()
-  local w, h = screen.getSize()
-  local ww, wh = 0, 0
-  if win then ww, wh = win.getSize() end
-  if not win or ww ~= w or wh ~= h then win = window.create(screen, 1, 1, w, h, false) end
-  win.setVisible(false)
-  win.setCursorBlink(false)
-  win.setBackgroundColor(colors.black)
-  win.clear()
+  local w, h
+  win, w, h = display:frame()
   put(1, 1, (" "):rep(w), "white", "gray")
   put(2, 1, "Smelter", "yellow", "gray")
   local stat = stock and ("fuel for %d items"):format(stock.fuel or 0) or "no storage yet"
@@ -403,7 +389,7 @@ local function draw()
   put(1, h - 2, fitText(" " .. (order or "No charcoal order."), w), order and "lightBlue" or "gray")
   put(1, h - 1, fitText(message[1], w), message[2])
   put(1, h, fitText("C: make charcoal  X: cancel charcoal", w), "gray")
-  win.setVisible(true)
+  display:show()
 end
 
 -- Ask which logs to burn and how much charcoal to make, from what the

@@ -356,7 +356,7 @@
       "deviceLabel": "Advanced computer",
       "color": "yellow",
       "tagline": "The brain of AutoMine: hands chunks out to a fleet of mining turtles and shows a touch map for planning.",
-      "libs": ["report", "errlog"],
+      "libs": ["report", "errlog", "screen"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -446,7 +446,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "cyan",
       "tagline": "A live monitor wall of every computer and turtle: state, what it's doing, where it is and its fuel.",
-      "libs": ["errlog"],
+      "libs": ["errlog", "screen"],
       "autostart": true,
       "stats": [
         ["Setup per computer", "none"],
@@ -528,7 +528,7 @@
       "deviceLabel": "Advanced computer + monitor + Spatial Projector",
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
-      "libs": ["report", "errlog"],
+      "libs": ["report", "errlog", "screen"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -642,7 +642,7 @@
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
       "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
-      "libs": ["report", "errlog"],
+      "libs": ["report", "errlog", "screen"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
@@ -754,7 +754,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
-      "libs": ["report", "errlog"],
+      "libs": ["report", "errlog", "screen"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -808,7 +808,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "orange",
       "tagline": "A touch-screen monitor for your MineColonies colony: citizens, happiness, huts, open requests, builds, and an alarm when it's attacked.",
-      "libs": ["report", "errlog"],
+      "libs": ["report", "errlog", "screen"],
       "autostart": true,
       "stats": [
         ["Refresh", "every 5 s"],
@@ -893,6 +893,24 @@
         ["errlog.clear()", "Delete the log."]
       ],
       "notes": "Each entry: [real time | game day and time] LEVEL program (label #id), then the message, the fields, fuel on turtles and the stack trace, indented, with a blank line after. The same error within a minute is counted instead of written again, Ctrl+T is never logged, and the file is trimmed to its newest 8 KB once it passes 16 KB. Read it in-game with edit /errors.log."
+    },
+    {
+      "name": "screen",
+      "title": "lib/screen",
+      "file": "lib/screen.lua",
+      "color": "lightBlue",
+      "tagline": "Flicker-free monitors and terminals: each frame is drawn hidden and shown in one go, and frames that haven't changed are skipped.",
+      "usage": "local screen = require(\"lib.screen\")\nlocal s = screen.new(peripheral.find(\"monitor\")) -- or term.current()\n\nif not s:same(key) then             -- optional: skip a frame that looks the same\n  local win, w, h = s:frame()       -- hidden and cleared\n  screen.put(win, 1, 1, \"Hello\", \"yellow\", \"gray\")\n  s:show()                          -- up it goes, all at once\nend",
+      "api": [
+        ["screen.new(target)", "Wrap a monitor or terminal."],
+        ["s:frame(bg)", "A hidden, cleared window the size of the screen to draw the next frame in, and its width and height. Made again when the screen is resized."],
+        ["s:show()", "Show the frame in one go. Set the cursor on the window first if it should blink somewhere."],
+        ["s:same(key)", "True when key matches the last frame at this size, so drawing can be skipped."],
+        ["s:setTarget(t)", "Draw on another monitor from now on."],
+        ["screen.put(t, x, y, text, fg, bg)", "Write text in colours: names (\"lime\") or numbers (colors.lime); bg is black if left out."],
+        ["screen.fit(text, w)", "Cut or pad text to exactly w characters."]
+      ],
+      "notes": "Clearing a monitor and redrawing it in place makes it flash, so every program with a screen draws through this. Skipping unchanged frames also saves sending them to every player who can see the monitor."
     }
   ]
 }
