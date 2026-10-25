@@ -56,7 +56,7 @@ most of. The storage computer reads how much each one's slots hold:
 - Items you have **256 or more** of go into the roomiest storage first.
   Smaller amounts go into plain chests first, so the roomy ones stay free
   for bulk.
-- Every 20 seconds it tidies a little: a few stacks of a bulk item already
+- Every 10 seconds it tidies a little: up to 16 stacks of a bulk item already
   sitting in a plainer chest move up into roomier storage with space. If the
   roomy storage is full, a stack of something you have little of (under 128)
   moves out to a plain chest first to make room. Items only move up when
@@ -65,8 +65,16 @@ most of. The storage computer reads how much each one's slots hold:
 - Upgrading a barrel later is noticed at the next rescan (within a minute),
   and the tidying moves bulk items into it from then on.
 
-`storage test` says how many storages have bigger slots. With every chest
-the same size, none of this does anything.
+`storage tidy` lists how much one slot of your storage holds (e.g. "1024 a
+slot: 6 storages, 64 a slot: 40 storages"), then sorts everything at once,
+saying each move, or why nothing moved. Run it after adding upgrades, or if
+things don't seem to be moving. With every chest the same size, none of
+this does anything.
+
+Some storage doesn't tell CC about its upgrades. Then the storage computer
+works out the slot size from what's in it (a slot holding 300 cobblestone
+is clearly bigger than 64), so such storage counts as roomy once it holds a
+big stack.
 
 ### Turtles asking for items
 
@@ -195,7 +203,11 @@ and before) and the new ones in Minecraft 1.21.
    storage                   -- start
    storage setup             -- choose the store and the chests again
    storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
+   storage tidy              -- show slot sizes and sort bulk items into storage with stack upgrades now
    ```
+
+   While `storage` is running, run these in a second tab (advanced
+   computer: `bg storage tidy`) or stop it first with Ctrl+T.
 
 Then reboot, and it starts on its own from then on. To move from chests to
 an ME or RS system later, add the bridge, run `storage setup` and answer yes:

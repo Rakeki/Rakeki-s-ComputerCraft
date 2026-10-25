@@ -612,7 +612,8 @@
       "commands": [
         ["storage", "start (asks how it's set up the first time)"],
         ["storage setup", "choose the store and the chests again"],
-        ["storage test", "check deliveries, the fuel chest, the wireless modem and the crafting turtle"]
+        ["storage test", "check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
+        ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"]
       ],
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],

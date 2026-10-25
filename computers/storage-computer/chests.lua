@@ -25,7 +25,7 @@
 local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer" }
 local BULK = 256 -- items: with this many of an item stored, it goes in the roomiest storage first
 local SMALL = 128 -- items: with fewer than this, it may be moved out of roomy storage to make room for bulk
-local TIDY_MOVES = 4 -- most stacks one tidy moves (each move takes a couple of ticks)
+local TIDY_MOVES = 16 -- most stacks one tidy moves (each move takes a few ticks)
 
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
 
@@ -80,6 +80,10 @@ function M.new(setup)
         details[key] = { displayName = okD and d and d.displayName or shortName(item.name),
           maxCount = okD and d and d.maxCount or 64 }
       end
+      -- a slot holding more than a stack shows the slots are bigger than the
+      -- store says (some don't report their stack upgrades)
+      local seen = math.ceil(item.count * 64 / details[key].maxCount)
+      if seen > (limits[name] or 64) then limits[name] = seen end
     end
   end
 
@@ -97,7 +101,7 @@ function M.new(setup)
         -- stack upgrades apply to every slot, so the first one tells
         local okL, limit = pcall(peripheral.call, name, "getItemLimit", 1)
         limits[name] = okL and tonumber(limit) or 64
-        rescan(name)
+        rescan(name) -- may raise it, from what the slots hold
       end
     end
     -- Each call takes a game tick, so ask every chest at once.
@@ -134,14 +138,20 @@ function M.new(setup)
     return used, total, ("%d chests, %d/%d slots"):format(#stores, used, total)
   end
 
+  -- How many stores hold more than 64 a slot, the most any holds, and how
+  -- many stores there are of each slot size: { { limit, count }, ... }.
   function B.roomInfo()
-    local roomy, most = 0, 64
+    local roomy, most, bySize = 0, 64, {}
     for _, name in ipairs(stores) do
       local l = limits[name] or 64
       if l > 64 then roomy = roomy + 1 end
       most = math.max(most, l)
+      bySize[l] = (bySize[l] or 0) + 1
     end
-    return roomy, most
+    local sizesList = {}
+    for l, n in pairs(bySize) do sizesList[#sizesList + 1] = { l, n } end
+    table.sort(sizesList, function(a, b) return a[1] > b[1] end)
+    return roomy, most, sizesList
   end
 
   ---------------------------------------------------------------- room
@@ -272,9 +282,14 @@ function M.new(setup)
   -- first, into plainer storage. Items only ever move up (bulk) or down
   -- (small), and the gap between BULK and SMALL stops them going back and
   -- forth.
-  function B.tidy()
+  -- log, if given, is told each move, and why nothing moved.
+  function B.tidy(log)
+    log = log or function() end
     local roomy, most = B.roomInfo()
-    if roomy == 0 then return 0 end -- all one size: nothing to gain
+    if roomy == 0 then
+      log("Every storage holds 64 a slot, so there's nothing to sort.")
+      return 0
+    end
     local totals, moved, what = {}, 0, nil
     for key, it in pairs(B.items()) do totals[key] = it.count end
     local bulk = {}
@@ -282,6 +297,12 @@ function M.new(setup)
       if n >= BULK then bulk[#bulk + 1] = key end
     end
     table.sort(bulk, function(a, b) return totals[a] > totals[b] end)
+    if #bulk == 0 then
+      log(("Nothing has %d or more stored yet, so nothing counts as bulk."):format(BULK))
+      return 0
+    end
+    local function nameOf(key) return details[key] and details[key].displayName or key end
+    local blocked = {} -- bulk items with no roomier storage to go to
 
     local evictFailed = {} -- slot sizes it couldn't make room above this pass
     for _, key in ipairs(bulk) do
@@ -307,8 +328,11 @@ function M.new(setup)
                       if (totals[k] or 0) < SMALL then
                         for _, down in ipairs(placeOrder(k, false)) do
                           if limitOf(down) < limitOf(name) then
-                            if move(name, s, down, other.count) > 0 then
+                            local n = move(name, s, down, other.count)
+                            if n > 0 then
                               moved = moved + 1
+                              log(("Moved %d %s out of %s (%d a slot) to make room."):format(n, nameOf(k), name,
+                                limitOf(name)))
                               if hasRoom(name, key) then
                                 to = name
                                 evictFailed[limitOf(from)] = nil
@@ -323,14 +347,34 @@ function M.new(setup)
                   end
                 end
               end
-              if to and moved < TIDY_MOVES and move(from, slot, to, item.count) > 0 then
-                moved = moved + 1
-                what = details[key] and details[key].displayName or shortName(item.name)
+              if to and moved < TIDY_MOVES then
+                local n = move(from, slot, to, item.count)
+                if n > 0 then
+                  moved = moved + 1
+                  what = nameOf(key)
+                  log(("Moved %d %s from %s (%d a slot) to %s (%d a slot)."):format(n, what, from, limitOf(from),
+                    to, limitOf(to)))
+                end
+              elseif not to then
+                blocked[key] = true
               end
               break -- contents[from] changed: look at this store again next time
             end
           end
         end
+      end
+    end
+    if moved == 0 then
+      local n, first = 0, nil
+      for key in pairs(blocked) do
+        n = n + 1
+        first = first or key
+      end
+      if n > 0 then
+        log(("%d bulk items (like %s) are in smaller storage, but the roomier storage is full and has nothing"
+          .. " small to move out."):format(n, nameOf(first)))
+      else
+        log(("All %d bulk items are already in the roomiest storage with space."):format(#bulk))
       end
     end
     return moved, what

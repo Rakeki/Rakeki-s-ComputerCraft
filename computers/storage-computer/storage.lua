@@ -19,6 +19,7 @@
 --   storage          start (asks how it's set up the first time)
 --   storage setup    choose the store and the input, output, delivery, crafter, fuel and transfer chests again
 --   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
+--   storage tidy     show the storage's slot sizes and sort bulk items into the roomiest now
 --
 -- Connect the computer and every chest (and the bridge, if there is one)
 -- with networking cable and wired modems: a full-block wired modem touching
@@ -34,7 +35,7 @@ local SETUP_FILE = "/.storage_setup"
 
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
-local TIDY_EVERY = 20 -- seconds between tidies (moving bulk items into storage with stack upgrades)
+local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage with stack upgrades)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
@@ -936,6 +937,26 @@ else
   store.scan()
 end
 readFuel()
+
+-- 'storage tidy': say what slot sizes the storage has, and sort the bulk
+-- items into the roomiest storage now, saying each move (and why, if none).
+if args[1] == "tidy" then
+  if not store.tidy then
+    print(("The %s system sorts its own storage: nothing to tidy."):format(store.kind))
+    return
+  end
+  local _, _, bySize = store.roomInfo()
+  print("Storage by how much one slot holds:")
+  for _, s in ipairs(bySize) do print(("  %5d a slot: %d storages"):format(s[1], s[2])) end
+  local total = 0
+  for _ = 1, 500 do
+    local n = store.tidy(print)
+    total = total + n
+    if n == 0 then break end
+  end
+  print(("Done: moved %d stacks."):format(total))
+  return
+end
 
 -- 'storage test': move one item into the delivery (or output) chest and back,
 -- and say what went wrong if it can't.
