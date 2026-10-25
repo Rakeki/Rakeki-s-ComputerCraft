@@ -11,4 +11,5 @@
 ## Files
 
 - `startup.lua`: runs on boot. Reports to the [status server](../status-server/README.md)
-  through [`lib/report.lua`](../../lib/report.lua); copy that to `/lib/report.lua`.
+  through [`lib/report.lua`](../../lib/report.lua) and saves errors to `/errors.log`
+  through [`lib/errlog.lua`](../../lib/errlog.lua); copy both to `/lib/`.

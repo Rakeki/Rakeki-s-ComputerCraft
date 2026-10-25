@@ -7,7 +7,7 @@ description: The standard pattern for a standalone, resumable turtle job in this
 
 Reference implementation: `computers/excavate-turtle/excavate.lua`. Read the
 relevant section there before writing; reuse its functions and wording.
-Uses [[lib-nav]] and [[lib-report]]; folder setup is in [[new-computer]].
+Uses [[lib-nav]], [[lib-report]] and [[lib-errlog]]; folder setup is in [[new-computer]].
 
 ## Shape of the program
 
@@ -19,6 +19,7 @@ Uses [[lib-nav]] and [[lib-report]]; folder setup is in [[new-computer]].
 --   prog cancel
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local JOB_FILE = "/.prog_job"
 -- tunables (UPPER_CASE, commented)
@@ -119,8 +120,9 @@ End of file:
 
 ```lua
 report.init("excavator")
+errlog.init("excavate", function() return { pos = nav.getPos() } end)
 parallel.waitForAny(function()
-  local ok, err = pcall(run)
+  local ok, err = errlog.pcall(run)
   if not ok then
     report.set("error", tostring(err))
     error(err, 0)

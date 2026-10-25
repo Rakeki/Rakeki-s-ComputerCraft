@@ -8,7 +8,7 @@
       "deviceLabel": "Mining turtle",
       "color": "orange",
       "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Hall", "21 × 21 × 16"],
         ["Rooms", "24 on 2 floors"],
@@ -61,7 +61,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lightBlue",
       "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, torches every 8 blocks, loot hauled home.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Main tunnel", "3 × 3 × 64"],
         ["Branches", "10 pairs × 32"],
@@ -113,7 +113,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Themes", "4"],
         ["Buildings", "7 per theme"],
@@ -189,7 +189,7 @@
       "deviceLabel": "Mining turtle",
       "color": "red",
       "tagline": "Builds a classic drop-tower mob farm: dark spawning room, water channels, drop shaft and collection chest.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Spawn room", "18 × 18"],
         ["Drop", "32 (or 22 for XP)"],
@@ -246,7 +246,7 @@
       "deviceLabel": "Felling or mining turtle",
       "color": "green",
       "tagline": "Plants a grid of saplings, chops each tree as it grows, replants it and hauls the logs to a chest. For ever.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Trees", "4 × 6"],
         ["Spacing", "3 blocks"],
@@ -302,7 +302,7 @@
       "deviceLabel": "Farming turtle",
       "color": "yellow",
       "tagline": "Flies over a field, harvests whatever is ripe, replants it from its own seeds and drops the harvest in a chest.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Field", "9 × 9"],
         ["Crops", "5 kinds + melons"],
@@ -356,7 +356,7 @@
       "deviceLabel": "Advanced computer",
       "color": "yellow",
       "tagline": "The brain of AutoMine: hands chunks out to a fleet of mining turtles and shows a touch map for planning.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -396,7 +396,7 @@
       "deviceLabel": "Mining turtle + modem",
       "color": "orange",
       "tagline": "Same code on every miner. Asks the server for a chunk, flies there and mines it out, layer by layer.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "autostart": true,
       "stats": [
         ["Pattern", "3-high layers"],
@@ -446,7 +446,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "cyan",
       "tagline": "A live monitor wall of every computer and turtle: state, what it's doing, where it is and its fuel.",
-      "libs": [],
+      "libs": ["errlog"],
       "autostart": true,
       "stats": [
         ["Setup per computer", "none"],
@@ -480,7 +480,7 @@
       "deviceLabel": "Mining turtle",
       "color": "purple",
       "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on.",
-      "libs": ["nav", "report"],
+      "libs": ["nav", "report", "errlog"],
       "stats": [
         ["Hosts", "4"],
         ["Height", "as high as it can"],
@@ -586,7 +586,7 @@
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
       "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
@@ -646,7 +646,7 @@
       "deviceLabel": "Crafty turtle",
       "color": "brown",
       "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "autostart": true,
       "stats": [
         ["Recipes", "119 built in"],
@@ -698,7 +698,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -752,7 +752,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "orange",
       "tagline": "A touch-screen monitor for your MineColonies colony: citizens, happiness, huts, open requests, builds, and an alarm when it's attacked.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "autostart": true,
       "stats": [
         ["Refresh", "every 5 s"],
@@ -820,6 +820,23 @@
         ["report.loop()", "Heartbeat loop. Run it beside your program with parallel."]
       ],
       "notes": "States are one lowercase word. The dashboard colours them: green working, grey idle, yellow/orange waiting or paused, blue travelling, red error. Pass { pos = { x, y, z } } in extra if the program tracks its own position."
+    },
+    {
+      "name": "errlog",
+      "title": "lib/errlog",
+      "file": "lib/errlog.lua",
+      "color": "red",
+      "tagline": "Every program saves its errors to /errors.log in the same format, so you can see what went wrong after the screen has moved on.",
+      "usage": "local errlog = require(\"lib.errlog\")\nerrlog.init(\"excavate\", function() return { pos = nav.getPos() } end)\n\nlocal ok, err = errlog.pcall(run)       -- pcall that logs the error + stack trace\nerrlog.error(\"chest missing\", { slot = 3 }) -- an error you caught yourself\nerrlog.warn(\"fuel low\")                  -- worth knowing, not fatal",
+      "api": [
+        ["errlog.init(name, context)", "Name entries are filed under, and an optional function returning fields added to every entry (position, job)."],
+        ["errlog.pcall(fn, ...)", "Drop-in pcall that logs the error with a stack trace before returning it."],
+        ["errlog.error(msg, fields)", "Log an error you caught yourself, with optional extra fields."],
+        ["errlog.warn(msg, fields)", "Log something worth knowing that isn't fatal."],
+        ["errlog.recent(n)", "The newest n entries (default 5) as strings."],
+        ["errlog.clear()", "Delete the log."]
+      ],
+      "notes": "Each entry: [real time | game day and time] LEVEL program (label #id), then the message, the fields, fuel on turtles and the stack trace, indented, with a blank line after. The same error within a minute is counted instead of written again, Ctrl+T is never logged, and the file is trimmed to its newest 8 KB once it passes 16 KB. Read it in-game with edit /errors.log."
     }
   ]
 }

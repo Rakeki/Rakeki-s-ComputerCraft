@@ -59,6 +59,7 @@ when the chest fills or fuel runs out.
 - `startup.lua`: resumes an unfinished job after a reboot or chunk reload
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too.
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 
 ## Use
 1. Numbered setup steps (where to place the turtle, chest, fuel).
@@ -81,4 +82,4 @@ files go in `saves/<world>/computercraft/computer/<id>/` (run `id` in-game).
 Copy the program, `startup.lua`, and any used `lib/*.lua` to `/lib/`.
 Modules load with `require("lib.nav")`.
 
-Related: [[lib-nav]], [[lib-report]], [[turtle-job]].
+Related: [[lib-nav]], [[lib-report]], [[lib-errlog]], [[turtle-job]].

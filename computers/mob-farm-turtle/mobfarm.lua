@@ -24,6 +24,7 @@
 --   y F..F+2   outer walls, roof at F+3
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local JOB_FILE = "/.mobfarm_job"
 
@@ -887,8 +888,9 @@ else
 end
 
 report.init("mob farm builder")
+errlog.init("mobfarm", function() return { pos = nav.getPos() } end)
 parallel.waitForAny(function()
-  local ok, err = pcall(run)
+  local ok, err = errlog.pcall(run)
   if not ok then
     report.set("error", tostring(err))
     error(err, 0)

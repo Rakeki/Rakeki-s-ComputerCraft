@@ -2,6 +2,7 @@
 -- in 3-high layers, and returns to the dock to unload and refuel when needed.
 local nav = require("lib.nav")
 local report = require("lib.report")
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local PROTOCOL = "automine"
 local JOB_FILE = "/.automine_job"
@@ -354,7 +355,7 @@ end
 
 local function main()
   while true do
-    local ok, err = pcall(step)
+    local ok, err = errlog.pcall(step)
     if not ok then
       setState("error", tostring(err))
       idleWait(10)
@@ -380,6 +381,7 @@ end
 
 openModem()
 report.init("auto miner")
+errlog.init("miner", function() return { pos = nav.getPos(), job = job } end)
 if not os.getComputerLabel() then os.setComputerLabel("Miner-" .. os.getComputerID()) end
 print("AutoMine turtle " .. os.getComputerLabel())
 if not nav.init() then askPosition() end

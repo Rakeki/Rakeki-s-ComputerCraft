@@ -19,6 +19,7 @@ keeps track of their progress, and shows a chunk map for planning.
 - `status.lua`: status board for a monitor
 - `config.lua`: dock location, cruise height, mining depth, monitors, junk list. **Edit this first.**
 - [`lib/report.lua`](../../lib/report.lua): reports to the [status server](../status-server/README.md) (copy it to `/lib/report.lua`)
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 
 ## Restarts
 

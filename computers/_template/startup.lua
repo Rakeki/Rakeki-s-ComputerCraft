@@ -1,8 +1,11 @@
 -- Runs automatically when this computer boots.
 -- Reports to the status server; needs a wireless or ender modem and lib/report.lua.
+-- Errors are saved to /errors.log through lib/errlog.lua.
 local report = require("lib.report")
+local errlog = require("lib.errlog")
 
 report.init("template") -- what this computer is for
+errlog.init("template")
 
 local function main()
   report.set("idle", "nothing to do yet")
@@ -12,4 +15,10 @@ local function main()
   end
 end
 
-parallel.waitForAny(main, report.loop)
+parallel.waitForAny(function()
+  local ok, err = errlog.pcall(main)
+  if not ok then
+    report.set("error", tostring(err))
+    error(err, 0)
+  end
+end, report.loop)

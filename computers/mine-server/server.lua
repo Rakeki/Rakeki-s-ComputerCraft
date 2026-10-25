@@ -3,6 +3,7 @@
 local ui = require("ui")
 local statusBoard = require("status")
 local report = require("lib.report")
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local dir = fs.getDir(shell.getRunningProgram())
 local config = dofile(fs.combine(dir, "config.lua"))
@@ -273,6 +274,7 @@ peripheral.find("modem", rednet.open)
 if not rednet.isOpen() then error("Attach a wireless or ender modem", 0) end
 rednet.host(PROTOCOL, "server")
 report.init("mining server")
+errlog.init("server")
 
 -- One-line summary for the status server.
 local function reportStatus()
@@ -342,9 +344,9 @@ while true do
     timer = os.startTimer(2)
   else
     -- one bad message or click shouldn't take the whole server down
-    local ok, err = pcall(handle, ev)
+    local ok, err = errlog.pcall(handle, ev)
     if not ok then log("Error: " .. tostring(err)) end
   end
-  local ok, err = pcall(redraw)
+  local ok, err = errlog.pcall(redraw)
   if not ok then log("Display error: " .. tostring(err)) end
 end

@@ -1,6 +1,7 @@
 -- Status server: collects status broadcasts from every computer using
 -- lib/report.lua and shows them on a monitor (or this computer's screen).
 local dashboard = require("dashboard")
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local PROTOCOL = "cc_status"
 local STATE_FILE = "/.status_state"
@@ -127,9 +128,9 @@ while true do
     timer = os.startTimer(1)
   else
     -- one bad message or touch shouldn't take the dashboard down
-    local ok, err = pcall(handle, ev)
+    local ok, err = errlog.pcall(handle, ev)
     if not ok and monitorName then print("Error: " .. tostring(err)) end
   end
-  local ok, err = pcall(view.draw, view, computers, now())
+  local ok, err = errlog.pcall(view.draw, view, computers, now())
   if not ok and monitorName then print("Display error: " .. tostring(err)) end
 end

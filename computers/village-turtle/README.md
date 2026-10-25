@@ -148,6 +148,7 @@ Copy these to the turtle:
 - `startup.lua`: resumes after a reboot or chunk reload
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): status server reporting (copy to `/lib/report.lua`); does nothing without a modem
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 
 `preview/` is just the pictures; it doesn't go on the turtle.
 

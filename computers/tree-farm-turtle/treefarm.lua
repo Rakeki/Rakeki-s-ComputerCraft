@@ -17,6 +17,7 @@
 -- the end rows (in front of the first tree and past the last) link them.
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local JOB_FILE = "/.treefarm_job"
 
@@ -485,8 +486,9 @@ else
 end
 
 report.init("tree farm")
+errlog.init("treefarm", function() return { pos = nav.getPos() } end)
 parallel.waitForAny(function()
-  local ok, err = pcall(run)
+  local ok, err = errlog.pcall(run)
   if not ok then
     report.set("error", tostring(err))
     error(err, 0)

@@ -13,6 +13,7 @@
 -- If anything goes wrong it lands back on the ground below where it started.
 -- Running it again picks up where it left off: finished hosts are skipped.
 local nav = require("lib.nav")
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 -- Host positions relative to the turtle's start, at the chosen height. One
 -- sits higher than the others so they're not all in one plane (GPS needs
@@ -317,7 +318,8 @@ end
 print("Make sure the sky above me is clear. Press Enter to start.")
 read()
 
-local ok, err = pcall(function()
+errlog.init("gps-deploy", function() return { pos = nav.getPos() } end)
+local ok, err = errlog.pcall(function()
   local reached = climb(requested and requested + FLY_ABOVE or math.huge)
   local height = reached - FLY_ABOVE
   if requested and requested < height then height = requested end

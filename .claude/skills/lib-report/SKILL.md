@@ -7,6 +7,7 @@ description: Reference for lib/report.lua, which sends a computer's or turtle's 
 
 ```lua
 local report = require("lib.report") -- status server; does nothing without a modem
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 ```
 
 Broadcasts this computer's status over rednet (protocol `cc_status`) to the
@@ -44,8 +45,9 @@ A state change is also logged as an activity event.
 
 ```lua
 report.init("excavator")
+errlog.init("excavate", function() return { pos = nav.getPos() } end)
 parallel.waitForAny(function()
-  local ok, err = pcall(run)
+  local ok, err = errlog.pcall(run)
   if not ok then
     report.set("error", tostring(err))
     error(err, 0)

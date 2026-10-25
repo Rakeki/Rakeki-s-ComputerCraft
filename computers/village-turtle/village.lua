@@ -24,6 +24,7 @@
 -- middle plot is the plaza with a well; the rest are built ring by ring.
 local nav = require("lib.nav")
 local report = require("lib.report") -- status server; does nothing without a modem
+local errlog = require("lib.errlog") -- saves errors to /errors.log
 local themes = require("village_themes")
 local blueprints = require("village_blueprints")
 
@@ -2011,8 +2012,9 @@ else
 end
 
 report.init("village builder")
+errlog.init("village", function() return { pos = nav.getPos() } end)
 parallel.waitForAny(function()
-  local ok, err = pcall(run)
+  local ok, err = errlog.pcall(run)
   if not ok then
     report.set("error", tostring(err))
     error(err, 0)

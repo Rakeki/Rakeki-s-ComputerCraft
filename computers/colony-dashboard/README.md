@@ -37,6 +37,7 @@ shows it as an alert.
 - `colony.lua`: the program. Refresh rate, text size, the hungry level and the alarm are at the top.
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
 ## Setup
 

@@ -70,3 +70,7 @@ Options:
 - **wget**: host the raw file (e.g. on GitHub) and run `wget <url> startup.lua`.
 
 Shared modules from `lib/` should be copied alongside the program and loaded with `require("lib.<module>")`.
+
+Every program saves its errors to `/errors.log` on that computer through
+`lib/errlog.lua`, all in one format. If something stopped, `edit /errors.log`
+shows what went wrong, when, and where the turtle was.

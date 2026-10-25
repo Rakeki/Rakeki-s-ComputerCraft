@@ -36,6 +36,7 @@ with `crafter learn`.
 - `crafter.lua`: the program
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
 The recipes and the planning live on the storage computer (`recipes.lua` and
 `crafting.lua` there), not on this turtle.

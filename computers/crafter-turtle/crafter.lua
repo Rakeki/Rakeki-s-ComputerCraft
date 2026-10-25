@@ -15,6 +15,7 @@
 -- network with a full-block wired modem, and choose it as the crafter chest
 -- in 'storage setup'.
 local report = fs.exists("lib/report.lua") and require("lib.report")
+local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local CRAFT_PROTOCOL = "storage_crafter" -- the storage computer sends crafting jobs on this
 local STORAGE_PROTOCOL = "storage" -- recipes are taught to the storage computer on this
@@ -309,7 +310,7 @@ emptyOut() -- leftovers from last time go to the storage system
 
 if report then report.init("crafter") end
 parallel.waitForAny(function()
-  local ok, err = pcall(serve)
+  local ok, err = (errlog and errlog.pcall or pcall)(serve)
   if not ok then
     status("error", tostring(err))
     error(err, 0)

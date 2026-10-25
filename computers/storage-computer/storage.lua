@@ -26,6 +26,7 @@
 -- each chest (small modems only go on full blocks like barrels). Right-click
 -- each modem so it turns red.
 local report = fs.exists("lib/report.lua") and require("lib.report")
+local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local crafting = fs.exists("crafting.lua") and require("crafting")
 if crafting then crafting.load(fs.exists("recipes.lua") and require("recipes") or {}) end
 -- a modpack's recipes, made with tools/recipes.mjs (see the README)
@@ -1238,7 +1239,7 @@ if packError then message = { "pack_recipes.lua didn't load: run 'storage test'.
 if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store.problem), "red" } end
 
 if report then report.init("storage") end
-local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
   tidyLoop, craftViewLoop, outputLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)

@@ -8,6 +8,7 @@
 -- The computer and its Colony Integrator must be inside the colony's borders.
 -- Without a monitor it draws on the computer's own screen (click instead of tap).
 local report = fs.exists("lib/report.lua") and require("lib.report")
+local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local REFRESH = 5 -- seconds between reads of the colony
 local MONITOR_SCALE = 0.5 -- text size on the monitor (0.5 fits the most)
@@ -342,5 +343,9 @@ else
 end
 
 if report then report.init("colony dashboard") end
-parallel.waitForAny(refreshLoop, touchLoop, alarmLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop, alarmLoop,
   report and report.loop or function() sleep(math.huge) end)
+if not ok then
+  if report then pcall(report.set, "error", tostring(err)) end
+  error(err, 0)
+end

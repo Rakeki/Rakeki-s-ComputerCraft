@@ -15,6 +15,7 @@
 -- everything over rednet on the cable, so it needs no wireless modem. Which
 -- items get smelted is set in config.lua.
 local report = fs.exists("lib/report.lua") and require("lib.report")
+local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
@@ -495,7 +496,7 @@ end
 job = readJob()
 term.clear()
 if report then report.init("smelter") end
-local ok, err = pcall(parallel.waitForAny, uiLoop, workLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, workLoop,
   report and report.loop or function() while true do sleep(3600) end end)
 term.setBackgroundColor(colors.black)
 term.clear()

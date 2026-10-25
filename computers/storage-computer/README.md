@@ -267,6 +267,7 @@ and answer yes when it finds the bridge. A Refined Storage system with an
 - `pack_recipes.lua`: optional, every crafting recipe in your modpack (see [Modded recipes](#modded-recipes)); `packs/` has ready-made ones
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
 ## Setup
 
