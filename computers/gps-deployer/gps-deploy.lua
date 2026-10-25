@@ -13,6 +13,7 @@
 -- If anything goes wrong it lands back on the ground below where it started.
 -- Running it again picks up where it left off: finished hosts are skipped.
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 -- Host positions relative to the turtle's start, at the chosen height. One
@@ -67,32 +68,11 @@ shell.run("startup.lua")
 
 ---------------------------------------------------------------- helpers
 
-local function count(names)
-  local n = 0
-  for slot = 1, 16 do
-    local item = turtle.getItemDetail(slot)
-    if item then
-      for _, name in ipairs(names) do
-        if item.name == name then n = n + item.count end
-      end
-    end
-  end
-  return n
-end
+local count = inv.count
 
 local function selectItem(names)
-  for slot = 1, 16 do
-    local item = turtle.getItemDetail(slot)
-    if item then
-      for _, name in ipairs(names) do
-        if item.name == name then
-          turtle.select(slot)
-          return true
-        end
-      end
-    end
-  end
-  error("ran out of " .. names[1], 0)
+  if not inv.select(names) then error("ran out of " .. names[1], 0) end
+  return true
 end
 
 local function selectEmpty()
@@ -115,10 +95,7 @@ local function blockBelowIs(fragment)
   return ok and data.name:find(fragment, 1, true) ~= nil
 end
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
 ---------------------------------------------------------------- deploy
 

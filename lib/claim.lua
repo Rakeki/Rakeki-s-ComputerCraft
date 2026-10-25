@@ -54,4 +54,33 @@ function claim.chest(ask, role, side)
   return false, "tried too many chests"
 end
 
+-- For a turtle that orders items now and then: claim its chest the first
+-- time, try again a while later if that didn't work, and again whenever a
+-- delivery shows the storage computer has forgotten it (after being set up
+-- again).
+--
+--   local supply = claim.tracker("delivery", 300)
+--   if supply:due() then faceSupply(); local ok, why = supply:check(askStorage, "front") ... end
+--   local r = askStorage({ type = "deliver", ... }); supply:seen(r)
+--
+-- check returns the same as claim.chest. After no answer at all (no storage
+-- system yet) it tries again in a minute; after a refusal, in retry seconds.
+function claim.tracker(role, retry)
+  local t = { role = role, retry = retry or 300, done = false, after = -math.huge }
+  function t:due() return not self.done and os.clock() >= self.after end
+  function t:check(ask, side)
+    local ok, why = claim.chest(ask, self.role, side)
+    if ok then
+      self.done = true
+    else
+      self.after = os.clock() + (ok == false and self.retry or 60)
+    end
+    return ok, why
+  end
+  function t:seen(reply)
+    if reply and reply.to ~= "own" then self.done = false end
+  end
+  return t
+end
+
 return claim

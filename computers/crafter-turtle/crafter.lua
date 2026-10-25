@@ -17,6 +17,7 @@
 -- network with a full-block wired modem: the turtle tells the storage
 -- computer which chest is its own (lib/claim.lua), so there's nothing to pick
 -- in 'storage setup'.
+local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer which chest is mine
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
@@ -38,12 +39,7 @@ local busy = false -- crafting now: don't look for my chest meanwhile
 -- Open every modem: wireless reaches the storage computer through the air,
 -- wired (a full-block wired modem against me, on the storage cable) through
 -- the cable.
-local function openModems()
-  for _, side in ipairs(peripheral.getNames()) do
-    if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
-  end
-  return rednet.isOpen()
-end
+local function openModems() return net.open("any") end
 
 local function status(state, detail)
   if report then report.set(state, detail) end
@@ -77,24 +73,11 @@ end
 
 ---------------------------------------------------------------- my chest
 
-local storageId
-local requestId = 0
+-- the storage computer, by wireless or over the cable
+local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = STORAGE_WAIT })
 
 -- Ask the storage computer something; nil if it doesn't answer.
-local function askStorage(msg)
-  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
-  if not storageId then return nil end
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + STORAGE_WAIT
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
-  end
-  storageId = nil -- gone quiet: look it up again next time
-  return nil
-end
+local function askStorage(msg) return (storage:ask(msg)) end
 
 -- Make sure the storage computer uses the chest in front of me as its
 -- crafter chest: on start, then now and then (it may have been set up
@@ -318,15 +301,13 @@ local function learn()
     print("I need a modem to tell the storage system.")
     return
   end
-  local storage = rednet.lookup(STORAGE_PROTOCOL)
-  if not storage then
+  local reply, why = storage:ask({ type = "learn", recipe = recipe })
+  if why == "none" then
     print("No storage system answered. Is it running? We need a")
     print("wireless modem each, or me on its cable by a wired modem.")
     return
   end
-  rednet.send(storage, { type = "learn", recipe = recipe }, STORAGE_PROTOCOL)
-  local id, reply = rednet.receive(STORAGE_PROTOCOL, 5)
-  if id == storage and type(reply) == "table" and reply.ok then
+  if reply and reply.ok then
     print("The storage system knows it now. Take the rest of the")
     print("ingredients and what I made back out of me (or let me put")
     print("them in my chest when I next start).")

@@ -16,6 +16,7 @@
 -- go through a tree to get anywhere. Lanes run along the left of each column;
 -- the end rows (in front of the first tree and past the last) link them.
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
@@ -140,21 +141,12 @@ end
 
 local function save() nav.writeFile(JOB_FILE, job) end
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
 local function isSapling(name) return name:find("_sapling", 1, true) ~= nil or name == "minecraft:mangrove_propagule" end
 local function isLog(name) return name:find("_log", 1, true) ~= nil or name:find("_stem", 1, true) ~= nil end
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
 local function countItems(match)
   local n = 0
@@ -165,16 +157,7 @@ local function countItems(match)
   return n
 end
 
-local function selectItem(match)
-  for slot = 1, 16 do
-    local item = turtle.getItemDetail(slot)
-    if item and match(item.name) then
-      turtle.select(slot)
-      return true
-    end
-  end
-  return false
-end
+local selectItem = inv.select
 
 -- Burn items matching match until reaching target. Never burns saplings.
 local function refuelWith(match, target)
@@ -256,11 +239,7 @@ end
 
 ---------------------------------------------------------------- position checks
 
-local function gpsPos()
-  local x, y, z = gps.locate(2)
-  if not x then return nil end
-  return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
-end
+local gpsPos = nav.locate
 
 local function rejoin()
   if onPlan(here()) then return end
@@ -424,18 +403,7 @@ local useGps = hasGps and (not job or job.gps)
 local knowsPosition = nav.init(useGps)
 
 local function confirmResume()
-  print("No GPS, so I'm trusting my saved position.")
-  print("Resuming in 10 seconds. If you moved me, press any key.")
-  local timer = os.startTimer(10)
-  while true do
-    local event, value = os.pullEvent()
-    if event == "timer" and value == timer then return true end
-    if event == "key" then
-      print("Put me back on my start block, facing the way I faced when")
-      print("the farm began, then run: treefarm here")
-      return false
-    end
-  end
+  return nav.confirmResume("Put me back on my start block, facing the way I faced when\nthe farm began, then run: treefarm here")
 end
 
 if args[1] == "resume" or args[1] == "here" then

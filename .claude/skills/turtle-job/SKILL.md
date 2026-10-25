@@ -73,7 +73,8 @@ Trips home must follow paths the job has already cleared (excavate's
 ## Chest, junk and fuel (copy from excavate.lua)
 
 - **Chest directly behind the start.** `faceChest()` = `nav.face((job.origin.heading + 2) % 4)`.
-- `fuelLevel()` maps `"unlimited"` to `math.huge`.
+- `fuelLevel` is `inv.fuelLevel` ([[lib-net]]: lib/inv.lua), which maps `"unlimited"` to `math.huge`;
+  `emptySlots` and `refuelFromInventory` come from lib/inv.lua too.
 - `dropJunk()` drops `JUNK` items; `unload()` goes to the start, drops junk in
   front, empties the rest into the chest, waits (`report.set("waiting", "chest full or missing")`,
   `sleep(5)` retry) if `turtle.drop()` fails, then tops up with `refuelFromChest(REFUEL_TO)`.
@@ -97,12 +98,12 @@ Trips home must follow paths the job has already cleared (excavate's
 
 ## GPS
 
-- `local hasGps = gpsPos() ~= nil`, `useGps = hasGps and (not job or job.gps)`,
+- `local hasGps = gpsPos() ~= nil` (`gpsPos` is `nav.locate`), `useGps = hasGps and (not job or job.gps)`,
   `nav.init(useGps)`. A job started without GPS stays in counted coordinates.
 - With `job.gps`, every 20 units `checkPosition()` compares nav with GPS and
   calls `nav.init()` + `rejoin()` (go back to start if off the plan).
-- Without GPS, on resume `confirmResume()` gives 10 s to press a key if the
-  turtle was moved; the player then puts it back on the start block and runs
+- Without GPS, on resume `confirmResume()` (`nav.confirmResume(putBack)`) gives
+  10 s to press a key if the turtle was moved; the player then puts it back on the start block and runs
   `prog here`, which does `nav.setPosition(toWorld(start)..., job.origin.heading)`.
 
 ## Commands
@@ -155,11 +156,11 @@ its own real position. Copy `computers/builder-turtle/builder.lua`:
 ## Materials from the storage system
 
 A job that places blocks can restock from the storage system as well as its
-home chest: at home, facing the supply chest, `claim.chest(askStorage,
-"delivery", "front")` (`lib/claim.lua`) once so the storage computer sends
-to that chest, then `deliver` what the next trip needs (see
-[[storage-system]]; builder.lua's `orderFromStorage` and village.lua's
-`restock`). Claim again when a `deliver` reply's `to` isn't `"own"`. Without a storage computer
+home chest: at home, facing the supply chest, `supply:check(askStorage,
+"front")` (a `claim.tracker` from `lib/claim.lua`) so the storage computer
+sends to that chest, then `deliver` what the next trip needs and pass the
+reply to `supply:seen` (see [[storage-system]]; builder.lua's
+`orderFromStorage` and village.lua's `restock`). Without a storage computer
 in range it just uses the chest.
 
 ## Blocked moves

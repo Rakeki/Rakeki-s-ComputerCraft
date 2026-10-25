@@ -38,6 +38,8 @@ in their own frame (forward/right of the start) convert with an origin; see
 |---|---|
 | `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading). Returns `true` if the position is known. |
 | `nav.setPosition(x, y, z, h)` | Sets position/heading outright (h number or name) and saves. |
+| `nav.locate()` | Where GPS says the turtle is, rounded to the block, or nil (no move, no calibration). |
+| `nav.confirmResume(putBack)` | Resuming without GPS: gives the player 10 s to press a key if the turtle was moved. True to carry on; on a key prints `putBack` (how to put it back and run `prog here`) and returns false. |
 
 Typical start:
 
@@ -66,7 +68,9 @@ Never dug (protected): anything whose name contains `chest`, `barrel`,
 
 ## State files
 
-Crash-safe helpers for any program's own state (write to `.tmp`, then move):
+Crash-safe helpers for any program's own state (write to `.tmp`, then move).
+They are lib/files.lua's `files.write` / `read` / `delete` ([[lib-net]]), so
+nav needs `/lib/files.lua` too (list `files` in the program's libs):
 
 ```lua
 nav.writeFile("/.myjob_job", job)   -- textutils.serialize
@@ -82,4 +86,4 @@ nav.deleteFile("/.myjob_job")       -- removes both
   desyncs the saved position.
 - Fuel: nav fails with `"nofuel"` at 0; programs must keep enough fuel to get
   home themselves (see [[turtle-job]]).
-- `turtle.getFuelLevel()` may be `"unlimited"`.
+- `turtle.getFuelLevel()` may be `"unlimited"`: use `inv.fuelLevel()` (lib/inv.lua).

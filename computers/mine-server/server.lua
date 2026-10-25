@@ -4,6 +4,8 @@ local ui = require("ui")
 local statusBoard = require("status")
 local report = require("lib.report")
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local net = require("lib.net") -- opening modems
+local files = require("lib.files") -- crash-safe save files
 
 local dir = fs.getDir(shell.getRunningProgram())
 local config = dofile(fs.combine(dir, "config.lua"))
@@ -26,33 +28,19 @@ local baseCx, baseCz = math.floor(config.dock.x / 16), math.floor(config.dock.z 
 local function now() return os.epoch("utc") / 1000 end
 local function key(cx, cz) return cx .. "," .. cz end
 
--- Write to a temp file first so a crash mid-save never leaves a broken state file.
 local function save()
-  local tmp = STATE_FILE .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(state))
-  f.close()
-  if fs.exists(STATE_FILE) then fs.delete(STATE_FILE) end
-  fs.move(tmp, STATE_FILE)
+  files.write(STATE_FILE, state)
   saveDue, lastSave = false, now()
 end
 
 local function load()
-  for _, path in ipairs({ STATE_FILE, STATE_FILE .. ".tmp" }) do
-    if fs.exists(path) then
-      local f = fs.open(path, "r")
-      local s = textutils.unserialize(f.readAll())
-      f.close()
-      if s then
-        state = s
-        state.dock = state.dock or {}
-        state.events = state.events or {}
-        -- give the turtle that held the dock time to report in before reassigning it
-        if state.dock.holder then state.dock.since = now() end
-        return
-      end
-    end
-  end
+  local s = files.read(STATE_FILE)
+  if not s then return end
+  state = s
+  state.dock = state.dock or {}
+  state.events = state.events or {}
+  -- give the turtle that held the dock time to report in before reassigning it
+  if state.dock.holder then state.dock.since = now() end
 end
 
 ---------------------------------------------------------------- displays
@@ -251,8 +239,7 @@ end
 ---------------------------------------------------------------- main
 
 load()
-peripheral.find("modem", rednet.open)
-if not rednet.isOpen() then error("Attach a wireless or ender modem", 0) end
+if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 rednet.host(PROTOCOL, "server")
 report.init("mining server")
 errlog.init("server")

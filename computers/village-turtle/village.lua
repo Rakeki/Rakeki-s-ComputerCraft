@@ -25,8 +25,10 @@
 -- The village is a grid of 13x13 plots with 3-wide streets between them. The
 -- middle plot is the plaza with a well; the rest are built ring by ring.
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer my supply chest is my delivery chest
 local themes = require("village_themes")
 local blueprints = require("village_blueprints")
@@ -362,19 +364,9 @@ end
 
 ---------------------------------------------------------------- inventory
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
-local function count(name)
-  local n = 0
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and it.name == name then n = n + it.count end
-  end
-  return n
-end
+local count = inv.count
 
 local function countFill()
   local n = 0
@@ -385,39 +377,14 @@ local function countFill()
   return n
 end
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
-local function selectItem(match)
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and match(it.name) then
-      turtle.select(slot)
-      return true
-    end
-  end
-  return false
-end
+local selectItem = inv.select
 
 local function selectName(name) return selectItem(function(n) return n == name end) end
 local function selectFill() return selectItem(function(n) return FILL[n] end) end
 
-local function refuelFromInventory(target)
-  for slot = 1, 16 do
-    if fuelLevel() >= target then break end
-    local it = turtle.getItemDetail(slot)
-    if it and FUEL[it.name] then
-      turtle.select(slot)
-      while fuelLevel() < target and turtle.refuel(1) do end
-    end
-  end
-  turtle.select(1)
-end
+local function refuelFromInventory(target) inv.refuel(target, FUEL) end
 
 local function stackSize(name)
   if STACK[name] then return STACK[name] end
@@ -554,11 +521,7 @@ end
 
 ---------------------------------------------------------------- position checks
 
-local function gpsPos()
-  local x, y, z = gps.locate(2)
-  if not x then return nil end
-  return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
-end
+local gpsPos = nav.locate
 
 -- With GPS, compare where the turtle thinks it is with where it is. If it's
 -- been moved, re-check position and facing and head home before carrying on.
@@ -730,14 +693,7 @@ end
 -- Defined with the storage system further down (it needs the chest helpers).
 local orderFromStorage
 
-local function fuelItems()
-  local n = 0
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and FUEL[it.name] then n = n + it.count end
-  end
-  return n
-end
+local function fuelItems() return inv.count(FUEL) end
 
 -- At home: top up to target from the chests, and wait for the player if
 -- there isn't even enough to carry on.
@@ -923,13 +879,7 @@ local function niceName(bp) return themes[job.theme].names[bp] or bp end
 
 ---------------------------------------------------------------- sharing with a projector
 
-local function openWireless()
-  if rednet.isOpen() then return true end
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then return false end
-  rednet.open(peripheral.getName(modem))
-  return true
-end
+local function openWireless() return net.open() end
 
 local function planModem() return SHARE_PLAN and openWireless() end
 
@@ -1045,8 +995,7 @@ local function crewServer()
     expireCrew()
     if from and type(msg) == "table" then
       local function answer(reply)
-        reply.re, reply.id = msg.type, msg.id
-        rednet.send(from, reply, CREW_PROTOCOL)
+        net.answer(from, CREW_PROTOCOL, msg, reply)
       end
       local who = job.crew[from]
       if msg.type == "join" then
@@ -1094,22 +1043,11 @@ local function crewServer()
   end
 end
 
-local crewRequest = 0
 
 -- A helper asking its lead something; nil if it doesn't answer.
 local function askLead(msg)
   if not openWireless() then return nil end
-  crewRequest = crewRequest + 1
-  msg.id = crewRequest
-  rednet.send(job.helper.lead, msg, CREW_PROTOCOL)
-  local deadline = os.clock() + CREW_WAIT
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(CREW_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == job.helper.lead and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then
-      return reply
-    end
-  end
-  return nil
+  return net.ask(job.helper.lead, CREW_PROTOCOL, msg, { wait = CREW_WAIT })
 end
 
 -- A helper: tell the lead what's been built, now or (if it can't be
@@ -1173,11 +1111,10 @@ end
 
 ---------------------------------------------------------------- the storage system
 
-local storageId -- the storage computer, once found
-local noStorageUntil = 0 -- don't look again before this (os.clock)
-local requestId = 0
-local supplyClaimed = false -- the storage system knows the supply chest is mine
-local claimAfter = 0 -- don't try that again before this (os.clock)
+-- the storage computer, looked up again STORAGE_RETRY seconds after none answered
+local storage = net.peer(STORAGE_PROTOCOL, { retry = STORAGE_RETRY, wait = 10 })
+local storageFound -- the one we last said we'd found
+local supply = claim.tracker("delivery", CLAIM_RETRY) -- whether the storage system knows the supply chest
 
 -- Say what the storage system did, but not the same thing over and over
 -- (orders repeat every 10 seconds while waiting).
@@ -1191,36 +1128,20 @@ end
 -- Send msg to the storage computer and wait for its reply. nil when there's
 -- no storage computer in range (or USE_STORAGE is off).
 local function askStorage(msg)
-  if not USE_STORAGE or os.clock() < noStorageUntil then return nil end
-  if not openWireless() then
+  if not USE_STORAGE then return nil end
+  local reply, why = storage:ask(msg)
+  if why == "no modem" then
     storageNote("I have no wireless modem, so I can't ask the storage system for blocks.")
-    noStorageUntil = os.clock() + STORAGE_RETRY
-    return nil
+  elseif why == "none" then
+    storageNote("No storage system answered. It needs a wireless or ender modem, to be running")
+    storageNote("'storage', and to be in range (wireless modems reach about 64 blocks).")
+  elseif why == "no answer" then
+    storageNote(("The storage system (computer #%s) stopped answering."):format(tostring(storageFound)))
+  elseif storage.id ~= storageFound then
+    storageFound = storage.id
+    print(("Found the storage system (computer #%d)."):format(storageFound))
   end
-  if not storageId then
-    storageId = rednet.lookup(STORAGE_PROTOCOL)
-    if not storageId then
-      storageNote("No storage system answered. It needs a wireless or ender modem, to be running")
-      storageNote("'storage', and to be in range (wireless modems reach about 64 blocks).")
-      noStorageUntil = os.clock() + STORAGE_RETRY
-      return nil
-    end
-    print(("Found the storage system (computer #%d)."):format(storageId))
-  end
-  -- each request has its own id, so a late answer to an earlier one is ignored
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + 10
-  while true do
-    local id, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if not id or os.clock() >= deadline then
-      storageNote(("The storage system (computer #%d) stopped answering."):format(storageId))
-      storageId = nil -- gone quiet: look it up again next time
-      return nil
-    end
-    if id == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
-  end
+  return reply
 end
 
 -- Say what the storage system is crafting for us, or why it can't.
@@ -1280,22 +1201,19 @@ orderFromStorage = function(needs)
   end
   if not any then return { enough = true } end
   -- first time: tell the storage system which of its chests is my supply chest
-  if not supplyClaimed and os.clock() >= claimAfter then
+  if supply:due() then
     faceSupply()
-    local ok, why = claim.chest(askStorage, "delivery", "front")
+    local ok, why = supply:check(askStorage, "front")
     faceLocal(home().h)
     if ok then
-      supplyClaimed = true
       storageNote(("The storage system sends my blocks to the supply chest (%s)."):format(why))
-    else
-      -- nil: no answer (not running, or too old to know 'claim')
-      claimAfter = os.clock() + (ok == false and CLAIM_RETRY or STORAGE_RETRY)
-      if ok == false then storageNote("Couldn't hook the supply chest up to the storage system: " .. why) end
+    elseif ok == false then
+      storageNote("Couldn't hook the supply chest up to the storage system: " .. why)
     end
   end
   local r = askStorage({ type = "deliver", items = order })
   if not r then return nil end
-  if r.to ~= "own" then supplyClaimed = false end -- it was set up again: find my chest again next time
+  supply:seen(r) -- not sent to my own chest: find it again next time
   local total = 0
   for _, n in pairs(r.sent or {}) do total = total + n end
   if r.craftProblem and r.crafting and next(r.crafting) then
@@ -2162,18 +2080,7 @@ local knowsPosition = nav.init(useGps)
 
 -- No GPS to check against: give the player a chance to say the turtle was moved.
 local function confirmResume()
-  print("No GPS, so I'm trusting my saved position.")
-  print("Resuming in 10 seconds. If you moved me, press any key.")
-  local timer = os.startTimer(10)
-  while true do
-    local event, value = os.pullEvent()
-    if event == "timer" and value == timer then return true end
-    if event == "key" then
-      print("Put me back on my home block, facing the way I faced when")
-      print("the village began, then run: village here")
-      return false
-    end
-  end
+  return nav.confirmResume("Put me back on my home block, facing the way I faced when\nthe village began, then run: village here")
 end
 
 if args[1] == "resume" or args[1] == "here" or args[1] == "grow" then
@@ -2224,13 +2131,7 @@ elseif args[1] == "join" then
     print("modem, and to be running its village (within modem range).")
     return
   end
-  rednet.send(lead, { type = "join", id = 1 }, CREW_PROTOCOL)
-  local r
-  local deadline = os.clock() + CREW_WAIT
-  while not r and os.clock() < deadline do
-    local from, msg = rednet.receive(CREW_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == lead and type(msg) == "table" and msg.re == "join" then r = msg end
-  end
+  local r = net.ask(lead, CREW_PROTOCOL, { type = "join" }, { wait = CREW_WAIT })
   if not r or not r.origin then
     print(("Turtle #%d didn't take me on%s."):format(lead, r and r.error and (": " .. r.error) or ""))
     return

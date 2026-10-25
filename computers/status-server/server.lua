@@ -2,6 +2,8 @@
 -- lib/report.lua and shows them on a monitor (or this computer's screen).
 local dashboard = require("dashboard")
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local net = require("lib.net") -- opening modems
+local files = require("lib.files") -- crash-safe save files
 
 local PROTOCOL = "cc_status"
 local STATE_FILE = "/.status_state"
@@ -17,27 +19,13 @@ local saveDue, lastSave = false, 0
 local function now() return os.epoch("utc") / 1000 end
 
 local function save()
-  local tmp = STATE_FILE .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(computers))
-  f.close()
-  if fs.exists(STATE_FILE) then fs.delete(STATE_FILE) end
-  fs.move(tmp, STATE_FILE)
+  files.write(STATE_FILE, computers)
   saveDue, lastSave = false, now()
 end
 
 local function load()
-  for _, path in ipairs({ STATE_FILE, STATE_FILE .. ".tmp" }) do
-    if fs.exists(path) then
-      local f = fs.open(path, "r")
-      local s = textutils.unserialize(f.readAll())
-      f.close()
-      if s then
-        computers = s
-        return
-      end
-    end
-  end
+  local s = files.read(STATE_FILE)
+  if s then computers = s end
 end
 
 local function addEvent(c, text)
@@ -77,8 +65,7 @@ end
 ---------------------------------------------------------------- main
 
 load()
-peripheral.find("modem", rednet.open)
-if not rednet.isOpen() then error("Attach a wireless or ender modem", 0) end
+if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 
 local view = dashboard.new()
 

@@ -49,6 +49,8 @@ in the `/plans` folder (see [Plans](#plans)).
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
+- [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
+- [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 
 ## Setup
 
@@ -61,10 +63,10 @@ in the `/plans` folder (see [Plans](#plans)).
 
 ```
 projector                  -- show the last plan (startup does this)
-projector pagoda          -- show a plan: built in, or /plans/<name>.lua
+projector pagoda           -- show a plan: built in, or /plans/<name>.lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector village          -- follow what a village turtle is building
-projector build            -- have a builder turtle build the plan where it's shown
+projector build            -- have the free builder turtles build the plan where it's shown
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
 projector clear            -- remove the projection (Ctrl+T first to stop it)

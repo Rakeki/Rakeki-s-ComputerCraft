@@ -18,6 +18,8 @@
 -- cable) and the crafting turtles (wireless, or wired if they're on the
 -- cable too). It opens every modem it has.
 local screen = require("lib.screen") -- flicker-free drawing on the monitor and terminal
+local net = require("lib.net") -- rednet requests and answers
+local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -43,32 +45,19 @@ local done = {} -- the last few finished jobs, for the screen: { name, n, ok, wh
 local outbox = {} -- jobdone reports the storage computer hasn't taken yet
 local crafters = {} -- turtle id -> { chest, online, job, note }
 local stock -- item -> count, from the storage computer
-local storageId
+-- the storage computer, over the cable or by wireless
+local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = STORAGE_WAIT })
 local message = { "Starting...", "lightGray" }
-local requestId = 0
 
 ---------------------------------------------------------------- helpers
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
-local function save()
-  local tmp = QUEUE_FILE .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize({ jobs = queue.jobs, outbox = outbox }))
-  f.close()
-  if fs.exists(QUEUE_FILE) then fs.delete(QUEUE_FILE) end
-  fs.move(tmp, QUEUE_FILE)
-end
+local function save() files.write(QUEUE_FILE, { jobs = queue.jobs, outbox = outbox }) end
 
 local function load()
-  for _, p in ipairs({ QUEUE_FILE, QUEUE_FILE .. ".tmp" }) do
-    if fs.exists(p) then
-      local f = fs.open(p, "r")
-      local data = textutils.unserialize(f.readAll())
-      f.close()
-      if type(data) == "table" then return data end
-    end
-  end
+  local data = files.read(QUEUE_FILE)
+  return type(data) == "table" and data or nil
 end
 
 local function say(text, colour)
@@ -82,20 +71,7 @@ end
 
 -- Ask the storage computer something; nil if it doesn't answer. Replies
 -- carry the request's id, so several turtles' work can ask at once.
-local function askStorage(msg, wait)
-  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
-  if not storageId then return nil end
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + (wait or STORAGE_WAIT)
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
-  end
-  storageId = nil -- gone quiet: look it up again next time
-  return nil
-end
+local function askStorage(msg, wait) return (storage:ask(msg, wait)) end
 
 -- Tell the storage computer a job is finished (or given up on), now or as
 -- soon as it answers again.
@@ -206,17 +182,11 @@ local function runJob(id, job)
       return
     end
     job.since, job.missing, job.why = nil, nil, nil
-    requestId = requestId + 1
-    local craftId = requestId
     c.note = ("crafting %d %s"):format(r.steps * job.count, nice(job.name))
     os.queueEvent("overseer_changed")
-    rednet.send(id, { type = "craft", id = craftId, steps = r.steps, grid = job.grid }, CRAFT_PROTOCOL)
-    local reply
-    local deadline = os.clock() + CRAFT_WAIT
-    while not reply and os.clock() < deadline do
-      local from, msg = rednet.receive(CRAFT_PROTOCOL, math.max(0.1, deadline - os.clock()))
-      if from == id and type(msg) == "table" and msg.type == "crafted" and msg.id == craftId then reply = msg end
-    end
+    local craft = { type = "craft", steps = r.steps, grid = job.grid }
+    local reply = net.ask(id, CRAFT_PROTOCOL, craft, { wait = CRAFT_WAIT,
+      match = function(msg) return msg.type == "crafted" and msg.id == craft.id end })
     askStorage({ type = "clear", crafter = id }, LOAD_WAIT)
     c.note = nil
     if not reply then
@@ -331,14 +301,14 @@ local function netLoop()
           added = added + 1
         end
       end
-      storageId = from
+      storage.id = from
       save()
-      rednet.send(from, { re = "jobs", id = msg.id, ok = true }, OVERSEER_PROTOCOL)
+      net.answer(from, OVERSEER_PROTOCOL, msg, { ok = true })
       if added > 0 then say(("The storage computer sent %d crafts."):format(added), "lightBlue") end
       workOutMissing()
       os.queueEvent("overseer_work")
     elseif type(msg) == "table" and msg.type == "ping" then
-      rednet.send(from, { re = "ping", id = msg.id, jobs = #queue.jobs }, OVERSEER_PROTOCOL)
+      net.answer(from, OVERSEER_PROTOCOL, msg, { jobs = #queue.jobs })
     end
   end
 end
@@ -433,19 +403,12 @@ end
 
 local args = { ... }
 if args[1] == "clear" then
-  if fs.exists(QUEUE_FILE) then fs.delete(QUEUE_FILE) end
+  files.delete(QUEUE_FILE)
   print("Queue forgotten.")
   return
 end
 
-local modems = 0
-for _, side in ipairs(peripheral.getNames()) do
-  if peripheral.getType(side) == "modem" then
-    if not rednet.isOpen(side) then rednet.open(side) end
-    modems = modems + 1
-  end
-end
-if modems == 0 then
+if not net.open("any") then
   print("I need a modem: a wired one on the storage computer's cable, and")
   print("wireless if the crafting turtles talk by wireless.")
   return

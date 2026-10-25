@@ -1,6 +1,7 @@
 -- Position tracking and safe movement for turtles.
 -- Position and heading are saved after every move so a turtle can pick up
 -- where it left off after a reboot or chunk unload. GPS corrects drift on boot.
+local files = require("lib.files") -- crash-safe save files
 local nav = {}
 
 local STATE_FILE = "/.nav_state"
@@ -16,32 +17,9 @@ local PROTECTED = { "chest", "barrel", "shulker_box", "hopper", "furnace", "comp
 local pos = { x = 0, y = 0, z = 0 }
 local heading = 0
 
--- Write to a temp file first so a crash mid-save never leaves a broken file.
-function nav.writeFile(path, value)
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(value))
-  f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
-end
-
-function nav.readFile(path)
-  for _, p in ipairs({ path, path .. ".tmp" }) do
-    if fs.exists(p) then
-      local f = fs.open(p, "r")
-      local value = textutils.unserialize(f.readAll())
-      f.close()
-      if value then return value end
-    end
-  end
-end
-
-function nav.deleteFile(path)
-  for _, p in ipairs({ path, path .. ".tmp" }) do
-    if fs.exists(p) then fs.delete(p) end
-  end
-end
+-- Crash-safe save files (lib/files.lua): a temp file first, so a crash
+-- mid-save never leaves a broken file.
+nav.writeFile, nav.readFile, nav.deleteFile = files.write, files.read, files.delete
 
 local function save()
   nav.writeFile(STATE_FILE, { x = pos.x, y = pos.y, z = pos.z, heading = heading })
@@ -191,11 +169,13 @@ function nav.goTo(tx, ty, tz)
   return true
 end
 
+-- Where GPS says the turtle is, to the block; nil without GPS.
 local function locate()
   local x, y, z = gps.locate(2)
   if not x then return nil end
   return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
 end
+nav.locate = locate
 
 local function headingBetween(p1, p2)
   for h, d in pairs(DIRS) do
@@ -240,6 +220,23 @@ function nav.setPosition(x, y, z, h)
   pos = { x = x, y = y, z = z }
   heading = type(h) == "string" and HEADINGS[h] or h
   save()
+end
+
+-- Resuming without GPS to check against: give the player 10 seconds to say
+-- the turtle was moved. True to carry on; false (after printing putBack,
+-- what to do instead) if they pressed a key.
+function nav.confirmResume(putBack)
+  print("No GPS, so I'm trusting my saved position.")
+  print("Resuming in 10 seconds. If you moved me, press any key.")
+  local timer = os.startTimer(10)
+  while true do
+    local event, value = os.pullEvent()
+    if event == "timer" and value == timer then return true end
+    if event == "key" then
+      print(putBack)
+      return false
+    end
+  end
 end
 
 return nav

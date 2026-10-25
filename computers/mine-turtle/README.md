@@ -30,6 +30,9 @@ blocks, including other turtles.
 - [`lib/nav.lua`](../../lib/nav.lua): position tracking and safe movement (shared; copy it to `/lib/nav.lua` on the turtle)
 - [`lib/report.lua`](../../lib/report.lua): reports to the [status server](../status-server/README.md) (copy it to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
+- [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
+- [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
+- [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
 
 Position is saved to `/.nav_state` and the current job to `/.automine_job`,
 so a turtle picks up where it left off after a reboot or chunk reload. Both

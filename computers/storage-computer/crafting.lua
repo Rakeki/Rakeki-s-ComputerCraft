@@ -14,6 +14,7 @@
 -- reach (from crafting.reachable) is optional: with thousands of modded
 -- recipes, plans only try making ingredients that can be made at all,
 -- which keeps them quick. Work it out once and pass it to many plans.
+local files = require("lib.files") -- crash-safe save files
 local crafting = {}
 
 local LEARNT_FILE = "/.storage_recipes"
@@ -61,12 +62,7 @@ end
 function crafting.load(builtIn)
   byMake = {}
   for _, raw in ipairs(builtIn or {}) do add(raw) end
-  learnt = {}
-  if fs.exists(LEARNT_FILE) then
-    local f = fs.open(LEARNT_FILE, "r")
-    learnt = textutils.unserialize(f.readAll()) or {}
-    f.close()
-  end
+  learnt = files.read(LEARNT_FILE) or {}
   for _, raw in ipairs(learnt) do add(raw, true) end
 end
 
@@ -78,9 +74,7 @@ function crafting.learn(raw)
     if learnt[i].make == raw.make then table.remove(learnt, i) end
   end
   learnt[#learnt + 1] = { make = raw.make, count = raw.count, rows = raw.rows, keys = raw.keys }
-  local f = fs.open(LEARNT_FILE, "w")
-  f.write(textutils.serialize(learnt))
-  f.close()
+  files.write(LEARNT_FILE, learnt)
   local list = byMake[raw.make] or {}
   for i = #list, 1, -1 do
     if list[i].learnt then table.remove(list, i) end

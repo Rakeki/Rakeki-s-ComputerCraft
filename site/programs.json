@@ -8,7 +8,7 @@
       "deviceLabel": "Mining turtle",
       "color": "orange",
       "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Hall", "21 × 21 × 16"],
         ["Rooms", "24 on 2 floors"],
@@ -61,7 +61,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lightBlue",
       "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, torches every 8 blocks, loot hauled home.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Main tunnel", "3 × 3 × 64"],
         ["Branches", "10 pairs × 32"],
@@ -113,7 +113,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
-      "libs": ["nav", "report", "errlog", "claim"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files"],
       "stats": [
         ["Themes", "4"],
         ["Buildings", "7 per theme"],
@@ -191,7 +191,7 @@
       "deviceLabel": "Mining turtle",
       "color": "red",
       "tagline": "Builds a classic drop-tower mob farm: dark spawning room, water channels, drop shaft and collection chest.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Spawn room", "18 × 18"],
         ["Drop", "32 (or 22 for XP)"],
@@ -248,7 +248,7 @@
       "deviceLabel": "Felling or mining turtle",
       "color": "green",
       "tagline": "Plants a grid of saplings, chops each tree as it grows, replants it and hauls the logs to a chest. For ever.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Trees", "4 × 6"],
         ["Spacing", "3 blocks"],
@@ -304,7 +304,7 @@
       "deviceLabel": "Farming turtle",
       "color": "yellow",
       "tagline": "Flies over a field, harvests whatever is ripe, replants it from its own seeds and drops the harvest in a chest.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Field", "9 × 9"],
         ["Crops", "5 kinds + melons"],
@@ -358,7 +358,7 @@
       "deviceLabel": "Advanced computer",
       "color": "yellow",
       "tagline": "The brain of AutoMine: hands chunks out to a fleet of mining turtles and shows a touch map for planning.",
-      "libs": ["report", "errlog", "screen"],
+      "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -398,7 +398,7 @@
       "deviceLabel": "Mining turtle + modem",
       "color": "orange",
       "tagline": "Same code on every miner. Asks the server for a chunk, flies there and mines it out, layer by layer.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "net", "files"],
       "autostart": true,
       "stats": [
         ["Pattern", "3-high layers"],
@@ -448,7 +448,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "cyan",
       "tagline": "A live monitor wall of every computer and turtle: state, what it's doing, where it is and its fuel.",
-      "libs": ["errlog", "screen"],
+      "libs": ["errlog", "screen", "net", "files"],
       "autostart": true,
       "stats": [
         ["Setup per computer", "none"],
@@ -482,7 +482,7 @@
       "deviceLabel": "Mining turtle",
       "color": "purple",
       "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on.",
-      "libs": ["nav", "report", "errlog"],
+      "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Hosts", "4"],
         ["Height", "as high as it can"],
@@ -530,7 +530,7 @@
       "deviceLabel": "Advanced computer + monitor + Spatial Projector",
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
-      "libs": ["report", "errlog", "screen"],
+      "libs": ["report", "errlog", "screen", "net", "files"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -591,7 +591,7 @@
       "deviceLabel": "Mining turtle + wireless modem",
       "color": "pink",
       "tagline": "Builds whatever the blueprint projector is showing, right where it's shown: tap Build and watch it go up layer by layer.",
-      "libs": ["nav", "report", "errlog", "claim"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files"],
       "autostart": true,
       "stats": [
         ["Plans from", "the projector"],
@@ -645,7 +645,7 @@
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
       "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
-      "libs": ["report", "errlog", "screen"],
+      "libs": ["report", "errlog", "screen", "files", "net"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
@@ -707,7 +707,7 @@
       "deviceLabel": "Crafty turtle",
       "color": "brown",
       "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
-      "libs": ["claim", "report", "errlog"],
+      "libs": ["claim", "report", "errlog", "net"],
       "autostart": true,
       "stats": [
         ["Recipes", "119 built in"],
@@ -760,7 +760,7 @@
       "deviceLabel": "Advanced computer + monitor + modems",
       "color": "orange",
       "tagline": "Shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor.",
-      "libs": ["screen", "report", "errlog"],
+      "libs": ["screen", "report", "errlog", "net", "files"],
       "autostart": true,
       "stats": [
         ["Turtles", "up to 8 at once"],
@@ -800,7 +800,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
-      "libs": ["report", "errlog", "screen"],
+      "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -951,6 +951,53 @@
         ["claim.chest(ask, role, side)", "Tell the storage computer the chest on that side is mine. role is \"delivery\" (my orders go there) or \"crafter\". Returns true and the chest's network name, false and why not, or nil if nothing answered."]
       ],
       "notes": "The turtle sends what's in its chest. If that's the chest the storage computer already has for it, it answers at once; otherwise it drops one item into each chest that could be it until the turtle sees it arrive, and takes it back each time. The storage system needs at least one item in it. The chest needs a wired modem on the storage cable."
+    },
+    {
+      "name": "net",
+      "title": "lib/net",
+      "file": "lib/net.lua",
+      "color": "cyan",
+      "tagline": "Rednet the same way in every program: ask another computer something and get its answer (never a stale one, never waiting forever), answer, and find who hosts a protocol.",
+      "usage": "local net = require(\"lib.net\")\n\nlocal storage = net.peer(\"storage\", { retry = 60 })\nlocal reply, why = storage:ask({ type = \"count\", items = { \"minecraft:torch\" } })\nif not reply then print(\"No storage system: \" .. why) end\n\n-- the other side\nlocal from, msg = rednet.receive(\"storage\")\nnet.answer(from, \"storage\", msg, { counts = counts })",
+      "api": [
+        ["net.open(kind)", "Open wireless and ender modems, or every modem with \"any\". True if rednet is open."],
+        ["net.ask(to, protocol, msg, opts)", "Send msg with a fresh id and wait for the answer that repeats it. opts: wait (seconds), match(reply), other(from, msg) for anything else that arrives."],
+        ["net.answer(to, protocol, request, reply)", "Answer a request: adds re (its type) and its id."],
+        ["net.peer(protocol, opts)", "The computer hosting a protocol, looked up once and remembered until it goes quiet. opts: open, retry, wait, host."],
+        ["peer:ask(msg, wait)", "Ask it something: the answer, or nil and why (\"no modem\", \"none\" or \"no answer\")."],
+        ["net.hasWireless()", "A wireless or ender modem is attached."]
+      ],
+      "notes": "Every request carries an id that the answer repeats, along with re (the request type), so a late answer to an earlier request is never taken for a newer one. Ids come from one counter per computer, so several parts of a program can ask at once. Protocols that answer differently (a builder's accepted / busy, a crafter's crafted) pass match."
+    },
+    {
+      "name": "files",
+      "title": "lib/files",
+      "file": "lib/files.lua",
+      "color": "lightGray",
+      "tagline": "Crash-safe save files: a table goes to a temp file first, then into place, so a crash or chunk unload never leaves a broken file.",
+      "usage": "local files = require(\"lib.files\")\n\nfiles.write(\"/.myjob_job\", job)\nlocal job = files.read(\"/.myjob_job\") -- nil if there's none\nfiles.delete(\"/.myjob_job\")",
+      "api": [
+        ["files.write(path, value)", "Serialise value to path through a temp file."],
+        ["files.read(path)", "The saved value, from the temp copy if the move never happened; nil if there's none."],
+        ["files.delete(path)", "Remove the file and its temp copy."]
+      ],
+      "notes": "lib/nav.lua's writeFile, readFile and deleteFile are these same functions, so every turtle program installs this too."
+    },
+    {
+      "name": "inv",
+      "title": "lib/inv",
+      "file": "lib/inv.lua",
+      "color": "brown",
+      "tagline": "A turtle's inventory and fuel: count or pick an item, see how much room is left, and refuel from what's on board.",
+      "usage": "local inv = require(\"lib.inv\")\nlocal FUEL = { [\"minecraft:coal\"] = true, [\"minecraft:charcoal\"] = true }\n\nif inv.fuelLevel() < 500 then inv.refuel(2000, FUEL) end\nif inv.select(\"minecraft:torch\") then turtle.placeDown() end\nprint(inv.emptySlots() .. \" slots free\")",
+      "api": [
+        ["inv.count(match)", "How many matching items are on board."],
+        ["inv.select(match)", "Select the first slot holding one; false if there's none."],
+        ["inv.emptySlots()", "Empty slots left."],
+        ["inv.fuelLevel()", "The fuel level, with \"unlimited\" as math.huge."],
+        ["inv.refuel(target, fuels)", "Burn items up to the target level: only fuels if given, else anything that burns."]
+      ],
+      "notes": "match is an item name, a list of names, a set like { [\"minecraft:coal\"] = true }, or a function of the item's name."
     },
     {
       "name": "screen",

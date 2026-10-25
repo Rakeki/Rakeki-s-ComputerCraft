@@ -15,6 +15,8 @@
 -- everything over rednet on the cable, so it needs no wireless modem. Which
 -- items get smelted is set in config.lua.
 local screen = require("lib.screen") -- flicker-free drawing
+local net = require("lib.net") -- rednet requests and answers
+local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -93,22 +95,11 @@ end
 ---------------------------------------------------------------- the charcoal order
 
 local function readJob()
-  if not fs.exists(JOB_FILE) then return nil end
-  local f = fs.open(JOB_FILE, "r")
-  local t = textutils.unserialize(f.readAll())
-  f.close()
+  local t = files.read(JOB_FILE)
   return type(t) == "table" and t or nil
 end
 
--- Through a temp file, so a crash mid-write never leaves half an order.
-local function writeJob(t)
-  local tmp = JOB_FILE .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(t))
-  f.close()
-  if fs.exists(JOB_FILE) then fs.delete(JOB_FILE) end
-  fs.move(tmp, JOB_FILE)
-end
+local function writeJob(t) files.write(JOB_FILE, t) end
 
 local function newJob(wood, count)
   writeJob({ at = os.epoch("utc"), wood = wood, count = count, loaded = 0, made = 0 })
@@ -137,24 +128,15 @@ end
 
 ---------------------------------------------------------------- talking to storage
 
-local storageId
-local requestId = 0
+-- over the cable (or wireless, if that's all there is)
+local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = REPLY_WAIT })
 
--- Ask the storage computer something and wait for its answer (it repeats
--- our id, so a late answer to an earlier question is never taken for this one).
+-- Ask the storage computer something and wait for its answer: nil and why
+-- if there's none.
 local function ask(msg)
-  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
-  if not storageId then return nil, "no storage computer answered" end
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + REPLY_WAIT
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == storageId and type(reply) == "table" and reply.id == requestId then return reply end
-  end
-  storageId = nil
-  return nil, "the storage computer didn't answer"
+  local reply, why = storage:ask(msg)
+  if reply then return reply end
+  return nil, why == "no answer" and "the storage computer didn't answer" or "no storage computer answered"
 end
 
 ---------------------------------------------------------------- a round
@@ -248,7 +230,7 @@ local function round()
           order.made, order.count), "orange")
       end
       if report then report.log(("made %d charcoal"):format(order.made)) end
-      if sameJob(order) then fs.delete(JOB_FILE) end
+      if sameJob(order) then files.delete(JOB_FILE) end
       order, wood, job = nil, nil, nil
     end
   end
@@ -437,7 +419,7 @@ local function uiLoop()
     if event == "char" and (a == "c" or a == "C") then
       charcoalPrompt()
     elseif event == "char" and (a == "x" or a == "X") and job then
-      if fs.exists(JOB_FILE) then fs.delete(JOB_FILE) end
+      files.delete(JOB_FILE)
       job = nil
       say("Charcoal order cancelled. Logs already in furnaces still burn.")
     end
@@ -471,19 +453,12 @@ if args[1] == "charcoal" then
   print("The smelter starts on it within 10 seconds, or when it's next started.")
   return
 elseif args[1] == "cancel" then
-  if fs.exists(JOB_FILE) then fs.delete(JOB_FILE) end
+  files.delete(JOB_FILE)
   print("Charcoal order cancelled. Logs already in furnaces still burn.")
   return
 end
 
-local modems = 0
-for _, side in ipairs(peripheral.getNames()) do
-  if peripheral.getType(side) == "modem" then
-    if not rednet.isOpen(side) then rednet.open(side) end
-    modems = modems + 1
-  end
-end
-if modems == 0 then
+if not net.open("any") then
   print("I need a wired modem on the storage computer's network.")
   print("Put one on me, join it to the network with cable and right-click it so it turns red.")
   return

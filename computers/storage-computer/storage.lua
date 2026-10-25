@@ -30,6 +30,8 @@
 -- each chest (small modems only go on full blocks like barrels). Right-click
 -- each modem so it turns red.
 local screen = require("lib.screen") -- flicker-free drawing on the terminal and monitor
+local net = require("lib.net") -- rednet requests and answers
+local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local crafting = fs.exists("crafting.lua") and require("crafting")
@@ -126,19 +128,8 @@ local function isInventory(name)
   return false
 end
 
-local function loadSetup()
-  if not fs.exists(SETUP_FILE) then return nil end
-  local f = fs.open(SETUP_FILE, "r")
-  local s = textutils.unserialize(f.readAll())
-  f.close()
-  return s
-end
-
-local function saveSetup(s)
-  local f = fs.open(SETUP_FILE, "w")
-  f.write(textutils.serialize(s))
-  f.close()
-end
+local function loadSetup() return files.read(SETUP_FILE) end
+local function saveSetup(s) files.write(SETUP_FILE, s) end
 
 -- Every delivery chest: the shared one and each turtle's own.
 local function deliveryChests()
@@ -636,7 +627,6 @@ local crafterId -- the crafting turtle this computer uses itself (no overseer), 
 -- Why crafting is stuck right now (nil when it's working), so turtles
 -- waiting on a craft can say so.
 local craftProblem
-local jobId = 0
 
 -- A crafting turtle that answers and has a chest.
 local function findCrafter()
@@ -659,16 +649,11 @@ local function runJob(job)
   while left > 0 do
     local batch, err = loadCrafter(chest, job.grid, math.min(left, 64, math.floor(MAX_BATCH_OUTPUT / r.count)))
     if batch == 0 then return false, err end
-    jobId = jobId + 1
     -- grid tells the turtle which item goes in which cell, so it lays them
     -- out right whatever order its chest keeps them in
-    rednet.send(crafterId, { type = "craft", id = jobId, steps = batch, grid = job.grid }, CRAFT_PROTOCOL)
-    local reply
-    local deadline = os.clock() + CRAFT_WAIT
-    while not reply and os.clock() < deadline do
-      local from, msg = rednet.receive(CRAFT_PROTOCOL, deadline - os.clock())
-      if from == crafterId and type(msg) == "table" and msg.type == "crafted" and msg.id == jobId then reply = msg end
-    end
+    local craft = { type = "craft", steps = batch, grid = job.grid }
+    local reply = net.ask(crafterId, CRAFT_PROTOCOL, craft, { wait = CRAFT_WAIT,
+      match = function(msg) return msg.type == "crafted" and msg.id == craft.id end })
     clearCrafter(chest)
     if not reply then
       crafterId = nil
@@ -730,17 +715,11 @@ local function handOver()
     end
   end
   if #list == 0 then return true end
-  jobId = jobId + 1
-  rednet.send(overseerId, { type = "jobs", id = jobId, jobs = list }, OVERSEER_PROTOCOL)
-  local deadline = os.clock() + OVERSEER_WAIT
-  while os.clock() < deadline do
-    local from, msg = rednet.receive(OVERSEER_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == overseerId and type(msg) == "table" and msg.re == "jobs" and msg.id == jobId then
-      for _, job in ipairs(craftQueue) do job.sent = true end
-      message = { ("Gave the crafting overseer (#%d) %d crafts."):format(overseerId, #list), "lightBlue" }
-      os.queueEvent("storage_changed")
-      return true
-    end
+  if net.ask(overseerId, OVERSEER_PROTOCOL, { type = "jobs", jobs = list }, { wait = OVERSEER_WAIT }) then
+    for _, job in ipairs(craftQueue) do job.sent = true end
+    message = { ("Gave the crafting overseer (#%d) %d crafts."):format(overseerId, #list), "lightBlue" }
+    os.queueEvent("storage_changed")
+    return true
   end
   overseerId, overseerAt = nil, os.clock()
   message = { "The crafting overseer didn't answer: crafting here.", "orange" }
@@ -769,8 +748,7 @@ local function craftLoop()
     elseif findOverseer() then
       if not handOver() then sleep(1) end
     elseif not findCrafter() then
-      local wireless = peripheral.find("modem", function(_, m) return m.isWireless() end)
-      message = { wireless and "No crafting turtle answered: is it running 'crafter'?"
+      message = { net.hasWireless() and "No crafting turtle answered: is it running 'crafter'?"
         or "Crafter not answering: put a wireless modem on me.", "orange" }
       craftProblem = "its crafting turtle isn't answering"
       os.queueEvent("storage_changed")
@@ -1020,14 +998,8 @@ local inbox = {}
 
 local function netReceive()
   -- turtles reach us by wireless; the smelter can by the wired network's cable
-  local wireless = false
-  for _, side in ipairs(peripheral.getNames()) do
-    if peripheral.getType(side) == "modem" then
-      if not rednet.isOpen(side) then rednet.open(side) end
-      wireless = wireless or peripheral.call(side, "isWireless")
-    end
-  end
-  if not wireless then
+  net.open("any")
+  if not net.hasWireless() then
     message = { "No wireless modem: turtles can't ask me for items.", "orange" }
     os.queueEvent("storage_changed")
   end
@@ -1043,10 +1015,7 @@ end
 
 -- Replies carry the request's id, so a turtle never takes a late answer to
 -- an earlier request for the answer to a new one.
-local function answer(to, request, reply)
-  reply.id = request.id
-  rednet.send(to, reply, NET_PROTOCOL)
-end
+local function answer(to, request, reply) net.answer(to, NET_PROTOCOL, request, reply) end
 
 local function handleRequest(from, msg)
   if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
@@ -1618,22 +1587,20 @@ if args[1] == "test" then
       print("No pack_recipes.lua: only vanilla recipes. See 'Modded recipes' in the README.")
     end
     -- the crafting turtle may answer by wireless or over the cable
-    for _, side in ipairs(peripheral.getNames()) do
-      if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
-    end
+    net.open("any")
     local overseer = rednet.lookup(OVERSEER_PROTOCOL)
     print(overseer and ("Crafting overseer #%d runs the crafting queue."):format(overseer)
       or "No crafting overseer: I run the crafting queue myself, on one turtle.")
     local ids = { rednet.lookup(CRAFT_PROTOCOL) }
     for _, id in ipairs(ids) do
-      rednet.send(id, { type = "ping", id = 0 }, CRAFT_PROTOCOL)
-      local from, reply
-      repeat from, reply = rednet.receive(CRAFT_PROTOCOL, 5) until not from or from == id
-      local ok = from == id and type(reply) == "table" and reply.type == "pong"
+      local ping = { type = "ping" }
+      local ok = net.ask(id, CRAFT_PROTOCOL, ping, { wait = 5,
+        match = function(reply) return reply.type == "pong" and reply.id == ping.id end }) ~= nil
       print(("Crafting turtle #%d %s%s."):format(id, ok and "answered" or "didn't answer a ping",
         crafterChest(id) and "" or ", but has no chest here yet"))
     end
     if #ids > 0 then
+      -- each one answered (or not) above
     elseif not modem then
       print("No crafting turtle answered. It talks by wireless, so put a")
       print("wireless modem on me (or a full-block wired modem against the")

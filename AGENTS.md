@@ -25,6 +25,9 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
   claim.lua                 Tells the storage computer which of its chests is next to this turtle (delivery / crafter chest)
+  net.lua                   Rednet: opening modems, requests with ids and deadlines, answers, cached lookups
+  files.lua                 Crash-safe save files (temp file, then move); nav.writeFile etc. are these
+  inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
@@ -149,22 +152,22 @@ Existing computers:
 
 | Folder | What | Libs |
 |---|---|---|
-| `mine-server` | AutoMine server: hands out chunks, planning map | report, errlog, screen |
-| `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog |
-| `status-server` | Monitor dashboard of every computer's status | errlog, screen |
-| `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, errlog, report (if present) |
-| `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs | nav, report, errlog |
-| `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog |
-| `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim |
-| `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog |
-| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, report, errlog (if present) |
-| `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim |
-| `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog |
-| `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog |
-| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | screen, report, errlog (if present) |
-| `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, report, errlog (if present) |
-| `craft-overseer` | Takes the storage computer's crafting queue and shares it between every crafting turtle; monitor shows the queue and what's missing | screen, report, errlog (if present) |
-| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, report, errlog (if present) |
+| `mine-server` | AutoMine server: hands out chunks, planning map | report, errlog, screen, net, files |
+| `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
+| `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
+| `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
+| `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs | nav, report, errlog, inv, files |
+| `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
+| `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |
+| `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog, inv, files |
+| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, net, files, report, errlog (if present) |
+| `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim, inv, net, files |
+| `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog, inv, files |
+| `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog, inv, files |
+| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | screen, files, net, report, errlog (if present) |
+| `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, net, report, errlog (if present) |
+| `craft-overseer` | Takes the storage computer's crafting queue and shares it between every crafting turtle; monitor shows the queue and what's missing | screen, net, files, report, errlog (if present) |
+| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, net, files, report, errlog (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
@@ -176,10 +179,11 @@ inventing new ones.
 
 All over rednet on a wireless or ender modem, except chest-to-chest moves,
 which go over the storage system's wired network. The storage computer,
-smelter and crafter open every modem they have, so the smelter and crafter
-can also talk to it over that network's cable. Requests carry an `id` that
+smelter, crafter and craft overseer open every modem they have, so they
+can also talk to each other over that network's cable. Requests carry an `id` that
 the reply repeats (and `re` = the request type), so a late reply is never
-taken for a newer one. The `storage-system` skill has every message and
+taken for a newer one: `lib/net.lua` (`net.ask`, `net.answer`, `net.peer`)
+does this for every program. The `storage-system` skill has every message and
 reply field.
 
 | Protocol | From → to | Messages |
@@ -248,6 +252,7 @@ Detailed guides live in `.claude/skills/`:
 - `lib-report`: the `lib/report.lua` API and status states
 - `lib-errlog`: the `lib/errlog.lua` API and the error log format
 - `lib-screen`: the `lib/screen.lua` API for flicker-free monitors and terminals
+- `lib-net`: `lib/net.lua` (rednet requests, answers, peers), `lib/files.lua` (crash-safe save files) and `lib/inv.lua` (turtle inventory and fuel)
 - `turtle-job`: the standalone resumable turtle job pattern (from excavate-turtle), and jobs in world coordinates (builder-turtle)
 - `storage-system`: asking the storage computer for items (messages, replies, crafting on request) and how it works inside
 
@@ -266,6 +271,10 @@ Detailed guides live in `.claude/skills/`:
   never read or empty storage chests (or an ME / RS system) themselves.
 - **Movement:** turtles use `lib/nav.lua` (never raw `turtle.forward` for moves
   that change position) so position is saved and protected blocks are never dug.
+  Counting, selecting and burning items go through `lib/inv.lua`; GPS checks
+  through `nav.locate` and `nav.confirmResume`.
+- **Rednet:** requests and answers go through `lib/net.lua` (`net.peer(...):ask`,
+  `net.ask` with a deadline, `net.answer`), never a hand-rolled receive loop.
 - **Screens:** every monitor and terminal UI draws through `lib/screen.lua`:
   `local win, w, h = s:frame()`, draw, `s:show()`. Never clear a monitor (or
   the terminal) and redraw it in place: it flashes. A screen redrawn on every
@@ -279,8 +288,9 @@ Detailed guides live in `.claude/skills/`:
 - **Errors:** every program logs errors through `lib/errlog.lua` (`errlog.init(name,
   context)`, `errlog.pcall` around the main loop and per-event handlers), never
   its own log file, so `/errors.log` reads the same on every computer.
-- **Persistence:** save state with `nav.writeFile` / `nav.readFile` /
-  `nav.deleteFile` (temp-file writes, crash safe). Job files are `/.<name>_job`.
+- **Persistence:** save state with `lib/files.lua` (`files.write` / `read` /
+  `delete`; temp-file writes, crash safe), which turtles also have as
+  `nav.writeFile` etc. Never `fs.open` a state file directly. Job files are `/.<name>_job`.
 - **Labels:** turtles label themselves (`os.setComputerLabel("Excavator-" .. id)`)
   so they keep their files when broken.
 - **Junk list**: cobblestone, cobbled_deepslate, stone, deepslate, dirt, gravel,

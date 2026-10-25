@@ -13,6 +13,7 @@
 -- (width) from the block under the turtle. Put a chest directly behind the
 -- turtle, and some coal in the turtle.
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
@@ -85,41 +86,13 @@ end
 
 local function save() nav.writeFile(JOB_FILE, job) end
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
-local function selectItem(name)
-  for slot = 1, 16 do
-    local item = turtle.getItemDetail(slot)
-    if item and item.name == name then
-      turtle.select(slot)
-      return true
-    end
-  end
-  return false
-end
+local selectItem = inv.select
 
-local function refuelFromInventory(target)
-  for slot = 1, 16 do
-    if fuelLevel() >= target then break end
-    local item = turtle.getItemDetail(slot)
-    if item and FUEL[item.name] then
-      turtle.select(slot)
-      while fuelLevel() < target and turtle.refuel(1) do end
-    end
-  end
-  turtle.select(1)
-end
+local function refuelFromInventory(target) inv.refuel(target, FUEL) end
 
 local function homeDistance()
   local p = here()
@@ -183,11 +156,7 @@ end
 
 ---------------------------------------------------------------- position checks
 
-local function gpsPos()
-  local x, y, z = gps.locate(2)
-  if not x then return nil end
-  return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
-end
+local gpsPos = nav.locate
 
 -- Off the field (picked up and put down somewhere else): back to the start.
 -- It flies at crop height + 1, so going straight there is fine.
@@ -322,18 +291,7 @@ local useGps = hasGps and (not job or job.gps)
 local knowsPosition = nav.init(useGps)
 
 local function confirmResume()
-  print("No GPS, so I'm trusting my saved position.")
-  print("Resuming in 10 seconds. If you moved me, press any key.")
-  local timer = os.startTimer(10)
-  while true do
-    local event, value = os.pullEvent()
-    if event == "timer" and value == timer then return true end
-    if event == "key" then
-      print("Put me back on my start block, facing the way I faced when")
-      print("the farm began, then run: cropfarm here")
-      return false
-    end
-  end
+  return nav.confirmResume("Put me back on my start block, facing the way I faced when\nthe farm began, then run: cropfarm here")
 end
 
 if args[1] == "resume" or args[1] == "here" then

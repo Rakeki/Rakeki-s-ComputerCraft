@@ -177,6 +177,8 @@
       strip: [540, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
       mob: [740, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
       smelter: [920, 540, 150, "smelter-computer", "Smelter", "computer", "red"],
+      builder: [130, 540, 150, "builder-turtle", "Builders", "turtle", "pink"],
+      overseer: [1100, 540, 160, "craft-overseer", "Craft Overseer", "computer", "orange"],
     };
     const P = CC.PALETTE;
     const line = (d, c, w = 2.5, extra = "") => `<path class="flow" d="${d}" stroke="${c}" stroke-width="${w}" fill="none"${extra}/>`;
@@ -192,14 +194,18 @@
     // GPS: from the hosts to every turtle that checks its position
     edges += line("M1040,248 L1040,300 L200,300", P.lightBlue);
     for (const x of [200, 480, 690, 870]) edges += line(`M${x},300 L${x},352`, P.lightBlue);
-    edges += line("M440,300 L440,470 M300,470 L700,470", P.lightBlue);
-    for (const x of [300, 500, 700]) edges += line(`M${x},470 L${x},512`, P.lightBlue);
+    edges += line("M440,300 L440,470 M100,470 L700,470", P.lightBlue);
+    for (const x of [100, 300, 500, 700]) edges += line(`M${x},470 L${x},512`, P.lightBlue);
     // the village shares its current building with the projector
     edges += line(curve(430, 248, 510, 352), P.magenta, 3);
+    // the projector hands its plan to the builders (down the gap left of the crafter)
+    edges += line("M320,248 L320,320 L250,320 L250,490 L170,490 L170,512", P.magenta, 3);
     // the storage system sends the village its blocks
     edges += line(curve(650, 248, 575, 352), P.blue, 3);
     // the storage system hands crafting jobs to the crafter
     edges += line(curve(615, 248, 380, 352), P.brown, 3);
+    // the storage system hands its crafting queue to the overseer (down the gap by the GPS deployer)
+    edges += line("M750,248 L750,286 L1008,286 L1008,500 L1060,500 L1060,512", P.brown, 3);
     // the storage system loads the smelter's furnaces (down the gap between the farms)
     edges += line("M770,248 L770,272 L830,272 L830,470 L900,470 L900,512", P.red, 3);
     // farms drop their harvest into the storage system's input chest
@@ -221,7 +227,8 @@
     const labels = tag(612, 124, "report.set()", P.lime) + tag(30, 305, "rednet", P.orange)
       + tag(210, 292, "gps.locate()", P.lightBlue) + tag(1110, 305, "builds", P.purple)
       + tag(262, 340, "current building", P.magenta) + tag(628, 322, "blocks", P.blue)
-      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown) + tag(838, 462, "ores, fuel", P.red);
+      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown) + tag(838, 462, "ores, fuel", P.red)
+      + tag(178, 484, "plans", P.magenta) + tag(1016, 492, "queue", P.brown);
     return `<svg viewBox="0 0 1200 600" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 

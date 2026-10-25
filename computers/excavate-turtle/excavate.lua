@@ -4,6 +4,7 @@
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
 --   excavate resume
+--   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel
 --
 -- Place the turtle in a corner of the area, facing along one edge. The hall
@@ -17,6 +18,7 @@
 -- The layout is mirror-symmetric when the width and length are odd (rooms
 -- line up evenly and every wall has a centre block for its middle door).
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
@@ -382,11 +384,7 @@ end
 
 local reach -- defined below; used by the trips home
 
-local function gpsPos()
-  local x, y, z = gps.locate(2)
-  if not x then return nil end
-  return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
-end
+local gpsPos = nav.locate
 
 -- Somewhere the turtle is meant to be: inside the dig, in the shaft, or on its start block.
 local function onPlan(p)
@@ -422,18 +420,9 @@ end
 
 local function save() nav.writeFile(JOB_FILE, job) end
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
 -- Drop everything matching shouldDrop, but keep cobblestone for patching
 -- walls until that's done.
@@ -458,14 +447,8 @@ local function dropJunk()
   dropItems(function(item) return JUNK[item.name] end, turtle.drop)
 end
 
-local function refuelFromInventory(target)
-  for slot = 1, 16 do
-    if fuelLevel() >= target then break end
-    turtle.select(slot)
-    while fuelLevel() < target and turtle.refuel(1) do end
-  end
-  turtle.select(1)
-end
+-- anything that burns, so it uses the coal it digs up
+local function refuelFromInventory(target) inv.refuel(target) end
 
 local function homeDistance()
   local p, s = here(), plan.start
@@ -838,18 +821,7 @@ local knowsPosition = nav.init(useGps)
 
 -- No GPS to check against: give the player a chance to say the turtle was moved.
 local function confirmResume()
-  print("No GPS, so I'm trusting my saved position.")
-  print("Resuming in 10 seconds. If you moved me, press any key.")
-  local timer = os.startTimer(10)
-  while true do
-    local event, value = os.pullEvent()
-    if event == "timer" and value == timer then return true end
-    if event == "key" then
-      print("Put me back on my start block, facing the way I faced when")
-      print("the job began, then run: excavate here")
-      return false
-    end
-  end
+  return nav.confirmResume("Put me back on my start block, facing the way I faced when\nthe job began, then run: excavate here")
 end
 
 if args[1] == "resume" or args[1] == "here" then

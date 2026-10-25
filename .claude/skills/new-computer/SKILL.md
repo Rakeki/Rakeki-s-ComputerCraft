@@ -35,7 +35,8 @@ repo root.
 5. Add a line to the root `README.md` under **Computers**:
    `- [<name>](computers/<name>/README.md): <one-line what it does>`
 6. Add a row to the **Existing computers** table in `AGENTS.md`, and to the
-   protocol table under "How the programs talk" if it uses rednet.
+   protocol table under "How the programs talk" if it uses rednet (through
+   [[lib-net]]: `net.peer` / `net.ask` / `net.answer`, never hand-rolled waits).
 7. If it uses `lib/` modules, add it to that module's "Used by" text in
    `lib/README.md`.
 8. Add an entry to `site/programs.json` so it appears on the website and in

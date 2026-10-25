@@ -19,8 +19,10 @@
 -- Needs a wireless or ender modem, and its real world position: from GPS, or
 -- typed in once with 'builder setup' (press F3 to read it).
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
+local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer my supply chest is my delivery chest
 
 local JOB_FILE = "/.builder_job" -- the building: blocks and materials (written once per building)
@@ -71,65 +73,19 @@ local function shortName(name) return (name:gsub("^minecraft:", ""):gsub("_", " 
 local function itemFor(block) return ITEM_FOR[block] or block end
 local function save() nav.writeFile(PROGRESS_FILE, prog) end
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
-local function count(name)
-  local n = 0
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and it.name == name then n = n + it.count end
-  end
-  return n
-end
+local count = inv.count
 
-local function selectName(name)
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and it.name == name then
-      turtle.select(slot)
-      return true
-    end
-  end
-  return false
-end
+local selectName = inv.select
 
-local function fuelItems()
-  local n = 0
-  for slot = 1, 16 do
-    local it = turtle.getItemDetail(slot)
-    if it and FUEL[it.name] then n = n + it.count end
-  end
-  return n
-end
+local function fuelItems() return inv.count(FUEL) end
 
-local function refuelFromInventory(target)
-  for slot = 1, 16 do
-    if fuelLevel() >= target then break end
-    local it = turtle.getItemDetail(slot)
-    if it and FUEL[it.name] then
-      turtle.select(slot)
-      while fuelLevel() < target and turtle.refuel(1) do end
-    end
-  end
-  turtle.select(1)
-end
+local function refuelFromInventory(target) inv.refuel(target, FUEL) end
 
-local function gpsPos()
-  local x, y, z = gps.locate(2)
-  if not x then return nil end
-  return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
-end
+local gpsPos = nav.locate
 
 local function status(state, detail)
   report.set(state, detail)
@@ -188,13 +144,7 @@ local function total() return #job.blocks end
 
 ---------------------------------------------------------------- talking to the projector
 
-local function openModem()
-  if rednet.isOpen() then return true end
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then return false end
-  rednet.open(peripheral.getName(modem))
-  return true
-end
+local function openModem() return net.open() end
 
 -- Tell the projector that sent the building how far along it is.
 local function sendProgress(stage, note)
@@ -396,30 +346,14 @@ end
 
 ---------------------------------------------------------------- the storage system
 
-local storageId
-local noStorageUntil = 0
-local requestId = 0
-local supplyClaimed = false -- the storage system knows my supply chest is mine
-local claimAfter = 0 -- don't try that again before this (os.clock)
+-- the storage computer, looked up again a minute after none answered
+local storage = net.peer(STORAGE_PROTOCOL, { retry = 60, wait = STORAGE_WAIT })
+local supply = claim.tracker("delivery", CLAIM_RETRY) -- whether the storage system knows my supply chest
 
 -- Ask a storage computer something; nil if there isn't one in range.
 local function askStorage(msg)
-  if not USE_STORAGE or os.clock() < noStorageUntil or not openModem() then return nil end
-  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
-  if not storageId then
-    noStorageUntil = os.clock() + 60
-    return nil
-  end
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + STORAGE_WAIT
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
-  end
-  storageId = nil
-  return nil
+  if not USE_STORAGE then return nil end
+  return (storage:ask(msg))
 end
 
 -- Have the storage system top up my supply chest (its delivery chest) with
@@ -432,25 +366,22 @@ local function orderFromStorage(needs)
   end
   if not any then return nil end
   -- first time: tell the storage system which of its chests is my supply chest
-  if not supplyClaimed and os.clock() >= claimAfter then
+  if supply:due() then
     faceSupply()
-    local ok, why = claim.chest(askStorage, "delivery", "front")
+    local ok, why = supply:check(askStorage, "front")
     if ok then
-      supplyClaimed = true
       print(("The storage system sends my blocks to my supply chest (%s)."):format(why))
-    else
-      -- nil: no answer (not running, or too old to know 'claim')
-      claimAfter = os.clock() + (ok == false and CLAIM_RETRY or 60)
-      if ok == false then print("Couldn't hook my supply chest up to the storage system: " .. why) end
+    elseif ok == false then
+      print("Couldn't hook my supply chest up to the storage system: " .. why)
     end
   end
   local r = askStorage({ type = "deliver", items = order })
+  supply:seen(r) -- not sent to my own chest: find it again next time
   if r then
     local sent = 0
     for _, n in pairs(r.sent or {}) do sent = sent + n end
     if sent > 0 then print(("The storage system sent %d blocks to %s."):format(sent,
       r.to == "output" and "its output chest" or "my supply chest")) end
-    if r.to ~= "own" then supplyClaimed = false end -- it was set up again: find my chest again next time
   end
   return r
 end
@@ -810,18 +741,7 @@ end
 
 -- No GPS to check against: give the player a chance to say the turtle was moved.
 local function confirmResume()
-  print("No GPS, so I'm trusting my saved position.")
-  print("Carrying on in 10 seconds. If you moved me, press any key.")
-  local timer = os.startTimer(10)
-  while true do
-    local event, value = os.pullEvent()
-    if event == "timer" and value == timer then return true end
-    if event == "key" then
-      print("Put me back on my home block, facing the way I faced")
-      print("there, then run: builder here")
-      return false
-    end
-  end
+  return nav.confirmResume("Put me back on my home block, facing the way I faced\nthere, then run: builder here")
 end
 
 ---------------------------------------------------------------- start

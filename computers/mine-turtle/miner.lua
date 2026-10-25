@@ -1,6 +1,8 @@
 -- AutoMine turtle: asks the server for a chunk, strip-mines it top to bottom
 -- in 3-high layers, and returns to the dock to unload and refuel when needed.
 local nav = require("lib.nav")
+local inv = require("lib.inv") -- inventory and fuel
+local net = require("lib.net") -- opening modems
 local report = require("lib.report")
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
@@ -30,9 +32,7 @@ local function loadJob() return nav.readFile(JOB_FILE) end
 ---------------------------------------------------------------- network
 
 local function openModem()
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then error("No wireless modem: equip a wireless or ender modem on this turtle", 0) end
-  rednet.open(peripheral.getName(modem))
+  if not net.open() then error("No wireless modem: equip a wireless or ender modem on this turtle", 0) end
 end
 
 local function send(msg)
@@ -128,10 +128,7 @@ end
 
 ---------------------------------------------------------------- fuel and inventory
 
-local function fuelLevel()
-  local f = turtle.getFuelLevel()
-  return f == "unlimited" and math.huge or f
-end
+local fuelLevel = inv.fuelLevel
 
 -- Each turtle travels at its own altitude so they don't fly into each other.
 local function laneY() return config.cruiseY + (os.getComputerID() % config.lanes) end
@@ -141,22 +138,10 @@ local function fuelToDock()
   return math.abs(p.y - laneY()) + math.abs(p.x - d.x) + math.abs(p.z - d.z) + math.abs(laneY() - d.y)
 end
 
-local function refuelFromInventory(target)
-  for slot = 1, 16 do
-    if fuelLevel() >= target then break end
-    turtle.select(slot)
-    while fuelLevel() < target and turtle.refuel(1) do end
-  end
-  turtle.select(1)
-end
+-- anything that burns, so it uses the coal it digs up
+local function refuelFromInventory(target) inv.refuel(target) end
 
-local function emptySlots()
-  local n = 0
-  for slot = 1, 16 do
-    if turtle.getItemCount(slot) == 0 then n = n + 1 end
-  end
-  return n
-end
+local emptySlots = inv.emptySlots
 
 local function dropJunk()
   for slot = 1, 16 do

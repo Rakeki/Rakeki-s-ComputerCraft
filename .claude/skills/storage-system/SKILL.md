@@ -18,37 +18,31 @@ wired modem on the storage cable. Facing it, the turtle calls
 `claim.chest(askStorage, "delivery", "front")` (`lib/claim.lua`) once, and
 from then on its deliveries go there (each turtle has its own; nothing is
 picked in `storage setup`). Claim again when a `deliver` reply's `to`
-isn't `"own"` (the storage computer was set up again). Copy
-`askStorage` from `computers/builder-turtle/builder.lua` (or village.lua):
+isn't `"own"` (the storage computer was set up again): `claim.tracker`
+does all of that (see builder.lua's `orderFromStorage`). Ask through a
+[[lib-net]] peer:
 
 ```lua
-local STORAGE_PROTOCOL = "storage"
-local STORAGE_WAIT = 10 -- seconds to wait for an answer
-local storageId, noStorageUntil, requestId = nil, 0, 0
+local net = require("lib.net")
+local claim = require("lib.claim")
+local storage = net.peer("storage", { retry = 60 }) -- look again a minute after nobody answered
+local supply = claim.tracker("delivery", 300)
 
-local function askStorage(msg)
-  if os.clock() < noStorageUntil or not openModem() then return nil end
-  storageId = storageId or rednet.lookup(STORAGE_PROTOCOL)
-  if not storageId then noStorageUntil = os.clock() + 60 return nil end -- don't look again for a minute
-  requestId = requestId + 1
-  msg.id = requestId
-  rednet.send(storageId, msg, STORAGE_PROTOCOL)
-  local deadline = os.clock() + STORAGE_WAIT
-  while os.clock() < deadline do
-    local from, reply = rednet.receive(STORAGE_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == storageId and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then return reply end
-  end
-  storageId = nil -- gone quiet: look it up again next time
-  return nil
-end
+local function askStorage(msg) return (storage:ask(msg)) end
+
+-- at home, before ordering:
+if supply:due() then faceSupply(); supply:check(askStorage, "front") end
+local r = askStorage({ type = "deliver", items = order })
+supply:seen(r)
 ```
 
-- Check `re` **and** `id`: a late reply to an earlier request must never be
-  taken for this one.
-- `openModem()` opens every modem (wireless or wired): the storage computer
-  answers on all of its modems, so a program on its cable needs no wireless.
-- nil means "no storage system": carry on with the home chests and tell the
-  player, never wait forever.
+- `peer:ask` matches `re` **and** `id`, so a late reply to an earlier
+  request is never taken for this one.
+- A program on the storage cable (smelter, overseer, crafter) uses
+  `{ open = "any" }`: the storage computer answers on all of its modems, so
+  it needs no wireless.
+- nil means "no storage system" (the second value says why): carry on with
+  the home chests and tell the player, never wait forever.
 
 | Request | Reply fields | Use |
 |---|---|---|

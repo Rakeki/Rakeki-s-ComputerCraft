@@ -14,6 +14,8 @@
 --   projector clear           remove the projection (stays hidden after a reboot)
 local ui = require("ui")
 local samples = require("sample_plans")
+local net = require("lib.net") -- rednet requests and answers
+local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -44,27 +46,8 @@ local args = { ... }
 
 ---------------------------------------------------------------- files
 
--- Write to a temp file first so a crash mid-save never leaves a broken file.
--- (lib/nav.lua has the same helpers, but it needs a turtle.)
-local function writeFile(path, value)
-  local tmp = path .. ".tmp"
-  local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(value))
-  f.close()
-  if fs.exists(path) then fs.delete(path) end
-  fs.move(tmp, path)
-end
-
-local function readFile(path)
-  for _, p in ipairs({ path, path .. ".tmp" }) do
-    if fs.exists(p) then
-      local f = fs.open(p, "r")
-      local value = textutils.unserialize(f.readAll())
-      f.close()
-      if value then return value end
-    end
-  end
-end
+-- Crash-safe save files (lib/files.lua).
+local writeFile, readFile = files.write, files.read
 
 -- The last building a village turtle shared: { from, key, name, world, blocks,
 -- stage, y, step, total }. world is true when its coordinates are real ones
@@ -266,9 +249,9 @@ local function planIds(extra)
   for _, p in ipairs(samples) do add(p.id) end
   if village then add("village") end
   if fs.isDir(PLAN_DIR) then
-    local files = fs.list(PLAN_DIR)
-    table.sort(files)
-    for _, f in ipairs(files) do
+    local names = fs.list(PLAN_DIR)
+    table.sort(names)
+    for _, f in ipairs(names) do
       if f:sub(-4) == ".lua" then add(f:sub(1, -5)) end
     end
   end
@@ -738,13 +721,7 @@ end
 
 ---------------------------------------------------------------- village turtle
 
-local function openWireless()
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then return false end
-  local name = peripheral.getName(modem)
-  if not rednet.isOpen(name) then rednet.open(name) end
-  return true
-end
+local function openWireless() return net.open() end
 
 -- A message from a village turtle: a whole building (when it picks a new
 -- one, or when asked) or how far along it is.
@@ -978,23 +955,19 @@ local function offer(i, id)
   local mats = worldPlan()
   local part = stripBox(i, b.n)
   local blocks = stripBlocks(part)
-  rednet.send(id, { type = "build", id = i, key = p.key, name = b.n > 1 and ("%s (strip %d of %d)"):format(b.name, i, b.n) or b.name,
-    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1 }, BUILD_PROTOCOL)
-  local deadline = os.clock() + BUILD_WAIT
-  while os.clock() < deadline do
-    local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from == id and type(msg) == "table" and msg.key == p.key and msg.id == i then
-      if msg.type == "accepted" then
-        p.builder, p.stage, p.done, p.total = id, "clear", 0, #blocks
-        return true
-      end
-      return false, ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
-        or ("refused: " .. tostring(msg.why)))
-    elseif from then
-      onBuilder(from, msg)
-    end
+  -- the turtle answers accepted, busy or refused, with the strip's key
+  local msg = net.ask(id, BUILD_PROTOCOL, { type = "build", key = p.key,
+    name = b.n > 1 and ("%s (strip %d of %d)"):format(b.name, i, b.n) or b.name,
+    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1 },
+    { wait = BUILD_WAIT, match = function(reply) return reply.key == p.key and reply.type ~= "progress" end,
+      other = onBuilder })
+  if not msg then return false, ("Builder #%d didn't answer in time."):format(id) end
+  if msg.type == "accepted" then
+    p.builder, p.stage, p.done, p.total = id, "clear", 0, #blocks
+    return true
   end
-  return false, ("Builder #%d didn't answer in time."):format(id)
+  return false, ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
+    or ("refused: " .. tostring(msg.why)))
 end
 
 -- Give the strips nobody has yet to these free builders, one each.

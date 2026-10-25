@@ -38,6 +38,8 @@ the turtle, it's copied to each host, and the hosts appear on the
 - [`lib/nav.lua`](../../lib/nav.lua): movement (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): optional, passed on to the hosts (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
+- [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
+- [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
 
 ## Use
 
