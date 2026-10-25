@@ -2,7 +2,9 @@
 -- computer for something it hasn't got but could make, the storage computer
 -- puts the ingredients in this turtle's chest, laid out like the crafting
 -- grid, and asks it to craft. It crafts and puts everything back in the
--- chest, and the storage computer puts the results away.
+-- chest, and the storage computer puts the results away. With several
+-- crafting turtles, a crafting overseer (computers/craft-overseer) hands
+-- out the jobs instead; this turtle works the same for either.
 --
 --   crafter          start (startup.lua runs this)
 --   crafter learn    teach the storage system a recipe: lay one set of it out

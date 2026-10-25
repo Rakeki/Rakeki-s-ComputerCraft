@@ -71,6 +71,9 @@ local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest 
 local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle takes jobs on
 local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
+local OVERSEER_PROTOCOL = "craft_overseer" -- a crafting overseer (computers/craft-overseer) takes the queue on this
+local OVERSEER_EVERY = 30 -- seconds between looks for a crafting overseer while there isn't one
+local OVERSEER_WAIT = 5 -- seconds to wait for the overseer to take the jobs
 -- Kinds of inventory a turtle may claim as its chest (matched against the
 -- peripheral type, e.g. "minecraft:chest"): never furnaces or hoppers.
 local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
@@ -96,6 +99,8 @@ local reserved = {}
 local craftQueue = {}
 local pendingCraft = {}
 local planCount = 0
+local jobCount = 0
+local runId = os.epoch("utc") -- makes job ids unique across restarts (the overseer keeps its queue)
 local systemCrafts = {} -- name -> how many the ME/RS system is crafting for turtles
 -- Items that aren't stored but could be crafted, for the list:
 -- { key, name, count (nil: the ME/RS system has a pattern), displayName, craftable = true }.
@@ -143,6 +148,24 @@ local function deliveryChests()
   end
   add(setup.delivery)
   for _, name in pairs(setup.deliveries) do add(name) end
+  return list
+end
+
+-- Crafter chests: each crafting turtle's own (it finds it itself:
+-- setup.crafters = { [turtle id] = chest }), or the one picked in 'storage
+-- setup' (setup.crafter), for a turtle that hasn't found its own.
+local function crafterChest(id)
+  return id and setup.crafters[id] or setup.crafter
+end
+
+local function hasCrafter() return setup.crafter ~= nil or next(setup.crafters) ~= nil end
+
+local function crafterChests()
+  local list, seen = {}, {}
+  for _, name in pairs(setup.crafters) do
+    if not seen[name] then list[#list + 1], seen[name] = name, true end
+  end
+  if setup.crafter and not seen[setup.crafter] then list[#list + 1] = setup.crafter end
   return list
 end
 
@@ -260,7 +283,7 @@ local tabZones = {} -- tab -> { x1, x2 } on the tab row, for mouse clicks
 -- A Craftable tab only when it's turned on and something can craft: a
 -- crafting turtle, or an ME/RS system's patterns.
 local function canCraftAny()
-  return CRAFTABLE_TAB and ((crafting and setup.crafter) or store.craftables ~= nil) and true or false
+  return CRAFTABLE_TAB and ((crafting and hasCrafter()) or store.craftables ~= nil) and true or false
 end
 
 -- The search hits in the open tab, plus those in each tab (for their counts).
@@ -519,7 +542,7 @@ function orderCraft(name, count)
   end
   if not crafting then return false, "crafting.lua is missing: run 'install update'" end
   if not crafting.canMake(name) then return false, "no recipe for it" end
-  if not setup.crafter then return false, "no crafter chest: start the crafting turtle against one on my network" end
+  if not hasCrafter() then return false, "no crafter chest: start a crafting turtle against one on my network" end
   local stock, reach = planningStock(), reachNow()
   local jobs, why = crafting.plan(name, count, stock, reach), nil
   if not jobs then
@@ -533,6 +556,8 @@ function orderCraft(name, count)
   planCount = planCount + 1
   for _, job in ipairs(jobs) do
     job.plan = planCount
+    jobCount = jobCount + 1
+    job.id = ("%d:%d"):format(runId, jobCount) -- the overseer says which job is done by this
     craftQueue[#craftQueue + 1] = job
   end
   jobs[#jobs].top = count -- the item asked for: counted in pendingCraft until it's made
@@ -554,55 +579,86 @@ local function checkSystemCrafts()
   end
 end
 
--- Put away anything in the crafter chest. Returns false if it couldn't all
+-- Put away anything in a crafter chest. Returns false if it couldn't all
 -- go (storage full), since the turtle would craft with it.
-local function clearCrafter()
-  local ok, list = pcall(peripheral.call, setup.crafter, "list")
+local function clearCrafter(chest)
+  local ok, list = pcall(peripheral.call, chest, "list")
   if not ok then return false end
   local empty = true
   for slot, item in pairs(list) do
-    if putAway(setup.crafter, slot, item, item.count) > 0 then empty = false end
+    if putAway(chest, slot, item, item.count) > 0 then empty = false end
   end
   return empty
 end
 
-local crafterId -- the crafting turtle, once found
+-- Put one batch of a job's ingredients in a crafter chest: steps of each
+-- grid cell's item (cell k in chest slot k where the chest allows). No
+-- more steps than the smallest stack among the ingredients. Returns how
+-- many steps went in, or 0, why, and what's short (item -> how many).
+local function loadCrafter(chest, grid, steps)
+  local items = allItems()
+  local batch = steps
+  for _, item in pairs(grid) do batch = math.min(batch, items[item] and items[item].maxCount or 64) end
+  batch = math.max(1, batch)
+  if not clearCrafter(chest) then return 0, "the crafter chest won't empty: is storage full?" end
+  -- all there? (so a batch is never half loaded for want of one item)
+  local need, missing = {}, nil
+  for _, item in pairs(grid) do need[item] = (need[item] or 0) + batch end
+  for item, n in pairs(need) do
+    local have = items[item] and items[item].count or 0
+    if have < n then
+      missing = missing or {}
+      missing[item] = n - have
+    end
+  end
+  if missing then return 0, "not enough ingredients", missing end
+  for k = 1, 9 do
+    local item = grid[k]
+    if item then
+      local got, err = fetch(item, batch, chest, k)
+      if got < batch then
+        -- the chest wouldn't take it in that slot (a barrel with upgrades
+        -- picks its own, or no transfer chest with a bridge): any slot
+        -- will do, the turtle sorts them by name
+        local more, why = fetch(item, batch - got, chest)
+        got, err = got + more, why or err
+      end
+      if got < batch then
+        clearCrafter(chest)
+        return 0, err or ("not enough " .. nameOf(item)), { [item] = batch - got }
+      end
+    end
+  end
+  return batch
+end
+
+local crafterId -- the crafting turtle this computer uses itself (no overseer), once found
 -- Why crafting is stuck right now (nil when it's working), so turtles
 -- waiting on a craft can say so.
 local craftProblem
 local jobId = 0
 
--- One job: in batches that fit the turtle, put the ingredients in the
--- crafter chest (grid cell k in chest slot k), have the turtle craft, and
--- put the results away.
+-- A crafting turtle that answers and has a chest.
+local function findCrafter()
+  if crafterId and crafterChest(crafterId) then return crafterId end
+  crafterId = nil
+  for _, id in ipairs({ rednet.lookup(CRAFT_PROTOCOL) }) do
+    if crafterChest(id) then
+      crafterId = id
+      return id
+    end
+  end
+end
+
+-- One job on my own crafting turtle: in batches that fit the turtle, put
+-- the ingredients in its chest, have it craft, and put the results away.
 local function runJob(job)
   local r = job.recipe
+  local chest = crafterChest(crafterId)
   local left = job.steps
-  local items = allItems()
   while left > 0 do
-    local batch = math.min(left, 64, math.floor(MAX_BATCH_OUTPUT / r.count))
-    for _, item in pairs(job.grid) do
-      batch = math.min(batch, items[item] and items[item].maxCount or 64)
-    end
-    batch = math.max(1, batch)
-    if not clearCrafter() then return false, "the crafter chest won't empty: is storage full?" end
-    for k = 1, 9 do
-      local item = job.grid[k]
-      if item then
-        local got, err = fetch(item, batch, setup.crafter, k)
-        if got < batch then
-          -- the chest wouldn't take it in that slot (a barrel with upgrades
-          -- picks its own, or no transfer chest with a bridge): any slot
-          -- will do, the turtle sorts them by name
-          local more, why = fetch(item, batch - got, setup.crafter)
-          got, err = got + more, why or err
-        end
-        if got < batch then
-          clearCrafter()
-          return false, err or ("not enough " .. nameOf(item))
-        end
-      end
-    end
+    local batch, err = loadCrafter(chest, job.grid, math.min(left, 64, math.floor(MAX_BATCH_OUTPUT / r.count)))
+    if batch == 0 then return false, err end
     jobId = jobId + 1
     -- grid tells the turtle which item goes in which cell, so it lays them
     -- out right whatever order its chest keeps them in
@@ -613,7 +669,7 @@ local function runJob(job)
       local from, msg = rednet.receive(CRAFT_PROTOCOL, deadline - os.clock())
       if from == crafterId and type(msg) == "table" and msg.type == "crafted" and msg.id == jobId then reply = msg end
     end
-    clearCrafter()
+    clearCrafter(chest)
     if not reply then
       crafterId = nil
       craftProblem = "its crafting turtle didn't answer"
@@ -629,49 +685,106 @@ local function runJob(job)
   return true
 end
 
+-- A job is finished, here or by the overseer: it no longer counts as
+-- coming, and if it failed the rest of its plan (which needed it) goes too.
+local function jobFinished(job, ok, why)
+  for i = #craftQueue, 1, -1 do
+    if craftQueue[i] == job then table.remove(craftQueue, i) end
+  end
+  local n = job.steps * job.recipe.count
+  if job.top then pendingCraft[job.name] = math.max(0, (pendingCraft[job.name] or 0) - job.top) end
+  if ok then
+    message = { ("Crafted %d %s."):format(n, nameOf(job.name)), "lime" }
+    if report then report.log(("crafted %d %s"):format(n, nameOf(job.name))) end
+  else
+    message = { ("Couldn't craft %s: %s"):format(nameOf(job.name), tostring(why)), "red" }
+    for i = #craftQueue, 1, -1 do
+      local other = craftQueue[i]
+      if other.plan == job.plan then
+        if other.top then pendingCraft[other.name] = math.max(0, (pendingCraft[other.name] or 0) - other.top) end
+        table.remove(craftQueue, i)
+      end
+    end
+  end
+  os.queueEvent("storage_changed")
+end
+
+-- The crafting overseer (computers/craft-overseer), if there is one: it
+-- takes the queue and shares it between the crafting turtles.
+local overseerId, overseerAt = nil, -math.huge
+local function findOverseer()
+  if not overseerId and os.clock() - overseerAt > OVERSEER_EVERY then
+    overseerAt = os.clock()
+    overseerId = rednet.lookup(OVERSEER_PROTOCOL)
+  end
+  return overseerId
+end
+
+-- Send the overseer the jobs it hasn't got yet. False if it didn't answer.
+local function handOver()
+  local list = {}
+  for _, job in ipairs(craftQueue) do
+    if not job.sent then
+      list[#list + 1] = { id = job.id, plan = job.plan, name = job.name, steps = job.steps, count = job.recipe.count,
+        grid = job.grid, top = job.top }
+    end
+  end
+  if #list == 0 then return true end
+  jobId = jobId + 1
+  rednet.send(overseerId, { type = "jobs", id = jobId, jobs = list }, OVERSEER_PROTOCOL)
+  local deadline = os.clock() + OVERSEER_WAIT
+  while os.clock() < deadline do
+    local from, msg = rednet.receive(OVERSEER_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from == overseerId and type(msg) == "table" and msg.re == "jobs" and msg.id == jobId then
+      for _, job in ipairs(craftQueue) do job.sent = true end
+      message = { ("Gave the crafting overseer (#%d) %d crafts."):format(overseerId, #list), "lightBlue" }
+      os.queueEvent("storage_changed")
+      return true
+    end
+  end
+  overseerId, overseerAt = nil, os.clock()
+  message = { "The crafting overseer didn't answer: crafting here.", "orange" }
+  os.queueEvent("storage_changed")
+  return false
+end
+
 local function craftLoop()
   while true do
     checkSystemCrafts()
-    if not (setup.crafter and #craftQueue > 0) then
+    local unsent
+    for _, job in ipairs(craftQueue) do
+      if not job.sent then unsent = job break end
+    end
+    if not (hasCrafter() and unsent) then
       local timer = os.startTimer(10)
       repeat
         local event, value = os.pullEvent()
       until event == "storage_craft" or (event == "timer" and value == timer)
-      if setup.crafter and #craftQueue == 0 then clearCrafter() end -- the turtle's leftovers
-    elseif not crafterId and not rednet.isOpen() then
-      sleep(5) -- netLoop opens the wireless modem
-    else
-      crafterId = crafterId or rednet.lookup(CRAFT_PROTOCOL)
-      if not crafterId then
-        local wireless = peripheral.find("modem", function(_, m) return m.isWireless() end)
-        message = { wireless and "No crafting turtle answered: is it running 'crafter'?"
-          or "Crafter not answering: put a wireless modem on me.", "orange" }
-        craftProblem = "its crafting turtle isn't answering"
-        os.queueEvent("storage_changed")
-        sleep(10)
-      else
-        local job = table.remove(craftQueue, 1)
-        local n = job.steps * job.recipe.count
-        message = { ("Crafting %d %s..."):format(n, nameOf(job.name)), "lightBlue" }
-        os.queueEvent("storage_changed")
-        local ok, why = runJob(job)
-        if job.top then pendingCraft[job.name] = math.max(0, (pendingCraft[job.name] or 0) - job.top) end
-        if ok then
-          message = { ("Crafted %d %s."):format(n, nameOf(job.name)), "lime" }
-          if report then report.log(("crafted %d %s"):format(n, nameOf(job.name))) end
-        else
-          message = { ("Couldn't craft %s: %s"):format(nameOf(job.name), why), "red" }
-          -- the rest of that plan needed this job
-          for i = #craftQueue, 1, -1 do
-            local other = craftQueue[i]
-            if other.plan == job.plan then
-              if other.top then pendingCraft[other.name] = math.max(0, (pendingCraft[other.name] or 0) - other.top) end
-              table.remove(craftQueue, i)
-            end
-          end
-        end
-        os.queueEvent("storage_changed")
+      -- the turtle's leftovers (never with an overseer: it may be mid-batch)
+      if #craftQueue == 0 and rednet.isOpen() and not findOverseer() then
+        for _, chest in ipairs(crafterChests()) do clearCrafter(chest) end
       end
+    elseif not rednet.isOpen() then
+      sleep(5) -- netReceive opens the modems
+    elseif findOverseer() then
+      if not handOver() then sleep(1) end
+    elseif not findCrafter() then
+      local wireless = peripheral.find("modem", function(_, m) return m.isWireless() end)
+      message = { wireless and "No crafting turtle answered: is it running 'crafter'?"
+        or "Crafter not answering: put a wireless modem on me.", "orange" }
+      craftProblem = "its crafting turtle isn't answering"
+      os.queueEvent("storage_changed")
+      sleep(10)
+    else
+      -- out of the queue while it runs, as planning stock doesn't count it twice
+      local job = unsent
+      for i, j in ipairs(craftQueue) do
+        if j == job then table.remove(craftQueue, i) break end
+      end
+      message = { ("Crafting %d %s..."):format(job.steps * job.recipe.count, nameOf(job.name)), "lightBlue" }
+      os.queueEvent("storage_changed")
+      local ok, why = runJob(job)
+      jobFinished(job, ok, why)
     end
   end
 end
@@ -685,6 +798,12 @@ end
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
+-- From the crafting overseer, which runs the crafting queue when there is one:
+--   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
+--   { type = "load", crafter, grid, steps }         -> { re, steps (0: not loaded), error, missing = { [item] = n } }
+--   { type = "clear", crafter }                     -> { re, ok }  (put its chest's contents away)
+--   { type = "jobdone", job, ok, why }              -> { re, ok }  (job: the id it was handed it with)
+--   { type = "problem", text }                      -> { re, ok }  (why crafting is stuck, or nil)
 -- deliver sends to the turtle's own chest if it has claimed one ("own"),
 -- else the shared delivery chest, else the output chest (reply field to).
 -- Requests may carry an id, which the reply repeats. count may carry need
@@ -804,14 +923,21 @@ end
 
 -- The chest is the turtle's: record it (in the setup file too).
 local function assign(from, role, chest)
-  if role == "delivery" and chest == setup.crafter then
-    return { re = "claim", ok = false, error = "that chest is the crafting turtle's" }
+  if role == "delivery" then
+    for _, c in ipairs(crafterChests()) do
+      if c == chest then return { re = "claim", ok = false, error = "that chest is a crafting turtle's" } end
+    end
   end
   local s = loadSetup() or setup
-  s.deliveries = s.deliveries or {}
+  s.deliveries, s.crafters = s.deliveries or {}, s.crafters or {}
   for _, t in ipairs({ setup, s }) do
     if role == "crafter" then
-      t.crafter = chest
+      -- each crafting turtle has a chest of its own
+      for id, name in pairs(t.crafters) do
+        if name == chest then t.crafters[id] = nil end
+      end
+      t.crafters[from] = chest
+      if t.crafter == chest then t.crafter = nil end
       if t.delivery == chest then t.delivery = nil end
       for id, name in pairs(t.deliveries) do
         if name == chest then t.deliveries[id] = nil end
@@ -844,7 +970,7 @@ local function claimChest(from, msg)
   end
   if c then takeMarker(c) end
   -- the chest we already have for it, if it still holds what the turtle sees
-  local mine = role == "crafter" and setup.crafter or setup.deliveries[from]
+  local mine = role == "crafter" and setup.crafters[from] or role == "delivery" and setup.deliveries[from]
   if mine then
     local ok, list = pcall(peripheral.call, mine, "list")
     if ok and sameItems(list, msg.items) then
@@ -870,7 +996,7 @@ local function claimChest(from, msg)
   if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
   local taken = {}
   for _, name in pairs(setup.deliveries) do taken[name] = true end
-  taken[setup.crafter or ""] = true
+  for _, name in ipairs(crafterChests()) do taken[name] = true end
   local candidates, rank = {}, {}
   for _, name in ipairs(names) do
     if lists[name] then
@@ -925,7 +1051,7 @@ end
 local function handleRequest(from, msg)
   if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
     local craftable = {}
-    local avail = crafting and setup.crafter and planningStock()
+    local avail = crafting and hasCrafter() and planningStock()
     local reach = avail and reachNow()
     for _, name in ipairs(msg.items) do
       if type(name) == "string" then
@@ -972,6 +1098,40 @@ local function handleRequest(from, msg)
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "claim" then
     answer(from, msg, claimChest(from, msg))
+  elseif type(msg) == "table" and msg.type == "crafters" then
+    -- the overseer: which crafting turtles have a chest
+    local list = {}
+    for id, chest in pairs(setup.crafters) do
+      if peripheral.isPresent(chest) then list[id] = chest end
+    end
+    answer(from, msg, { re = "crafters", crafters = list, shared = setup.crafter })
+  elseif type(msg) == "table" and msg.type == "load" and type(msg.grid) == "table" then
+    -- the overseer: one batch into a crafting turtle's chest
+    local chest = crafterChest(tonumber(msg.crafter))
+    if not chest then
+      answer(from, msg, { re = "load", steps = 0, error = ("crafting turtle #%s has no chest here"):format(tostring(msg.crafter)) })
+    else
+      local steps, why, missing = loadCrafter(chest, msg.grid, math.max(1, math.min(64, math.floor(tonumber(msg.steps) or 1))))
+      answer(from, msg, { re = "load", steps = steps, error = why, missing = missing })
+    end
+    os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "clear" then
+    local chest = crafterChest(tonumber(msg.crafter))
+    answer(from, msg, { re = "clear", ok = chest ~= nil and clearCrafter(chest) })
+    os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "jobdone" then
+    -- the overseer finished (or gave up on) a job it was given
+    for _, job in ipairs(craftQueue) do
+      if job.id == msg.job then
+        jobFinished(job, msg.ok, msg.why)
+        break
+      end
+    end
+    answer(from, msg, { re = "jobdone", ok = true })
+  elseif type(msg) == "table" and msg.type == "problem" then
+    -- the overseer: why crafting is stuck (nil: it isn't), for turtles waiting on it
+    craftProblem = type(msg.text) == "string" and msg.text or nil
+    answer(from, msg, { re = "problem", ok = true })
   elseif type(msg) == "table" and msg.type == "stock" then
     local counts = countAll()
     answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })
@@ -1154,7 +1314,7 @@ local function craftViewLoop()
   end
   while true do
     local view, avail = {}, planningStock()
-    if crafting and setup.crafter then
+    if crafting and hasCrafter() then
       local reach = crafting.reachable(avail)
       reachCache, reachAt = reach, os.clock()
       for _, name in ipairs(crafting.names()) do
@@ -1278,9 +1438,11 @@ local function chooseChests()
   end
   -- the turtles' own chests stay theirs, unless picked for something else
   local old = loadSetup()
-  s.deliveries = {}
-  for id, name in pairs(old and old.deliveries or {}) do
-    if not taken[name] then s.deliveries[id] = name end
+  s.deliveries, s.crafters = {}, {}
+  for _, which in ipairs({ "deliveries", "crafters" }) do
+    for id, name in pairs(old and old[which] or {}) do
+      if not taken[name] then s[which][id] = name end
+    end
   end
   if not s.crafter and old and old.crafter and not taken[old.crafter] then s.crafter = old.crafter end
   saveSetup(s)
@@ -1313,11 +1475,13 @@ for _, which in ipairs({ "delivery", "crafter", "fuel", "transfer" }) do
     setup[which] = nil
   end
 end
-setup.deliveries = setup.deliveries or {}
-for id, name in pairs(setup.deliveries) do
-  if not peripheral.isPresent(name) then
-    print(("Can't find turtle #%s's chest (%s): it'll find it again when it next asks."):format(tostring(id), name))
-    setup.deliveries[id] = nil
+setup.deliveries, setup.crafters = setup.deliveries or {}, setup.crafters or {}
+for _, list in ipairs({ setup.deliveries, setup.crafters }) do
+  for id, name in pairs(list) do
+    if not peripheral.isPresent(name) then
+      print(("Can't find turtle #%s's chest (%s): it'll find it again when it next asks."):format(tostring(id), name))
+      list[id] = nil
+    end
   end
 end
 
@@ -1439,11 +1603,13 @@ if args[1] == "test" then
   -- crafting
   if not crafting then
     print("crafting.lua is missing, so I can't craft: run 'install update'.")
-  elseif not setup.crafter then
-    print(("I know %d recipes, but there's no crafter chest yet. Start the crafting"):format(crafting.count()))
+  elseif not hasCrafter() then
+    print(("I know %d recipes, but there's no crafter chest yet. Start a crafting"):format(crafting.count()))
     print("turtle against a chest on my network and it'll find it.")
   else
-    print(("I know %d recipes. Crafter chest: %s."):format(crafting.count(), setup.crafter))
+    print(("I know %d recipes."):format(crafting.count()))
+    for id, chest in pairs(setup.crafters) do print(("Crafting turtle #%s's chest: %s."):format(tostring(id), chest)) end
+    if setup.crafter then print(("Shared crafter chest: %s."):format(setup.crafter)) end
     if packError then
       print("pack_recipes.lua didn't load: " .. packError)
     elseif packRecipes > 0 then
@@ -1455,13 +1621,19 @@ if args[1] == "test" then
     for _, side in ipairs(peripheral.getNames()) do
       if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
     end
-    local id = rednet.lookup(CRAFT_PROTOCOL)
-    if id then
+    local overseer = rednet.lookup(OVERSEER_PROTOCOL)
+    print(overseer and ("Crafting overseer #%d runs the crafting queue."):format(overseer)
+      or "No crafting overseer: I run the crafting queue myself, on one turtle.")
+    local ids = { rednet.lookup(CRAFT_PROTOCOL) }
+    for _, id in ipairs(ids) do
       rednet.send(id, { type = "ping", id = 0 }, CRAFT_PROTOCOL)
-      local from, reply = rednet.receive(CRAFT_PROTOCOL, 5)
-      print(from == id and type(reply) == "table" and reply.type == "pong"
-        and ("Crafting turtle #%d answered: crafting works."):format(id)
-        or ("Crafting turtle #%d didn't answer a ping."):format(id))
+      local from, reply
+      repeat from, reply = rednet.receive(CRAFT_PROTOCOL, 5) until not from or from == id
+      local ok = from == id and type(reply) == "table" and reply.type == "pong"
+      print(("Crafting turtle #%d %s%s."):format(id, ok and "answered" or "didn't answer a ping",
+        crafterChest(id) and "" or ", but has no chest here yet"))
+    end
+    if #ids > 0 then
     elseif not modem then
       print("No crafting turtle answered. It talks by wireless, so put a")
       print("wireless modem on me (or a full-block wired modem against the")

@@ -680,6 +680,7 @@
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
         ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
+        ["craft-overseer", "With several crafting turtles, takes the crafting queue and shares it between them."],
         ["smelter-computer", "Loads ores and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
@@ -731,6 +732,7 @@
       ],
       "integrates": [
         ["storage-computer", "Plans the crafts and loads the ingredients into the crafter chest, grid-style."],
+        ["craft-overseer", "With more than one crafting turtle, hands each its share of the jobs."],
         ["village-turtle", "Fences, slabs, beds and lanterns get made as the village builder asks for them."],
         ["status-server", "Shows what it's crafting."]
       ],
@@ -749,6 +751,46 @@
           ["Crafted 42 jungle fence.", "", "white"]
         ]
       }
+    },
+    {
+      "name": "craft-overseer",
+      "title": "Craft Overseer",
+      "command": "overseer",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor + modems",
+      "color": "orange",
+      "tagline": "Shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor.",
+      "libs": ["screen", "report", "errlog"],
+      "autostart": true,
+      "stats": [
+        ["Turtles", "up to 8 at once"],
+        ["Orders", "side by side"],
+        ["Shows", "queue + missing"],
+        ["Gives up", "after 10 min short"]
+      ],
+      "features": [
+        "Takes the crafting queue from the storage computer and hands each job to a free crafting turtle",
+        "Steps of one order run in turn; different orders run side by side",
+        "Monitor lists every turtle, the queue, and what each job is short of",
+        "Moves a job to another turtle when one stops answering",
+        "Keeps its queue across reboots"
+      ],
+      "setup": [
+        "Put an advanced computer on the storage cable with a wired modem (and a wireless modem if the crafting turtles use wireless). A monitor is optional.",
+        "Set up crafting turtles, each with its own chest in front of it on the storage cable.",
+        "Install and reboot: the storage computer hands it the next crafts."
+      ],
+      "commands": [
+        ["overseer", "start (runs on boot)"],
+        ["overseer clear", "forget the queue"]
+      ],
+      "integrates": [
+        ["storage-computer", "Plans the crafts and hands them over; loads each turtle's chest when the overseer asks."],
+        ["crafter-turtle", "Each crafting turtle takes the batches it's given; add more for more crafting at once."],
+        ["status-server", "Shows how many jobs are queued."]
+      ],
+      "render": { "kind": "screen", "scene": "overseer", "caption": "The overseer's monitor: three crafting turtles working through the queue; the lantern waits for iron nuggets. Click to add an order." },
+      "terminal": null
     },
     {
       "name": "smelter-computer",

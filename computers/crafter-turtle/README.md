@@ -24,6 +24,12 @@ results away. If it ever makes the wrong thing, the storage computer says
 so instead of counting it as done. The turtle that asked gets them on its next request:
 the village builder asks again every 10 seconds while it waits.
 
+One turtle is enough to start with. For more crafting at once, set up more
+crafting turtles, each with its own chest, and a
+[crafting overseer](../craft-overseer/README.md): it shares the jobs out
+between them and shows the queue on a monitor. Without an overseer, the
+storage computer uses one of them.
+
 It knows the recipes for everything the village themes use that can be
 crafted (planks, slabs, stairs, fences, doors, beds, dyed wool, lanterns,
 torches, deepslate tiles, sandstone, glass panes and more; the list is in

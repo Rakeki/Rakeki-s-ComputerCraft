@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal, smelter and colony dashboard.
+// blueprint projector panel, storage terminal, smelter, craft overseer and colony dashboard.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -703,6 +703,90 @@
     return s;
   }
 
+  //---------------------------------------------------------------- craft overseer
+
+  // The crafting overseer's monitor: same layout as
+  // computers/craft-overseer/overseer.lua. Three turtles work through a queue
+  // where one order is short of iron until it "arrives"; click to add an order.
+  function overseer(el) {
+    const W = 39, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const orders = [
+      [{ name: "oak planks", left: 4, count: 4 }, { name: "stick", left: 8, count: 4 }, { name: "oak fence", left: 10, count: 3 }],
+      [{ name: "spruce planks", left: 6, count: 4 }, { name: "spruce slab", left: 8, count: 6 }],
+      [{ name: "lantern", left: 6, count: 1, needs: "6 iron nugget" }],
+    ];
+    let plan = 0;
+    const queue = [];
+    const add = (o) => { plan++; for (const j of o) queue.push({ ...j, plan, state: "queued" }); };
+    orders.forEach(add);
+    const turtles = [{ id: 12, job: null }, { id: 13, job: null }, { id: 14, job: null }];
+    const st = { msg: ["The storage computer sent 6 crafts.", "lightBlue"], tick: 0, last: null };
+
+    function next() {
+      const busy = new Set();
+      for (const j of queue) {
+        if (!busy.has(j.plan) && j.state === "queued" && !j.needs) return j;
+        busy.add(j.plan);
+      }
+    }
+
+    function step() {
+      st.tick++;
+      if (st.tick % 12 === 0) for (const j of queue) if (j.needs) { j.needs = null; st.msg = ["Iron nuggets came in: lantern can start.", "lightGray"]; }
+      for (const t of turtles) {
+        if (!t.job) {
+          const j = next();
+          if (j) { j.state = "working"; j.on = t.id; t.job = j; }
+          continue;
+        }
+        const j = t.job;
+        j.left = Math.max(0, j.left - 2);
+        if (j.left === 0) {
+          queue.splice(queue.indexOf(j), 1);
+          st.msg = [`Crafted ${j.count * 8} ${j.name} on turtle #${t.id}.`, "lime"];
+          st.last = j;
+          t.job = null;
+        }
+      }
+      if (!queue.length && st.tick % 6 === 0) orders.forEach(add);
+    }
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Crafting", "yellow", "gray");
+      const head = `${queue.length} jobs`;
+      s.put(W - head.length, 1, head, "lightGray", "gray");
+      s.put(2, 3, "Turtles", "yellow");
+      turtles.forEach((t, i) => {
+        const text = t.job ? `crafting ${t.job.left * t.job.count} ${t.job.name}` : "idle";
+        s.put(2, 4 + i, fitT(`#${t.id} ${text}`, W - 2), t.job ? "lightBlue" : "gray");
+      });
+      let y = 4 + turtles.length + 1;
+      s.put(2, y++, "Queue", "yellow");
+      for (const j of queue) {
+        if (y > H - 2) break;
+        const [state, colour] = j.state === "working" ? [`on #${j.on}`, "lightBlue"] : j.needs ? ["missing", "orange"] : ["queued", "white"];
+        s.put(2, y, fitT(`${j.left * j.count} ${j.name}`, W - state.length - 3), "white");
+        s.put(W - state.length, y, state, colour);
+        y++;
+        if (j.needs && y <= H - 2) s.put(4, y++, fitT(`needs ${j.needs}`, W - 4), "orange");
+      }
+      if (!queue.length) s.put(2, y, "Nothing queued.", "gray");
+      s.put(1, H, fitT(st.msg[0], W), st.msg[1]);
+      s.zones.push({ x1: 1, x2: W, y1: 1, y2: H, action: () => { add(orders[0]); st.msg = ["The storage computer sent 3 crafts.", "lightBlue"]; } });
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 900);
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- colony dashboard
 
   // The MineColonies dashboard on a monitor: same pages and layout as
@@ -784,5 +868,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, colony } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, overseer, colony } };
 })();

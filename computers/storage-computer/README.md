@@ -126,6 +126,13 @@ and has the crafting turtle make them. The results go into storage, and the
 turtle that asked gets them on its next request. It never crafts the same
 order twice while one is already being made.
 
+With several crafting turtles (each finds its own chest, like the builders)
+and a [crafting overseer](../craft-overseer/README.md) on the network, the
+storage computer hands its queue to the overseer, which shares the jobs
+between the turtles and shows the queue, and what each job is missing, on
+its monitor. The footer says "Gave the crafting overseer (#5) 4 crafts."
+Without an overseer the storage computer crafts on one turtle itself.
+
 You can ask for crafts on the terminal too, with the **Craftable** tab. It's
 off by default, because working out everything that could be made from a
 big store with a big modpack takes a long while. To turn it on, set

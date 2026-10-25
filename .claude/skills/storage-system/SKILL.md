@@ -79,6 +79,20 @@ time; the job's `grid` names each cell's item and the crafter sorts its chest
 by name, since barrels ignore slots; it replies with the `item` it made).
 `pendingCraft` stops an order being queued twice.
 
+Crafting turtles each claim a chest (`claim` role `crafter` →
+`setup.crafters[id]`; `setup.crafter` is the shared one picked in setup).
+With a **craft overseer** (`computers/craft-overseer`, protocol
+`craft_overseer`) the storage computer still plans, then `handOver` sends
+the unsent jobs (`id` unique across restarts, `plan`, `grid`, `steps`,
+`count`, `top`). The overseer picks a free turtle per job (one plan's jobs
+in order), asks the storage computer to `load` that turtle's chest one batch
+at a time (`steps` back, or 0 with `missing`), crafts over `storage_crafter`,
+asks it to `clear` the chest, and sends `jobdone` (→ `jobFinished`, which
+fixes `pendingCraft` and drops the rest of a failed plan). Without an
+overseer, `craftLoop` runs jobs on one turtle itself. Never clear crafter
+chests from the storage computer while an overseer is about: a batch may be
+loaded.
+
 Recipes: `recipes.lua` (built in), `/.storage_recipes` (taught with
 `crafter learn`), and `pack_recipes.lua` (a modpack's crafting recipes from
 `tools/recipes.mjs`, published in `computers/storage-computer/packs/`, not
