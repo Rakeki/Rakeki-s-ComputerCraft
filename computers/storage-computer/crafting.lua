@@ -7,6 +7,7 @@
 --   crafting.canMake(name)          is there a recipe for it?
 --   crafting.plan(name, n, avail)   crafts that make n, or nil; avail: item -> count usable
 --   crafting.craftable(name, avail) how many could be made from avail
+--   crafting.names()                every item it has a recipe for
 local crafting = {}
 
 local LEARNT_FILE = "/.storage_recipes"
@@ -82,6 +83,15 @@ function crafting.learn(raw)
 end
 
 function crafting.canMake(name) return byMake[name] ~= nil and #byMake[name] > 0 end
+
+function crafting.names()
+  local list = {}
+  for make, recipes in pairs(byMake) do
+    if #recipes > 0 then list[#list + 1] = make end
+  end
+  table.sort(list)
+  return list
+end
 
 -- How many different items it knows how to make.
 function crafting.count()

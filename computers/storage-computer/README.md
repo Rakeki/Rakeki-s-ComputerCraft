@@ -106,6 +106,16 @@ and has the crafting turtle make them. The results go into storage, and the
 turtle that asked gets them on its next request. It never crafts the same
 order twice while one is already being made.
 
+You can ask for crafts too. With a crafter chest set, the item list also
+shows, in **light blue**, everything that isn't stored but could be made
+from what is, with how many could be made ("can make 40"). They come after
+the stored items and show up in searches like anything else. Pick one and
+press Enter for a stack (or Right for one): it's crafted, and sent to the
+output chest as soon as it's ready. The monitor lists them in light blue
+too. The list is worked out again within 10 seconds of anything changing.
+With an [ME or RS system](#me-and-rs-systems), items it has a pattern for
+are listed as well, marked "pattern".
+
 When a turtle asks how much of something there is, what could be crafted
 counts as well, so the village builder doesn't wait for blocks that can be
 made. While the village builder waits for a building's materials it also

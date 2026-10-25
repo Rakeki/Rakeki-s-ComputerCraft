@@ -36,6 +36,8 @@ local SETUP_FILE = "/.storage_setup"
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
 local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage with stack upgrades)
+local VIEW_EVERY = 10 -- fewest seconds between recounts of what could be crafted (listed in light blue)
+local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
@@ -62,6 +64,12 @@ local craftQueue = {}
 local pendingCraft = {}
 local planCount = 0
 local systemCrafts = {} -- name -> how many the ME/RS system is crafting for turtles
+-- Items that aren't stored but could be crafted, for the list:
+-- { key, name, count (nil: the ME/RS system has a pattern), displayName, craftable = true }.
+local craftView = {}
+-- Crafts asked for on the terminal, sent to the output chest once made:
+-- name -> { want, sent }.
+local outputOrders = {}
 
 -- Items with NBT (enchanted books, named tools) are kept apart from plain ones.
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
@@ -101,12 +109,23 @@ local function allItems()
   return out
 end
 
--- Every stored item, most first.
+-- Every stored item, most first, then what could be crafted, most first.
 local function totals()
-  local list = {}
-  for _, it in pairs(allItems()) do list[#list + 1] = it end
+  local list, items = {}, allItems()
+  for _, it in pairs(items) do list[#list + 1] = it end
   table.sort(list, function(a, b) return a.count > b.count end)
+  local crafts = {}
+  for _, it in ipairs(craftView) do
+    if not items[it.key] then crafts[#crafts + 1] = it end
+  end
+  table.sort(crafts, function(a, b) return (a.count or 0) > (b.count or 0) end)
+  for _, it in ipairs(crafts) do list[#list + 1] = it end
   return list
+end
+
+-- "jungle_fence" -> "Jungle Fence", for items not stored (so no name from the game).
+local function titleName(name)
+  return (shortName(name):gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end))
 end
 
 ---------------------------------------------------------------- moving items
@@ -228,15 +247,18 @@ local function drawTerminal()
     if it then
       local sel = scroll + i == selected
       local bg = sel and "blue" or "black"
-      local count = countText(it.count)
-      put(term, 1, 2 + i, fitText(" " .. it.displayName, w - #count - 1), "white", bg)
-      put(term, w - #count, 2 + i, count .. " ", sel and "white" or "lightGray", bg)
+      -- light blue: not stored, but it can be crafted on request
+      local count = it.craftable and (it.count and ("can make " .. it.count) or "pattern") or countText(it.count)
+      put(term, 1, 2 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
+      put(term, w - #count, 2 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
     end
   end
   if #list == 0 then put(term, 2, 4, query == "" and "Nothing stored yet." or "No matches.", "lightGray") end
 
   put(term, 1, h - 1, fitText(message[1], w), message[2])
-  put(term, 1, h, fitText("Enter: a stack  Right: one  Up/Down: pick", w), "gray")
+  local picked = list[selected]
+  put(term, 1, h, fitText(picked and picked.craftable and "Enter: craft a stack  Right: craft one"
+    or "Enter: a stack  Right: one  Up/Down: pick", w), "gray")
   term.setCursorPos(9 + #query, 2)
   term.setTextColor(colors.white)
   term.setCursorBlink(true)
@@ -266,9 +288,9 @@ local function drawMonitor()
   for i = 1, h - 5 do
     local it = list[i]
     if not it then break end
-    local count = tostring(it.count)
-    put(mon, 2, 5 + i, fitText(it.displayName, w - #count - 3), "white")
-    put(mon, w - #count, 5 + i, count, "lightGray")
+    local count = it.craftable and (it.count and ("+" .. it.count) or "craft") or tostring(it.count)
+    put(mon, 2, 5 + i, fitText(it.displayName, w - #count - 3), it.craftable and "lightBlue" or "white")
+    put(mon, w - #count, 5 + i, count, it.craftable and "lightBlue" or "lightGray")
   end
 end
 
@@ -277,7 +299,7 @@ local function redraw()
   drawMonitor()
   if report then
     local items = 0
-    for _, it in ipairs(totals()) do items = items + it.count end
+    for _, it in pairs(allItems()) do items = items + it.count end
     local _, _, text = store.space()
     report.set(store.problem and "error" or "running", store.problem or ("%d items; %s"):format(items, text))
   end
@@ -285,10 +307,25 @@ end
 
 ---------------------------------------------------------------- loops
 
+local orderCraft -- in the crafting section below
+
 local function take(amount)
   local list = matches()
   local it = list[selected]
   if not it then return end
+  if it.craftable then
+    -- not stored: have it made, and outputLoop sends it on once it's ready
+    local made, why = orderCraft(it.name, it.count and math.min(amount, it.count) or amount)
+    if made then
+      local o = outputOrders[it.name] or { want = 0, sent = 0 }
+      o.want = o.want + made
+      outputOrders[it.name] = o
+      message = { ("Crafting %d %s for the output chest..."):format(made, it.displayName), "lightBlue" }
+    else
+      message = { ("Can't craft %s: %s."):format(it.displayName, why), "red" }
+    end
+    return
+  end
   local sent = fetch(it.key, amount, setup.output)
   if sent > 0 then
     message = { ("Sent %d %s to the output chest."):format(sent, it.displayName), "lime" }
@@ -362,7 +399,7 @@ local function systemCanCraft(name) return store.canCraft ~= nil and store.canCr
 -- Have count of name made, or as many as can be: by the ME/RS system if it
 -- has a pattern, otherwise by queueing crafts for the crafting turtle.
 -- Returns how many it's making (and why not all of them), or false and why.
-local function orderCraft(name, count)
+function orderCraft(name, count)
   if systemCanCraft(name) then
     local ok, err = store.craft(name, count)
     if not ok then return false, err end
@@ -806,6 +843,62 @@ local function tidyLoop()
   end
 end
 
+-- Keep the list of what could be crafted (but isn't stored) up to date: after
+-- storage changes, at most every VIEW_EVERY seconds. Counting is a plan per
+-- try, so it runs here rather than on every redraw.
+local function craftViewLoop()
+  while true do
+    local view, avail = {}, planningStock()
+    if crafting and setup.crafter then
+      for _, name in ipairs(crafting.names()) do
+        if (avail[name] or 0) <= 0 then
+          local n = crafting.craftable(name, avail)
+          if n > 0 then view[#view + 1] = { key = name, name = name, count = n, displayName = titleName(name), craftable = true } end
+        end
+      end
+    end
+    if store.craftables then
+      local listed = {}
+      for _, it in ipairs(view) do listed[it.name] = true end
+      for _, name in ipairs(store.craftables()) do
+        if not listed[name] and (avail[name] or 0) <= 0 then
+          view[#view + 1] = { key = name, name = name, displayName = titleName(name), craftable = true }
+        end
+      end
+    end
+    craftView = view
+    os.queueEvent("storage_view")
+    sleep(VIEW_EVERY)
+    os.pullEvent("storage_changed")
+  end
+end
+
+-- Send crafts asked for on the terminal to the output chest as they're made.
+-- Once nothing more is being made, whatever didn't turn up is given up on
+-- (the footer has already said why the craft failed).
+local function outputLoop()
+  while true do
+    sleep(OUTPUT_EVERY)
+    for name, o in pairs(outputOrders) do
+      local have = countAll()[name] or 0
+      if have > 0 then
+        o.sent = o.sent + fetch(name, math.min(have, o.want - o.sent), setup.output)
+      end
+      if o.sent >= o.want then
+        outputOrders[name] = nil
+        message = { ("Crafted %d %s: it's in the output chest."):format(o.sent, nameOf(name)), "lime" }
+        os.queueEvent("storage_changed")
+      elseif (pendingCraft[name] or 0) == 0 and have == 0 then
+        outputOrders[name] = nil
+        if o.sent > 0 then
+          message = { ("Only %d of %d %s were made: they're in the output chest."):format(o.sent, o.want, nameOf(name)), "orange" }
+        end
+        os.queueEvent("storage_changed")
+      end
+    end
+  end
+end
+
 ---------------------------------------------------------------- setup
 
 local function chooseChests()
@@ -973,7 +1066,7 @@ if args[1] == "test" then
   print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "delivery" or "output", to))
   local pick
   for _, it in ipairs(totals()) do
-    if not it.nbt then pick = it break end
+    if not it.nbt and not it.craftable then pick = it break end
   end
   if not pick then
     print("Storage is empty: put something in the input chest first.")
@@ -1054,7 +1147,7 @@ if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store
 
 if report then report.init("storage") end
 local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
-  tidyLoop, report and report.loop or function() while true do sleep(3600) end end)
+  tidyLoop, craftViewLoop, outputLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)
 term.clear()

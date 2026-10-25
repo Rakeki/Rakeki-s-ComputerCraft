@@ -3,6 +3,7 @@
 -- network. Same functions as chests.lua (see there), plus:
 --
 --   B.canCraft(name)          the system has a pattern for it
+--   B.craftables()            every item it has a pattern for
 --   B.craft(name, n)          start the system crafting n; returns ok, err
 --   B.isCrafting(name)        the system is still crafting it
 --   B.clearTransfer()         put anything left in the transfer chest back
@@ -210,6 +211,18 @@ function M.new(setup)
       craftable[item] = call(method, { name = item }) == true
     end
     return craftable[item] == true
+  end
+
+  -- Every item the system has a pattern for (empty if this bridge can't list them).
+  function B.craftables()
+    if os.clock() - craftableAt > CRAFTABLE_REFRESH then canList = refreshCraftable() end
+    local list = {}
+    if canList then
+      for item, yes in pairs(craftable) do
+        if yes then list[#list + 1] = item end
+      end
+    end
+    return list
   end
 
   function B.craft(item, count)

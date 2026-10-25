@@ -517,16 +517,25 @@
       ["Iron Ingot", 302], ["Coal", 268], ["Redstone Dust", 197], ["Oak Sapling", 140], ["Iron Ore", 96],
       ["Gold Ingot", 75], ["Potato", 64], ["Diamond", 23], ["Raw Iron", 18], ["Enchanted Book", 3], ["Iron Pickaxe", 1],
     ].map(([name, count]) => ({ name, count }));
+    // not stored, but the crafting turtle could make them: listed in light blue
+    const crafts = [["Oak Planks", 4096], ["Stick", 2776], ["Oak Fence", 1041], ["Torch", 536], ["Chest", 173]]
+      .map(([name, count]) => ({ name, count, craft: true }));
     const SLOTS = 27 * 12;
     const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true };
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
     const countText = (n) => n >= 64 ? `${n} (${Math.floor(n / 64)}x64${n % 64 ? `+${n % 64}` : ""})` : String(n);
-    const matches = () => items.filter((it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase())).sort((a, b) => b.count - a.count);
+    const fits = (it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase());
+    const matches = () => items.filter(fits).sort((a, b) => b.count - a.count).concat(crafts.filter(fits));
 
     function take(n) {
       const it = matches()[st.selected - 1];
       if (!it) return;
       const sent = Math.min(n, it.count);
+      if (it.craft) {
+        st.msg = [`Crafting ${sent} ${it.name} for the output chest...`, "lightBlue"];
+        setTimeout(() => { st.msg = [`Crafted ${sent} ${it.name}: it's in the output chest.`, "lime"]; draw(); }, 1800);
+        return;
+      }
       it.count -= sent;
       st.msg = [`Sent ${sent} ${it.name} to the output chest.`, "lime"];
     }
@@ -548,15 +557,17 @@
       for (let i = 1; i <= rows; i++) {
         const it = list[st.scroll + i - 1];
         if (!it) continue;
-        const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black", c = countText(it.count);
-        s.put(1, 2 + i, fitT(" " + it.name, W - c.length - 1), "white", bg);
-        s.put(W - c.length, 2 + i, c + " ", sel ? "white" : "lightGray", bg);
+        const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black";
+        const c = it.craft ? `can make ${it.count}` : countText(it.count);
+        s.put(1, 2 + i, fitT(" " + it.name, W - c.length - 1), it.craft && !sel ? "lightBlue" : "white", bg);
+        s.put(W - c.length, 2 + i, c + " ", sel ? "white" : it.craft ? "lightBlue" : "lightGray", bg);
         const idx = st.scroll + i;
         s.zones.push({ x1: 1, x2: W, y1: 2 + i, y2: 2 + i, action: () => { if (st.selected === idx) take(64); else st.selected = idx; } });
       }
       if (!list.length) s.put(2, 4, "No matches.", "lightGray");
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("Enter: a stack  Right: one  Up/Down: pick", W), "gray");
+      const picked = list[st.selected - 1];
+      s.put(1, H, fitT(picked && picked.craft ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one  Up/Down: pick", W), "gray");
       s.render({ x: 9 + st.query.length, y: 2 });
     }
 
@@ -569,7 +580,10 @@
         () => { items[0].count += 12; st.msg = ["Put away 12 items from the delivery chest.", "lightGray"]; }, () => {},
         // and something it hasn't got, made by the crafting turtle
         () => { st.msg = ["Crafting 24 Smooth Sandstone Slab...", "lightBlue"]; }, () => {},
-        () => { st.msg = ["Crafted 24 Smooth Sandstone Slab.", "lime"]; }, () => {}, () => { st.msg = ["", "lightGray"]; }]);
+        () => { st.msg = ["Crafted 24 Smooth Sandstone Slab.", "lime"]; }, () => {}, () => { st.msg = ["", "lightGray"]; },
+        // and one asked for on the terminal: light blue means it can be crafted
+        ...[..."fence"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => {}, () => take(64), () => {}, () => {},
+        () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; }]);
     let step = 0;
     setInterval(() => {
       if (!st.auto) return;

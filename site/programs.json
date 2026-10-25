@@ -601,6 +601,7 @@
         "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
         "Turtles can ask for items over rednet; the village builder stocks itself from it",
         "With a crafting turtle, makes what it's asked for but doesn't have",
+        "Lists what could be crafted in light blue, with how many; pick one and it's crafted and sent to you",
         "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles",
         "Can use an AE2 or Refined Storage system (via an Advanced Peripherals bridge) instead of chests: turtles don't notice the difference"
       ],
@@ -626,7 +627,7 @@
       "render": {
         "kind": "screen",
         "scene": "storage",
-        "caption": "The storage terminal: type to search, Enter for a stack. Click a row to pick it, and again to take a stack."
+        "caption": "The storage terminal: type to search, Enter for a stack. Light blue rows aren't stored but can be crafted. Click a row to pick it, and again to take (or craft) a stack."
       },
       "layouts": [
         { "title": "Chest wall", "scene": "storageChests", "caption": "The basic setup: a wall of chests joined by full-block modems and cable, input and output chests, and the computer with a monitor and a wireless modem for turtles." },
