@@ -47,6 +47,27 @@ items there's most of. With a wireless modem it also reports to the
 Enchanted books, named tools and other items with extra data are
 listed separately from plain ones.
 
+### Stack upgrades
+
+Storage that holds more than 64 a slot, like Sophisticated Storage barrels
+and chests with **stack upgrades** (or drawers), is used for what you have
+most of. The storage computer reads how much each one's slots hold:
+
+- Items you have **256 or more** of go into the roomiest storage first.
+  Smaller amounts go into plain chests first, so the roomy ones stay free
+  for bulk.
+- Every 20 seconds it tidies a little: a few stacks of a bulk item already
+  sitting in a plainer chest move up into roomier storage with space. If the
+  roomy storage is full, a stack of something you have little of (under 128)
+  moves out to a plain chest first to make room. Items only move up when
+  there's a lot of them and down when there's little, so nothing goes back
+  and forth.
+- Upgrading a barrel later is noticed at the next rescan (within a minute),
+  and the tidying moves bulk items into it from then on.
+
+`storage test` says how many storages have bigger slots. With every chest
+the same size, none of this does anything.
+
 ### Turtles asking for items
 
 With a wireless modem, turtles can ask the storage computer over rednet how
@@ -140,7 +161,7 @@ and before) and the new ones in Minecraft 1.21.
 ## Files
 
 - `storage.lua`: the program. Check intervals are at the top.
-- `chests.lua`: storing in the chests on the network, and which blocks count as storage
+- `chests.lua`: storing in the chests on the network: which blocks count as storage, and what counts as bulk for stack upgrades
 - `bridge.lua`: storing in an ME or RS system through its bridge
 - `crafting.lua`: works out what to craft, ingredients first
 - `recipes.lua`: the built-in recipes

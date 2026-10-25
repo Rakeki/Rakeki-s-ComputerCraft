@@ -598,6 +598,7 @@
         "Type to search every chest at once",
         "Enter sends a stack to the output chest, Right arrow just one",
         "Puts new items next to the same item when it can",
+        "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
         "Turtles can ask for items over rednet; the village builder stocks itself from it",
         "With a crafting turtle, makes what it's asked for but doesn't have",
         "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles",

@@ -34,6 +34,7 @@ local SETUP_FILE = "/.storage_setup"
 
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
+local TIDY_EVERY = 20 -- seconds between tidies (moving bulk items into storage with stack upgrades)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
@@ -786,6 +787,24 @@ local function rescanLoop()
   end
 end
 
+-- With stack upgrades on some storage, keep moving the items there's most
+-- of into the roomiest storage, a few stacks at a time.
+local function tidyLoop()
+  if not store.tidy then
+    while true do sleep(3600) end
+  end
+  while true do
+    sleep(TIDY_EVERY)
+    local moved, what = store.tidy()
+    -- a quiet note: never cover up anything more important
+    if moved > 0 and message[2] == "lightGray" then
+      message = { what and ("Moved %s into roomier storage."):format(what)
+        or "Made room in the roomiest storage for bulk items.", "lightGray" }
+      os.queueEvent("storage_changed")
+    end
+  end
+end
+
 ---------------------------------------------------------------- setup
 
 local function chooseChests()
@@ -923,6 +942,11 @@ readFuel()
 if args[1] == "test" then
   local _, _, space = store.space()
   print(("Storage: %s."):format(space))
+  if store.roomInfo then
+    local roomy, most = store.roomInfo()
+    print(roomy > 0 and ("%d of them hold more than 64 a slot (up to %d): bulk items go there."):format(roomy, most)
+      or "Every chest holds 64 a slot (no stack upgrades).")
+  end
   if store.problem then print(("The %s Bridge says: %s"):format(store.kind, store.problem)) end
   local to = setup.delivery or setup.output
   print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "delivery" or "output", to))
@@ -1009,7 +1033,7 @@ if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store
 
 if report then report.init("storage") end
 local ok, err = pcall(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
-  report and report.loop or function() while true do sleep(3600) end end)
+  tidyLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)
 term.clear()

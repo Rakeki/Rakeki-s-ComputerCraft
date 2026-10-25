@@ -194,7 +194,8 @@ Rules that keep it from stalling:
   into the input chest itself.
 - **Programs never talk to a store directly.** The storage computer is the
   gateway: its `chests.lua` and `bridge.lua` backends (same functions:
-  `scan`, `items`, `space`, `putAway`, `fetch`; the bridge adds `canCraft`,
+  `scan`, `items`, `space`, `putAway`, `fetch`; chests add `tidy` and
+  `roomInfo` for stack-upgraded storage, the bridge adds `canCraft`,
   `craft`, `isCrafting`) hide whether items live in chests or an AE2 / RS
   system. New programs that need items use the `storage` protocol and the
   input chest, so they work with either. The fuel chest sits above the
