@@ -34,7 +34,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage, smelter, colony)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -122,9 +122,10 @@ the source of truth.
 ### Adding or changing a program
 
 1. New program: copy `computers/_template/` to `computers/<name>/` and write
-   the program, `startup.lua` and the README in the format above.
+   the program, `startup.lua` and the README in the format above (the
+   `new-computer` skill has the checklist).
 2. Add or update its line in the root `README.md` under "Computers" and the
-   table below.
+   table below, and the protocol table if it talks over rednet.
 3. If it uses a lib, add it to that lib's "Used by" line in `lib/README.md`.
 4. Add or update its entry in `site/programs.json`. If its sizes or printed
    text changed, update its scene in `voxel.js` or `cc.js` too.
@@ -135,8 +136,8 @@ the source of truth.
 ## Website
 
 `site/build.mjs` builds `_site/`: pages from `site/src/`, data from
-`site/programs.json`, a copy of `computers/` (minus `_template`) and `lib/`
-for wget, `manifest.json` + `install.lua` for the installer, and a ZIP per
+`site/programs.json`, a copy of `computers/` (minus `_template`), `lib/` and
+`tools/` for wget, `manifest.json` + `install.lua` for the installer, and a ZIP per
 program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
 `SITE_URL`, and defaults to http://localhost:8080. In-game,
 `wget run <site>/install.lua <program>` installs a program with its libs, and
@@ -171,10 +172,12 @@ inventing new ones.
 ## How the programs talk
 
 All over rednet on a wireless or ender modem, except chest-to-chest moves,
-which go over the storage system's wired network, and the smelter, which
-sends rednet over that network's cable (the storage computer opens every
-modem it has). Requests carry an `id` that the reply repeats, so a late
-reply is never taken for a newer one.
+which go over the storage system's wired network. The storage computer,
+smelter and crafter open every modem they have, so the smelter and crafter
+can also talk to it over that network's cable. Requests carry an `id` that
+the reply repeats (and `re` = the request type), so a late reply is never
+taken for a newer one. The `storage-system` skill has every message and
+reply field.
 
 | Protocol | From → to | Messages |
 |---|---|---|
@@ -195,8 +198,17 @@ Rules that keep it from stalling:
 - Crafting is planned all at once (`crafting.lua`), queued, and run one
   batch at a time; `pendingCraft` stops the same order being queued twice.
   When the whole amount can't be made, it makes as many as it can.
-- Long computations yield now and then (`crafting.lua`'s `breathe`) so CC
-  never stops the program for running too long without yielding.
+- Long computations yield now and then (`crafting.lua`'s and `chests.lua`'s
+  `breathe`) so CC never stops the program for running too long without
+  yielding.
+- With a modpack's recipes (`pack_recipes.lua`, thousands of them), plans
+  only try items that can be made at all from what's stored
+  (`crafting.reachable`, worked out once per request and passed in as
+  `reach`). Anything that would plan every recipe, like the Craftable tab,
+  is off by default.
+- The crafter never relies on chest slot order (barrels with stack upgrades
+  ignore it): craft jobs carry the grid by item name, and the turtle reports
+  what it made so a wrong craft is caught.
 - Only the storage computer takes items out of storage (it caches chest
   contents); the smelter asks it to fill furnaces and only empties them
   into the input chest itself.
@@ -211,8 +223,8 @@ Rules that keep it from stalling:
   APIs (0.7 `listItems` / `exportItemToPeripheral`, 0.8 / 1.21 `getItems`
   / `exportItem`) and can't target a slot, so slot moves go through the
   transfer chest.
-- Optional chests (delivery, crafter, fuel) that go missing turn their feature
-  off with a message instead of stopping the storage system.
+- Optional chests (delivery, crafter, fuel, transfer) that go missing turn
+  their feature off with a message instead of stopping the storage system.
 
 ## Skills
 
@@ -222,7 +234,8 @@ Detailed guides live in `.claude/skills/`:
 - `lib-nav`: the `lib/nav.lua` API, heading convention and gotchas
 - `lib-report`: the `lib/report.lua` API and status states
 - `lib-errlog`: the `lib/errlog.lua` API and the error log format
-- `turtle-job`: the standalone resumable turtle job pattern (from excavate-turtle)
+- `turtle-job`: the standalone resumable turtle job pattern (from excavate-turtle), and jobs in world coordinates (builder-turtle)
+- `storage-system`: asking the storage computer for items (messages, replies, crafting on request) and how it works inside
 
 ## Conventions
 
@@ -234,6 +247,9 @@ Detailed guides live in `.claude/skills/`:
   friendly English ("Chest is full. Waiting...").
 - **Comments** explain why, not what. Header comment on each program gives
   what it does and its usage lines.
+- **Items:** programs that need items or fuel ask the storage computer
+  (`storage` protocol) and put things away through its input chest; they
+  never read or empty storage chests (or an ME / RS system) themselves.
 - **Movement:** turtles use `lib/nav.lua` (never raw `turtle.forward` for moves
   that change position) so position is saved and protected blocks are never dug.
 - **Screens:** never clear a monitor (or the terminal) and redraw it in place: it

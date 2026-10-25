@@ -130,6 +130,32 @@ parallel.waitForAny(function()
 end, report.loop)
 ```
 
+## Jobs given in world coordinates
+
+A job that comes from another computer (the projector's plan for
+`builder-turtle`) is in **real world coordinates**, so the turtle must know
+its own real position. Copy `computers/builder-turtle/builder.lua`:
+
+- `builder setup` makes the current block home and saves `/.builder_home`
+  `{ x, y, z, heading, gps }`: from GPS if there is one, otherwise the player
+  types the position and facing shown on F3.
+- Save the job (big: every block) once to its own file, and the progress
+  (stage + step) to a small file rewritten after every block.
+- Refuse a job too far from home (`MAX_DISTANCE`), and with GPS check the
+  counted position every `CHECK_EVERY` blocks.
+- Inside the work area, travel one block above the layer being worked on,
+  where nothing is built yet; anywhere else, fly above it.
+- Report progress back to the computer that sent the job (`projector_build`
+  `progress`) as well as to the status server.
+
+## Materials from the storage system
+
+A job that places blocks can restock from the storage system as well as its
+home chest: make its supply chest the storage computer's delivery chest and
+`deliver` what the next trip needs (see [[storage-system]]; builder.lua's
+`orderFromStorage` and village.lua's `restock`). Without a storage computer
+in range it just uses the chest.
+
 ## Blocked moves
 
 nav refuses to dig protected blocks and can't dig bedrock. Don't skip ahead

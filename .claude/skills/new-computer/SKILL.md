@@ -34,11 +34,28 @@ repo root.
 4. Fill in `README.md` (format below).
 5. Add a line to the root `README.md` under **Computers**:
    `- [<name>](computers/<name>/README.md): <one-line what it does>`
-6. If it uses `lib/` modules, add it to that module's "Used by" text in
+6. Add a row to the **Existing computers** table in `AGENTS.md`, and to the
+   protocol table under "How the programs talk" if it uses rednet.
+7. If it uses `lib/` modules, add it to that module's "Used by" text in
    `lib/README.md`.
-7. Add an entry to `site/programs.json` so it appears on the website and in
-   the installer (title, command, device, libs, stats, setup, commands, render).
-   Run `node site/build.mjs` to check it builds.
+8. Add an entry to `site/programs.json` so it appears on the website and in
+   the installer (title, command, device, libs, keep, stats, setup, commands,
+   render, optional layouts). Add a scene to `voxel.js` or `cc.js` for its
+   render. Run `node site/build.mjs` to check it builds.
+
+## Things every program does
+
+- **Errors and status:** `errlog.init` + `errlog.pcall` around the work,
+  `report.init` / `report.set` as it goes ([[lib-errlog]], [[lib-report]]).
+- **Items:** if it needs items or fuel from storage, ask the storage computer
+  ([[storage-system]]); never read or empty storage chests directly.
+- **Screens:** draw each frame into a hidden `window.create(target, 1, 1, w, h, false)`
+  and `setVisible(true)` it; clearing a monitor and redrawing in place flashes.
+- **Settings:** player settings go in `config.lua`, listed under `keep` in
+  programs.json so `install update` leaves them alone.
+- **Big optional files** (like a modpack's recipes) go in a `packs/`
+  subfolder: the installer only installs top-level `.lua` files, the website
+  still publishes them for `wget`.
 
 ## README format
 
@@ -82,4 +99,4 @@ files go in `saves/<world>/computercraft/computer/<id>/` (run `id` in-game).
 Copy the program, `startup.lua`, and any used `lib/*.lua` to `/lib/`.
 Modules load with `require("lib.nav")`.
 
-Related: [[lib-nav]], [[lib-report]], [[lib-errlog]], [[turtle-job]].
+Related: [[lib-nav]], [[lib-report]], [[lib-errlog]], [[turtle-job]], [[storage-system]].
