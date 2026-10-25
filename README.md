@@ -47,7 +47,9 @@ Every program works on its own. With a modem they work together: everything
 reports to the status server, AutoMine turtles take jobs from the AutoMine
 server, the GPS deployer's hosts keep turtles on course, the village builder
 gets its blocks from the storage system (which has the crafter make what it
-lacks, and the smelter smelt its ores) and shows its next building through the blueprint projector. The
+lacks, and the smelter smelt its ores) and shows its next building through the blueprint projector,
+several builder turtles share one projected building a strip each, and village turtles with GPS can
+join one village as a crew. The
 website has a diagram of it all.
 
 ## Adding a computer

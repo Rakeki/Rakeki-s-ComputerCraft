@@ -10,6 +10,8 @@
 --   village list        what each building needs, for stocking the chest
 --   village status      what's been built so far
 --   village cancel      forget the village
+--   village join [id]   help another village turtle build its village (needs GPS):
+--                       run it at this turtle's own supply and spoil chests
 --
 -- The turtle's starting block is the village centre ("home"). Put the SUPPLY
 -- chest directly behind it and the SPOIL chest directly to its left. It takes
@@ -64,6 +66,14 @@ local STAIR_FLIP = false
 -- blueprint-projector running 'projector village' can show it in the world.
 local SHARE_PLAN = true
 local PLAN_PROTOCOL = "village_plan"
+
+-- With GPS and wireless modems, more turtles can help ('village join'): the
+-- first one hands out plots (see "the crew" below).
+local CREW_PROTOCOL = "village_crew"
+local CREW_WAIT = 10 -- seconds a helper waits for the lead to answer
+local CREW_RETRY = 30 -- seconds between a helper's tries to reach the lead
+local CREW_PING = 300 -- seconds between a helper's "still here" to the lead
+local CREW_LOST = 1800 -- seconds without a word from a helper before its plot is handed out again
 
 -- With a wireless modem, ask a storage-computer for building blocks and
 -- fuel. They're delivered to the supply chest, which needs a wired modem on
@@ -150,6 +160,11 @@ local function here()
 end
 
 local function faceLocal(h) nav.face((job.origin.heading + h) % 4) end
+
+-- Where my chests are, in village coordinates, and which way I face there
+-- (a local heading). The village centre for the turtle that started it; a
+-- helper's own block for one that joined later.
+local function home() return job.home or { x = 0, y = 0, z = 0, h = 0 } end
 
 local function headingOf(dx, dz)
   if dx > 0 then return 1 elseif dx < 0 then return 3 elseif dz > 0 then return 0 end
@@ -450,7 +465,8 @@ local function fluidAt(inspect)
   return ok and (data.name == "minecraft:water" or data.name == "minecraft:lava" or data.name:find("water", 1, true) ~= nil)
 end
 
-local function cruiseHeight() return job.topY + 2 end
+-- With a crew, each turtle crosses over at a height of its own.
+local function cruiseHeight() return job.topY + 2 + (job.lane or 0) end
 
 -- Long-distance travel: straight up, across without digging sideways (go
 -- over whatever is in the way), then straight down onto p. With p.y nil, land
@@ -526,13 +542,14 @@ local function reach(p, opts)
 end
 
 local function goHome()
-  reach({ x = 0, y = 0, z = 0 })
-  faceLocal(0)
+  local h = home()
+  reach({ x = h.x, y = h.y, z = h.z })
+  faceLocal(h.h)
 end
 
 local function homeDistance()
-  local p = here()
-  return math.abs(p.x) + math.abs(p.z) + math.abs(cruiseHeight() - p.y) + cruiseHeight() + 20
+  local p, h = here(), home()
+  return math.abs(p.x - h.x) + math.abs(p.z - h.z) + math.abs(cruiseHeight() - p.y) + cruiseHeight() - h.y + 20
 end
 
 ---------------------------------------------------------------- position checks
@@ -559,8 +576,8 @@ end
 
 ---------------------------------------------------------------- the chests at home
 
-local function faceSupply() faceLocal(2) end -- behind home
-local function faceSpoil() faceLocal(3) end -- left of home
+local function faceSupply() faceLocal((home().h + 2) % 4) end -- behind home
+local function faceSpoil() faceLocal((home().h + 3) % 4) end -- left of home
 
 local function frontChest()
   if not peripheral then return nil end
@@ -586,7 +603,7 @@ local function stockAtHome()
     local it = turtle.getItemDetail(slot)
     if it then t[it.name] = (t[it.name] or 0) + it.count end
   end
-  faceLocal(0)
+  faceLocal(home().h)
   return t, supply
 end
 
@@ -743,7 +760,7 @@ local function ensureFuel(target)
       fetch(function(n) return FUEL[n] end, 64, fuelItems)
       refuelFromInventory(target)
     end
-    faceLocal(0)
+    faceLocal(home().h)
   end
   topUp()
   local need = math.min(target, FUEL_RESERVE + homeDistance())
@@ -968,6 +985,192 @@ local function planServer()
   end
 end
 
+---------------------------------------------------------------- the crew
+
+-- More village turtles can help build one village. The one that started it
+-- (the lead) keeps the village's map and hands out plots; a helper ('village
+-- join', at its own supply and spoil chests) asks it for a plot, builds it
+-- and its street, says what it built, and asks for the next. It needs GPS,
+-- and so does the lead: they share the village's coordinates through it.
+--   helper -> lead: { type = "join" }  -> { re, theme, radius, seed, origin, topY, plots, paved, built, lane }
+--                   { type = "plot" }  -> { re, i, j, plots, paved, built, topY } or { re, none = true, more }
+--                   { type = "done", key, plot, built, paved, topY } -> { re, ok = true }
+--                   { type = "alive" } (no answer)
+-- Each turtle crosses over the village at a height of its own (lane), so
+-- they don't meet in the air.
+
+local function now() return os.epoch("utc") / 1000 end
+
+-- Plots handed to helpers that have gone quiet go back to be built again.
+local function expireCrew()
+  local lost = false
+  for key, p in pairs(job.plots) do
+    local who = p.status == "taken" and job.crew and job.crew[p.by]
+    if p.status == "taken" and (not who or now() - (who.seen or 0) > CREW_LOST) then
+      job.plots[key] = nil
+      lost = true
+    end
+  end
+  if lost then save() end
+end
+
+local function plotsTaken()
+  local n = 0
+  for _, p in pairs(job.plots) do
+    if p.status == "taken" then n = n + 1 end
+  end
+  return n
+end
+
+-- The next plot nobody has: not built, skipped, being built by a helper,
+-- or the one I'm on.
+local function freePlot()
+  local mine = job.cur and plotKey(job.cur.i, job.cur.j)
+  for _, p in ipairs(plotOrder()) do
+    local key = plotKey(p.i, p.j)
+    if not job.plots[key] and key ~= mine then return p end
+  end
+end
+
+-- The lead: answer the helpers.
+local function crewServer()
+  if job.helper or not job.gps then
+    while true do sleep(3600) end
+  end
+  while not openWireless() do sleep(60) end
+  rednet.host(CREW_PROTOCOL, os.getComputerLabel() or ("village-" .. os.getComputerID()))
+  job.crew = job.crew or {}
+  while true do
+    local from, msg = rednet.receive(CREW_PROTOCOL, 60)
+    expireCrew()
+    if from and type(msg) == "table" then
+      local function answer(reply)
+        reply.re, reply.id = msg.type, msg.id
+        rednet.send(from, reply, CREW_PROTOCOL)
+      end
+      local who = job.crew[from]
+      if msg.type == "join" then
+        if not who then
+          local lanes = 0
+          for _ in pairs(job.crew) do lanes = lanes + 1 end
+          who = { lane = lanes + 1 }
+          job.crew[from] = who
+          print(("Turtle #%d joined the crew."):format(from))
+          report.log(("turtle #%d joined the crew"):format(from))
+        end
+        who.seen = now()
+        save()
+        answer({ theme = job.theme, radius = job.radius, seed = job.seed, origin = job.origin, topY = job.topY,
+          plots = job.plots, paved = job.paved, built = job.built, lane = who.lane })
+      elseif not who then
+        answer({ error = "not in my crew: run 'village join' again" })
+      elseif msg.type == "plot" then
+        who.seen = now()
+        local p = freePlot()
+        if p then
+          job.plots[plotKey(p.i, p.j)] = { status = "taken", by = from }
+          save()
+          answer({ i = p.i, j = p.j, plots = job.plots, paved = job.paved, built = job.built, topY = job.topY })
+        else
+          -- none free now, but one may come back if a helper goes quiet
+          answer({ none = true, more = plotsTaken() > 0 or job.cur ~= nil })
+        end
+      elseif msg.type == "done" and type(msg.key) == "string" then
+        who.seen = now()
+        local was = job.plots[msg.key]
+        if not was or was.status == "taken" then
+          job.plots[msg.key] = type(msg.plot) == "table" and msg.plot or { status = "skipped", why = "no word" }
+          if type(msg.built) == "table" then job.built[#job.built + 1] = msg.built end
+        end
+        for _, s in ipairs(type(msg.paved) == "table" and msg.paved or {}) do job.paved[s] = true end
+        job.topY = math.max(job.topY, tonumber(msg.topY) or 0)
+        save()
+        answer({ ok = true })
+        os.queueEvent("village_crew")
+      elseif msg.type == "alive" then
+        who.seen = now()
+      end
+    end
+  end
+end
+
+local crewRequest = 0
+
+-- A helper asking its lead something; nil if it doesn't answer.
+local function askLead(msg)
+  if not openWireless() then return nil end
+  crewRequest = crewRequest + 1
+  msg.id = crewRequest
+  rednet.send(job.helper.lead, msg, CREW_PROTOCOL)
+  local deadline = os.clock() + CREW_WAIT
+  while os.clock() < deadline do
+    local from, reply = rednet.receive(CREW_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from == job.helper.lead and type(reply) == "table" and reply.re == msg.type and reply.id == msg.id then
+      return reply
+    end
+  end
+  return nil
+end
+
+-- A helper: tell the lead what's been built, now or (if it can't be
+-- reached) before the next plot. job.outbox is saved, so it survives a reboot.
+local function flushOutbox()
+  job.outbox = job.outbox or {}
+  while #job.outbox > 0 do
+    if not askLead(job.outbox[1]) then return false end
+    table.remove(job.outbox, 1)
+    save()
+  end
+  return true
+end
+
+local function tellLead(c, plot, built)
+  if not job.helper then return end
+  job.outbox = job.outbox or {}
+  job.outbox[#job.outbox + 1] = { type = "done", key = plotKey(c.i, c.j), plot = plot, built = built,
+    paved = c.segs, topY = job.topY }
+  save()
+  flushOutbox()
+end
+
+-- A helper: the next plot from the lead, into job.cur. False once the
+-- village has none left.
+local function plotFromLead()
+  local said
+  while true do
+    local r = flushOutbox() and askLead({ type = "plot" })
+    if r and r.i then
+      job.plots, job.paved, job.built = r.plots or job.plots, r.paved or job.paved, r.built or job.built
+      job.topY = math.max(job.topY, tonumber(r.topY) or 0)
+      job.cur = { i = r.i, j = r.j, stage = "survey", step = 0, samples = {}, rejected = {} }
+      save()
+      print(("The lead gave me plot %d,%d."):format(r.i, r.j))
+      return true
+    end
+    if r and r.none and not r.more then return false end
+    local text = r and r.none and "No plots free yet: waiting for the crew."
+      or r and r.error and ("The lead says: " .. r.error)
+      or ("The lead (turtle #%d) isn't answering. Retrying..."):format(job.helper.lead)
+    if text ~= said then
+      print(text)
+      report.set("waiting", r and r.none and "no free plots" or "lead not answering")
+      said = text
+    end
+    sleep(CREW_RETRY)
+  end
+end
+
+-- A helper: let the lead know it's still at work, so it keeps its plot.
+local function crewPing()
+  if not job.helper then
+    while true do sleep(3600) end
+  end
+  while true do
+    sleep(CREW_PING)
+    if openWireless() then rednet.send(job.helper.lead, { type = "alive" }, CREW_PROTOCOL) end
+  end
+end
+
 ---------------------------------------------------------------- the storage system
 
 local storageId -- the storage computer, once found
@@ -1065,7 +1268,7 @@ orderFromStorage = function(needs)
   local have = {}
   faceSpoil()
   addChest(have)
-  faceLocal(0)
+  faceLocal(home().h)
   for slot = 1, 16 do
     local it = turtle.getItemDetail(slot)
     if it then have[it.name] = (have[it.name] or 0) + it.count end
@@ -1080,7 +1283,7 @@ orderFromStorage = function(needs)
   if not supplyClaimed and os.clock() >= claimAfter then
     faceSupply()
     local ok, why = claim.chest(askStorage, "delivery", "front")
-    faceLocal(0)
+    faceLocal(home().h)
     if ok then
       supplyClaimed = true
       storageNote(("The storage system sends my blocks to the supply chest (%s)."):format(why))
@@ -1133,6 +1336,7 @@ local function skipPlot(why)
   job.plots[plotKey(c.i, c.j)] = { status = "skipped", why = why }
   job.cur, bld = nil, nil
   save()
+  tellLead(c, job.plots[plotKey(c.i, c.j)], nil)
 end
 
 -- The blocks one street cell needs: its surface, plus the lamp post on it.
@@ -1334,7 +1538,7 @@ local function restock(want, fillWant, why)
   if fillWant > 0 and countFill() < fillWant then
     fetch(function(x) return FILL[x] end, fillWant, countFill)
   end
-  faceLocal(0)
+  faceLocal(home().h)
 end
 
 local function housekeeping()
@@ -1454,13 +1658,13 @@ local function doBuild(c)
         waitUntil(function()
           orderFromStorage({ [s.item] = want[s.item] or 1 })
           fetch(function(x) return x == s.item end, want[s.item] or 1, function() return count(s.item) end)
-          faceLocal(0)
+          faceLocal(home().h)
           return count(s.item) > 0
         end, { "Out of " .. shortName(s.item) .. ". Put some in the supply chest", "(or the storage system's input chest, if I use one)." }, "needs " .. shortName(s.item))
       elseif r == "nofill" and countFill() == 0 then
         waitUntil(function()
           fetch(function(x) return FILL[x] end, FILL_LOAD, countFill)
-          faceLocal(0)
+          faceLocal(home().h)
           return countFill() > 0
         end, { "Out of dirt/cobblestone for foundations.", "Put some in the supply or spoil chest." }, "needs dirt or cobblestone")
       end
@@ -1767,6 +1971,7 @@ local function finishPlot(c)
   job.built[#job.built + 1] = { i = c.i, j = c.j, bp = c.bp, rot = c.rot, base = c.base, ax = c.ax, az = c.az }
   job.cur, bld = nil, nil
   save()
+  tellLead(c, job.plots[plotKey(c.i, c.j)], job.built[#job.built])
   print(("Finished the %s at plot %d,%d (%d buildings so far)."):format(niceName(c.bp), c.i, c.j, #job.built))
   report.log(("finished a %s"):format(niceName(c.bp)))
 end
@@ -1807,7 +2012,7 @@ local function doPath(c)
       if count(item) == 0 then
         local skip = not waitUntil(function()
           fetch(function(x) return x == item end, 64, function() return count(item) end)
-          faceLocal(0)
+          faceLocal(home().h)
           return count(item) > 0
         end, { "Out of " .. shortName(item) .. " for streets." }, "needs " .. shortName(item), true)
         if skip then
@@ -1838,11 +2043,33 @@ end
 ---------------------------------------------------------------- main
 
 local function run()
-  local p = here()
-  if p.x == 0 and p.y == 0 and p.z == 0 then ensureFuel(FUEL_RESERVE * 3) end
+  local p, h = here(), home()
+  if p.x == h.x and p.y == h.y and p.z == h.z then ensureFuel(FUEL_RESERVE * 3) end
   while true do
-    if not job.cur then
+    if not job.cur and job.helper then
+      -- a helper builds the plots its lead hands it
+      if not plotFromLead() then
+        goHome()
+        print(("The lead has no more plots: the village is built out to %d blocks."):format(job.radius))
+        status("done", "no plots left")
+        return
+      end
+    elseif not job.cur then
       local p = nextPlot()
+      if not p and plotsTaken() > 0 then
+        -- the crew is still building: wait for them to finish
+        goHome()
+        status("waiting", ("crew building %d plots"):format(plotsTaken()))
+        print(("No plots left for me: waiting for the crew to finish %d."):format(plotsTaken()))
+        repeat
+          local timer = os.startTimer(60)
+          repeat
+            local event, value = os.pullEvent()
+          until event == "village_crew" or (event == "timer" and value == timer)
+          expireCrew()
+        until nextPlot() or plotsTaken() == 0
+        p = nextPlot()
+      end
       if not p then
         goHome()
         print(("The village has reached its radius of %d with %d buildings."):format(job.radius, #job.built))
@@ -1955,8 +2182,9 @@ if args[1] == "resume" or args[1] == "here" or args[1] == "grow" then
     return
   end
   if args[1] == "here" then
-    local x, y, z = toWorld({ x = 0, y = 0, z = 0 })
-    nav.setPosition(x, y, z, job.origin.heading)
+    local h = home()
+    local x, y, z = toWorld({ x = h.x, y = h.y, z = h.z })
+    nav.setPosition(x, y, z, (job.origin.heading + h.h) % 4)
     print("Position reset to home.")
   elseif args[1] == "grow" then
     local r = tonumber(args[2])
@@ -1978,6 +2206,54 @@ if args[1] == "resume" or args[1] == "here" or args[1] == "grow" then
 elseif job then
   print("A village is already in progress. Run 'village resume' or 'village cancel'.")
   return
+elseif args[1] == "join" then
+  -- help build another turtle's village, from my own chests here
+  if not hasGps then
+    print("Joining a crew needs GPS, so the lead and I agree on where")
+    print("the village is. Set up GPS (see gps-deployer) and try again.")
+    return
+  end
+  if not openWireless() then
+    print("I need a wireless or ender modem to talk to the lead.")
+    return
+  end
+  print("Looking for a village turtle to help...")
+  local lead = tonumber(args[2]) or rednet.lookup(CREW_PROTOCOL)
+  if not lead then
+    print("No village turtle answered. The lead needs GPS, a wireless")
+    print("modem, and to be running its village (within modem range).")
+    return
+  end
+  rednet.send(lead, { type = "join", id = 1 }, CREW_PROTOCOL)
+  local r
+  local deadline = os.clock() + CREW_WAIT
+  while not r and os.clock() < deadline do
+    local from, msg = rednet.receive(CREW_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from == lead and type(msg) == "table" and msg.re == "join" then r = msg end
+  end
+  if not r or not r.origin then
+    print(("Turtle #%d didn't take me on%s."):format(lead, r and r.error and (": " .. r.error) or ""))
+    return
+  end
+  local p = nav.getPos()
+  job = {
+    theme = r.theme, radius = r.radius, gps = true, seed = r.seed, origin = r.origin, topY = r.topY,
+    plots = r.plots or {}, paved = r.paved or {}, built = r.built or {}, depot = true,
+    lane = r.lane, helper = { lead = lead }, outbox = {},
+  }
+  local h = here()
+  job.home = { x = h.x, y = h.y, z = h.z, h = (nav.getHeading() - r.origin.heading) % 4 }
+  faceSupply()
+  local chest = frontChest()
+  faceLocal(home().h)
+  if not chest then
+    print("I need my own supply chest directly behind me (and a spoil")
+    print("chest on my left). Place them and run 'village join' again.")
+    return
+  end
+  print(("Joined turtle #%d's %s village. I'll build the plots it gives me,"):format(lead, themes[job.theme].name))
+  print(("from my chests here (%d,%d,%d)."):format(p.x, p.y, p.z))
+  save()
 else
   print("Village themes:")
   for k, key in ipairs(themes.order) do print(("%d) %s: %s"):format(k, themes[key].name, themes[key].blurb)) end
@@ -2006,7 +2282,7 @@ else
   faceSupply()
   local chest = frontChest()
   local found, behind = turtle.inspect()
-  faceLocal(0)
+  faceLocal(home().h)
   if not chest then
     if not found then
       print("There's nothing directly behind me.")
@@ -2039,4 +2315,4 @@ parallel.waitForAny(function()
     report.set("error", tostring(err))
     error(err, 0)
   end
-end, report.loop, planServer)
+end, report.loop, planServer, crewServer, crewPing)

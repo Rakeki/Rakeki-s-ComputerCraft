@@ -36,6 +36,9 @@ local VILLAGE_FILE = "/.projector_village" -- the last building heard from a vil
 local PLAN_PROTOCOL = "village_plan" -- rednet protocol village turtles share their building on
 local BUILD_PROTOCOL = "projector_build" -- rednet protocol builder turtles take buildings on
 local BUILD_WAIT = 5 -- seconds to wait for each builder turtle to answer
+local MAX_BUILDERS = 4 -- most builder turtles one building is split between
+local MIN_STRIP = 3 -- narrowest strip of a building (blocks) one turtle is given
+local RETRY_EVERY = 30 -- seconds between offers of strips nobody has taken yet to builders that are free
 
 local args = { ... }
 
@@ -343,8 +346,10 @@ local function footprint()
   return state.x + math.min(ax, bx), state.z + math.min(az, bz), state.x + math.max(ax, bx), state.z + math.max(az, bz)
 end
 
--- state.build, while a builder turtle is building the plan: { key, builder,
--- name, stage, done, total, y, skipped, note } from its progress messages.
+-- state.build, while builder turtles are building the plan: { key, name, n
+-- (strips), stopping, parts = { { key, builder, finished, stopped, stage,
+-- done, total, y, skipped, note, cleared, toClear } } }, one part per strip,
+-- filled in from its turtle's progress messages.
 local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
@@ -550,9 +555,29 @@ local function villageNote()
   return who .. (plan.fixed and "following" or "no GPS: move it into place")
 end
 
--- What the builder turtle is up to, for the panel.
+-- What the builder turtles are up to, for the panel.
 local function buildNote()
-  local b = state.build
+  local parts = state.build.parts or { state.build }
+  if #parts > 1 then
+    local done, total, working, waiting = 0, 0, 0, 0
+    for _, p in ipairs(parts) do
+      total = total + (p.total or 0)
+      if p.finished then
+        done = done + (p.total or 0)
+      elseif p.builder then
+        working = working + 1
+        done = done + (p.stage == "build" and p.done or 0)
+      else
+        waiting = waiting + 1
+      end
+    end
+    local text = ("%d builder%s: %d of %d (%d%%)"):format(working, working == 1 and "" or "s", done, total,
+      total > 0 and math.floor(done / total * 100) or 0)
+    if state.build.stopping then text = text .. ", stopping" end
+    if waiting > 0 then text = text .. (", %d strips waiting"):format(waiting) end
+    return text
+  end
+  local b = parts[1]
   local who = ("Builder #%s: "):format(tostring(b.builder))
   if b.stage == "build" and b.total and b.total > 0 then
     return who .. ("building, %d of %d (%d%%)"):format(b.done or 0, b.total, math.floor((b.done or 0) / b.total * 100))
@@ -802,26 +827,121 @@ local function worldPlan()
   return mats, blocks
 end
 
--- Progress from the builder turtle building this projector's plan: keep
--- the panel up to date, and in Layer view follow the layer it's on.
-local function onBuilder(from, msg)
+-- With several builder turtles free, the building is split into side-by-side
+-- strips across its longer side, one per turtle. Each turtle clears and
+-- builds only its strip (bottom layer up, as on its own), and crosses over
+-- at a height of its own. A strip nobody could take yet goes to the next
+-- turtle that's free: one that finishes its own strip, or a new one.
+
+-- The building's box, in world coordinates.
+local function buildArea()
+  local fx0, fz0, fx1, fz1 = footprint()
+  return { x0 = fx0, z0 = fz0, x1 = fx1, z1 = fz1, y0 = state.y, y1 = state.y + plan.h - 1 }
+end
+
+-- Strip i of n: the area cut across its longer side.
+local function stripBox(i, n)
+  local a = buildArea()
+  local alongX = a.x1 - a.x0 >= a.z1 - a.z0
+  local lo, hi = alongX and a.x0 or a.z0, alongX and a.x1 or a.z1
+  local len = hi - lo + 1
+  local s0 = lo + math.floor((i - 1) * len / n)
+  local s1 = lo + math.floor(i * len / n) - 1
+  if alongX then return { x0 = s0, x1 = s1, z0 = a.z0, z1 = a.z1 } end
+  return { x0 = a.x0, x1 = a.x1, z0 = s0, z1 = s1 }
+end
+
+-- How many strips for this many free turtles: no more than MAX_BUILDERS,
+-- and none narrower than MIN_STRIP.
+local function stripCount(free)
+  local a = buildArea()
+  local len = math.max(a.x1 - a.x0, a.z1 - a.z0) + 1
+  return math.max(1, math.min(free, MAX_BUILDERS, math.floor(len / MIN_STRIP)))
+end
+
+-- The blocks of the plan in a strip.
+local function stripBlocks(part)
+  local _, blocks = worldPlan()
+  local mine = {}
+  for _, b in ipairs(blocks) do
+    if b[1] >= part.x0 and b[1] <= part.x1 and b[3] >= part.z0 and b[3] <= part.z1 then mine[#mine + 1] = b end
+  end
+  return mine
+end
+
+-- A build saved by an older projector (one turtle, no strips) as one strip.
+local function upgradeBuild()
   local b = state.build
-  if type(msg) ~= "table" or msg.type ~= "progress" or not b or msg.key ~= b.key then return end
-  b.stage, b.done, b.total, b.y, b.skipped, b.note = msg.stage, msg.done, msg.total, msg.y, msg.skipped, msg.note
-  b.cleared, b.toClear, b.builder = msg.cleared, msg.toClear, from
+  if b and not b.parts then
+    state.build = { key = b.key, name = b.name, n = 1, parts = { {
+      key = b.key, builder = b.builder, stage = b.stage, done = b.done, total = b.total, y = b.y,
+      skipped = b.skipped, note = b.note, cleared = b.cleared, toClear = b.toClear } } }
+  end
+end
+
+local function partFor(key)
+  for i, p in ipairs(state.build and state.build.parts or {}) do
+    if p.key == key then return p, i end
+  end
+end
+
+local function pending()
+  local n = 0
+  for _, p in ipairs(state.build.parts) do
+    if not p.builder and not p.finished then n = n + 1 end
+  end
+  return n
+end
+
+-- Every strip is finished (built, stopped, or given up on): say how it went.
+local function finishBuild()
+  local b = state.build
+  local skipped, stopped, builders = 0, false, {}
+  for _, p in ipairs(b.parts) do
+    skipped = skipped + (p.skipped or 0)
+    stopped = stopped or p.stopped
+    if p.builder then builders[#builders + 1] = "#" .. p.builder end
+  end
+  local who = #builders == 1 and ("Builder " .. builders[1]) or ("Builders " .. table.concat(builders, ", "))
+  state.build = nil
+  if stopped then
+    note = ("%s stopped. Tap Build to start again."):format(who)
+  elseif skipped > 0 then
+    note = ("%s built it, but skipped %d blocks."):format(who, skipped)
+  else
+    note = ("%s built it."):format(who)
+  end
+  if report then report.log(note) end
+end
+
+local function checkFinished()
+  for _, p in ipairs(state.build.parts) do
+    if not p.finished then return end
+  end
+  finishBuild()
+end
+
+-- Progress from a builder turtle building a strip of this projector's plan:
+-- keep the panel up to date, and in Layer view follow the lowest layer
+-- being built.
+local function onBuilder(from, msg)
+  if type(msg) ~= "table" or msg.type ~= "progress" or not state.build then return end
+  local p = partFor(msg.key)
+  if not p then return end
+  p.stage, p.done, p.total, p.y, p.skipped, p.note = msg.stage, msg.done, msg.total, msg.y, msg.skipped, msg.note
+  p.cleared, p.toClear, p.builder = msg.cleared, msg.toClear, from
   if msg.stage == "done" or msg.stage == "stopped" then
-    state.build = nil
-    if msg.stage == "stopped" then
-      note = ("Builder #%d stopped. Tap Build to start again."):format(from)
-    elseif (msg.skipped or 0) > 0 then
-      note = ("Builder #%d built it, but skipped %d blocks."):format(from, msg.skipped)
-    else
-      note = ("Builder #%d built it."):format(from)
+    p.finished, p.stopped = true, msg.stage == "stopped"
+    -- free again: it can take a strip nobody has yet
+    if not p.stopped and not state.build.stopping and pending() > 0 then os.queueEvent("projector_build_more", from) end
+    checkFinished()
+  elseif state.view == "layer" then
+    local low
+    for _, q in ipairs(state.build.parts) do
+      if q.y and not q.finished and q.stage == "build" then low = math.min(low or q.y, q.y) end
     end
-    if report then report.log(note) end
-  elseif state.view == "layer" and msg.y then
-    local layer = math.max(1, math.min(plan.h, msg.y - state.y + 1))
-    if layer ~= state.layer then
+    local layer = low and math.max(1, math.min(plan.h, low - state.y + 1))
+    if layer and layer ~= state.layer then
       state.layer = layer
       redraw()
     end
@@ -830,52 +950,152 @@ local function onBuilder(from, msg)
   os.queueEvent("projector_status")
 end
 
--- Hand the plan to the first builder turtle that's free.
-local function startBuild()
-  if plan.village then return tell("The village builder builds this one itself.") end
-  if not openWireless() then return tell("Needs a wireless modem to reach a builder turtle.") end
+-- The builder turtles that answer and aren't building anything: ids.
+local function freeBuilders()
   local ids = { rednet.lookup(BUILD_PROTOCOL) }
-  if #ids == 0 then return tell("No builder turtle answered: is one running 'builder' nearby?") end
-  tell(("Sending %d blocks to a builder turtle..."):format(#plan.blocks))
-  local mats, blocks = worldPlan()
-  local key = ("%d-%s"):format(os.epoch("utc"), state.plan)
-  local busy
-  for i, id in ipairs(ids) do
-    rednet.send(id, { type = "build", id = i, key = key, name = plan.name, mats = mats, blocks = blocks }, BUILD_PROTOCOL)
-    local deadline = os.clock() + BUILD_WAIT
-    while os.clock() < deadline do
-      local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
-      if from == id and type(msg) == "table" and msg.key == key and msg.id == i then
-        if msg.type == "accepted" then
-          state.build = { key = key, builder = id, name = plan.name, stage = "clear", done = 0, total = #blocks }
-          save()
-          return tell(("Builder #%d is building %s."):format(id, plan.name))
+  if #ids == 0 then return {}, 0 end
+  local probe = ("free-%d"):format(os.epoch("utc"))
+  for _, id in ipairs(ids) do rednet.send(id, { type = "status", id = 0, key = probe }, BUILD_PROTOCOL) end
+  local free, seen = {}, {}
+  local deadline = os.clock() + BUILD_WAIT
+  while os.clock() < deadline and #free < #ids do
+    local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from and type(msg) == "table" and msg.type == "idle" and msg.key == probe and not seen[from] then
+      seen[from] = true
+      free[#free + 1] = from
+    elseif from then
+      onBuilder(from, msg)
+    end
+  end
+  table.sort(free)
+  return free, #ids
+end
+
+-- Offer strip i to builder id. True if it took it, or false and why not.
+local function offer(i, id)
+  local b = state.build
+  local p = b.parts[i]
+  local mats = worldPlan()
+  local part = stripBox(i, b.n)
+  local blocks = stripBlocks(part)
+  rednet.send(id, { type = "build", id = i, key = p.key, name = b.n > 1 and ("%s (strip %d of %d)"):format(b.name, i, b.n) or b.name,
+    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1 }, BUILD_PROTOCOL)
+  local deadline = os.clock() + BUILD_WAIT
+  while os.clock() < deadline do
+    local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
+    if from == id and type(msg) == "table" and msg.key == p.key and msg.id == i then
+      if msg.type == "accepted" then
+        p.builder, p.stage, p.done, p.total = id, "clear", 0, #blocks
+        return true
+      end
+      return false, ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
+        or ("refused: " .. tostring(msg.why)))
+    elseif from then
+      onBuilder(from, msg)
+    end
+  end
+  return false, ("Builder #%d didn't answer in time."):format(id)
+end
+
+-- Give the strips nobody has yet to these free builders, one each.
+-- Returns how many were taken, and why the last one wasn't.
+local function handOut(ids)
+  local taken, why, k = 0, nil, 1
+  for i, p in ipairs(state.build.parts) do
+    if not p.builder and not p.finished then
+      while k <= #ids do
+        local id = ids[k]
+        k = k + 1
+        local ok, err = offer(i, id)
+        if ok then
+          taken = taken + 1
+          break
         end
-        busy = ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
-          or ("refused: " .. tostring(msg.why)))
-        break
-      elseif from then
-        onBuilder(from, msg)
+        why = err
       end
     end
   end
-  tell(busy or "No builder turtle answered in time.")
+  return taken, why
+end
+
+-- Split the plan between the builder turtles that are free.
+local function startBuild()
+  if plan.village then return tell("The village builder builds this one itself.") end
+  if not openWireless() then return tell("Needs a wireless modem to reach a builder turtle.") end
+  tell("Looking for free builder turtles...")
+  local free, all = freeBuilders()
+  if all == 0 then return tell("No builder turtle answered: is one running 'builder' nearby?") end
+  if #free == 0 then return tell(("All %d builder turtles are busy."):format(all)) end
+  local n = stripCount(#free)
+  local key = ("%d-%s"):format(os.epoch("utc"), state.plan)
+  state.build = { key = key, name = plan.name, n = n, parts = {} }
+  for i = 1, n do
+    local empty = #stripBlocks(stripBox(i, n)) == 0
+    -- a strip with nothing in it needs no turtle (the plan has a gap there)
+    state.build.parts[i] = { key = ("%s/%d"):format(key, i), total = 0, finished = empty }
+  end
+  tell(n > 1 and ("Sending %d blocks to %d builder turtles..."):format(#plan.blocks, n)
+    or ("Sending %d blocks to a builder turtle..."):format(#plan.blocks))
+  local taken, why = handOut(free)
+  if taken == 0 then
+    state.build = nil
+    return tell(why or "No builder turtle took it.")
+  end
+  save()
+  local left = pending()
+  if n == 1 then
+    tell(("Builder #%d is building %s."):format(state.build.parts[1].builder, plan.name))
+  else
+    tell(("%d builder turtles are building %s%s."):format(taken, plan.name,
+      left > 0 and (", %d strips wait for the next free one"):format(left) or ""))
+  end
 end
 
 local function stopBuild()
   local b = state.build
-  if openWireless() then rednet.send(b.builder, { type = "stop", id = 0, key = b.key }, BUILD_PROTOCOL) end
-  tell(("Asked builder #%d to stop..."):format(b.builder))
+  if b.stopping then
+    -- asked twice: a turtle that never answers (broken, unloaded) is given up on
+    for _, p in ipairs(b.parts) do
+      if not p.finished then p.finished, p.stopped = true, true end
+    end
+    finishBuild()
+    save()
+    return tell(note)
+  end
+  b.stopping = true
+  local asked = 0
+  for _, p in ipairs(b.parts) do
+    if p.builder and not p.finished then
+      if openWireless() then rednet.send(p.builder, { type = "stop", id = 0, key = p.key }, BUILD_PROTOCOL) end
+      asked = asked + 1
+    elseif not p.finished then
+      p.finished, p.stopped = true, true -- nobody had started it
+    end
+  end
+  save()
+  if asked == 0 then
+    finishBuild()
+    save()
+    return tell(note)
+  end
+  tell(asked == 1 and "Asked the builder to stop..." or ("Asked %d builders to stop..."):format(asked))
 end
 
--- Starts and stops builds asked for on the panel, and hears progress.
+-- Starts and stops builds asked for on the panel, hears progress, and hands
+-- out strips nobody has taken yet.
 local function buildLoop()
-  -- after a restart, ask the turtle where it's got to
+  upgradeBuild()
+  -- after a restart, ask the turtles where they've got to
   if state.build and openWireless() then
-    rednet.send(state.build.builder, { type = "status", id = 0, key = state.build.key }, BUILD_PROTOCOL)
+    for _, p in ipairs(state.build.parts) do
+      if p.builder and not p.finished then
+        rednet.send(p.builder, { type = "status", id = 0, key = p.key }, BUILD_PROTOCOL)
+      end
+    end
   elseif buildOnStart then
     startBuild()
   end
+  local retry = os.startTimer(RETRY_EVERY)
   while true do
     local ev = { os.pullEvent() }
     if ev[1] == "projector_build_start" and not state.build then
@@ -884,6 +1104,15 @@ local function buildLoop()
       stopBuild()
     elseif ev[1] == "rednet_message" and ev[4] == BUILD_PROTOCOL then
       onBuilder(ev[2], ev[3])
+    elseif ev[1] == "projector_build_more" and state.build and not state.build.stopping and pending() > 0 then
+      if handOut({ ev[2] }) > 0 then save() os.queueEvent("projector_status") end
+    elseif ev[1] == "timer" and ev[2] == retry then
+      -- strips still waiting: offer them to any builder that's free now
+      if state.build and not state.build.stopping and pending() > 0 and openWireless() then
+        local free = freeBuilders()
+        if #free > 0 and handOut(free) > 0 then save() os.queueEvent("projector_status") end
+      end
+      retry = os.startTimer(RETRY_EVERY)
     end
   end
 end

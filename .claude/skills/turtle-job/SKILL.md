@@ -147,6 +147,10 @@ its own real position. Copy `computers/builder-turtle/builder.lua`:
   where nothing is built yet; anywhere else, fly above it.
 - Report progress back to the computer that sent the job (`projector_build`
   `progress`) as well as to the status server.
+- Sharing a job between turtles: give each its own part of the area to
+  clear and build, have every turtle stay out of the others' parts, and give
+  each a cruise height of its own (`lane`) so they never meet in the air
+  (builder.lua's strips, village.lua's crew).
 
 ## Materials from the storage system
 

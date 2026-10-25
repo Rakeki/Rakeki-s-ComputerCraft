@@ -265,11 +265,50 @@ there's none, it waits.
   it has built, and never digs sideways on the way: it goes over whatever's
   in front of it.
 
+## Building with a crew
+
+More village turtles can help build one village. Each helper builds whole
+plots (building, door path and street) while the first turtle, the
+**lead**, keeps the village's map and hands out the plots, so a village
+goes up several plots at a time.
+
+Every turtle in the crew needs **GPS** (they share the village's
+coordinates through it; see the [GPS deployer](../gps-deployer/README.md))
+and a wireless or ender modem. The lead must have had GPS when its village
+started.
+
+1. Start the village with one turtle as usual (`village`). That's the lead.
+2. Put each helper somewhere near the village with **its own supply chest
+   behind it and spoil chest on its left**, stocked like the lead's (or
+   with a wired modem on the supply chest, on the
+   [storage system's](../storage-computer/README.md) cable).
+3. On each helper, run `village join`. It finds the lead, says "Joined
+   turtle #7's Medieval village", and starts on the next free plot. With more
+   than one village around, name the lead: `village join 7`.
+
+What to expect:
+
+- The lead builds the depot and plaza first, as always; helpers start on
+  the plots around it straight away.
+- Each turtle flies between plots at a height of its own, so they don't meet
+  in the air.
+- A helper tells the lead what it built when it finishes a plot, then asks
+  for the next. If the lead can't be reached it keeps trying every 30
+  seconds, and says so.
+- A helper that goes quiet for 30 minutes (broken, or its chunk unloaded)
+  loses its plot: the lead gives it to someone else.
+- When no plots are left, the lead waits at home for the crew to finish
+  theirs, then says the village is done. `village grow` on the lead gives
+  everyone more plots.
+- Reboots are fine: helpers resume their plot, and their reports wait until
+  the lead is back.
+
 ## Seeing it with a projector
 
 Optional. With a wireless or ender modem, the turtle shares the building it's
 working on, so a [blueprint projector](../blueprint-projector/README.md#following-a-village-turtle)
-running `projector village` can show it in the world as glowing outlines:
+running `projector village` can show it in the world as glowing outlines
+(with a crew, it shows whichever turtle last picked a building):
 you can see the whole building on its plot while the turtle is still
 fetching materials or clearing the ground. In Layer view the projection
 follows the layer the turtle is building. It moves on to the next building
@@ -290,6 +329,7 @@ To turn sharing off, set `SHARE_PLAN = false` at the top of `village.lua`.
 - `village list [theme]`: blocks each building needs
 - `village status`: what's built so far
 - `village cancel`: forget the village (the buildings stay)
+- `village join [lead id]`: help another village turtle build its village, from this turtle's own chests (needs GPS; see [Building with a crew](#building-with-a-crew))
 
 ## Things to know
 

@@ -6,6 +6,9 @@
 -- supply chest behind its home block (and from a storage system, if there is
 -- one); what it digs up goes in the spoil chest to its left. It tells the
 -- projector how far it's got, so the projection's Layer view follows it.
+-- With several builder turtles about, the projector splits the building into
+-- side-by-side strips and each turtle builds one: it clears and builds only
+-- its strip, and crosses over at a height of its own so they don't meet.
 --
 --   builder            wait for a building from a projector (startup.lua runs this)
 --   builder setup      make this block home (asks where I am if there's no GPS)
@@ -52,7 +55,11 @@ local FUEL = {}
 for _, n in ipairs({ "minecraft:coal", "minecraft:charcoal", "minecraft:coal_block", "minecraft:blaze_rod" }) do FUEL[n] = true end
 
 local args = { ... }
-local job -- { key, name, from, mats, blocks = { { x, y, z, m } } } in world coordinates
+-- { key, name, from, mats, blocks = { { x, y, z, m } } } in world coordinates;
+-- for one strip of a building shared by several turtles also area (the whole
+-- building's box), part (this strip's x0, x1, z0, z1) and lane (0, 1, ...:
+-- how many blocks higher than the others I cross over)
+local job
 local prog -- { stage = "clear" | "build", step }
 local home -- { x, y, z, heading, gps }
 local order, box -- derived from job: build order (block indexes), and the box it fills
@@ -143,6 +150,11 @@ local function buildPlan()
     box.x0, box.y0, box.z0 = math.min(box.x0, b[1]), math.min(box.y0, b[2]), math.min(box.z0, b[3])
     box.x1, box.y1, box.z1 = math.max(box.x1, b[1]), math.max(box.y1, b[2]), math.max(box.z1, b[3])
   end
+  -- one strip of a shared building: clear the whole strip, all the way up
+  if type(job.part) == "table" then
+    box.x0, box.x1, box.z0, box.z1 = job.part.x0, job.part.x1, job.part.z0, job.part.z1
+  end
+  if type(job.area) == "table" then box.y0, box.y1 = job.area.y0, job.area.y1 end
   table.sort(order, function(a, c)
     local A, C = job.blocks[a], job.blocks[c]
     if A[2] ~= C[2] then return A[2] < C[2] end
@@ -198,7 +210,21 @@ end
 
 ---------------------------------------------------------------- moving
 
-local function cruiseHeight() return math.max(box.y1 + 2, home.y + 2) end
+-- Above the whole building (not just my strip of it, which may be lower than
+-- the next), and with several turtles each at its own height.
+local function cruiseHeight()
+  local top = type(job.area) == "table" and job.area.y1 or box.y1
+  return math.max(top + 2, home.y + 2) + (tonumber(job.lane) or 0)
+end
+
+-- A cell another turtle's strip of the building may fill: never stand there.
+local function othersCell(x, z)
+  local a = job.area
+  if type(a) ~= "table" or type(job.part) ~= "table" then return false end
+  local inArea = x >= a.x0 and x <= a.x1 and z >= a.z0 and z <= a.z1
+  local mine = x >= box.x0 and x <= box.x1 and z >= box.z0 and z <= box.z1
+  return inArea and not mine
+end
 
 local function inBox(p)
   return p.x >= box.x0 and p.x <= box.x1 and p.z >= box.z0 and p.z <= box.z1 and p.y >= box.y0 and p.y <= box.y1 + 1
@@ -568,7 +594,7 @@ local function placeDoor(b, name, item)
   for h = 0, 3 do
     local d = ({ [0] = { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } })[h]
     local side = { x = b[1] - d[1], y = b[2], z = b[3] - d[2] }
-    if not filled[side.x .. "," .. side.z] then
+    if not filled[side.x .. "," .. side.z] and not othersCell(side.x, side.z) then
       if count(item) == 0 then return "missing" end
       if reach(side) then
         nav.face(h)
@@ -712,7 +738,9 @@ local function onMessage(from, msg)
       answer({ type = "refused", why = ("it's %d blocks from my home, more than %d"):format(far, MAX_DISTANCE) })
       return
     end
-    job = { key = msg.key, name = tostring(msg.name or "a building"), from = from, mats = msg.mats, blocks = msg.blocks }
+    job = { key = msg.key, name = tostring(msg.name or "a building"), from = from, mats = msg.mats, blocks = msg.blocks,
+      area = type(msg.area) == "table" and msg.area or nil, part = type(msg.part) == "table" and msg.part or nil,
+      lane = tonumber(msg.lane) }
     prog = { stage = "clear", step = 0, skipped = 0 }
     nav.writeFile(JOB_FILE, job)
     save()

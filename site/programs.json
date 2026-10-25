@@ -126,6 +126,7 @@
         "Surveys each plot and picks a building that fits the terrain",
         "Streets with curbs, lamp posts and stairs on slopes",
         "Saves after every block: survives any number of reboots",
+        "Build with a crew: with GPS, more village turtles join and take plots of their own",
         "Optional: fetches blocks from the storage system and shows its next building on the projector"
       ],
       "setup": [
@@ -141,7 +142,8 @@
         ["village grow <radius>", "let a finished village grow further"],
         ["village resume", "carry on (startup does this)"],
         ["village here", "no GPS: reset to its home block"],
-        ["village cancel", "forget the village (buildings stay)"]
+        ["village cancel", "forget the village (buildings stay)"],
+        ["village join [id]", "help another village turtle build its village, from this turtle's own chests (GPS)"]
       ],
       "integrates": [
         ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
@@ -542,7 +544,7 @@
         "Layer view outlines every block of one layer to build from",
         "Top-down map of the layer and the blocks it needs",
         "Follows a village turtle and projects the building it's working on",
-        "Tap Build and a builder turtle builds it right where it's shown"
+        "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -554,7 +556,7 @@
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a built-in plan or /plans/<plan>.lua"],
         ["projector village", "follow what a village turtle is building"],
-        ["projector build", "have a builder turtle build the plan where it's shown (or tap Build)"],
+        ["projector build", "have the free builder turtles build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
         ["projector check <plan>", "load a plan and list the blocks it needs"],
         ["projector clear", "remove the projection"]
@@ -601,6 +603,7 @@
         "Clears the plot, then builds every layer from the block above it",
         "Restocks from the supply chest behind its home, or orders from the storage system",
         "Reports to the projector: the panel shows how far it's got and Layer view follows it",
+        "Several builders share one building, a strip each, crossing over at heights of their own",
         "Saves after every block, so a reboot or chunk reload carries on where it stopped",
         "GPS or a typed-in position: it builds in real world coordinates"
       ],

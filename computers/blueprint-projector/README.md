@@ -96,16 +96,24 @@ With a [builder turtle](../builder-turtle/README.md) set up nearby, tap
 **Build** and it builds the building exactly where the projection is. Both
 need a wireless or ender modem.
 
-- The projector sends the plan to the first builder turtle that isn't busy.
-  The panel says which one took it, or why none did (none in range, or all
-  busy).
-- While it builds, the panel shows how far it's got ("Builder #7: building,
-  340 of 1200 (28%)"), and in **Layer** view the projection follows the layer
-  it's on, so you can watch the next layer appear above it.
+- The projector asks every builder turtle in range whether it's free, and
+  shares the building between the free ones (up to 4): each gets a strip of
+  it, side by side across the longer side, at least 3 blocks wide. With one
+  free turtle it builds the whole thing. The panel says who took it, or why
+  none did (none in range, or all busy).
+- A strip nobody could take waits for the first turtle to come free (one
+  finishing its own strip, or a new one: the projector looks every 30
+  seconds).
+- While they build, the panel shows how far they've got ("Builder #7:
+  building, 340 of 1200 (28%)", or with a few, "3 builders: 900 of 2400
+  (37%)"), and in **Layer** view the projection follows the lowest layer
+  being built, so you can watch the next layer appear.
 - The building can't be moved, turned or swapped for another plan while it's
-  being built. Tap **Stop** to call the turtle off; it goes home.
-- When it's done the panel says so, with how many blocks it couldn't place,
-  if any. A restart of the projector keeps track: it asks the turtle where
+  being built. Tap **Stop** to call the turtles off; they go home. If one
+  never answers (broken, or its chunk unloaded), tap Stop again to give up
+  on it.
+- When it's done the panel says so, with how many blocks they couldn't place,
+  if any. A restart of the projector keeps track: it asks each turtle where
   it's got to.
 
 ## Following a village turtle
