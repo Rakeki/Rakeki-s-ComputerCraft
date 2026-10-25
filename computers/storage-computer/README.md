@@ -40,9 +40,8 @@ search (by name, as you'd see it in game), pick with the arrow keys or the
 mouse, then Enter for a stack or Right arrow for just one. The top line shows
 how many chests and slots are in use (or how full the ME or RS system is).
 
-With crafting set up, there are two tabs under the top line: **Stored** and
-**Craftable** (light blue), each showing how many items match the search.
-Press Tab or click one to switch. See [Crafting](#crafting).
+An optional **Craftable** tab can sit next to the stored items (see
+[Crafting](#crafting)); it's off unless you turn it on.
 
 A monitor, if one is attached, shows a bar of how full the storage is and the
 items there's most of. With a wireless modem it also reports to the
@@ -101,8 +100,10 @@ footer says "No wireless modem: turtles can't ask me for items."
 
 ### Crafting
 
-With a [crafting turtle](../crafter-turtle/README.md), a turtle can ask for
-things that aren't stored but could be made from what is. When the village
+With a [crafting turtle](../crafter-turtle/README.md), the turtles that ask
+the storage computer for blocks (the [village builder](../village-turtle/README.md),
+the [builder](../builder-turtle/README.md)) get things that aren't stored
+but could be made from what is: it has them crafted on request. When the village
 builder asks for 40 jungle fences and there are none, but there are jungle
 logs, the storage computer plans the crafts (logs into planks, planks into
 sticks, then the fences), puts each batch's ingredients in the crafter chest
@@ -110,16 +111,19 @@ and has the crafting turtle make them. The results go into storage, and the
 turtle that asked gets them on its next request. It never crafts the same
 order twice while one is already being made.
 
-You can ask for crafts too. With a crafter chest set, the **Craftable** tab
-lists, in light blue, everything that isn't stored but could be made from
-what is, with how many could be made ("can make 40"). Search it like the
-Stored tab, pick one and press Enter for a stack (or Right for one): it's
-crafted, and sent to the output chest as soon as it's ready. The monitor
-lists craftable items in light blue after the stored ones. The list is
-worked out again within 30 seconds of anything changing (it takes a few
-seconds with a big modpack, so it happens in the background). With an
-[ME or RS system](#me-and-rs-systems), items it has a pattern for are
-listed as well, marked "pattern".
+You can ask for crafts on the terminal too, with the **Craftable** tab. It's
+off by default, because working out everything that could be made from a
+big store with a big modpack takes a long while. To turn it on, set
+`CRAFTABLE_TAB = true` near the top of `storage.lua` (`install update`
+puts it back to off). Then there are two tabs under the top line,
+**Stored** and **Craftable** (light blue); press Tab or click one to switch.
+The Craftable tab lists everything that isn't stored but could be made,
+with how many ("can make 40"). Pick one and press Enter for a stack (or
+Right for one): it's crafted and sent to the output chest when it's ready.
+The monitor lists craftable items in light blue after the stored ones, and
+with an [ME or RS system](#me-and-rs-systems), items it has a pattern for
+are listed too, marked "pattern". The list is worked out in the
+background, again within 30 seconds of anything changing.
 
 When a turtle asks how much of something there is, what could be crafted
 counts as well, so the village builder doesn't wait for blocks that can be

@@ -355,11 +355,16 @@ end
 
 ---------------------------------------------------------------- screen
 
+-- The screen is drawn into a hidden window and shown in one go, so it
+-- doesn't flash: clearing and redrawing in place does.
+local screen = term.current()
+local win
+
 local function put(x, y, text, fg, bg)
-  term.setCursorPos(x, y)
-  term.setTextColor(colors[fg])
-  term.setBackgroundColor(colors[bg or "black"])
-  term.write(text)
+  win.setCursorPos(x, y)
+  win.setTextColor(colors[fg])
+  win.setBackgroundColor(colors[bg or "black"])
+  win.write(text)
 end
 
 local function fitText(text, w)
@@ -368,10 +373,14 @@ local function fitText(text, w)
 end
 
 local function draw()
-  local w, h = term.getSize()
-  term.setCursorBlink(false)
-  term.setBackgroundColor(colors.black)
-  term.clear()
+  local w, h = screen.getSize()
+  local ww, wh = 0, 0
+  if win then ww, wh = win.getSize() end
+  if not win or ww ~= w or wh ~= h then win = window.create(screen, 1, 1, w, h, false) end
+  win.setVisible(false)
+  win.setCursorBlink(false)
+  win.setBackgroundColor(colors.black)
+  win.clear()
   put(1, 1, (" "):rep(w), "white", "gray")
   put(2, 1, "Smelter", "yellow", "gray")
   local stat = stock and ("fuel for %d items"):format(stock.fuel or 0) or "no storage yet"
@@ -394,6 +403,7 @@ local function draw()
   put(1, h - 2, fitText(" " .. (order or "No charcoal order."), w), order and "lightBlue" or "gray")
   put(1, h - 1, fitText(message[1], w), message[2])
   put(1, h, fitText("C: make charcoal  X: cancel charcoal", w), "gray")
+  win.setVisible(true)
 end
 
 -- Ask which logs to burn and how much charcoal to make, from what the

@@ -236,6 +236,10 @@ Detailed guides live in `.claude/skills/`:
   what it does and its usage lines.
 - **Movement:** turtles use `lib/nav.lua` (never raw `turtle.forward` for moves
   that change position) so position is saved and protected blocks are never dug.
+- **Screens:** never clear a monitor (or the terminal) and redraw it in place: it
+  flashes. Draw each frame into a hidden `window.create(target, 1, 1, w, h, false)`,
+  then `setVisible(true)` (see storage.lua's `frameFor`). A monitor redrawn on every
+  event should also skip frames that haven't changed.
 - **Status:** long-running programs call `report.init(role)`, `report.set(state, detail)`
   as they work, and run `parallel.waitForAny(main, report.loop)`; wrap `main` in
   `errlog.pcall` and report `"error"` on failure.

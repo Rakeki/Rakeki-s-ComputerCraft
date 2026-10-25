@@ -50,6 +50,11 @@ local SETUP_FILE = "/.storage_setup"
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
 local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage with stack upgrades)
+-- A Craftable tab listing everything that could be crafted from what's
+-- stored. Off by default: with a big modpack it takes a long while to work
+-- out. Turtles (village builder, builder, smelter) get crafted items either
+-- way: anything they ask for that isn't stored is crafted on request.
+local CRAFTABLE_TAB = false
 local VIEW_EVERY = 30 -- fewest seconds between recounts of what could be crafted (the Craftable tab)
 local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept before working it out again
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
@@ -215,9 +220,11 @@ local query, selected, scroll = "", 1, 0
 local tab = "stored" -- the terminal's tab: "stored", or "craft" for what could be crafted
 local tabZones = {} -- tab -> { x1, x2 } on the tab row, for mouse clicks
 
--- A Craftable tab only when something can craft: a crafting turtle, or an
--- ME/RS system's patterns.
-local function canCraftAny() return (crafting and setup.crafter) or store.craftables ~= nil end
+-- A Craftable tab only when it's turned on and something can craft: a
+-- crafting turtle, or an ME/RS system's patterns.
+local function canCraftAny()
+  return CRAFTABLE_TAB and ((crafting and setup.crafter) or store.craftables ~= nil) and true or false
+end
 
 -- The search hits in the open tab, plus those in each tab (for their counts).
 local function matches()
@@ -250,16 +257,34 @@ local function countText(n)
   return tostring(n)
 end
 
+-- Each screen is drawn into a hidden window and then shown in one go:
+-- clearing a monitor (or the terminal) and redrawing it in place makes it
+-- flash. A window is made again when its screen changes size.
+local screen = term.current() -- this program's terminal (a tab of its own on an advanced computer)
+local termWin
+local monWin, monName, monLast -- the monitor's window, which monitor, and what it last showed
+
+local function frameFor(win, target)
+  local w, h = target.getSize()
+  local ww, wh = 0, 0
+  if win then ww, wh = win.getSize() end
+  if not win or ww ~= w or wh ~= h then win = window.create(target, 1, 1, w, h, false) end
+  win.setVisible(false)
+  win.setBackgroundColor(colors.black)
+  win.clear()
+  return win, w, h
+end
+
 local function drawTerminal()
-  local w, h = term.getSize()
+  local t, w, h
+  termWin, w, h = frameFor(termWin, screen)
+  t = termWin
   if tab == "craft" and not canCraftAny() then tab = "stored" end
   local list, stored, craft = matches()
-  term.setBackgroundColor(colors.black)
-  term.clear()
-  put(term, 1, 1, (" "):rep(w), "white", "gray")
-  put(term, 2, 1, "Storage", "yellow", "gray")
+  put(t, 1, 1, (" "):rep(w), "white", "gray")
+  put(t, 2, 1, "Storage", "yellow", "gray")
   local _, _, stat = store.space()
-  put(term, w - #stat, 1, stat, "lightGray", "gray")
+  put(t, w - #stat, 1, stat, "lightGray", "gray")
 
   -- tabs: what's stored, and (light blue) what could be crafted
   tabZones = {}
@@ -267,14 +292,14 @@ local function drawTerminal()
   local function tabButton(name, label, onColour)
     local text = " " .. label .. " "
     local on = tab == name
-    put(term, x, 2, text, on and "black" or "white", on and onColour or "gray")
+    put(t, x, 2, text, on and "black" or "white", on and onColour or "gray")
     tabZones[name] = { x, x + #text - 1 }
     x = x + #text + 1
   end
   tabButton("stored", ("Stored %d"):format(#stored), "white")
   if canCraftAny() then tabButton("craft", ("Craftable %d"):format(#craft), "lightBlue") end
-  put(term, 1, 3, "Search: ", "lightGray")
-  put(term, 9, 3, query, "white")
+  put(t, 1, 3, "Search: ", "lightGray")
+  put(t, 9, 3, query, "white")
 
   local rows = h - 5
   selected = math.max(1, math.min(selected, #list))
@@ -286,8 +311,8 @@ local function drawTerminal()
       local sel = scroll + i == selected
       local bg = sel and "blue" or "black"
       local count = it.craftable and (it.count and ("can make " .. it.count) or "pattern") or countText(it.count)
-      put(term, 1, 3 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
-      put(term, w - #count, 3 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
+      put(t, 1, 3 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
+      put(t, w - #count, 3 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
     end
   end
   if #list == 0 then
@@ -296,27 +321,43 @@ local function drawTerminal()
     elseif tab == "stored" then empty = "Nothing stored yet."
     elseif not craftViewReady then empty = "Working out what can be crafted..."
     else empty = "Nothing can be crafted from what's stored." end
-    put(term, 2, 5, empty, "lightGray")
+    put(t, 2, 5, empty, "lightGray")
   end
 
-  put(term, 1, h - 1, fitText(message[1], w), message[2])
+  put(t, 1, h - 1, fitText(message[1], w), message[2])
   local other = canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
-  put(term, 1, h, fitText((tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one")
+  put(t, 1, h, fitText((tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one")
     .. other, w), "gray")
-  term.setCursorPos(9 + #query, 3)
-  term.setTextColor(colors.white)
-  term.setCursorBlink(true)
+  t.setCursorPos(9 + #query, 3)
+  t.setTextColor(colors.white)
+  t.setCursorBlink(true)
+  t.setVisible(true)
 end
 
 local function drawMonitor()
   local mon = peripheral.find("monitor")
   if not mon then return end
-  mon.setTextScale(MONITOR_SCALE)
+  local name = peripheral.getName(mon)
+  if name ~= monName then
+    mon.setTextScale(MONITOR_SCALE)
+    monName, monWin, monLast = name, nil, nil
+  end
   local w, h = mon.getSize()
   local list = totals()
   local used, total, text = store.space()
-  mon.setBackgroundColor(colors.black)
-  mon.clear()
+  -- the uiLoop redraws on every event: only touch the monitor when what it
+  -- shows has changed (each change is sent to every player who can see it)
+  local sig = { w, h, text, used or "", total or "" }
+  for i = 1, h - 5 do
+    local it = list[i]
+    if not it then break end
+    sig[#sig + 1] = it.displayName .. "=" .. tostring(it.count) .. (it.craftable and "+" or "")
+  end
+  sig = table.concat(sig, "|")
+  if sig == monLast then return end
+  monLast = sig
+  monWin, w, h = frameFor(monWin, mon)
+  mon = monWin
   put(mon, 1, 1, (" "):rep(w), "white", "gray")
   put(mon, 2, 1, "Storage", "yellow", "gray")
   -- how full it is, as a bar (when the store can say)
@@ -336,6 +377,7 @@ local function drawMonitor()
     put(mon, 2, 5 + i, fitText(it.displayName, w - #count - 3), it.craftable and "lightBlue" or "white")
     put(mon, w - #count, 5 + i, count, it.craftable and "lightBlue" or "lightGray")
   end
+  mon.setVisible(true)
 end
 
 local function redraw()
@@ -925,6 +967,9 @@ end
 -- storage changes, at most every VIEW_EVERY seconds. Counting is a plan per
 -- try, so it runs here rather than on every redraw.
 local function craftViewLoop()
+  if not CRAFTABLE_TAB then
+    while true do sleep(3600) end
+  end
   while true do
     local view, avail = {}, planningStock()
     if crafting and setup.crafter then

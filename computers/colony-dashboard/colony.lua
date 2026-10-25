@@ -92,7 +92,9 @@ end
 
 ---------------------------------------------------------------- drawing
 
-local screen -- the monitor, or term
+local screen -- what's drawn on: a hidden window over the monitor (or term), shown once a page is drawn
+local target -- the monitor, or term
+local onTerm = false -- no monitor: the page is on this computer's screen, and clicks work
 
 local function put(x, y, text, fg, bg)
   screen.setCursorPos(x, y)
@@ -254,8 +256,15 @@ end
 
 local PAGES = { drawOverview, drawCitizens, drawBuildings, drawRequests, drawBuilds }
 
+-- Drawn into a hidden window and shown in one go: clearing the monitor and
+-- redrawing it in place makes it flash every refresh.
 local function draw()
   ui.zones = {}
+  local tw, th = target.getSize()
+  local sw, sh = 0, 0
+  if screen then sw, sh = screen.getSize() end
+  if not screen or sw ~= tw or sh ~= th then screen = window.create(target, 1, 1, tw, th, false) end
+  screen.setVisible(false)
   screen.setBackgroundColor(colors.black)
   screen.clear()
   local w, h = screen.getSize()
@@ -263,10 +272,11 @@ local function draw()
     put(2, 2, "Not inside a colony.", "red")
     put(2, 4, "Move this computer and its Colony Integrator", "white")
     put(2, 5, "inside your colony's borders.", "white")
-    return
+  else
+    drawTabs(w)
+    PAGES[ui.tab](w, h)
   end
-  drawTabs(w)
-  PAGES[ui.tab](w, h)
+  screen.setVisible(true)
 end
 
 ---------------------------------------------------------------- loops
@@ -307,7 +317,7 @@ end
 local function touchLoop()
   while true do
     local event, _, x, y = os.pullEvent()
-    if event == "monitor_touch" or (event == "mouse_click" and screen == term) then
+    if event == "monitor_touch" or (event == "mouse_click" and onTerm) then
       for _, z in ipairs(ui.zones) do
         if y == z.y and x >= z.x1 and x <= z.x2 then
           z.action()
@@ -333,13 +343,13 @@ end
 local monitor = peripheral.find("monitor")
 if monitor then
   monitor.setTextScale(MONITOR_SCALE)
-  screen = monitor
+  target = monitor
   term.clear()
   term.setCursorPos(1, 1)
   print("Colony dashboard running on the monitor.")
   print("Hold Ctrl+T to stop.")
 else
-  screen = term
+  target, onTerm = term.current(), true
 end
 
 if report then report.init("colony dashboard") end
