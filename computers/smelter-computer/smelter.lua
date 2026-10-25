@@ -158,17 +158,8 @@ end
 ---------------------------------------------------------------- a round
 
 local function round()
-  local reply, err = ask({ type = "stock" })
-  if not reply or type(reply.counts) ~= "table" then
-    say(("Waiting for the storage computer: %s."):format(err or "it's too old, run 'install update' on it"), "orange")
-    status("waiting", "no storage computer")
-    return
-  end
-  stock = reply
-  local counts, input = reply.counts, reply.input
-  local order = readJob()
-  job = order
-
+  -- the furnaces first, so the screen shows them even while the storage
+  -- computer isn't answering
   local list = findFurnaces()
   if #list == 0 then
     furnaces = list
@@ -187,6 +178,18 @@ local function round()
   end
   parallel.waitForAll(table.unpack(reads))
   furnaces = list
+  job = readJob()
+
+  local reply, err = ask({ type = "stock" })
+  if not reply or type(reply.counts) ~= "table" then
+    -- an older storage program neither listens on the cable nor knows "stock"
+    say("Storage not answering: 'install update' on it.", "orange")
+    status("waiting", ("storage computer: %s"):format(err or "too old to answer"))
+    return
+  end
+  stock = reply
+  local counts, input = reply.counts, reply.input
+  local order = job
 
   -- what's smelted goes back through the input chest (charcoal is put in
   -- the fuel chest from there)
