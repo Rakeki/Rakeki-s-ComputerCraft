@@ -29,11 +29,17 @@ local report = fs.exists("lib/report.lua") and require("lib.report")
 local crafting = fs.exists("crafting.lua") and require("crafting")
 if crafting then crafting.load(fs.exists("recipes.lua") and require("recipes") or {}) end
 -- a modpack's recipes, made with tools/recipes.mjs (see the README)
-local packRecipes = 0
+local packRecipes, packError = 0, nil
 if crafting and fs.exists("pack_recipes.lua") then
   print("Loading the modpack's recipes...")
   local ok, pack = pcall(require, "pack_recipes")
-  if ok and type(pack) == "table" then packRecipes = crafting.loadPack(pack) else print("pack_recipes.lua is broken: " .. tostring(pack)) end
+  if ok and type(pack) == "table" then
+    packRecipes = crafting.loadPack(pack)
+    print(("Loaded %d modpack recipes."):format(packRecipes))
+  else
+    packError = tostring(pack)
+    print("pack_recipes.lua didn't load: " .. packError)
+  end
 end
 local chests = require("chests")
 local bridges = fs.exists("bridge.lua") and require("bridge")
@@ -1197,6 +1203,13 @@ if args[1] == "test" then
     print(("I know %d recipes, but there's no crafter chest: run 'storage setup'."):format(crafting.count()))
   else
     print(("I know %d recipes. Crafter chest: %s."):format(crafting.count(), setup.crafter))
+    if packError then
+      print("pack_recipes.lua didn't load: " .. packError)
+    elseif packRecipes > 0 then
+      print(("%d of them come from pack_recipes.lua (the modpack)."):format(packRecipes))
+    else
+      print("No pack_recipes.lua: only vanilla recipes. See 'Modded recipes' in the README.")
+    end
     -- the crafting turtle may answer by wireless or over the cable
     for _, side in ipairs(peripheral.getNames()) do
       if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
@@ -1221,6 +1234,7 @@ end
 
 term.clear()
 if missingChest then message = { missingChest, "orange" } end
+if packError then message = { "pack_recipes.lua didn't load: run 'storage test'.", "red" } end
 if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store.problem), "red" } end
 
 if report then report.init("storage") end
