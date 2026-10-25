@@ -219,6 +219,7 @@ fs.rmSync(OUT, { recursive: true, force: true });
 copyDir(path.join(SRC, "assets"), path.join(OUT, "assets"));
 copyDir(path.join(ROOT, "computers"), path.join(OUT, "computers"), (n) => n === "_template");
 copyDir(path.join(ROOT, "lib"), path.join(OUT, "lib"));
+copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"));
 write(".nojekyll", "");
 write("assets/turtle.svg", pixelSvg(TURTLE).replace(/#c99a2e/g, "#f2b233"));
 write("assets/computer.svg", pixelSvg(COMPUTER));

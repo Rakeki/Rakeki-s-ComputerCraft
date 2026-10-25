@@ -40,6 +40,10 @@ search (by name, as you'd see it in game), pick with the arrow keys or the
 mouse, then Enter for a stack or Right arrow for just one. The top line shows
 how many chests and slots are in use (or how full the ME or RS system is).
 
+With crafting set up, there are two tabs under the top line: **Stored** and
+**Craftable** (light blue), each showing how many items match the search.
+Press Tab or click one to switch. See [Crafting](#crafting).
+
 A monitor, if one is attached, shows a bar of how full the storage is and the
 items there's most of. With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -106,15 +110,16 @@ and has the crafting turtle make them. The results go into storage, and the
 turtle that asked gets them on its next request. It never crafts the same
 order twice while one is already being made.
 
-You can ask for crafts too. With a crafter chest set, the item list also
-shows, in **light blue**, everything that isn't stored but could be made
-from what is, with how many could be made ("can make 40"). They come after
-the stored items and show up in searches like anything else. Pick one and
-press Enter for a stack (or Right for one): it's crafted, and sent to the
-output chest as soon as it's ready. The monitor lists them in light blue
-too. The list is worked out again within 10 seconds of anything changing.
-With an [ME or RS system](#me-and-rs-systems), items it has a pattern for
-are listed as well, marked "pattern".
+You can ask for crafts too. With a crafter chest set, the **Craftable** tab
+lists, in light blue, everything that isn't stored but could be made from
+what is, with how many could be made ("can make 40"). Search it like the
+Stored tab, pick one and press Enter for a stack (or Right for one): it's
+crafted, and sent to the output chest as soon as it's ready. The monitor
+lists craftable items in light blue after the stored ones. The list is
+worked out again within 30 seconds of anything changing (it takes a few
+seconds with a big modpack, so it happens in the background). With an
+[ME or RS system](#me-and-rs-systems), items it has a pattern for are
+listed as well, marked "pattern".
 
 When a turtle asks how much of something there is, what could be crafted
 counts as well, so the village builder doesn't wait for blocks that can be
@@ -132,6 +137,38 @@ stuck, and it carries on by itself once the turtle is back.
 The recipes are in `recipes.lua`: everything craftable that the village
 themes use, plus the usual basics. Teach it more with `crafter learn` on the
 crafting turtle; those are saved on this computer in `/.storage_recipes`.
+For every recipe in your modpack, see [Modded recipes](#modded-recipes).
+
+### Modded recipes
+
+CC can't read the game's recipe book, but every vanilla and mod recipe is
+stored in the mod files, and [`tools/recipes.mjs`](../../tools/recipes.mjs)
+pulls out all the crafting-table ones (shaped and shapeless, with tags like
+"any planks"). Machine recipes (Create, Botany Pots and so on) are left out:
+the crafting turtle can't make those. The result is one file,
+`pack_recipes.lua`, which the storage computer loads next to `recipes.lua`
+when it starts.
+
+For the TRekt Mons pack the file is already made (7,600 recipes, 620 KB).
+On the storage computer:
+
+```
+wget https://rakeki.github.io/Rakeki-s-ComputerCraft/computers/storage-computer/packs/trekt-mons.lua pack_recipes.lua
+reboot
+```
+
+For another pack, or after adding mods, run this on your PC (it needs
+Node.js) and copy the file it writes onto the storage computer as
+`pack_recipes.lua` (dragging a file onto an open computer screen uploads
+it):
+
+```
+node tools/recipes.mjs pack_recipes.lua <the Minecraft version jar> <your mods folder>
+```
+
+`install update` never touches `pack_recipes.lua`. A computer has 1 MB of
+disk by default, so a file much bigger than about 700 KB won't fit next to
+the programs.
 Smelting isn't crafting: smooth sandstone, glass and the like aren't made
 on request. The [smelter](../smelter-computer/README.md) smelts ores as they
 come in, and anything else you add to its list.
@@ -227,6 +264,7 @@ and answer yes when it finds the bridge. A Refined Storage system with an
 - `bridge.lua`: storing in an ME or RS system through its bridge
 - `crafting.lua`: works out what to craft, ingredients first
 - `recipes.lua`: the built-in recipes
+- `pack_recipes.lua`: optional, every crafting recipe in your modpack (see [Modded recipes](#modded-recipes)); `packs/` has ready-made ones
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 

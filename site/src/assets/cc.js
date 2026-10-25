@@ -506,8 +506,9 @@
   //---------------------------------------------------------------- storage terminal
 
   // The storage computer's search screen: same layout as
-  // computers/storage-computer/storage.lua. It types a few searches on its own
-  // until clicked; then click a row to pick it and click it again for a stack.
+  // computers/storage-computer/storage.lua, with its Stored and Craftable tabs.
+  // It types a few searches on its own until clicked; then click a tab or a
+  // row to pick it, and a row again for a stack.
   function storage(el) {
     const W = 51, H = 19;
     const s = new Screen(W, H, el);
@@ -521,11 +522,13 @@
     const crafts = [["Oak Planks", 4096], ["Stick", 2776], ["Oak Fence", 1041], ["Torch", 536], ["Chest", 173]]
       .map(([name, count]) => ({ name, count, craft: true }));
     const SLOTS = 27 * 12;
-    const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true };
+    const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true, tab: "stored" };
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
     const countText = (n) => n >= 64 ? `${n} (${Math.floor(n / 64)}x64${n % 64 ? `+${n % 64}` : ""})` : String(n);
     const fits = (it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase());
-    const matches = () => items.filter(fits).sort((a, b) => b.count - a.count).concat(crafts.filter(fits));
+    const stored = () => items.filter(fits).sort((a, b) => b.count - a.count);
+    const matches = () => (st.tab === "craft" ? crafts.filter(fits) : stored());
+    const setTab = (t) => { st.tab = t; st.selected = 1; st.scroll = 0; };
 
     function take(n) {
       const it = matches()[st.selected - 1];
@@ -548,9 +551,17 @@
       s.put(2, 1, "Storage", "yellow", "gray");
       const stat = `12 chests, ${used}/${SLOTS} slots`;
       s.put(W - stat.length, 1, stat, "lightGray", "gray");
-      s.put(1, 2, "Search: ", "lightGray");
-      s.put(9, 2, st.query, "white");
-      const rows = H - 4;
+      // tabs: what's stored, and (light blue) what could be crafted
+      let tx = 1;
+      for (const [t, label, on] of [["stored", `Stored ${stored().length}`, "white"], ["craft", `Craftable ${crafts.filter(fits).length}`, "lightBlue"]]) {
+        const text = ` ${label} `, sel = st.tab === t;
+        s.put(tx, 2, text, sel ? "black" : "white", sel ? on : "gray");
+        s.zones.push({ x1: tx, x2: tx + text.length - 1, y1: 2, y2: 2, action: () => setTab(t) });
+        tx += text.length + 1;
+      }
+      s.put(1, 3, "Search: ", "lightGray");
+      s.put(9, 3, st.query, "white");
+      const rows = H - 5;
       st.selected = Math.max(1, Math.min(st.selected, list.length));
       if (st.selected <= st.scroll) st.scroll = st.selected - 1;
       if (st.selected > st.scroll + rows) st.scroll = st.selected - rows;
@@ -559,16 +570,15 @@
         if (!it) continue;
         const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black";
         const c = it.craft ? `can make ${it.count}` : countText(it.count);
-        s.put(1, 2 + i, fitT(" " + it.name, W - c.length - 1), it.craft && !sel ? "lightBlue" : "white", bg);
-        s.put(W - c.length, 2 + i, c + " ", sel ? "white" : it.craft ? "lightBlue" : "lightGray", bg);
+        s.put(1, 3 + i, fitT(" " + it.name, W - c.length - 1), it.craft && !sel ? "lightBlue" : "white", bg);
+        s.put(W - c.length, 3 + i, c + " ", sel ? "white" : it.craft ? "lightBlue" : "lightGray", bg);
         const idx = st.scroll + i;
-        s.zones.push({ x1: 1, x2: W, y1: 2 + i, y2: 2 + i, action: () => { if (st.selected === idx) take(64); else st.selected = idx; } });
+        s.zones.push({ x1: 1, x2: W, y1: 3 + i, y2: 3 + i, action: () => { if (st.selected === idx) take(64); else st.selected = idx; } });
       }
-      if (!list.length) s.put(2, 4, "No matches.", "lightGray");
+      if (!list.length) s.put(2, 5, "No matches.", "lightGray");
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      const picked = list[st.selected - 1];
-      s.put(1, H, fitT(picked && picked.craft ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one  Up/Down: pick", W), "gray");
-      s.render({ x: 9 + st.query.length, y: 2 });
+      s.put(1, H, fitT(st.tab === "craft" ? "Enter: craft a stack  Right: craft one  Tab: stored" : "Enter: a stack  Right: one  Tab: craftable", W), "gray");
+      s.render({ x: 9 + st.query.length, y: 3 });
     }
 
     // the demo: search, pick, take, clear, repeat
@@ -581,9 +591,9 @@
         // and something it hasn't got, made by the crafting turtle
         () => { st.msg = ["Crafting 24 Smooth Sandstone Slab...", "lightBlue"]; }, () => {},
         () => { st.msg = ["Crafted 24 Smooth Sandstone Slab.", "lime"]; }, () => {}, () => { st.msg = ["", "lightGray"]; },
-        // and one asked for on the terminal: light blue means it can be crafted
-        ...[..."fence"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => {}, () => take(64), () => {}, () => {},
-        () => {}, () => { st.query = ""; st.msg = ["", "lightGray"]; }]);
+        // and one asked for on the Craftable tab
+        () => setTab("craft"), () => {}, () => { st.selected = 3; }, () => take(64), () => {}, () => {},
+        () => {}, () => { setTab("stored"); st.msg = ["", "lightGray"]; }]);
     let step = 0;
     setInterval(() => {
       if (!st.auto) return;

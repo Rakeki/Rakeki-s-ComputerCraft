@@ -28,6 +28,13 @@
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local crafting = fs.exists("crafting.lua") and require("crafting")
 if crafting then crafting.load(fs.exists("recipes.lua") and require("recipes") or {}) end
+-- a modpack's recipes, made with tools/recipes.mjs (see the README)
+local packRecipes = 0
+if crafting and fs.exists("pack_recipes.lua") then
+  print("Loading the modpack's recipes...")
+  local ok, pack = pcall(require, "pack_recipes")
+  if ok and type(pack) == "table" then packRecipes = crafting.loadPack(pack) else print("pack_recipes.lua is broken: " .. tostring(pack)) end
+end
 local chests = require("chests")
 local bridges = fs.exists("bridge.lua") and require("bridge")
 
@@ -36,7 +43,9 @@ local SETUP_FILE = "/.storage_setup"
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
 local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage with stack upgrades)
-local VIEW_EVERY = 10 -- fewest seconds between recounts of what could be crafted (listed in light blue)
+local VIEW_EVERY = 30 -- fewest seconds between recounts of what could be crafted (the Craftable tab)
+local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept before working it out again
+local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
@@ -67,6 +76,7 @@ local systemCrafts = {} -- name -> how many the ME/RS system is crafting for tur
 -- Items that aren't stored but could be crafted, for the list:
 -- { key, name, count (nil: the ME/RS system has a pattern), displayName, craftable = true }.
 local craftView = {}
+local craftViewReady = false -- the first count is done
 -- Crafts asked for on the terminal, sent to the output chest once made:
 -- name -> { want, sent }.
 local outputOrders = {}
@@ -195,15 +205,22 @@ end
 ---------------------------------------------------------------- screens
 
 local query, selected, scroll = "", 1, 0
+local tab = "stored" -- the terminal's tab: "stored", or "craft" for what could be crafted
+local tabZones = {} -- tab -> { x1, x2 } on the tab row, for mouse clicks
 
+-- A Craftable tab only when something can craft: a crafting turtle, or an
+-- ME/RS system's patterns.
+local function canCraftAny() return (crafting and setup.crafter) or store.craftables ~= nil end
+
+-- The search hits in the open tab, plus those in each tab (for their counts).
 local function matches()
-  local list = totals()
-  if query == "" then return list end
-  local q, out = query:lower(), {}
-  for _, it in ipairs(list) do
-    if it.displayName:lower():find(q, 1, true) or it.key:lower():find(q, 1, true) then out[#out + 1] = it end
+  local q, stored, craft = query:lower(), {}, {}
+  for _, it in ipairs(totals()) do
+    if q == "" or it.displayName:lower():find(q, 1, true) or it.key:lower():find(q, 1, true) then
+      if it.craftable then craft[#craft + 1] = it else stored[#stored + 1] = it end
+    end
   end
-  return out
+  return tab == "craft" and craft or stored, stored, craft
 end
 
 local function put(t, x, y, text, fg, bg)
@@ -228,17 +245,31 @@ end
 
 local function drawTerminal()
   local w, h = term.getSize()
-  local list = matches()
+  if tab == "craft" and not canCraftAny() then tab = "stored" end
+  local list, stored, craft = matches()
   term.setBackgroundColor(colors.black)
   term.clear()
   put(term, 1, 1, (" "):rep(w), "white", "gray")
   put(term, 2, 1, "Storage", "yellow", "gray")
   local _, _, stat = store.space()
   put(term, w - #stat, 1, stat, "lightGray", "gray")
-  put(term, 1, 2, "Search: ", "lightGray")
-  put(term, 9, 2, query, "white")
 
-  local rows = h - 4
+  -- tabs: what's stored, and (light blue) what could be crafted
+  tabZones = {}
+  local x = 1
+  local function tabButton(name, label, onColour)
+    local text = " " .. label .. " "
+    local on = tab == name
+    put(term, x, 2, text, on and "black" or "white", on and onColour or "gray")
+    tabZones[name] = { x, x + #text - 1 }
+    x = x + #text + 1
+  end
+  tabButton("stored", ("Stored %d"):format(#stored), "white")
+  if canCraftAny() then tabButton("craft", ("Craftable %d"):format(#craft), "lightBlue") end
+  put(term, 1, 3, "Search: ", "lightGray")
+  put(term, 9, 3, query, "white")
+
+  local rows = h - 5
   selected = math.max(1, math.min(selected, #list))
   if selected <= scroll then scroll = selected - 1 end
   if selected > scroll + rows then scroll = selected - rows end
@@ -247,19 +278,25 @@ local function drawTerminal()
     if it then
       local sel = scroll + i == selected
       local bg = sel and "blue" or "black"
-      -- light blue: not stored, but it can be crafted on request
       local count = it.craftable and (it.count and ("can make " .. it.count) or "pattern") or countText(it.count)
-      put(term, 1, 2 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
-      put(term, w - #count, 2 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
+      put(term, 1, 3 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
+      put(term, w - #count, 3 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
     end
   end
-  if #list == 0 then put(term, 2, 4, query == "" and "Nothing stored yet." or "No matches.", "lightGray") end
+  if #list == 0 then
+    local empty
+    if query ~= "" then empty = "No matches."
+    elseif tab == "stored" then empty = "Nothing stored yet."
+    elseif not craftViewReady then empty = "Working out what can be crafted..."
+    else empty = "Nothing can be crafted from what's stored." end
+    put(term, 2, 5, empty, "lightGray")
+  end
 
   put(term, 1, h - 1, fitText(message[1], w), message[2])
-  local picked = list[selected]
-  put(term, 1, h, fitText(picked and picked.craftable and "Enter: craft a stack  Right: craft one"
-    or "Enter: a stack  Right: one  Up/Down: pick", w), "gray")
-  term.setCursorPos(9 + #query, 2)
+  local other = canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
+  put(term, 1, h, fitText((tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one")
+    .. other, w), "gray")
+  term.setCursorPos(9 + #query, 3)
   term.setTextColor(colors.white)
   term.setCursorBlink(true)
 end
@@ -337,11 +374,13 @@ end
 local function uiLoop()
   while true do
     redraw()
-    local event, a, _, y = os.pullEvent()
+    local event, a, x, y = os.pullEvent()
     if event == "char" then
       query, selected, scroll = query .. a, 1, 0
     elseif event == "key" then
-      if a == keys.backspace then
+      if a == keys.tab and canCraftAny() then
+        tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
+      elseif a == keys.backspace then
         query, selected, scroll = query:sub(1, -2), 1, 0
       elseif a == keys.up then
         selected = selected - 1
@@ -360,7 +399,13 @@ local function uiLoop()
       selected = selected + a
     elseif event == "mouse_click" then
       local _, h = term.getSize()
-      if y >= 3 and y <= h - 2 then selected = scroll + y - 2 end
+      if y == 2 then
+        for name, z in pairs(tabZones) do
+          if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
+        end
+      elseif y >= 4 and y <= h - 2 then
+        selected = scroll + y - 3
+      end
     end
   end
 end
@@ -393,6 +438,17 @@ local function planningStock()
   return avail
 end
 
+-- What could be made at all from what's stored (crafting.reachable): plans
+-- only try those, which keeps thousands of modded recipes quick. Kept a few
+-- seconds, since a turtle's request may plan many items in a row.
+local reachCache, reachAt = nil, -math.huge
+local function reachNow()
+  if not reachCache or os.clock() - reachAt > REACH_EVERY then
+    reachCache, reachAt = crafting.reachable(planningStock()), os.clock()
+  end
+  return reachCache
+end
+
 -- The ME/RS system has a pattern for it.
 local function systemCanCraft(name) return store.canCraft ~= nil and store.canCraft(name) end
 
@@ -410,14 +466,14 @@ function orderCraft(name, count)
   if not crafting then return false, "crafting.lua is missing: run 'install update'" end
   if not crafting.canMake(name) then return false, "no recipe for it" end
   if not setup.crafter then return false, "no crafter chest: run 'storage setup'" end
-  local stock = planningStock()
-  local jobs, why = crafting.plan(name, count, stock), nil
+  local stock, reach = planningStock(), reachNow()
+  local jobs, why = crafting.plan(name, count, stock, reach), nil
   if not jobs then
     -- make what we can, so a build gets as far as it can meanwhile
-    local can = crafting.craftable(name, stock, count - 1)
+    local can = crafting.craftable(name, stock, count - 1, reach)
     if can == 0 then return false, "not enough to make it from" end
     count, why = can, ("only enough to make %d"):format(can)
-    jobs = crafting.plan(name, count, stock)
+    jobs = crafting.plan(name, count, stock, reach)
     if not jobs then return false, "not enough to make it from" end
   end
   planCount = planCount + 1
@@ -648,10 +704,11 @@ local function handleRequest(from, msg)
   if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
     local craftable = {}
     local avail = crafting and setup.crafter and planningStock()
+    local reach = avail and reachNow()
     for _, name in ipairs(msg.items) do
       if type(name) == "string" then
         local need = type(msg.need) == "table" and tonumber(msg.need[name]) or nil
-        local n = avail and crafting.craftable(name, avail, need) or 0
+        local n = avail and crafting.craftable(name, avail, need, reach) or 0
         -- the ME/RS system doesn't say how many it could make: take it that
         -- it can make what's needed
         if systemCanCraft(name) then n = math.max(n, need or 64) end
@@ -864,9 +921,11 @@ local function craftViewLoop()
   while true do
     local view, avail = {}, planningStock()
     if crafting and setup.crafter then
+      local reach = crafting.reachable(avail)
+      reachCache, reachAt = reach, os.clock()
       for _, name in ipairs(crafting.names()) do
-        if (avail[name] or 0) <= 0 then
-          local n = crafting.craftable(name, avail)
+        if (avail[name] or 0) <= 0 and reach[name] then
+          local n = crafting.craftable(name, avail, VIEW_MAX, reach)
           if n > 0 then view[#view + 1] = { key = name, name = name, count = n, displayName = titleName(name), craftable = true } end
         end
       end
@@ -880,7 +939,7 @@ local function craftViewLoop()
         end
       end
     end
-    craftView = view
+    craftView, craftViewReady = view, true
     os.queueEvent("storage_view")
     sleep(VIEW_EVERY)
     os.pullEvent("storage_changed")

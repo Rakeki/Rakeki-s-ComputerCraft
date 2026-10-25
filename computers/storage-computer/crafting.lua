@@ -3,11 +3,17 @@
 -- ingredients first (logs into planks into sticks into fences).
 --
 --   crafting.load(builtIn)          the recipes from recipes.lua, plus learnt ones
+--   crafting.loadPack(pack)         add a modpack's recipes (pack_recipes.lua, from tools/recipes.mjs)
 --   crafting.learn(recipe)          add a recipe taught with 'crafter learn', and save it
 --   crafting.canMake(name)          is there a recipe for it?
---   crafting.plan(name, n, avail)   crafts that make n, or nil; avail: item -> count usable
---   crafting.craftable(name, avail) how many could be made from avail
+--   crafting.reachable(avail)       every item that could possibly be made from avail
+--   crafting.plan(name, n, avail, reach)       crafts that make n, or nil; avail: item -> count usable
+--   crafting.craftable(name, avail, max, reach) how many could be made from avail
 --   crafting.names()                every item it has a recipe for
+--
+-- reach (from crafting.reachable) is optional: with thousands of modded
+-- recipes, plans only try making ingredients that can be made at all,
+-- which keeps them quick. Work it out once and pass it to many plans.
 local crafting = {}
 
 local LEARNT_FILE = "/.storage_recipes"
@@ -16,6 +22,8 @@ local MAX_CRAFTABLE = 4096 -- craftable() never counts higher than this
 
 local learnt = {} -- recipes as taught, saved in LEARNT_FILE
 local byMake = {} -- item -> recipes that make it, learnt ones first
+local tags = {} -- tag -> { [item] = true }, from a modpack's recipes ("#minecraft:planks")
+local makeableCache = {} -- recipe key -> items with a recipe that fit it
 
 ---------------------------------------------------------------- recipes
 
@@ -46,6 +54,7 @@ local function add(raw, first)
   local list = byMake[r.make] or {}
   byMake[r.make] = list
   if first then table.insert(list, 1, r) else list[#list + 1] = r end
+  makeableCache = {}
   return r
 end
 
@@ -79,6 +88,7 @@ function crafting.learn(raw)
   byMake[raw.make] = list
   r.learnt = true
   table.insert(list, 1, r)
+  makeableCache = {}
   return r
 end
 
@@ -105,12 +115,16 @@ end
 ---------------------------------------------------------------- matching
 
 local function glob(pattern, name)
+  if pattern:sub(1, 1) == "#" then
+    local set = tags[pattern:sub(2)]
+    return set ~= nil and set[name] == true
+  end
   if not pattern:find("*", 1, true) then return pattern == name end
   local lua = "^" .. pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0"):gsub("%*", ".*") .. "$"
   return name:find(lua) ~= nil
 end
 
--- Does item name fit a recipe key (a name, a name with *, or a list of them)?
+-- Does item name fit a recipe key (a name, a name with *, a #tag, or a list of them)?
 function crafting.matches(key, name)
   if type(key) == "table" then
     for _, k in ipairs(key) do
@@ -122,12 +136,20 @@ function crafting.matches(key, name)
 end
 
 -- Items that fit key and have a recipe, to try making when none are stored.
+-- Keys are strings or recipe-owned tables, so they work as cache keys.
 local function makeable(key)
+  local hit = makeableCache[key]
+  if hit then return hit end
   local list = {}
-  for make in pairs(byMake) do
-    if crafting.matches(key, make) then list[#list + 1] = make end
+  if type(key) == "string" and key:sub(1, 1) ~= "#" and not key:find("*", 1, true) then
+    if byMake[key] then list[1] = key end -- a plain name: no need to look through every recipe
+  else
+    for make in pairs(byMake) do
+      if crafting.matches(key, make) then list[#list + 1] = make end
+    end
+    table.sort(list)
   end
-  table.sort(list)
+  makeableCache[key] = list
   return list
 end
 
@@ -158,7 +180,7 @@ local function breathe()
 end
 
 -- One recipe, made count times over (rounded up to whole crafts).
-local function planRecipe(r, count, avail, jobs, depth, visiting)
+local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
   local steps = math.ceil(count / r.count)
   -- cells with the same key use the same item
   local per, order = {}, {}
@@ -182,7 +204,7 @@ local function planRecipe(r, count, avail, jobs, depth, visiting)
     if bestN < need then
       local made = false
       for _, item in ipairs(best and { best } or makeable(key)) do
-        if planItem(item, need - math.max(0, avail[item] or 0), avail, jobs, depth + 1, visiting) then
+        if planItem(item, need - math.max(0, avail[item] or 0), avail, jobs, depth + 1, visiting, reach) then
           best, made = item, true
           break
         end
@@ -203,14 +225,15 @@ end
 
 -- Add to jobs the crafts that make count of name, using up avail. On failure
 -- avail and jobs are left as they were.
-planItem = function(name, count, avail, jobs, depth, visiting)
+planItem = function(name, count, avail, jobs, depth, visiting, reach)
   if count <= 0 then return true end
   breathe()
   if depth > MAX_DEPTH or visiting[name] then return false end
+  if reach and not reach[name] then return false end -- can't be made from what's there at all
   for _, r in ipairs(byMake[name] or {}) do
     local saved, savedJobs = copy(avail), #jobs
     visiting[name] = true
-    local ok = planRecipe(r, count, avail, jobs, depth, visiting)
+    local ok = planRecipe(r, count, avail, jobs, depth, visiting, reach)
     visiting[name] = nil
     if ok then return true end
     copyInto(avail, saved)
@@ -220,9 +243,9 @@ planItem = function(name, count, avail, jobs, depth, visiting)
 end
 
 -- The crafts (in order) that make count of name from avail, or nil.
-function crafting.plan(name, count, avail)
+function crafting.plan(name, count, avail, reach)
   local jobs = {}
-  if not planItem(name, count, copy(avail), jobs, 0, {}) then return nil end
+  if not planItem(name, count, copy(avail), jobs, 0, {}, reach) then return nil end
   -- the same craft twice in a row becomes one
   local merged = {}
   for _, j in ipairs(jobs) do
@@ -238,10 +261,11 @@ end
 
 -- How many of name could be crafted from avail (on top of what's stored),
 -- counting no higher than max (or MAX_CRAFTABLE).
-function crafting.craftable(name, avail, max)
+function crafting.craftable(name, avail, max, reach)
   if not crafting.canMake(name) then return 0 end
+  if reach and not reach[name] then return 0 end
   max = math.max(1, math.min(max or MAX_CRAFTABLE, MAX_CRAFTABLE))
-  local function can(n) return crafting.plan(name, n, avail) ~= nil end
+  local function can(n) return crafting.plan(name, n, avail, reach) ~= nil end
   if not can(1) then return 0 end
   if can(max) then return max end
   local lo, hi = 1, 2
@@ -252,6 +276,94 @@ function crafting.craftable(name, avail, max)
     if can(mid) then lo = mid else hi = mid end
   end
   return lo
+end
+
+-- Everything that could possibly be made from avail, ignoring amounts:
+-- what's there, plus anything with a recipe whose every ingredient is
+-- (over and over, so planks count once logs do, then sticks).
+function crafting.reachable(avail)
+  local have = {}
+  for item, n in pairs(avail) do
+    if n > 0 then have[item] = true end
+  end
+  local function ok(key)
+    if type(key) == "table" then
+      for _, k in ipairs(key) do
+        if ok(k) then return true end
+      end
+      return false
+    end
+    if key:sub(1, 1) == "#" then
+      for item in pairs(tags[key:sub(2)] or {}) do
+        if have[item] then return true end
+      end
+      return false
+    end
+    if key:find("*", 1, true) then
+      for item in pairs(have) do
+        if glob(key, item) then return true end
+      end
+      return false
+    end
+    return have[key] == true
+  end
+  local changed = true
+  while changed do
+    changed = false
+    for make, list in pairs(byMake) do
+      if not have[make] then
+        for _, r in ipairs(list) do
+          local all = true
+          for _, key in pairs(r.grid) do
+            breathe()
+            if not ok(key) then
+              all = false
+              break
+            end
+          end
+          if all then
+            have[make], changed = true, true
+            break
+          end
+        end
+      end
+    end
+  end
+  return have
+end
+
+-- A modpack's recipes, as written by tools/recipes.mjs: item names by number,
+-- tags as lists of item numbers, and recipes as { make, count, rows, keys }
+-- with rows joined by "/". Returns how many recipes it added.
+function crafting.loadPack(pack)
+  local names = pack.names or {}
+  for tag, list in pairs(pack.tags or {}) do
+    local set = {}
+    for _, n in ipairs(list) do
+      if names[n] then set[names[n]] = true end
+    end
+    tags[tag] = set
+  end
+  local function key(k)
+    if type(k) == "number" then return names[k] end
+    if type(k) == "table" then
+      local out = {}
+      for i, x in ipairs(k) do out[i] = key(x) end
+      return out
+    end
+    return k -- a "#tag"
+  end
+  local added = 0
+  for _, r in ipairs(pack.recipes or {}) do
+    breathe()
+    local keys = {}
+    for ch, k in pairs(r[4] or {}) do keys[ch] = key(k) end
+    local rows = {}
+    for row in (tostring(r[3]) .. "/"):gmatch("([^/]*)/") do rows[#rows + 1] = row end
+    if names[r[1]] and add({ make = names[r[1]], count = r[2], rows = rows, keys = keys }) then added = added + 1 end
+  end
+  makeableCache = {}
+  return added
 end
 
 return crafting

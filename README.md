@@ -18,6 +18,7 @@ computers/
     README.md     What it does, where it is, its computer ID, peripherals
     startup.lua   Runs automatically when the computer boots
 lib/              Shared modules usable by any computer
+tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the storage system
 site/             The website and in-game installer (built by GitHub Actions)
 ```
 

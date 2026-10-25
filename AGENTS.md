@@ -16,10 +16,14 @@ computers/                  In-game programs, one folder each (never in the repo
     <helper>.lua            Optional modules loaded with require("<helper>"), e.g. ui.lua
     config.lua              Optional player settings; list it under "keep" in programs.json
     preview/*.svg           Optional renders, linked from the README and the website
+    packs/*.lua             Optional extra files the installer skips (only top-level .lua is installed);
+                            published on the site for wget, e.g. storage-computer's modpack recipes
 lib/                        Shared modules, copied to /lib/ in-game, loaded with require("lib.<module>")
   README.md                 One line per module: what it does and which programs use it
   nav.lua                   Turtle position tracking + safe movement (saved across reboots, optional GPS)
   report.lua                Sends status to the status server; no-op without a modem
+tools/                      PC-side helpers (Node, no dependencies), published on the site
+  recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
   programs.json             Website + installer data for every program and lib (schema below)
   build.mjs                 Builds _site/ (Node, no dependencies)
