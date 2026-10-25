@@ -628,6 +628,12 @@
         "scene": "storage",
         "caption": "The storage terminal: type to search, Enter for a stack. Click a row to pick it, and again to take a stack."
       },
+      "layouts": [
+        { "title": "Chest wall", "scene": "storageChests", "caption": "The basic setup: a wall of chests joined by full-block modems and cable, input and output chests, and the computer with a monitor and a wireless modem for turtles." },
+        { "title": "Stack upgrades", "scene": "storageUpgrades", "caption": "Sophisticated Storage barrels: the ones with the most stack upgrades get the items there are 256+ of; plain ones keep small amounts." },
+        { "title": "Full base", "scene": "storageBase", "caption": "Storage with everything joined to one cable: the crafter and its chest, the smelter and its furnaces, a fuel chest, and the delivery chest the village builder stocks from." },
+        { "title": "AE2 + Advanced Peripherals", "scene": "storageAe", "caption": "An ME system does the storing: an ME Bridge on the ME cable, with a wired modem joining it to the computer's cable. Input, output, fuel and transfer chests stay real chests. An RS Bridge on Refined Storage works the same." }
+      ],
       "terminal": null
     },
     {

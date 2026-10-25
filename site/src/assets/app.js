@@ -277,6 +277,28 @@
     }
   }
 
+  // Example layouts: tabs of block scenes from voxel.js (programs.json "layouts").
+  function layoutsSection(p, holder) {
+    const tabs = h(`<div class="gallery-tabs"></div>`);
+    const stage = h(`<figure class="stage" style="margin:0"><div class="layout-canvas"></div><div class="tools"></div></figure>`);
+    const cap = h(`<p class="caption"></p>`);
+    let ctl;
+    const pick = (i) => {
+      const l = p.layouts[i];
+      // a fresh canvas each time: a mounted scene keeps redrawing its own on resize
+      const canvas = h(`<canvas aria-label="${esc(l.caption)}"></canvas>`);
+      $(".layout-canvas", stage).replaceChildren(canvas);
+      ctl = Voxel.mount(canvas, l.scene, { width: stage.clientWidth, maxH: 560 });
+      cap.textContent = l.caption;
+      tabs.querySelectorAll(".chip").forEach((c, j) => c.setAttribute("aria-pressed", i === j));
+    };
+    p.layouts.forEach((l, i) => { const c = h(`<button class="chip">${esc(l.title)}</button>`); c.onclick = () => pick(i); tabs.append(c); });
+    const rb = h(`<button class="mc-btn small">Rotate</button>`); rb.onclick = () => ctl && ctl.rotate();
+    $(".tools", stage).append(rb);
+    holder.append(tabs, stage, cap);
+    requestAnimationFrame(() => pick(0));
+  }
+
   function filesSection(files, holder, openFirst) {
     const slots = h(`<div class="slots"></div>`);
     const viewer = h(`<div class="viewer" hidden><div class="bar"><span class="name"></span><span class="pill lines"></span><span class="grow"></span><a class="mc-btn small raw" target="_blank" rel="noopener">Raw</a><a class="mc-btn small gh" target="_blank" rel="noopener">GitHub</a></div><pre class="code"><code class="language-lua"></code></pre></div>`);
@@ -364,6 +386,10 @@
           <div class="box"><h3>Commands</h3><div class="cmds">${p.commands.map(([c, d]) => `<div><code>${esc(c)}</code><span>${esc(d)}</span></div>`).join("")}</div></div>
         </div>
       </div></section>
+      ${p.layouts ? `<section class="block" id="layouts"><div class="wrap">
+        <div class="sec-head"><h2><small>Ideas</small>Example layouts</h2><p>Pick one to see how the blocks go together.</p></div>
+        <div id="layout-stage"></div>
+      </div></section>` : ""}
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>Integration</small>Works with</h2></div>
         <div class="integrations">${p.integrates.map(([n, why]) => {
@@ -383,6 +409,7 @@
       </div></section>`;
     wireTabs(main);
     showcase(p, $("#render"));
+    if (p.layouts) layoutsSection(p, $("#layout-stage"));
     if (p.terminal) new CC.Typer($("#watch-term"), p.terminal.device === "turtle" ? 39 : 51, p.terminal.device === "turtle" ? 13 : 19, [p.terminal.lines], { pause: 6000 });
     filesSection(p.files, $("#files"));
     readme(`computers/${p.name}/README.md`, $("#readme"), `computers/${p.name}`);

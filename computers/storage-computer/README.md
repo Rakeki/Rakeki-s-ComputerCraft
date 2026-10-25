@@ -144,8 +144,9 @@ system: the fuel chest is a real chest beside it.
 
 ### ME and RS systems
 
-With the Advanced Peripherals mod, an **ME Bridge** (Applied Energistics 2) or **RS Bridge** (Refined Storage)
-on the wired network lets the system do the storing instead of chests.
+With the Advanced Peripherals mod, an **ME Bridge** (Applied Energistics 2)
+or **RS Bridge** (Refined Storage) on the wired network lets the system do
+the storing instead of chests ([layout](#ae2-with-advanced-peripherals)).
 `storage setup` asks whether to use it when it finds one. Then:
 
 - The input chest is emptied into the system, searches and turtle requests
@@ -165,6 +166,49 @@ on the wired network lets the system do the storing instead of chests.
 
 It works with both versions of the bridges: the older ones (Minecraft 1.20
 and before) and the new ones in Minecraft 1.21.
+
+## Example layouts
+
+The website shows each of these in 3D. Everything is joined by one run of
+networking cable; right-click every modem so it turns red.
+
+### Chest wall
+
+The smallest setup. A wall of chests two high, with a **full-block wired
+modem** after every two chests (one full-block modem touching two chests
+connects both). Cable runs along the front of the wall to the computer.
+The input and output chests each have a full-block modem between them and
+the cable. An advanced monitor next to the computer, and a wireless modem
+on top of it for turtles, are optional.
+
+### Barrels with stack upgrades
+
+[Sophisticated Storage](#stack-upgrades) barrels instead of chests. Barrels
+are full blocks, so each takes a small wired modem on its side. Give some
+barrels more stack upgrades than others: the storage computer fills the
+most-upgraded ones with what there's most of, and keeps small amounts in
+the plain ones.
+
+### Full base
+
+The chest wall plus everything that works with it, on the same cable:
+
+- the [crafting turtle](../crafter-turtle/README.md) facing its crafter chest
+- the [smelter](../smelter-computer/README.md): its computer and a row of
+  furnaces, each furnace with a small wired modem
+- a fuel chest, for the furnaces and turtles
+- the delivery chest, with the [village builder](../village-turtle/README.md)
+  taking its blocks from it
+
+### AE2 with Advanced Peripherals
+
+An ME system does the storing. The ME controller and drives sit on ME cable
+as usual. Put an **ME Bridge** against the ME cable, with a wired modem on
+the bridge, and run networking cable from it to the storage computer. The
+input, output, fuel and **transfer** chests are ordinary chests on that
+networking cable, and so are the smelter's furnaces. Run `storage setup`
+and answer yes when it finds the bridge. A Refined Storage system with an
+**RS Bridge** is laid out the same way.
 
 ## Files
 

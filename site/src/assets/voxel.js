@@ -39,6 +39,18 @@
     carrots: { c: "#4f9a2f", top: "#e0862a", tex: "noise", amt: 0.16, box: [0.1, 0.9, 0, 0.55, 0.1, 0.9], clear: true },
     potatoes: { c: "#4f9a2f", top: "#cfae62", tex: "noise", amt: 0.16, box: [0.1, 0.9, 0, 0.55, 0.1, 0.9], clear: true },
     sprout: { c: "#6fb33f", tex: "noise", amt: 0.15, box: [0.18, 0.82, 0, 0.26, 0.18, 0.82], clear: true },
+    // storage layouts
+    barrel: { c: "#8a6a3c", top: "#a07d47", tex: "barrel", amt: 0.06 },
+    barrel2: { c: "#8a6a3c", top: "#a07d47", tex: "barrel", amt: 0.06, trim: "#c9c9c9" }, // some stack upgrades
+    barrel3: { c: "#8a6a3c", top: "#a07d47", tex: "barrel", amt: 0.06, trim: "#f5da3a" }, // lots of stack upgrades
+    furnace: { c: "#6e6e6e", top: "#7d7d7d", tex: "furnace", amt: 0.08 },
+    fullmodem: { c: "#c9c9c9", tex: "fullmodem", amt: 0.03 },
+    cable: { c: "#e0e0e0", tex: "flat", box: [0.36, 0.64, 0.3, 0.58, 0.36, 0.64], clear: true },
+    monitor: { c: "#d6b444", tex: "screen", amt: 0.03 },
+    mecontroller: { c: "#4c4366", tex: "me", amt: 0.05 },
+    medrive: { c: "#34343c", tex: "drive", amt: 0.04 },
+    mecable: { c: "#8f6fd9", tex: "flat", box: [0.34, 0.66, 0.28, 0.6, 0.34, 0.66], clear: true },
+    bridge: { c: "#8a97a8", tex: "bridge", amt: 0.04 },
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 
@@ -115,6 +127,33 @@
           if (u > m && u < 1 - m && v > m && v < (def.tex === "turtle" ? 0.62 : 0.72)) { col = "#111111"; shade = 1; if (n > 3 && i === 1 && j === 1) col = "#7fcc19"; }
         }
         if (def.tex === "turtle" && face === "right" && v > 0.25 && v < 0.65 && u > 0.2 && u < 0.8) col = "#5a5a5a";
+        break;
+    }
+    // the storage layout blocks look at the middle of each sub-square
+    const uc = (i + 0.5) / n, vc = (j + 0.5) / n;
+    const inner = n > 1 && uc > 0.2 && uc < 0.8 && vc > 0.2 && vc < 0.8;
+    switch (def.tex) {
+      case "barrel":
+        if (face !== "top" && n > 2 && (vc < 0.2 || vc > 0.8)) shade *= 0.78;
+        if (def.trim && n > 2 && (uc < 0.2 || uc > 0.8 || vc < 0.2 || vc > 0.8)) { col = def.trim; shade = 1; }
+        break;
+      case "furnace":
+        if (face === "left" && n > 1 && vc > 0.5 && uc > 0.2 && uc < 0.8) { col = "#262626"; shade = 1; }
+        break;
+      case "fullmodem":
+        if (face !== "top" && inner) col = "#8c8c8c";
+        break;
+      case "screen":
+        if (face === "left" && inner) { col = "#111111"; shade = 1; }
+        break;
+      case "me":
+        if (face !== "top" && inner && (i + j) % 2 === 0) { col = "#b9a5ff"; shade = 1; }
+        break;
+      case "drive":
+        if (face === "left" && inner) { col = j % 2 ? "#57e05a" : "#151515"; shade = 1; }
+        break;
+      case "bridge":
+        if (inner) { col = "#4c99b2"; shade = 1; }
         break;
     }
     const [r, g, bl] = rgb(col);
@@ -409,7 +448,109 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter };
+  //---------------------------------------------------------------- storage layouts
+
+  // Example layouts for computers/storage-computer (see its README's
+  // "Example layouts"). Small wired modems sit on the side of a block, so
+  // they're left out; full-block modems and cable are shown.
+  const Y = "#dede6c", B = "#99b2f2", G = "#7fcc19", O = "#f2b233", R = "#cc4c4c", P = "#b266e5", W = "#f0f0f0";
+
+  // A wall of chests: chest, full-block modem, chest, chest, modem... (one
+  // full-block modem between two chests connects both), two high.
+  function chestWall(w, x0, cols) {
+    for (let i = 0; i < cols; i++) {
+      const b = i % 3 === 1 ? "fullmodem" : "chest";
+      w.set(x0 + i, 0, 0, b); w.set(x0 + i, 1, 0, b);
+    }
+  }
+  // the computer, a monitor above it and a wireless modem for turtles
+  function storageComputer(w, x, z) {
+    w.set(x, 0, z, "advanced"); w.set(x + 1, 0, z, "monitor"); w.set(x + 1, 1, z, "monitor");
+    w.set(x, 1, z, "modem");
+  }
+
+  function storageChests() {
+    const w = new World();
+    w.box(-1, 12, -1, -1, -1, 5, "stone");
+    chestWall(w, 0, 9);
+    w.box(1, 9, 0, 0, 1, 1, "cable");
+    w.set(10, 0, 1, "cable");
+    storageComputer(w, 11, 1);
+    // input and output chests, each with a full-block modem onto the cable
+    w.set(4, 0, 2, "fullmodem"); w.set(4, 0, 3, "chest");
+    w.set(7, 0, 2, "fullmodem"); w.set(7, 0, 3, "chest");
+    return {
+      world: w,
+      labels: [[4, 2.6, 0, "storage chests", Y], [1, 2.6, 0, "full-block modems", W], [11.5, 2.4, 1, "computer + monitor", B],
+        [4, 1.5, 3, "input", G], [7, 1.5, 3, "output", O], [6, 0.9, 1, "networking cable", W]],
+    };
+  }
+
+  function storageUpgrades() {
+    const w = new World();
+    w.box(-1, 13, -1, -1, -1, 5, "stone");
+    for (let x = 0; x <= 8; x++) for (let y = 0; y <= 2; y++) w.set(x, y, 0, x < 3 ? "barrel3" : x < 6 ? "barrel2" : "barrel");
+    w.box(0, 10, 0, 0, 1, 1, "cable");
+    storageComputer(w, 11, 1);
+    w.set(5, 0, 2, "fullmodem"); w.set(5, 0, 3, "chest");
+    return {
+      world: w,
+      labels: [[1, 3.6, 0, "most stack upgrades: bulk items", Y], [4, 3.6, 0, "some upgrades", W],
+        [7, 3.6, 0, "plain: small amounts", O], [11.5, 2.4, 1, "computer", B], [5, 1.5, 3, "input", G],
+        [2, 0.9, 1, "a small wired modem on each barrel", W]],
+    };
+  }
+
+  function storageBase() {
+    const w = new World();
+    w.box(-1, 16, -1, -1, -1, 9, "stone");
+    chestWall(w, 0, 9);
+    w.box(1, 13, 0, 0, 1, 1, "cable");
+    storageComputer(w, 14, 1);
+    w.set(4, 0, 2, "fullmodem"); w.set(4, 0, 3, "chest"); // input
+    w.set(6, 0, 2, "fullmodem"); w.set(6, 0, 3, "chest"); // output
+    w.set(8, 0, 2, "fullmodem"); w.set(8, 0, 3, "chest"); // fuel
+    w.set(2, 0, 2, "fullmodem"); w.set(2, 0, 3, "chest"); w.set(2, 0, 4, "turtle"); // crafter + its chest
+    // the smelter's furnaces along the cable, and its computer
+    w.box(10, 12, 0, 0, 2, 7, "cable");
+    for (let z = 3; z <= 7; z += 2) { w.set(11, 0, z, "furnace"); w.set(9, 0, z, "furnace"); }
+    w.set(11, 0, 8, "computer");
+    w.box(10, 10, 0, 0, 8, 8, "cable");
+    w.set(14, 0, 2, "cable"); w.set(14, 0, 3, "fullmodem");
+    w.set(14, 0, 4, "chest"); w.set(14, 0, 5, "turtle"); // delivery chest, village builder at it
+    return {
+      world: w,
+      labels: [[4, 2.6, 0, "storage chests", Y], [14.5, 2.4, 1, "storage computer", B], [4, 1.5, 3, "input", G],
+        [6, 1.5, 3, "output", O], [8, 1.5, 3, "fuel", R], [2, 1.5, 4, "crafter", O], [10, 1.5, 5, "furnaces", W],
+        [11, 1.5, 8, "smelter", R], [14, 1.6, 5, "delivery chest", G]],
+    };
+  }
+
+  function storageAe() {
+    const w = new World();
+    w.box(-1, 13, -1, -1, -1, 7, "stone");
+    w.box(0, 1, 0, 1, 0, 0, "mecontroller");
+    w.box(2, 5, 0, 1, 0, 0, "medrive");
+    w.box(0, 6, 0, 0, 1, 1, "mecable");
+    w.set(7, 0, 1, "bridge");
+    w.box(7, 7, 0, 0, 2, 3, "cable");
+    w.box(2, 10, 0, 0, 3, 3, "cable");
+    storageComputer(w, 11, 3);
+    w.set(5, 0, 4, "fullmodem"); w.set(5, 0, 5, "chest"); // transfer
+    w.set(7, 0, 4, "fullmodem"); w.set(7, 0, 5, "chest"); // input
+    w.set(9, 0, 4, "fullmodem"); w.set(9, 0, 5, "chest"); // output
+    w.set(3, 0, 4, "fullmodem"); w.set(3, 0, 5, "chest"); // fuel
+    w.set(1, 0, 3, "furnace"); w.set(1, 0, 2, "furnace"); w.set(2, 0, 2, "computer"); // smelter
+    return {
+      world: w,
+      labels: [[0.5, 2.6, 0, "ME controller", P], [3.5, 2.6, 0, "ME drives", P], [3, 0.9, 1, "ME cable", P],
+        [7, 1.5, 1, "ME Bridge", B], [11.5, 2.4, 3, "storage computer", B], [5, 1.5, 5, "transfer", W],
+        [7, 1.5, 5, "input", G], [9, 1.5, 5, "output", O], [3, 1.5, 5, "fuel", R], [1, 1.5, 2, "smelter", R]],
+    };
+  }
+
+  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter,
+    storageChests, storageUpgrades, storageBase, storageAe };
 
   //---------------------------------------------------------------- mounting
 

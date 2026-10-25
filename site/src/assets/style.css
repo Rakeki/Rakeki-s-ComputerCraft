@@ -377,6 +377,7 @@ pre.code, .readme pre {
   display: grid; place-items: center;
 }
 .stage canvas { display: block; width: 100%; height: auto; max-height: 640px; object-fit: contain; }
+.stage .layout-canvas { width: 100%; }
 .stage .tools { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
 .stage .screen-holder { padding: clamp(14px, 4vw, 40px); width: 100%; display: grid; place-items: center; }
 .stage .screen-holder .bezel { width: min(100%, 700px); }

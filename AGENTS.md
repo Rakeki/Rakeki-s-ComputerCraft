@@ -106,6 +106,7 @@ One entry per program under `programs`, in the order they appear on the site:
 | `commands` | `[command, what it does]` pairs |
 | `integrates` | `[program or lib name, how they work together]` pairs |
 | `render` | `voxel` (a scene in `voxel.js`), `screen` (a scene in `cc.js`) or `gallery` (SVGs from `preview/`) |
+| `layouts` | Optional `[{ title, scene, caption }]`: example builds shown as tabs under "Example layouts" (scenes in `voxel.js`); describe each in the README's "Example layouts" too |
 | `terminal` | A scripted session for the typing demo, or `null`. Use the program's real `print` text |
 
 `libraries` has one entry per `lib/` module (`usage` snippet, `api` table,
