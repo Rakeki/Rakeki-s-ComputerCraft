@@ -176,7 +176,7 @@ reply is never taken for a newer one.
 | `automine` | mine-turtle ↔ mine-server | jobs, progress, docking; the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `storage` | village-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
-| `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest, slot k = grid cell k), `ping`; replies `crafted`, `pong` |
+| `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |
 
 Rules that keep it from stalling:
 

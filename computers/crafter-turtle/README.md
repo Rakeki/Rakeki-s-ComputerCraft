@@ -15,9 +15,13 @@ and has this turtle make them, ingredients first: jungle logs into planks,
 planks into sticks, then the fences.
 
 For each batch the storage computer puts the ingredients in this turtle's
-chest, one chest slot per crafting-grid cell. The turtle takes them into its
-grid, crafts, and puts everything back in the chest, and the storage computer
-puts the results away. The turtle that asked gets them on its next request:
+chest and tells it which item goes in which cell of the crafting grid. The
+turtle takes them out a stack at a time and sorts them into its grid by
+name, so any chest or barrel works, even a Sophisticated barrel that stacks
+matching items together. It crafts, puts everything back in the chest, and
+tells the storage computer what it made; the storage computer puts the
+results away. If it ever makes the wrong thing, the storage computer says
+so instead of counting it as done. The turtle that asked gets them on its next request:
 the village builder asks again every 10 seconds while it waits.
 
 It knows the recipes for everything the village themes use that can be
@@ -46,7 +50,10 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
    touching the chest (not between the chest and the turtle), networking cable
    back to the storage, and right-click the modem so it turns red.
 4. On the storage computer, run `storage setup` and choose that chest as the
-   **crafter chest**. The storage computer needs a wireless modem too.
+   **crafter chest**. The storage computer needs a wireless modem too: the
+   two talk by wireless. Or, instead of wireless modems on both, put a
+   **full-block wired modem** against the back of the turtle, joined to the
+   storage cable, and they talk over the cable.
 5. Install this program on the turtle and reboot it.
 
    ```

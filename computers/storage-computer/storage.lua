@@ -481,13 +481,22 @@ local function runJob(job)
       if item then
         local got, err = fetch(item, batch, setup.crafter, k)
         if got < batch then
+          -- the chest wouldn't take it in that slot (a barrel with upgrades
+          -- picks its own, or no transfer chest with a bridge): any slot
+          -- will do, the turtle sorts them by name
+          local more, why = fetch(item, batch - got, setup.crafter)
+          got, err = got + more, why or err
+        end
+        if got < batch then
           clearCrafter()
           return false, err or ("not enough " .. nameOf(item))
         end
       end
     end
     jobId = jobId + 1
-    rednet.send(crafterId, { type = "craft", id = jobId, steps = batch }, CRAFT_PROTOCOL)
+    -- grid tells the turtle which item goes in which cell, so it lays them
+    -- out right whatever order its chest keeps them in
+    rednet.send(crafterId, { type = "craft", id = jobId, steps = batch, grid = job.grid }, CRAFT_PROTOCOL)
     local reply
     local deadline = os.clock() + CRAFT_WAIT
     while not reply and os.clock() < deadline do
@@ -502,6 +511,9 @@ local function runJob(job)
     end
     craftProblem = nil
     if (reply.made or 0) == 0 then return false, reply.error or "the recipe didn't work" end
+    if reply.item and reply.item ~= job.name then
+      return false, ("the crafting turtle made %s instead"):format(nameOf(reply.item))
+    end
     left = left - batch
   end
   return true
@@ -521,7 +533,9 @@ local function craftLoop()
     else
       crafterId = crafterId or rednet.lookup(CRAFT_PROTOCOL)
       if not crafterId then
-        message = { "No crafting turtle answered: is it running 'crafter'?", "orange" }
+        local wireless = peripheral.find("modem", function(_, m) return m.isWireless() end)
+        message = { wireless and "No crafting turtle answered: is it running 'crafter'?"
+          or "Crafter not answering: put a wireless modem on me.", "orange" }
         craftProblem = "its crafting turtle isn't answering"
         os.queueEvent("storage_changed")
         sleep(10)
@@ -1124,18 +1138,23 @@ if args[1] == "test" then
     print(("I know %d recipes, but there's no crafter chest: run 'storage setup'."):format(crafting.count()))
   else
     print(("I know %d recipes. Crafter chest: %s."):format(crafting.count(), setup.crafter))
-    if modem then
-      if not rednet.isOpen(peripheral.getName(modem)) then rednet.open(peripheral.getName(modem)) end
-      local id = rednet.lookup(CRAFT_PROTOCOL)
-      if id then
-        rednet.send(id, { type = "ping", id = 0 }, CRAFT_PROTOCOL)
-        local from, reply = rednet.receive(CRAFT_PROTOCOL, 5)
-        print(from == id and type(reply) == "table" and reply.type == "pong"
-          and ("Crafting turtle #%d answered: crafting works."):format(id)
-          or ("Crafting turtle #%d didn't answer a ping."):format(id))
-      else
-        print("No crafting turtle answered: is it running 'crafter', with a wireless modem?")
-      end
+    -- the crafting turtle may answer by wireless or over the cable
+    for _, side in ipairs(peripheral.getNames()) do
+      if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
+    end
+    local id = rednet.lookup(CRAFT_PROTOCOL)
+    if id then
+      rednet.send(id, { type = "ping", id = 0 }, CRAFT_PROTOCOL)
+      local from, reply = rednet.receive(CRAFT_PROTOCOL, 5)
+      print(from == id and type(reply) == "table" and reply.type == "pong"
+        and ("Crafting turtle #%d answered: crafting works."):format(id)
+        or ("Crafting turtle #%d didn't answer a ping."):format(id))
+    elseif not modem then
+      print("No crafting turtle answered. It talks by wireless, so put a")
+      print("wireless modem on me (or a full-block wired modem against the")
+      print("turtle, on this cable). Is it running 'crafter'?")
+    else
+      print("No crafting turtle answered: is it running 'crafter', with a modem?")
     end
   end
   return

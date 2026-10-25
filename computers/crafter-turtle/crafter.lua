@@ -9,26 +9,32 @@
 --                    in my crafting grid (slots 1-3, 5-7, 9-11) first
 --
 -- Needs a crafty turtle (a crafting table on one side) with a wireless or
--- ender modem on the other. Put its chest directly in front of it, connect
--- the chest to the storage network with a full-block wired modem, and choose
--- it as the crafter chest in 'storage setup'.
+-- ender modem on the other, or a full-block wired modem against it joined
+-- to the storage cable (then the storage computer needs no wireless modem).
+-- Put its chest directly in front of it, connect the chest to the storage
+-- network with a full-block wired modem, and choose it as the crafter chest
+-- in 'storage setup'.
 local report = fs.exists("lib/report.lua") and require("lib.report")
 
 local CRAFT_PROTOCOL = "storage_crafter" -- the storage computer sends crafting jobs on this
 local STORAGE_PROTOCOL = "storage" -- recipes are taught to the storage computer on this
 local GRID = { 1, 2, 3, 5, 6, 7, 9, 10, 11 } -- turtle slots of the 3x3 crafting grid
+local STAGE = { 4, 8, 12, 13, 14, 15 } -- slots outside the grid, for sorting ingredients into it
 local OUT_SLOT = 16 -- crafted items land here first
+local MAX_SUCKS = 64 -- most stacks taken from the chest for one batch, before giving up
 
 local made = 0 -- items crafted since starting, for the status
 
 ---------------------------------------------------------------- helpers
 
-local function openWireless()
-  if rednet.isOpen() then return true end
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  if not modem then return false end
-  rednet.open(peripheral.getName(modem))
-  return true
+-- Open every modem: wireless reaches the storage computer through the air,
+-- wired (a full-block wired modem against me, on the storage cable) through
+-- the cable.
+local function openModems()
+  for _, side in ipairs(peripheral.getNames()) do
+    if peripheral.getType(side) == "modem" and not rednet.isOpen(side) then rednet.open(side) end
+  end
+  return rednet.isOpen()
 end
 
 local function status(state, detail)
@@ -63,18 +69,69 @@ end
 
 ---------------------------------------------------------------- crafting
 
--- The storage computer has put the ingredients in chest slots 1-9, one
--- slot per grid cell. Take them in order (suck always takes the first
--- non-empty slot), craft, and put everything back.
-local function craft(steps)
+-- Take the ingredients out of the chest a stack at a time and sort them
+-- into the grid by name: steps of grid[k] into cell k. This works however
+-- the chest arranges them (barrels with stack upgrades put matching items
+-- together in one slot, whatever slot they were sent to).
+local function layOut(grid, steps)
+  local want = {} -- turtle slot -> item it needs
+  for k = 1, 9 do
+    if grid[k] then want[GRID[k]] = grid[k] end
+  end
+  local function full()
+    for slot in pairs(want) do
+      if turtle.getItemCount(slot) < steps then return false end
+    end
+    return true
+  end
+  local sucks = 0
+  while not full() do
+    local free
+    for _, s in ipairs(STAGE) do
+      if turtle.getItemCount(s) == 0 then free = s break end
+    end
+    if not free or sucks >= MAX_SUCKS then return false, "my chest has things in it the recipe doesn't use" end
+    turtle.select(free)
+    if not turtle.suck() then return false, "not enough ingredients in my chest" end
+    sucks = sucks + 1
+    -- hand the stack out to the cells that need it
+    local item = turtle.getItemDetail(free)
+    for slot, name in pairs(want) do
+      local have = turtle.getItemCount(slot)
+      if item and name == item.name and have < steps and turtle.getItemCount(free) > 0 then
+        turtle.transferTo(slot, steps - have)
+      end
+    end
+  end
+  -- what's left over goes back
+  for _, s in ipairs(STAGE) do
+    turtle.select(s)
+    turtle.drop()
+  end
+  return true
+end
+
+-- Lay out the ingredients, craft, and put everything back in the chest.
+-- grid (cell -> item name) comes from the storage computer; without it (an
+-- older storage program) chest slot k holds cell k's ingredients, taken in
+-- order (suck always takes the first non-empty slot).
+local function craft(steps, grid)
   local chest = frontChest()
   if not chest then return 0, "no chest in front of me" end
   emptyOut()
-  local list = chest.list()
-  for k = 1, 9 do
-    if list[k] then
-      turtle.select(GRID[k])
-      turtle.suck(list[k].count)
+  if grid then
+    local ok, err = layOut(grid, steps)
+    if not ok then
+      emptyOut()
+      return 0, err
+    end
+  else
+    local list = chest.list()
+    for k = 1, 9 do
+      if list[k] then
+        turtle.select(GRID[k])
+        turtle.suck(list[k].count)
+      end
     end
   end
   for slot = 1, 16 do
@@ -133,13 +190,15 @@ local function serve()
     local from, msg = rednet.receive(CRAFT_PROTOCOL)
     if type(msg) == "table" and msg.type == "craft" and type(msg.steps) == "number" then
       status("crafting", ("%d crafts"):format(msg.steps))
-      local n, err, name = craft(math.max(1, math.min(64, math.floor(msg.steps))))
+      local grid = type(msg.grid) == "table" and msg.grid or nil
+      local n, err, name = craft(math.max(1, math.min(64, math.floor(msg.steps))), grid)
       if n > 0 then
         print(("Crafted %d %s."):format(n, shortName(name)))
       else
         print("Couldn't craft: " .. tostring(err))
       end
-      rednet.send(from, { type = "crafted", id = msg.id, made = n, error = err }, CRAFT_PROTOCOL)
+      -- item: what came out, so the storage computer can tell a wrong craft
+      rednet.send(from, { type = "crafted", id = msg.id, made = n, item = name, error = err }, CRAFT_PROTOCOL)
       status("idle", ("%d items crafted"):format(made))
     elseif type(msg) == "table" and msg.type == "ping" then
       rednet.send(from, { type = "pong", id = msg.id }, CRAFT_PROTOCOL)
@@ -202,13 +261,14 @@ local function learn()
   end
   local recipe = { make = out.name, count = out.count, rows = rows, keys = keys }
   print(("That makes %d %s."):format(out.count, shortName(out.name)))
-  if not openWireless() then
-    print("I need a wireless modem to tell the storage system.")
+  if not openModems() then
+    print("I need a modem to tell the storage system.")
     return
   end
   local storage = rednet.lookup(STORAGE_PROTOCOL)
   if not storage then
-    print("No storage system answered. Is it running, with a wireless modem, in range?")
+    print("No storage system answered. Is it running? We need a")
+    print("wireless modem each, or me on its cable by a wired modem.")
     return
   end
   rednet.send(storage, { type = "learn", recipe = recipe }, STORAGE_PROTOCOL)
@@ -234,8 +294,9 @@ if not os.getComputerLabel() then os.setComputerLabel("Crafter-" .. os.getComput
 local args = { ... }
 if args[1] == "learn" then return learn() end
 
-if not openWireless() then
-  print("I need a wireless or ender modem to hear the storage system.")
+if not openModems() then
+  print("I need a modem to hear the storage system: a wireless or")
+  print("ender modem, or a full-block wired modem on its cable.")
   return
 end
 if not frontChest() then
