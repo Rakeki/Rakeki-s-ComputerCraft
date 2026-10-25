@@ -585,11 +585,11 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
-      "tagline": "Turns a wall of networked chests into one searchable store: drop items in one chest, take anything out of another.",
+      "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
       "libs": ["report"],
       "autostart": true,
       "stats": [
-        ["Chests", "as many as you cable"],
+        ["Stores in", "chests, ME or RS"],
         ["Put away", "every 2 s"],
         ["Rescan", "every 60 s"],
         ["Monitor", "optional"]
@@ -600,16 +600,17 @@
         "Puts new items next to the same item when it can",
         "Turtles can ask for items over rednet; the village builder stocks itself from it",
         "With a crafting turtle, makes what it's asked for but doesn't have",
-        "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles"
+        "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles",
+        "Can use an AE2 or Refined Storage system (via an Advanced Peripherals bridge) instead of chests: turtles don't notice the difference"
       ],
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
-        "Run storage and pick the input, output and (optional) delivery, crafter and fuel chests.",
-        "Reboot. Every other chest is storage."
+        "For AE2 or Refined Storage: put an ME Bridge or RS Bridge against the system, with a wired modem on the same cable.",
+        "Run storage and answer its questions: the store, then the input, output and (optional) delivery, crafter, fuel and transfer chests. Reboot."
       ],
       "commands": [
-        ["storage", "start (asks for the input and output chests the first time)"],
-        ["storage setup", "pick the input, output, delivery, crafter and fuel chests again"],
+        ["storage", "start (asks how it's set up the first time)"],
+        ["storage setup", "choose the store and the chests again"],
         ["storage test", "check deliveries, the fuel chest, the wireless modem and the crafting turtle"]
       ],
       "integrates": [

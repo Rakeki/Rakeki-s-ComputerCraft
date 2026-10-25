@@ -69,6 +69,11 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
 
 ## Things to know
 
+- With an [ME or RS system](../storage-computer/README.md#me-and-rs-systems)
+  behind the storage computer, the system crafts from its own patterns first;
+  this turtle only makes what it has no pattern for. Its ingredients pass
+  through the storage computer's transfer chest, so that needs to be set.
+
 - One craft job at a time, up to 64 crafts per batch (fewer for things that
   don't stack to 64, and never more than 6 stacks of output). Big orders are
   split into batches.

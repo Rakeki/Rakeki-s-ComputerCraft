@@ -34,7 +34,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [blueprint-projector](computers/blueprint-projector/README.md): projects a building plan into the world with CC: Spatial Projector; move and turn it from a monitor, then build it layer by layer
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
-- [storage-computer](computers/storage-computer/README.md): turns a network of chests into one searchable store with an input and an output chest
+- [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest, and serves items to every turtle
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
 - [smelter-computer](computers/smelter-computer/README.md): keeps the storage system's furnaces busy smelting ores, fuels them from its fuel chest, and burns spare logs into charcoal on request
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm

@@ -82,6 +82,10 @@ stopping it with Ctrl+T); the running smelter picks it up within 10 seconds.
 - Furnaces must be on the network through a modem, not just touching this
   computer: the storage computer moves the items, and it can only reach
   what's on the cable.
+- It works the same whether the storage computer keeps things in chests or
+  in an [ME or RS system](../storage-computer/README.md#me-and-rs-systems).
+  With an ME or RS system, the storage computer needs a **transfer chest**
+  (chosen in `storage setup`) to load the furnaces' slots.
 - It asks the storage computer for everything over the cable, so both must
   be on the same wired network. If the storage computer doesn't answer, the
   footer says so and it tries again every 10 seconds.

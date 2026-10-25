@@ -4,12 +4,21 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modems and networking cable to every chest; optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../smelter-computer/README.md)
+- **Peripherals:** wired modems and networking cable to every chest (or to an ME Bridge / RS Bridge); optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../smelter-computer/README.md)
 
 ## What it does
 
-Turns a wall of chests into one searchable store. Every chest and barrel on
-the computer's wired network is storage, except the ones you choose for:
+Turns a wall of chests into one searchable store, or puts a terminal and
+turtle access on an **Applied Energistics 2** or **Refined Storage** system
+(see [ME and RS systems](#me-and-rs-systems)). Either way, every turtle and
+computer here talks to this computer the same way, so the
+[village builder](../village-turtle/README.md),
+[crafting turtle](../crafter-turtle/README.md) and
+[smelter](../smelter-computer/README.md) work with whichever you use, and
+keep working if you switch.
+
+With chests, every chest and barrel on the computer's wired network is
+storage, except the ones you choose for:
 
 - **Input chest:** anything you drop in here is put away within a couple of
   seconds, into a chest that already holds that item if there is one.
@@ -29,7 +38,7 @@ the computer's wired network is storage, except the ones you choose for:
 The terminal shows every stored item with its count, biggest first. Type to
 search (by name, as you'd see it in game), pick with the arrow keys or the
 mouse, then Enter for a stack or Right arrow for just one. The top line shows
-how many chests and slots are in use.
+how many chests and slots are in use (or how full the ME or RS system is).
 
 A monitor, if one is attached, shows a bar of how full the storage is and the
 items there's most of. With a wireless modem it also reports to the
@@ -101,11 +110,38 @@ it shows up in the search. The [smelter](../smelter-computer/README.md)
 fuels its furnaces from the fuel chest before coal kept anywhere else, and
 the charcoal it makes from spare logs comes back to it. A turtle parked
 next to the fuel chest can also take fuel straight from it; the storage
-computer re-counts it every 5 seconds.
+computer re-counts it every 5 seconds. This works the same with an ME or RS
+system: the fuel chest is a real chest beside it.
+
+### ME and RS systems
+
+With the Advanced Peripherals mod, an **ME Bridge** (Applied Energistics 2) or **RS Bridge** (Refined Storage)
+on the wired network lets the system do the storing instead of chests.
+`storage setup` asks whether to use it when it finds one. Then:
+
+- The input chest is emptied into the system, searches and turtle requests
+  are answered from it, and stacks are sent out of it to the output and
+  delivery chests. Chests on the network aren't used as storage.
+- When a turtle asks for something that isn't there, the system crafts it
+  from its own **patterns** first. The crafting turtle and `recipes.lua` are
+  only used for things the system has no pattern for, so with AE2 or RS the
+  crafting turtle is optional.
+- The bridge can't put an item into a chosen slot, which the smelter's
+  furnaces and the crafting turtle's grid need. So those items pass through
+  a **transfer chest**: any spare chest on the network, chosen in
+  `storage setup`. Without one, the smelter and the crafting turtle can't be
+  loaded.
+- The top line shows how full the system is: by bytes for AE2, by items for
+  RS.
+
+It works with both versions of the bridges: the older ones (Minecraft 1.20
+and before) and the new ones in Minecraft 1.21.
 
 ## Files
 
-- `storage.lua`: the program. Check intervals and which blocks count as storage are at the top.
+- `storage.lua`: the program. Check intervals are at the top.
+- `chests.lua`: storing in the chests on the network, and which blocks count as storage
+- `bridge.lua`: storing in an ME or RS system through its bridge
 - `crafting.lua`: works out what to craft, ingredients first
 - `recipes.lua`: the built-in recipes
 - `startup.lua`: starts it on boot and restarts it if it stops
@@ -114,41 +150,56 @@ computer re-counts it every 5 seconds.
 ## Setup
 
 1. Place the computer and at least three chests (an input, an output, and one
-   or more for storage). Double chests and barrels work.
+   or more for storage). Double chests and barrels work. With an ME or RS
+   system, you only need the input and output chests, plus a transfer chest
+   for the smelter or crafting turtle.
 2. Connect each chest to the network. A small wired modem only goes on a
    full block, so for a chest place a **full-block wired modem** (craft a
    small one on its own) touching it; one full-block modem between two chests
    connects both. **Barrels** are full blocks, so a small modem goes straight
    on them. Put a small wired modem on the computer.
-3. Join all the modems with networking cable, and right-click each one so it
+3. For an ME or RS system: place the **ME Bridge** or **RS Bridge** touching
+   the system (on a cable or next to the controller), put a wired modem on
+   the bridge and join it to the same network.
+4. Join all the modems with networking cable, and right-click each one so it
    turns red. Chat shows the name of each chest it connects.
-4. Optional: put a monitor next to the computer (or on the network), and a
+5. Optional: put a monitor next to the computer (or on the network), and a
    wireless modem on it for turtles and the status server.
-5. Run `storage`. The first time it lists the chests it can see by name and
-   asks which is the input, which is the output, which (if any) is the
-   delivery chest for turtles, which (if any) is the crafter chest, and
-   which (if any) is the fuel chest.
+6. Run `storage`. The first time it asks whether to use the ME or RS system
+   (if it found a bridge), then lists the chests it can see by name and asks
+   which is the input, which is the output, and which (if any) are the
+   delivery, crafter, fuel and transfer chests.
 
    ```
    storage                   -- start
-   storage setup             -- pick the input, output, delivery, crafter and fuel chests again
+   storage setup             -- choose the store and the chests again
    storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
    ```
 
-Then reboot, and it starts on its own from then on.
+Then reboot, and it starts on its own from then on. To move from chests to
+an ME or RS system later, add the bridge, run `storage setup` and answer yes:
+the turtles and the smelter carry on without being changed.
 
 ## Things to know
 
 - Adding chests: connect them and wait up to a minute (it rescans every 60
-  seconds), or reboot.
+  seconds), or reboot. An ME or RS system is re-read every 5 seconds.
 - Items you take out of the storage chests by hand are noticed at the next
   rescan.
 - If the storage is full, items stay in the input chest and the footer says so.
 - Furnaces, hoppers, droppers and turtles on the network are never used as
   storage.
-- If the delivery, crafter or fuel chest can't be found when it starts (a modem
-  not red, say), it carries on without that feature and the footer says
-  which chest is missing. A missing input or output chest stops it.
+- If the delivery, crafter, fuel or transfer chest can't be found when it
+  starts (a modem not red, say), it carries on without that feature and the
+  footer says which chest is missing. A missing input or output chest, or a
+  missing bridge in ME or RS mode, stops it.
+- The ME or RS system's own patterns are trusted: a turtle is told an item
+  can be made as soon as there's a pattern for it, even if the system turns
+  out to lack the ingredients. The footer says when the system is done.
+- With an ME or RS system, items with extra data (enchanted, named) may be
+  counted with the plain ones, and the bridge may send either. If such an
+  item stays in the input chest, the system wouldn't take it: take it out by
+  hand.
 - The [smelter](../smelter-computer/README.md) asks for things over the
   wired network's cable, so it works without a wireless modem.
 - Turtles' requests are handled one at a time, in the order they arrive; none

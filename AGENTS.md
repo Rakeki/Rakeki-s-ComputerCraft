@@ -151,7 +151,7 @@ Existing computers:
 | `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls | report (if present) |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report |
-| `storage-computer` | Wired chest network as one searchable store; serves item requests from turtles over rednet and plans crafting | report (if present) |
+| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | report (if present) |
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | report (if present) |
 | `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | report (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | report (if present) |
@@ -189,9 +189,19 @@ Rules that keep it from stalling:
   When the whole amount can't be made, it makes as many as it can.
 - Long computations yield now and then (`crafting.lua`'s `breathe`) so CC
   never stops the program for running too long without yielding.
-- Only the storage computer takes items out of storage chests (it caches
-  their contents); the smelter asks it to fill furnaces and only empties
-  them into the input chest itself.
+- Only the storage computer takes items out of storage (it caches chest
+  contents); the smelter asks it to fill furnaces and only empties them
+  into the input chest itself.
+- **Programs never talk to a store directly.** The storage computer is the
+  gateway: its `chests.lua` and `bridge.lua` backends (same functions:
+  `scan`, `items`, `space`, `putAway`, `fetch`; the bridge adds `canCraft`,
+  `craft`, `isCrafting`) hide whether items live in chests or an AE2 / RS
+  system. New programs that need items use the `storage` protocol and the
+  input chest, so they work with either. The fuel chest sits above the
+  backend in `storage.lua`. The bridge handles both Advanced Peripherals
+  APIs (0.7 `listItems` / `exportItemToPeripheral`, 0.8 / 1.21 `getItems`
+  / `exportItem`) and can't target a slot, so slot moves go through the
+  transfer chest.
 - Optional chests (delivery, crafter, fuel) that go missing turn their feature
   off with a message instead of stopping the storage system.
 
