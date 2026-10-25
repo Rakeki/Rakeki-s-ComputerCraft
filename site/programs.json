@@ -528,7 +528,7 @@
       "deviceLabel": "Advanced computer + monitor + Spatial Projector",
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
-      "libs": ["report"],
+      "libs": ["report", "errlog"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -541,7 +541,8 @@
         "Move, raise and turn the building from the monitor",
         "Layer view outlines every block of one layer to build from",
         "Top-down map of the layer and the blocks it needs",
-        "Follows a village turtle and projects the building it's working on"
+        "Follows a village turtle and projects the building it's working on",
+        "Tap Build and a builder turtle builds it right where it's shown"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -553,12 +554,14 @@
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a built-in plan or /plans/<plan>.lua"],
         ["projector village", "follow what a village turtle is building"],
+        ["projector build", "have a builder turtle build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
         ["projector check <plan>", "load a plan and list the blocks it needs"],
         ["projector clear", "remove the projection"]
       ],
       "integrates": [
         ["village-turtle", "'projector village' shows the turtle's current building where it's building it, layer by layer."],
+        ["builder-turtle", "Build sends the plan, in world coordinates, to a builder turtle; the panel follows its progress."],
         ["status-server", "Shows which plan is up, where it is and the layer you're on."],
         ["report", "Optional: without lib/report.lua or a modem it just projects."]
       ],
@@ -575,6 +578,59 @@
           ["  L minecraft:oak_log            12", "", "white"],
           ["  G minecraft:glass_pane         7", "", "white"],
           ["  D minecraft:oak_door           2", "", "white"]
+        ]
+      }
+    },
+    {
+      "name": "builder-turtle",
+      "title": "Builder",
+      "command": "builder",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle + wireless modem",
+      "color": "pink",
+      "tagline": "Builds whatever the blueprint projector is showing, right where it's shown: tap Build and watch it go up layer by layer.",
+      "libs": ["nav", "report", "errlog"],
+      "autostart": true,
+      "stats": [
+        ["Plans from", "the projector"],
+        ["Order", "bottom layer up"],
+        ["Per trip", "13 stacks"],
+        ["Range", "256 blocks"]
+      ],
+      "features": [
+        "Clears the plot, then builds every layer from the block above it",
+        "Restocks from the supply chest behind its home, or orders from the storage system",
+        "Reports to the projector: the panel shows how far it's got and Layer view follows it",
+        "Saves after every block, so a reboot or chunk reload carries on where it stopped",
+        "GPS or a typed-in position: it builds in real world coordinates"
+      ],
+      "setup": [
+        "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left.",
+        "Run builder: with GPS it finds its position, otherwise type its X Y Z and facing (F3). Reboot.",
+        "Fill the supply chest with the plan's blocks and coal, then tap Build on the projector."
+      ],
+      "commands": [
+        ["builder", "wait for a building from a projector (runs on boot)"],
+        ["builder setup", "make this block home"],
+        ["builder here", "no GPS: put back on its home block, carry on"],
+        ["builder status", "what it's building and how far along"],
+        ["builder cancel", "forget the current building"]
+      ],
+      "integrates": [
+        ["blueprint-projector", "Sends it the plan when you tap Build, and shows its progress on the panel."],
+        ["storage-computer", "Orders each load of blocks and coal into its supply chest (the storage system's delivery chest)."],
+        ["gps-deployer", "With GPS it finds its own position and checks it as it builds."],
+        ["nav", "All its moves go through lib/nav.lua, so chests and computers are never dug."]
+      ],
+      "render": { "kind": "voxel", "scene": "builder", "caption": "The projector beside a half-built cottage, the builder placing the next layer, and its home with the supply and spoil chests." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "builder", "cmd"],
+          ["Builder ready (turtle #7). Waiting for a building from a projector.", "", "lime"],
+          ["Building Cottage: 205 blocks.", "", "white"],
+          ["Going home: loading blocks", "", "lightGray"],
+          ["Built Cottage.", "", "lime"]
         ]
       }
     },

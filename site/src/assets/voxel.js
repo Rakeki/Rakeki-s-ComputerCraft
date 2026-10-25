@@ -549,7 +549,32 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter,
+  // Builder: the blueprint projector (computer, monitor and projector) beside
+  // a 7x7 cottage the builder turtle is half way through, placing the next
+  // layer from above, and its home block with the supply and spoil chests.
+  function builder() {
+    const w = new World();
+    w.box(-2, 15, -1, -1, -2, 11, "stone");
+    w.set(0, 0, 1, "advanced"); w.set(-1, 0, 1, "monitor"); w.set(-1, 1, 1, "monitor"); w.set(1, 0, 1, "bridge");
+    // the cottage: a cobblestone course, then planks walls, the second course part done
+    const ring = (x, z) => x === 4 || x === 10 || z === 3 || z === 9;
+    for (let x = 4; x <= 10; x++) for (let z = 3; z <= 9; z++) {
+      if (!ring(x, z)) continue;
+      const corner = (x === 4 || x === 10) && (z === 3 || z === 9);
+      const door = x === 7 && z === 3;
+      if (!door) w.set(x, 0, z, corner ? "log" : "cobble");
+      if (!door && (z >= 6 || x === 4)) w.set(x, 1, z, corner ? "log" : "planks");
+    }
+    w.set(10, 2, 5, "turtle"); // above the next block of the second course
+    w.set(13, 0, 9, "chest"); w.set(12, 0, 8, "chest"); // supply behind home, spoil to its left
+    return {
+      world: w,
+      labels: [[-0.5, 2.6, 1, "projector + panel", "#e57fd8"], [7, 3, 6, "building it layer by layer", "#dede6c"],
+        [10, 3.4, 5, "builder", "#f2b2cc"], [12.5, 1.6, 8.5, "supply + spoil chests", "#7fcc19"]],
+    };
+  }
+
+  const SCENES = { excavate, stripmine, gps, automine: automineScene, treefarm, cropfarm, crafter, builder,
     storageChests, storageUpgrades, storageBase, storageAe };
 
   //---------------------------------------------------------------- mounting

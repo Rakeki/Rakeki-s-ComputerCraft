@@ -8,12 +8,14 @@
 --   projector                 show the last plan (startup runs this)
 --   projector <plan>          show a plan: cottage, /plans/<plan>.lua, or a file path
 --   projector village         show what a village turtle is building, where it's building it
+--   projector build           have a builder turtle (computers/builder-turtle) build the plan where it's shown
 --   projector list            list the plans
 --   projector check <plan>    load a plan and print its size and blocks
 --   projector clear           remove the projection (stays hidden after a reboot)
 local ui = require("ui")
 local samples = require("sample_plans")
 local report = fs.exists("lib/report.lua") and require("lib.report")
+local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local STATE_FILE = "/.projector_state"
 local PLAN_DIR = "/plans"
@@ -32,6 +34,8 @@ local INSET_BLOCK = 0.04    -- shrink single blocks a little so neighbours' outl
 local INSET_MERGED = 0.01
 local VILLAGE_FILE = "/.projector_village" -- the last building heard from a village turtle
 local PLAN_PROTOCOL = "village_plan" -- rednet protocol village turtles share their building on
+local BUILD_PROTOCOL = "projector_build" -- rednet protocol builder turtles take buildings on
+local BUILD_WAIT = 5 -- seconds to wait for each builder turtle to answer
 
 local args = { ... }
 
@@ -339,10 +343,12 @@ local function footprint()
   return state.x + math.min(ax, bx), state.z + math.min(az, bz), state.x + math.max(ax, bx), state.z + math.max(az, bz)
 end
 
+-- state.build, while a builder turtle is building the plan: { key, builder,
+-- name, stage, done, total, y, skipped, note } from its progress messages.
 local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
-    view = state.view, layer = state.layer, step = state.step, hidden = state.hidden,
+    view = state.view, layer = state.layer, step = state.step, hidden = state.hidden, build = state.build,
   })
 end
 
@@ -544,6 +550,20 @@ local function villageNote()
   return who .. (plan.fixed and "following" or "no GPS: move it into place")
 end
 
+-- What the builder turtle is up to, for the panel.
+local function buildNote()
+  local b = state.build
+  local who = ("Builder #%s: "):format(tostring(b.builder))
+  if b.stage == "build" and b.total and b.total > 0 then
+    return who .. ("building, %d of %d (%d%%)"):format(b.done or 0, b.total, math.floor((b.done or 0) / b.total * 100))
+  elseif b.stage == "clear" and b.toClear and b.toClear > 0 then
+    return who .. ("clearing the plot, %d%%"):format(math.floor((b.cleared or 0) / b.toClear * 100))
+  elseif b.stage == "waiting" or b.stage == "restocking" then
+    return who .. (b.note or "fetching blocks")
+  end
+  return who .. "starting"
+end
+
 -- What the panel shows: the current layer as a top-down map (north up) and
 -- the blocks it needs.
 local function model()
@@ -571,15 +591,27 @@ local function model()
   for i, id in ipairs(ids) do if id == state.plan then index = i end end
   return {
     plan = plan, index = index, planCount = #ids, state = state, facing = FACING[state.turn % 4],
-    status = status, note = note or (plan.village and villageNote()), map = map, counts = counts,
+    status = status, note = note or (state.build and buildNote()) or (plan.village and villageNote()),
+    map = map, counts = counts, building = state.build ~= nil, canBuild = not plan.village,
     countTitle = (from == state.layer and "Layer %d: %d" or "Layers 1-%d: %d"):format(state.layer, total),
   }
 end
 
 local function act(action)
   if not action then return end
-  if plan.fixed and (MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here") then
+  if action == "build" then
+    -- the talking to the turtle happens in buildLoop, so the panel never waits
+    os.queueEvent(state.build and "projector_build_stop" or "projector_build_start")
+    return
+  end
+  local moving = MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here"
+  if plan.fixed and moving then
     note = "The village builder decides where this goes."
+    os.queueEvent("projector_status")
+    return
+  end
+  if state.build and (moving or action == "nextPlan" or action == "prevPlan") then
+    note = "A builder turtle is building this: tap Stop first."
     os.queueEvent("projector_status")
     return
   end
@@ -630,6 +662,7 @@ local KEYS = {
   [keys.pageUp] = "up", [keys.pageDown] = "down", [keys.q] = "turnLeft", [keys.e] = "turnRight",
   [keys.leftBracket] = "layerDown", [keys.rightBracket] = "layerUp", [keys.v] = "view",
   [keys.s] = "step", [keys.h] = "hide", [keys.n] = "nextPlan", [keys.p] = "prevPlan", [keys.home] = "here",
+  [keys.b] = "build",
 }
 
 -- Events that change what the panel shows; projector replies and timers don't.
@@ -651,7 +684,7 @@ local function panelLoop()
       screen.clear()
       screen.setCursorPos(1, 1)
       print(("Projecting plans. Controls are on monitor %s."):format(monitorName))
-      print("Keys here: arrows move, PgUp/PgDn up and down, Q/E turn, [ ] layer, V view, N/P plan, H hide.")
+      print("Keys here: arrows move, PgUp/PgDn up and down, Q/E turn, [ ] layer, V view, N/P plan, H hide, B build.")
     end
   end
 
@@ -750,6 +783,113 @@ local function waitForVillage()
   print("Heard from it: " .. village.name .. ".")
 end
 
+---------------------------------------------------------------- builder turtle
+
+local buildOnStart = false -- 'projector build': build once everything's running
+
+local function tell(text)
+  note = text
+  os.queueEvent("projector_status")
+end
+
+-- The plan as it's shown: every block in world coordinates, and the block
+-- names its materials stand for.
+local function worldPlan()
+  local mats, blocks = {}, {}
+  for i, m in ipairs(plan.mats) do mats[i] = m.block end
+  for i, b in ipairs(plan.blocks) do
+    local dx, dz = offset(b.x, b.z)
+    blocks[i] = { state.x + dx, state.y + b.y, state.z + dz, b.m }
+  end
+  return mats, blocks
+end
+
+-- Progress from the builder turtle building this projector's plan: keep
+-- the panel up to date, and in Layer view follow the layer it's on.
+local function onBuilder(from, msg)
+  local b = state.build
+  if type(msg) ~= "table" or msg.type ~= "progress" or not b or msg.key ~= b.key then return end
+  b.stage, b.done, b.total, b.y, b.skipped, b.note = msg.stage, msg.done, msg.total, msg.y, msg.skipped, msg.note
+  b.cleared, b.toClear, b.builder = msg.cleared, msg.toClear, from
+  if msg.stage == "done" or msg.stage == "stopped" then
+    state.build = nil
+    if msg.stage == "stopped" then
+      note = ("Builder #%d stopped. Tap Build to start again."):format(from)
+    elseif (msg.skipped or 0) > 0 then
+      note = ("Builder #%d built it, but skipped %d blocks."):format(from, msg.skipped)
+    else
+      note = ("Builder #%d built it."):format(from)
+    end
+    if report then report.log(note) end
+  elseif state.view == "layer" and msg.y then
+    local layer = math.max(1, math.min(plan.h, msg.y - state.y + 1))
+    if layer ~= state.layer then
+      state.layer = layer
+      redraw()
+    end
+  end
+  save()
+  os.queueEvent("projector_status")
+end
+
+-- Hand the plan to the first builder turtle that's free.
+local function startBuild()
+  if plan.village then return tell("The village builder builds this one itself.") end
+  if not openWireless() then return tell("Needs a wireless modem to reach a builder turtle.") end
+  local ids = { rednet.lookup(BUILD_PROTOCOL) }
+  if #ids == 0 then return tell("No builder turtle answered: is one running 'builder' nearby?") end
+  tell(("Sending %d blocks to a builder turtle..."):format(#plan.blocks))
+  local mats, blocks = worldPlan()
+  local key = ("%d-%s"):format(os.epoch("utc"), state.plan)
+  local busy
+  for i, id in ipairs(ids) do
+    rednet.send(id, { type = "build", id = i, key = key, name = plan.name, mats = mats, blocks = blocks }, BUILD_PROTOCOL)
+    local deadline = os.clock() + BUILD_WAIT
+    while os.clock() < deadline do
+      local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
+      if from == id and type(msg) == "table" and msg.key == key and msg.id == i then
+        if msg.type == "accepted" then
+          state.build = { key = key, builder = id, name = plan.name, stage = "clear", done = 0, total = #blocks }
+          save()
+          return tell(("Builder #%d is building %s."):format(id, plan.name))
+        end
+        busy = ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
+          or ("refused: " .. tostring(msg.why)))
+        break
+      elseif from then
+        onBuilder(from, msg)
+      end
+    end
+  end
+  tell(busy or "No builder turtle answered in time.")
+end
+
+local function stopBuild()
+  local b = state.build
+  if openWireless() then rednet.send(b.builder, { type = "stop", id = 0, key = b.key }, BUILD_PROTOCOL) end
+  tell(("Asked builder #%d to stop..."):format(b.builder))
+end
+
+-- Starts and stops builds asked for on the panel, and hears progress.
+local function buildLoop()
+  -- after a restart, ask the turtle where it's got to
+  if state.build and openWireless() then
+    rednet.send(state.build.builder, { type = "status", id = 0, key = state.build.key }, BUILD_PROTOCOL)
+  elseif buildOnStart then
+    startBuild()
+  end
+  while true do
+    local ev = { os.pullEvent() }
+    if ev[1] == "projector_build_start" and not state.build then
+      startBuild()
+    elseif ev[1] == "projector_build_stop" and state.build then
+      stopBuild()
+    elseif ev[1] == "rednet_message" and ev[4] == BUILD_PROTOCOL then
+      onBuilder(ev[2], ev[3])
+    end
+  end
+end
+
 ---------------------------------------------------------------- commands
 
 local function findProjector()
@@ -808,6 +948,10 @@ local function main()
   state.turn, state.step = state.turn or 0, state.step or 1
   state.view = state.view or "whole"
   if cmd == "village" and not village then waitForVillage() end
+  if cmd == "build" then
+    -- build the plan that's showing, once everything's running (buildLoop)
+    cmd, buildOnStart = nil, true
+  end
   if cmd then
     local ok, err = usePlan(cmd, state.plan ~= nil)
     if not ok then error(err, 0) end
@@ -828,10 +972,11 @@ local function main()
   projector.clear()
   if report then report.init("blueprint projector") end
   redraw()
-  parallel.waitForAny(panelLoop, drawLoop, villageLoop, report and report.loop or function() while true do sleep(3600) end end)
+  parallel.waitForAny(panelLoop, drawLoop, villageLoop, buildLoop,
+    report and report.loop or function() while true do sleep(3600) end end)
 end
 
-local ok, err = pcall(main)
+local ok, err = (errlog and errlog.pcall or pcall)(main)
 if not ok then
   if err == "Terminated" then return end
   if report and report.set then pcall(report.set, "error", tostring(err)) end

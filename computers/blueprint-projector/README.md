@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** Spatial Projector (next to the computer or on a wired modem), advanced monitor (2×2 or bigger), optional wireless or ender modem for the [status server](../status-server/README.md) and for following a [village turtle](#following-a-village-turtle)
+- **Peripherals:** Spatial Projector (next to the computer or on a wired modem), advanced monitor (2×2 or bigger), optional wireless or ender modem for the [status server](../status-server/README.md), for following a [village turtle](#following-a-village-turtle) and for [having a turtle build it](#having-a-turtle-build-it)
 
 ## What it does
 
@@ -22,6 +22,9 @@ where you want it. Then use it to build:
   guide around that layer. Build it, tap **+**, and the next layer appears.
 - **Outline** view shows only the box the building takes up: handy for
   checking it fits before looking at the details.
+- **Build** hands it to a [builder turtle](../builder-turtle/README.md),
+  which builds it right where it's shown. See
+  [Having a turtle build it](#having-a-turtle-build-it).
 
 Under the buttons, the monitor shows a top-down map of the current layer
 (north is up) and how many of each block it needs, so you know what to bring.
@@ -44,6 +47,7 @@ in the `/plans` folder (see [Plans](#plans)).
 - `sample_plans.lua`: the built-in plans, and examples of the plan format
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
+- [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
 ## Setup
 
@@ -59,6 +63,7 @@ projector                  -- show the last plan (startup does this)
 projector pagoda          -- show a plan: built in, or /plans/<name>.lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector village          -- follow what a village turtle is building
+projector build            -- have a builder turtle build the plan where it's shown
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
 projector clear            -- remove the projection (Ctrl+T first to stop it)
@@ -77,10 +82,30 @@ projector clear            -- remove the projection (Ctrl+T first to stop it)
 | **Layer − +** | the layer to build (Layer view) or how high to show it (Whole view) |
 | **Here** | put it back next to the projector |
 | **Hide / Show** | take the projection down or put it back |
+| **Build / Stop** | have a [builder turtle](../builder-turtle/README.md) build it here, or stop it |
 
 Without a monitor, the panel shows on the computer's screen: click instead of
 tap. The keyboard works too: arrows move, PgUp/PgDn raise and lower, Q/E
-turn, `[` `]` change layer, V view, S step, N/P plan, H hide, Home here.
+turn, `[` `]` change layer, V view, S step, N/P plan, H hide, Home here,
+B build.
+
+## Having a turtle build it
+
+With a [builder turtle](../builder-turtle/README.md) set up nearby, tap
+**Build** and it builds the building exactly where the projection is. Both
+need a wireless or ender modem.
+
+- The projector sends the plan to the first builder turtle that isn't busy.
+  The panel says which one took it, or why none did (none in range, or all
+  busy).
+- While it builds, the panel shows how far it's got ("Builder #7: building,
+  340 of 1200 (28%)"), and in **Layer** view the projection follows the layer
+  it's on, so you can watch the next layer appear above it.
+- The building can't be moved, turned or swapped for another plan while it's
+  being built. Tap **Stop** to call the turtle off; it goes home.
+- When it's done the panel says so, with how many blocks it couldn't place,
+  if any. A restart of the projector keeps track: it asks the turtle where
+  it's got to.
 
 ## Following a village turtle
 

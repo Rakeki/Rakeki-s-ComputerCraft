@@ -131,9 +131,15 @@ function ui:draw(m)
 
   x = self:button(7, 7, "Here", "here", colors.white, colors.blue)
   if s.hidden then
-    self:button(x, 7, "Show", "hide", colors.white, colors.green)
+    x = self:button(x, 7, "Show", "hide", colors.white, colors.green)
   else
-    self:button(x, 7, "Hide", "hide", colors.white, colors.red)
+    x = self:button(x, 7, "Hide", "hide", colors.white, colors.red)
+  end
+  -- a builder turtle builds it where it's shown
+  if m.building then
+    self:button(x, 7, "Stop", "build", colors.white, colors.red)
+  elseif m.canBuild then
+    self:button(x, 7, "Build", "build", colors.white, colors.green)
   end
 
   put(win, 2, 9, fit(m.status.text, w - 2), m.status.color, colors.black)

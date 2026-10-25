@@ -154,7 +154,8 @@ Existing computers:
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog |
-| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls | report (if present) |
+| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | report, errlog (if present) |
+| `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog |
 | `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | report, errlog (if present) |
@@ -180,7 +181,8 @@ reply is never taken for a newer one.
 | `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
 | `automine` | mine-turtle ↔ mine-server | jobs, progress, docking; the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
-| `storage` | village-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
+| `projector_build` | blueprint-projector ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords) → `accepted` / `busy` / `refused`; `stop`, `status`; the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped) |
+| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the delivery chest), `learn` (a recipe), `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot; furnaces only) |
 | `storage_crafter` | storage-computer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |
 
 Rules that keep it from stalling:

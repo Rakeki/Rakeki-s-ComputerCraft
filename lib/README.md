@@ -5,14 +5,15 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 
 - `nav.lua`: turtle position tracking (saved across reboots, optional GPS) and
   movement that digs through anything except protected blocks. Used by
-  `mine-turtle`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle`, `tree-farm-turtle`, `crop-farm-turtle` and `gps-deployer`.
+  `mine-turtle`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle`, `builder-turtle`, `tree-farm-turtle`, `crop-farm-turtle` and `gps-deployer`.
 - `report.lua`: sends this computer's status to the
   [status server](../computers/status-server/README.md). Used by `mine-turtle`,
-  `mine-server`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle`, `tree-farm-turtle`, `crop-farm-turtle`, `blueprint-projector` (if present), `storage-computer` (if present), `colony-dashboard` (if present), `crafter-turtle` (if present), `smelter-computer` (if present) and the computer template.
+  `mine-server`, `excavate-turtle`, `strip-mine-turtle`, `mob-farm-turtle`, `village-turtle`, `builder-turtle`, `tree-farm-turtle`, `crop-farm-turtle`, `blueprint-projector` (if present), `storage-computer` (if present), `colony-dashboard` (if present), `crafter-turtle` (if present), `smelter-computer` (if present) and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
   trace), skipping repeats and trimming old entries. Used by `mine-turtle`,
   `mine-server`, `status-server`, `excavate-turtle`, `strip-mine-turtle`,
   `mob-farm-turtle`, `village-turtle`, `tree-farm-turtle`, `crop-farm-turtle`,
   `gps-deployer`, `storage-computer` (if present), `colony-dashboard` (if present),
-  `crafter-turtle` (if present), `smelter-computer` (if present) and the computer template.
+  `crafter-turtle` (if present), `smelter-computer` (if present), `builder-turtle`,
+  `blueprint-projector` (if present) and the computer template.
