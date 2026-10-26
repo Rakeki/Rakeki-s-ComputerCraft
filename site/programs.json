@@ -434,6 +434,7 @@
       ],
       "commands": [
         ["miner dock", "on a miner with a chest behind it: move the dock there"],
+        ["server clear", "drop every queued and in-progress chunk (Ctrl+T first, then reboot)"],
         ["edit config.lua", "cruise height, depth, monitors (and the dock without GPS)"],
         ["reboot", "start the server"]
       ],

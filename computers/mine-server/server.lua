@@ -7,6 +7,9 @@ local errlog = require("lib.errlog") -- saves errors to /errors.log
 local net = require("lib.net") -- opening modems
 local files = require("lib.files") -- crash-safe save files
 
+--   server         run the server (startup.lua runs this)
+--   server clear   drop every queued and in-progress chunk from the plan
+local args = { ... }
 local dir = fs.getDir(shell.getRunningProgram())
 local config = dofile(fs.combine(dir, "config.lua"))
 
@@ -126,6 +129,21 @@ local function sendControl(id)
   rednet.send(id, controlMsg(id), PROTOCOL)
 end
 
+-- Drop every queued and in-progress chunk (mined and "Me" chunks stay), and
+-- return the turtles that were mining one so they can be told to stop.
+local function clearPlan(why)
+  local released = {}
+  for k, c in pairs(state.chunks) do
+    if c.state == "queued" or c.state == "active" then
+      if c.turtle then released[#released + 1] = c.turtle end
+      state.chunks[k] = nil
+    end
+  end
+  log("Plan cleared: " .. why)
+  save()
+  return released
+end
+
 local function touch(id, msg)
   local t = state.turtles[id]
   if not t then
@@ -174,8 +192,14 @@ function handlers.set_dock(id, msg)
   touch(id, msg)
   local d = msg.dock
   if type(d) ~= "table" or not (tonumber(d.x) and tonumber(d.y) and tonumber(d.z)) then return end
+  local hadDock = dock()
   state.dockPos = { x = d.x, y = d.y, z = d.z, chestDir = d.chestDir, fuelDir = d.fuelDir }
   updateBase()
+  -- Chunks queued with no real dock were planned around the wrong home (the
+  -- old 0, 64, 0 example), likely thousands of blocks away and off the map now.
+  if not hadDock then
+    for _, t in ipairs(clearPlan("it was made before there was a dock")) do sendControl(t) end
+  end
   -- the home chunk is never mined, so drop it from the plan if it was queued
   local home = state.chunks[key(baseCx, baseCz)]
   if home and home.state ~= "active" then state.chunks[key(baseCx, baseCz)] = nil end
@@ -270,6 +294,15 @@ end
 
 load()
 updateBase()
+if args[1] == "clear" then
+  -- turtles hear about it when the server starts again (it tells each one)
+  local released = clearPlan("by 'server clear'")
+  print(("Cleared the plan (%d turtle%s taken off a chunk). Reboot to start the server."):format(#released, #released == 1 and "" or "s"))
+  return
+elseif args[1] then
+  print("Usage: server [clear]")
+  return
+end
 if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 rednet.host(PROTOCOL, "server")
 report.init("mining server")

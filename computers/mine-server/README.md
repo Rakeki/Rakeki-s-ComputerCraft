@@ -64,10 +64,13 @@ Monitors can be added or removed while the server is running.
    chest below the dock block, fuel chest beside it. Stand on the deposit
    chest, press F3 and copy the **Block:** line (not XYZ, whose decimals round
    the wrong way at negative coordinates), then reboot.
-   Until there's a dock, the map says so and no jobs go out.
+   Until there's a dock, the map says so and no jobs go out. Anything queued
+   before there was a dock is dropped when the dock is set: it was planned
+   around the wrong home.
 
 ```
 miner dock      -- on a miner with a chest behind it: move the dock here
+server clear    -- on the server (Ctrl+T first): drop every queued and in-progress chunk, then reboot
 ```
 
 ## Using the map
@@ -94,3 +97,8 @@ Pick a tool on the bottom bar, then tap chunks (or drag on the computer screen):
 
 Header arrows (or the arrow keys/WASD) pan the map; **HQ** recentres it.
 **Pause** sends every turtle home to unload and wait; **Resume** sends them back.
+
+Turtles mining with nothing queued on the map are working on chunks off the
+edge of it, for example ones queued around an old dock. Press Ctrl+T on the
+server, run `server clear` and reboot: queued and in-progress chunks are
+dropped (mined and *Me* chunks stay) and the turtles stop.
