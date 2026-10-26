@@ -1,12 +1,15 @@
 -- AutoMine settings. Edit these, then reboot the server. Turtles pick up
 -- changes the next time they ask for a job.
 return {
-  -- Where turtles unload and refuel. Stand on the block, press F3, copy x/y/z.
+  -- Where turtles unload and refuel. Stand on the deposit chest (your feet are
+  -- then in the dock block), press F3 and copy the "Block:" line, not "XYZ:":
+  -- XYZ has decimals, and at negative coordinates -12.3 is block -13, not -12.
   --   * deposit chest goes directly BELOW the dock block
   --   * fuel chest goes right next to the dock block, on the fuelDir side
   --   * keep the column above the dock open: turtles fly straight down into it
-  -- The chunk containing the dock is never mined.
-  dock = { x = 0, y = 64, z = 0, fuelDir = "north" },
+  -- The chunk containing the dock is never mined. The server won't start
+  -- until this is set, e.g. dock = { x = 1499, y = 70, z = 8071, fuelDir = "north" },
+  dock = nil,
 
   -- Turtles travel at cruiseY + (turtle ID % lanes) so they don't collide.
   -- Set it above your tallest build: turtles dig through anything in their path

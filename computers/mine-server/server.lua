@@ -10,6 +10,17 @@ local files = require("lib.files") -- crash-safe save files
 local dir = fs.getDir(shell.getRunningProgram())
 local config = dofile(fs.combine(dir, "config.lua"))
 
+-- An unset dock (or the old 0, 64, 0 example) would send every turtle
+-- thousands of blocks away and empty its inventory onto the ground there.
+local d = config.dock
+if not d or not (d.x and d.y and d.z) or (d.x == 0 and d.y == 64 and d.z == 0) then
+  printError("Set the dock in config.lua first: edit config.lua")
+  print("Stand on the deposit chest, press F3 and copy the Block: line")
+  print("into dock = { x = ..., y = ..., z = ..., fuelDir = ... }.")
+  print("Then reboot.")
+  return
+end
+
 local PROTOCOL = "automine"
 local STATE_FILE = "/.automine_state"
 local DOCK_TIMEOUT = 60 -- free the dock if the turtle holding it goes quiet this long

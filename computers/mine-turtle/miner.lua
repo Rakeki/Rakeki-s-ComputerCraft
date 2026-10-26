@@ -9,6 +9,7 @@ local errlog = require("lib.errlog") -- saves errors to /errors.log
 local PROTOCOL = "automine"
 local JOB_FILE = "/.automine_job"
 local STATUS_INTERVAL = 5
+local POSITION_CHECK_CELLS = 32 -- cells mined between GPS checks of the tracked position
 
 local serverId
 local config -- sent by the server: dock, cruiseY, lanes, targetFuel, minFuel, junk
@@ -160,8 +161,23 @@ local function check(ok, err)
   if not ok then error("can't move: " .. tostring(err), 0) end
 end
 
+-- Tracking can slip (a chunk unloading mid-move, a reboot out of GPS range),
+-- and every later move would be off by the same amount, so compare it with
+-- GPS now and then and recalibrate if they disagree.
+local function checkPosition()
+  local g = nav.locate()
+  if not g then return end -- no GPS, or out of range just now
+  local p = nav.getPos()
+  if g.x ~= p.x or g.y ~= p.y or g.z ~= p.z then
+    print(("Position was off: thought %d,%d,%d, GPS says %d,%d,%d. Correcting."):format(p.x, p.y, p.z, g.x, g.y, g.z))
+    report.log(("position corrected to %d,%d,%d"):format(g.x, g.y, g.z))
+    nav.init(true)
+  end
+end
+
 -- Long-distance travel: up to this turtle's lane, across, then down.
 local function travelTo(x, y, z)
+  checkPosition()
   local p = nav.getPos()
   check(nav.goTo(p.x, laneY(), p.z))
   check(nav.goTo(x, laneY(), z))
@@ -187,6 +203,12 @@ local function visitDock()
   local d = config.dock
   local ok, err = pcall(function()
     travelTo(d.x, d.y, d.z)
+    -- A wrong dock in the server's config (or a wrong GPS) would otherwise
+    -- mean emptying everything onto the ground.
+    if not peripheral.hasType("bottom", "inventory") then
+      local p = nav.getPos()
+      error(("No deposit chest below me at %d,%d,%d. Check dock in the server's config.lua, and 'gps locate' against F3."):format(p.x, p.y, p.z), 0)
+    end
     for slot = 1, 16 do
       turtle.select(slot)
       while turtle.getItemCount(slot) > 0 and not turtle.dropDown() do
@@ -266,6 +288,7 @@ local function mineJob()
       end -- cells blocked by bedrock or protected blocks are skipped
       job.cell = job.cell + 1
       saveJob()
+      if job.cell % POSITION_CHECK_CELLS == 0 then checkPosition() end
 
       if emptySlots() <= 1 then
         dropJunk()
@@ -348,16 +371,21 @@ local function main()
   end
 end
 
+-- The player's own F3 position is the block they stand on, not the turtle's,
+-- so ask for the turtle's block ("Targeted Block", shown as "x, y, z").
 local function askPosition()
-  print("No GPS found. Stand behind the turtle facing the same way")
-  print("it faces, press F3, and enter its coordinates.")
+  print("No GPS here, so tell me where I am. Press F3 and look")
+  print("at my block: \"Targeted Block\" shows its X, Y, Z.")
   while true do
-    write("x y z: ")
-    local x, y, z = read():match("^%s*(-?%d+)%s+(-?%d+)%s+(-?%d+)%s*$")
+    write("X Y Z: ")
+    local n = {}
+    for num in read():gmatch("-?%d+") do n[#n + 1] = tonumber(num) end
+    print("Stand behind me, looking the way I face, and read")
+    print("\"Facing\" on F3.")
     write("Facing (north/east/south/west): ")
-    local facing = read():lower()
-    if x and nav.HEADINGS[facing] then
-      nav.setPosition(tonumber(x), tonumber(y), tonumber(z), facing)
+    local facing = read():lower():gsub("%s", "")
+    if #n == 3 and nav.HEADINGS[facing] then
+      nav.setPosition(n[1], n[2], n[3], facing)
       return
     end
     print("Didn't understand that, try again.")
@@ -369,7 +397,17 @@ report.init("auto miner")
 errlog.init("miner", function() return { pos = nav.getPos(), job = job } end)
 if not os.getComputerLabel() then os.setComputerLabel("Miner-" .. os.getComputerID()) end
 print("AutoMine turtle " .. os.getComputerLabel())
-if not nav.init() then askPosition() end
+-- GPS works out the facing by stepping forward, which needs fuel.
+if inv.fuelLevel() < 10 then inv.refuel(100) end
+if nav.locate() then
+  nav.init(true)
+elseif not nav.init(false) then
+  askPosition()
+elseif not nav.confirmResume("Then type my position again.") then
+  askPosition()
+end
+local p = nav.getPos()
+print(("I'm at %d, %d, %d, facing %s."):format(p.x, p.y, p.z, ({ [0] = "north", "east", "south", "west" })[nav.getHeading()]))
 
 local saved = loadJob()
 local welcome = request({ type = "hello", label = os.getComputerLabel() }, "welcome")

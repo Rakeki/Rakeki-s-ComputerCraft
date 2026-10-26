@@ -430,7 +430,7 @@
       "setup": [
         "Place an advanced computer with a modem, plus any monitors.",
         "Build the dock: open sky above, deposit chest below, fuel chest beside it.",
-        "Set the dock coordinates in config.lua ('edit config.lua').",
+        "Set the dock coordinates in config.lua ('edit config.lua'): stand on the deposit chest and copy F3's Block line.",
         "Reboot. The server starts on its own and restarts if it ever stops."
       ],
       "commands": [
@@ -470,7 +470,7 @@
         "Craft a mining turtle with an ender modem (or wireless modem).",
         "Place it, give it a bit of coal and run 'refuel all'.",
         "Install and reboot. It names itself Miner-<id>.",
-        "With GPS it finds its own position. Without, it asks once (use F3)."
+        "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z."
       ],
       "commands": [
         ["refuel all", "before the first start"],
@@ -478,7 +478,7 @@
       ],
       "integrates": [
         ["mine-server", "Gets jobs and dock access from the server."],
-        ["gps-deployer", "GPS lets new miners find their position and facing on their own."],
+        ["gps-deployer", "GPS lets new miners find their position and facing on their own, and keeps them on track while mining."],
         ["status-server", "Each miner shows up with its chunk, progress and fuel."]
       ],
       "render": { "kind": "voxel", "scene": "automine", "caption": "Three chunks: one mined out, one in progress, one still queued." },

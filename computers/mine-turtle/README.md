@@ -47,11 +47,25 @@ it to come back before asking for anything (a new job, the dock).
 2. Place it, put a bit of coal in it, and run `refuel all`.
 3. Copy the files on and reboot. It names itself `Miner-<id>` so it keeps its
    files if you break it.
-4. **With GPS** (recommended) it finds its own position and facing.
-   **Without GPS** it asks once for its coordinates and facing (use F3).
+4. **With GPS** (recommended) it finds its own position and facing. It steps
+   forward once to work out its facing, so give it fuel and room first.
+   **Without GPS** it asks once for its position and facing. Press F3, look at
+   the turtle's block and type the X Y Z from **Targeted Block** (not your own
+   position, which is the block you're standing on). For facing, stand behind it
+   looking the same way and read "Facing".
+
+With GPS it also checks its position every 32 blocks mined and before each
+trip, and corrects itself (and says so) if it has slipped. Without GPS, on
+every reboot it trusts its saved position, but first waits 10 seconds: press
+a key if you moved it, then type its position again.
 
 ## Things to know
 
+- **Ending up somewhere wrong?** On the turtle, run `gps locate` and compare it
+  with F3's Targeted Block while you look at the turtle. If they differ, the
+  GPS hosts have the wrong coordinates. If they match, check `dock` in the
+  server's `config.lua`. The turtle won't unload at a dock with no chest
+  below it: it stops and says so instead.
 - **Use ender modems** if you can. A wireless modem only reaches about 64 blocks
   underground, and a turtle out of range can't get the dock or a new job.
 - **Chunk loading**: turtles freeze when their chunk unloads (when you're far

@@ -58,7 +58,10 @@ Monitors can be added or removed while the server is running.
 2. Build the dock: pick a block with open sky above it. Put the **deposit chest
    directly below** the dock block and the **fuel chest beside** the dock block
    (the side you set as `fuelDir`). Fill the fuel chest with coal or charcoal.
-3. Set `dock` in `config.lua` to the dock block's coordinates (F3).
+3. Set `dock` in `config.lua` to the dock block's coordinates. Stand on the
+   deposit chest, press F3 and copy the **Block:** line (not XYZ, whose
+   decimals round the wrong way at negative coordinates). The server won't
+   start until the dock is set.
 4. Copy the files on and reboot.
 
 ## Using the map
