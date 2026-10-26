@@ -1,5 +1,9 @@
 -- AutoMine turtle: asks the server for a chunk, strip-mines it top to bottom
 -- in 3-high layers, and returns to the dock to unload and refuel when needed.
+--
+--   miner          mine (startup.lua runs this)
+--   miner dock     this block is the dock: tell the server, using GPS
+local args = { ... }
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local net = require("lib.net") -- opening modems
@@ -207,7 +211,7 @@ local function visitDock()
     -- mean emptying everything onto the ground.
     if not peripheral.hasType("bottom", "inventory") then
       local p = nav.getPos()
-      error(("No deposit chest below me at %d,%d,%d. Check dock in the server's config.lua, and 'gps locate' against F3."):format(p.x, p.y, p.z), 0)
+      error(("No deposit chest below me at %d,%d,%d. Run 'miner dock' on the real dock."):format(p.x, p.y, p.z), 0)
     end
     for slot = 1, 16 do
       turtle.select(slot)
@@ -328,6 +332,14 @@ local function step()
     saveJob()
   end
 
+  if not config.dock then
+    -- the server has no dock yet: nowhere to unload, so don't start anything
+    setState("waiting", "no dock: run 'miner dock' on it")
+    idleWait(15)
+    applyConfig(request({ type = "request_job" }, "job").config)
+    return
+  end
+
   if paused then
     setState("returning")
     if emptySlots() < 16 then visitDock() end
@@ -392,6 +404,39 @@ local function askPosition()
   end
 end
 
+local HEADING_NAMES = { [0] = "north", "east", "south", "west" }
+
+-- 'miner dock': the block this turtle is on becomes the dock. It reads the
+-- chests around it, so nobody has to copy coordinates into the server's config.
+local function markDock()
+  if not peripheral.hasType("bottom", "inventory") then
+    print("Put me on the dock block, with the deposit chest right below me.")
+    return
+  end
+  -- sides in turns clockwise from the way the turtle faces
+  local sides, fuelDir, found = { "front", "right", "back", "left" }, nil, 0
+  for turn = 0, 3 do
+    if peripheral.hasType(sides[turn + 1], "inventory") then
+      fuelDir, found = HEADING_NAMES[(nav.getHeading() + turn) % 4], found + 1
+    end
+  end
+  if found ~= 1 then
+    print(found == 0 and "Put the fuel chest right next to me (not above or below)."
+      or "There's more than one chest next to me. Leave just the fuel chest.")
+    return
+  end
+  local p = nav.getPos()
+  local dock = { x = p.x, y = p.y, z = p.z, fuelDir = fuelDir }
+  print(("Dock: %d, %d, %d, fuel chest to the %s. Telling the server..."):format(p.x, p.y, p.z, fuelDir))
+  request({ type = "set_dock", dock = dock }, "dock_set")
+  print("Saved. Reboot me (and the other miners) to start mining.")
+end
+
+if args[1] and args[1] ~= "dock" then
+  print("Usage: miner [dock]")
+  return
+end
+
 openModem()
 report.init("auto miner")
 errlog.init("miner", function() return { pos = nav.getPos(), job = job } end)
@@ -407,7 +452,8 @@ elseif not nav.confirmResume("Then type my position again.") then
   askPosition()
 end
 local p = nav.getPos()
-print(("I'm at %d, %d, %d, facing %s."):format(p.x, p.y, p.z, ({ [0] = "north", "east", "south", "west" })[nav.getHeading()]))
+print(("I'm at %d, %d, %d, facing %s."):format(p.x, p.y, p.z, HEADING_NAMES[nav.getHeading()]))
+if args[1] == "dock" then return markDock() end
 
 local saved = loadJob()
 local welcome = request({ type = "hello", label = os.getComputerLabel() }, "welcome")

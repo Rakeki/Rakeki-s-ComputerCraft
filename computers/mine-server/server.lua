@@ -10,23 +10,13 @@ local files = require("lib.files") -- crash-safe save files
 local dir = fs.getDir(shell.getRunningProgram())
 local config = dofile(fs.combine(dir, "config.lua"))
 
--- An unset dock (or the old 0, 64, 0 example) would send every turtle
--- thousands of blocks away and empty its inventory onto the ground there.
-local d = config.dock
-if not d or not (d.x and d.y and d.z) or (d.x == 0 and d.y == 64 and d.z == 0) then
-  printError("Set the dock in config.lua first: edit config.lua")
-  print("Stand on the deposit chest, press F3 and copy the Block: line")
-  print("into dock = { x = ..., y = ..., z = ..., fuelDir = ... }.")
-  print("Then reboot.")
-  return
-end
-
 local PROTOCOL = "automine"
 local STATE_FILE = "/.automine_state"
 local DOCK_TIMEOUT = 60 -- free the dock if the turtle holding it goes quiet this long
 local SAVE_INTERVAL = 30
 local MAX_EVENTS = 30
 
+-- dockPos: the dock a turtle marked with 'miner dock' (GPS), used over config.dock
 -- chunks: "cx,cz" -> { cx, cz, state = queued|active|player|done, order, turtle, progress }
 -- turtles: id -> { label, pos, fuel, state, msg, job, progress, lastSeen }
 -- dock: who is using the dock, so a restart can't send two turtles into it
@@ -34,7 +24,20 @@ local MAX_EVENTS = 30
 local state = { chunks = {}, turtles = {}, nextOrder = 1, paused = false, dock = {}, events = {} }
 local saveDue, lastSave = false, 0
 
-local baseCx, baseCz = math.floor(config.dock.x / 16), math.floor(config.dock.z / 16)
+-- The old config.lua shipped this as an example; it was never anyone's dock,
+-- and it sent every turtle thousands of blocks away.
+local function realDock(d)
+  return d and d.x and d.y and d.z and not (d.x == 0 and d.y == 64 and d.z == 0) and d or nil
+end
+
+local function dock() return realDock(state.dockPos) or realDock(config.dock) end
+
+-- the home chunk (holds the dock; never mined), nil while there's no dock
+local baseCx, baseCz
+local function updateBase()
+  local d = dock()
+  if d then baseCx, baseCz = math.floor(d.x / 16), math.floor(d.z / 16) else baseCx, baseCz = nil, nil end
+end
 
 local function now() return os.epoch("utc") / 1000 end
 local function key(cx, cz) return cx .. "," .. cz end
@@ -57,7 +60,6 @@ end
 ---------------------------------------------------------------- displays
 
 local view = ui.new(config.mapMonitor)
-view.viewX, view.viewZ = baseCx, baseCz
 local board = config.statusMonitor ~= false and statusBoard.new(config.statusMonitor, view.display) or nil
 
 local function log(text)
@@ -106,7 +108,7 @@ end
 
 local function turtleConfig()
   return {
-    dock = config.dock,
+    dock = dock(), -- nil until one is set: turtles wait
     cruiseY = config.cruiseY,
     lanes = config.lanes,
     targetFuel = config.targetFuel,
@@ -149,7 +151,7 @@ end
 function handlers.request_job(id, msg)
   touch(id, msg)
   local c = assignedTo(id)
-  if not c and not state.paused then
+  if not c and not state.paused and dock() then
     c = nextQueued()
     if c then
       c.state, c.turtle, c.progress, c.order = "active", id, 0, nil
@@ -163,6 +165,22 @@ function handlers.request_job(id, msg)
     config = turtleConfig(),
     job = c and not state.paused and newJob(c) or nil,
   }
+end
+
+-- 'miner dock': a turtle on the dock block sends where it is (GPS) and which
+-- side its fuel chest is on.
+function handlers.set_dock(id, msg)
+  touch(id, msg)
+  local d = msg.dock
+  if type(d) ~= "table" or not (tonumber(d.x) and tonumber(d.y) and tonumber(d.z)) then return end
+  state.dockPos = { x = d.x, y = d.y, z = d.z, fuelDir = d.fuelDir or "north" }
+  updateBase()
+  -- the home chunk is never mined, so drop it from the plan if it was queued
+  local home = state.chunks[key(baseCx, baseCz)]
+  if home and home.state ~= "active" then state.chunks[key(baseCx, baseCz)] = nil end
+  log(("#%d set the dock to %d,%d,%d"):format(id, d.x, d.y, d.z))
+  save()
+  return { type = "dock_set" }
 end
 
 function handlers.status(id, msg)
@@ -250,10 +268,19 @@ end
 ---------------------------------------------------------------- main
 
 load()
+updateBase()
 if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 rednet.host(PROTOCOL, "server")
 report.init("mining server")
 errlog.init("server")
+
+-- Start the map on the dock, or (no dock yet) on this computer, by GPS.
+if baseCx then
+  view.viewX, view.viewZ = baseCx, baseCz
+else
+  local x, _, z = gps.locate(2)
+  if x then view.viewX, view.viewZ = math.floor(x / 16), math.floor(z / 16) end
+end
 
 -- One-line summary for the status server.
 local function reportStatus()
@@ -265,10 +292,15 @@ local function reportStatus()
   for _, c in pairs(state.chunks) do
     if c.state == "queued" then queued = queued + 1 end
   end
+  if not dock() then
+    report.set("waiting", "no dock: run 'miner dock' on it")
+    return
+  end
   report.set(state.paused and "paused" or "serving", ("%d/%d turtles, %d queued"):format(online, total, queued))
 end
 announce()
 log("Server started")
+if not dock() then log("No dock yet: put a miner on the dock and run 'miner dock'") end
 save()
 
 -- Tell turtles straight away, rather than waiting for their next status

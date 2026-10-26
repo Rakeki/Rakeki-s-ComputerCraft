@@ -17,7 +17,7 @@ keeps track of their progress, and shows a chunk map for planning.
 - `server.lua`: assigns jobs, tracks turtles, controls the dock
 - `ui.lua`: chunk map and turtle panel
 - `status.lua`: status board for a monitor
-- `config.lua`: dock location, cruise height, mining depth, monitors, junk list. **Edit this first.**
+- `config.lua`: cruise height, mining depth, monitors, junk list, and the dock if you have no GPS
 - [`lib/report.lua`](../../lib/report.lua): reports to the [status server](../status-server/README.md) (copy it to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
@@ -57,12 +57,18 @@ Monitors can be added or removed while the server is running.
 1. Place the computer and attach a modem and any monitors.
 2. Build the dock: pick a block with open sky above it. Put the **deposit chest
    directly below** the dock block and the **fuel chest beside** the dock block
-   (the side you set as `fuelDir`). Fill the fuel chest with coal or charcoal.
-3. Set `dock` in `config.lua` to the dock block's coordinates. Stand on the
-   deposit chest, press F3 and copy the **Block:** line (not XYZ, whose
-   decimals round the wrong way at negative coordinates). The server won't
-   start until the dock is set.
-4. Copy the files on and reboot.
+   (on any side). Fill the fuel chest with coal or charcoal.
+3. Copy the files on and reboot.
+4. Set the dock. **With GPS:** put a [miner](../mine-turtle/README.md) on the
+   dock block and run `miner dock`. It finds its position and the chests
+   itself and tells the server. **Without GPS:** set `dock` in `config.lua`.
+   Stand on the deposit chest, press F3 and copy the **Block:** line (not XYZ,
+   whose decimals round the wrong way at negative coordinates), then reboot.
+   Until there's a dock, the map says so and no jobs go out.
+
+```
+miner dock      -- on a miner sitting on the dock block (Ctrl+T first if it's running)
+```
 
 ## Using the map
 

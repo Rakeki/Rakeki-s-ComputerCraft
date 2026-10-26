@@ -430,11 +430,12 @@
       "setup": [
         "Place an advanced computer with a modem, plus any monitors.",
         "Build the dock: open sky above, deposit chest below, fuel chest beside it.",
-        "Set the dock coordinates in config.lua ('edit config.lua'): stand on the deposit chest and copy F3's Block line.",
-        "Reboot. The server starts on its own and restarts if it ever stops."
+        "Reboot. The server starts on its own and restarts if it ever stops.",
+        "Set the dock: with GPS, run 'miner dock' on a miner sitting on the dock block; without, put it in config.lua."
       ],
       "commands": [
-        ["edit config.lua", "dock location, cruise height, depth, monitors"],
+        ["miner dock", "on a miner sitting on the dock block: sets the dock by GPS"],
+        ["edit config.lua", "cruise height, depth, monitors (and the dock without GPS)"],
         ["reboot", "start the server"]
       ],
       "integrates": [
@@ -470,9 +471,11 @@
         "Craft a mining turtle with an ender modem (or wireless modem).",
         "Place it, give it a bit of coal and run 'refuel all'.",
         "Install and reboot. It names itself Miner-<id>.",
-        "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z."
+        "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z.",
+        "First miner: put it on the dock block, Ctrl+T, and run 'miner dock' so the server knows where the dock is."
       ],
       "commands": [
+        ["miner dock", "this block is the dock: tell the server (GPS)"],
         ["refuel all", "before the first start"],
         ["reboot", "start mining"]
       ],

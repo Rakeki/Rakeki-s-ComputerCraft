@@ -89,11 +89,14 @@ function ui:draw(m)
   put(win, 2, 1, "AutoMine", colors.yellow, colors.gray)
   if m.paused then put(win, 11, 1, "PAUSED", colors.red, colors.gray) end
   local x = L.w - 20
+  if not m.baseCx then put(win, 18, 1, "No dock", colors.orange, colors.gray) end
   x = self:button(x, 1, "\27", colors.white, colors.lightGray, function() self:pan(-1, 0) end)
   x = self:button(x, 1, "\24", colors.white, colors.lightGray, function() self:pan(0, -1) end)
   x = self:button(x, 1, "\25", colors.white, colors.lightGray, function() self:pan(0, 1) end)
   x = self:button(x, 1, "\26", colors.white, colors.lightGray, function() self:pan(1, 0) end)
-  self:button(x, 1, "HQ", colors.white, colors.blue, function() self.viewX, self.viewZ = m.baseCx, m.baseCz end)
+  self:button(x, 1, "HQ", colors.white, colors.blue, function()
+    if m.baseCx then self.viewX, self.viewZ = m.baseCx, m.baseCz end
+  end)
 
   -- map
   for row = 0, L.rows - 1 do
@@ -133,6 +136,13 @@ function ui:draw(m)
       if y > L.h - 1 then return end
       put(win, L.panelX, y, (" " .. text):sub(1, L.panelW), fg or colors.white, colors.black)
       y = y + 1
+    end
+
+    if not m.baseCx then
+      line("No dock yet. Put a", colors.orange)
+      line("miner on the dock", colors.orange)
+      line("and run: miner dock", colors.orange)
+      line("")
     end
 
     if self.selected then

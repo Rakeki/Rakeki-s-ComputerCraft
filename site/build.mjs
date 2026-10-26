@@ -66,7 +66,7 @@ function programFiles(program) {
 }
 
 function nextSteps(program) {
-  if (program.name === "mine-server") return ["Set the dock in config.lua first: edit config.lua", "Then start it with: reboot"];
+  if (program.name === "mine-server") return ["Start it with: reboot", "Then set the dock: run 'miner dock' on a miner on the dock block"];
   if (program.autostart) return ["Start it with: reboot"];
   return [`Start it with: ${program.command}`];
 }
