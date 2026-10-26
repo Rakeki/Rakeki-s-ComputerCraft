@@ -1,9 +1,9 @@
 -- AutoMine settings. Edit these, then reboot the server. Turtles pick up
 -- changes the next time they ask for a job.
 return {
-  -- Where turtles unload and refuel. Leave this nil and let a turtle set it:
-  -- put a miner on the dock block and run 'miner dock'. It finds its position
-  -- by GPS and the chests around it, and that dock is used over this one.
+  -- Where turtles unload and refuel. Leave this nil with GPS: place a miner
+  -- with a chest right behind it and that spot becomes the dock (used over
+  -- this one; 'miner dock' moves it later).
   -- Without GPS, set it here instead: stand on the deposit chest (your feet are
   -- then in the dock block), press F3 and copy the "Block:" line, not "XYZ:",
   -- e.g. dock = { x = 1499, y = 70, z = 8071, fuelDir = "north" },

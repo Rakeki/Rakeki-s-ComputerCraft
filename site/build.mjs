@@ -66,7 +66,7 @@ function programFiles(program) {
 }
 
 function nextSteps(program) {
-  if (program.name === "mine-server") return ["Start it with: reboot", "Then set the dock: run 'miner dock' on a miner on the dock block"];
+  if (program.name === "mine-server") return ["Start it with: reboot", "Then place a miner with a chest right behind it: that's the dock"];
   if (program.autostart) return ["Start it with: reboot"];
   return [`Start it with: ${program.command}`];
 }

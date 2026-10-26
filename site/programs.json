@@ -429,12 +429,11 @@
       ],
       "setup": [
         "Place an advanced computer with a modem, plus any monitors.",
-        "Build the dock: open sky above, deposit chest below, fuel chest beside it.",
         "Reboot. The server starts on its own and restarts if it ever stops.",
-        "Set the dock: with GPS, run 'miner dock' on a miner sitting on the dock block; without, put it in config.lua."
+        "With GPS, place a miner with a chest right behind it: that spot becomes the dock. Without GPS, set it in config.lua."
       ],
       "commands": [
-        ["miner dock", "on a miner sitting on the dock block: sets the dock by GPS"],
+        ["miner dock", "on a miner with a chest behind it: move the dock there"],
         ["edit config.lua", "cruise height, depth, monitors (and the dock without GPS)"],
         ["reboot", "start the server"]
       ],
@@ -472,10 +471,10 @@
         "Place it, give it a bit of coal and run 'refuel all'.",
         "Install and reboot. It names itself Miner-<id>.",
         "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z.",
-        "First miner: put it on the dock block, Ctrl+T, and run 'miner dock' so the server knows where the dock is."
+        "First miner: put a chest right behind it, open sky above. That spot becomes the dock (GPS), no coordinates needed."
       ],
       "commands": [
-        ["miner dock", "this block is the dock: tell the server (GPS)"],
+        ["miner dock", "make this spot the dock (chest behind me), e.g. to move it"],
         ["refuel all", "before the first start"],
         ["reboot", "start mining"]
       ],

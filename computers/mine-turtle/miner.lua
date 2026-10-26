@@ -2,7 +2,10 @@
 -- in 3-high layers, and returns to the dock to unload and refuel when needed.
 --
 --   miner          mine (startup.lua runs this)
---   miner dock     this block is the dock: tell the server, using GPS
+--   miner dock     make this spot the dock (chest behind me), e.g. to move it
+--
+-- With no dock yet, a miner with a chest right behind it makes its own spot
+-- the dock (position from GPS), so nobody types coordinates.
 local args = { ... }
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
@@ -198,8 +201,33 @@ local function acquireDock()
   end
 end
 
--- Fly home, empty everything into the chest below the dock, refuel from the
--- fuel chest beside it, then climb back to cruising height.
+-- Facing a chest: take fuel out of it until reaching target. Anything that
+-- isn't fuel (or is left over) goes back in. Same as excavate-turtle's.
+local function refuelFromChest(target)
+  local putBack = {}
+  for slot = 1, 16 do
+    if fuelLevel() >= target then break end
+    if turtle.getItemCount(slot) == 0 then
+      turtle.select(slot)
+      if not turtle.suck() then break end -- chest is empty
+      if turtle.getItemCount(slot) == 0 then
+        refuelFromInventory(target) -- it stacked onto fuel already on board
+      else
+        while fuelLevel() < target and turtle.refuel(1) do end
+        if turtle.getItemCount(slot) > 0 then putBack[#putBack + 1] = slot end
+      end
+    end
+  end
+  for _, slot in ipairs(putBack) do
+    turtle.select(slot)
+    turtle.drop()
+  end
+  turtle.select(1)
+end
+
+-- Fly home, burn the coal it dug, empty everything into the dock's chest
+-- (behind the dock spot; below it on an older dock set in config.lua), top up
+-- fuel from the fuel chest or the dock chest, then climb back to cruising height.
 local function visitDock()
   dropJunk()
   acquireDock()
@@ -207,32 +235,49 @@ local function visitDock()
   local d = config.dock
   local ok, err = pcall(function()
     travelTo(d.x, d.y, d.z)
-    -- A wrong dock in the server's config (or a wrong GPS) would otherwise
-    -- mean emptying everything onto the ground.
-    if not peripheral.hasType("bottom", "inventory") then
-      local p = nav.getPos()
-      error(("No deposit chest below me at %d,%d,%d. Run 'miner dock' on the real dock."):format(p.x, p.y, p.z), 0)
+    local side, drop = "bottom", turtle.dropDown
+    if d.chestDir then
+      nav.face(d.chestDir)
+      side, drop = "front", turtle.drop
     end
+    -- A wrong dock (or a wrong GPS) would otherwise mean emptying
+    -- everything onto the ground.
+    if not peripheral.hasType(side, "inventory") then
+      local p = nav.getPos()
+      error(("No chest at the dock (%d,%d,%d). Put a miner with a chest behind it on the right spot and run 'miner dock'."):format(p.x, p.y, p.z), 0)
+    end
+    refuelFromInventory(config.targetFuel)
     for slot = 1, 16 do
       turtle.select(slot)
-      while turtle.getItemCount(slot) > 0 and not turtle.dropDown() do
-        setState("error", "deposit chest full")
+      while turtle.getItemCount(slot) > 0 and not drop() do
+        setState("error", "dock chest full")
         sleep(10)
       end
     end
-    nav.face(d.fuelDir)
     turtle.select(1)
-    while fuelLevel() < config.targetFuel do
-      if turtle.suck() then
-        while fuelLevel() < config.targetFuel and turtle.refuel(1) do end
-        if turtle.getItemCount(1) > 0 then
-          -- put unused fuel back; pass empty buckets and non-fuel on to the deposit chest
-          if turtle.refuel(0) then turtle.drop() else turtle.dropDown() end
+    if d.fuelDir and not d.chestDir then
+      nav.face(d.fuelDir)
+      while fuelLevel() < config.targetFuel do
+        if turtle.suck() then
+          while fuelLevel() < config.targetFuel and turtle.refuel(1) do end
+          if turtle.getItemCount(1) > 0 then
+            -- put unused fuel back; pass empty buckets and non-fuel on to the deposit chest
+            if turtle.refuel(0) then turtle.drop() else turtle.dropDown() end
+          end
+        elseif fuelLevel() >= config.minFuel then
+          break
+        else
+          setState("error", "fuel chest empty")
+          sleep(10)
         end
-      elseif fuelLevel() >= config.minFuel then
-        break
-      else
-        setState("error", "fuel chest empty")
+      end
+    else
+      -- the fuel chest beside the dock if there is one, else the dock chest itself
+      nav.face(d.fuelDir or d.chestDir)
+      while true do
+        refuelFromChest(config.targetFuel)
+        if fuelLevel() >= config.minFuel then break end
+        setState("error", "no fuel in the dock chest")
         sleep(10)
       end
     end
@@ -247,6 +292,28 @@ end
 local function park()
   local d = config.dock
   travelTo(d.x + 2, laneY(), d.z)
+end
+
+local HEADING_NAMES = { [0] = "north", "east", "south", "west" }
+
+-- A miner standing with a chest directly behind it is on the dock: the chest
+-- takes what it mines, and a second chest on its left or right, if any, is
+-- for fuel. Its position comes from GPS, so nobody types coordinates.
+local function dockHere()
+  if not peripheral.hasType("back", "inventory") then return nil end
+  local p, h = nav.getPos(), nav.getHeading()
+  local dock = { x = p.x, y = p.y, z = p.z, chestDir = HEADING_NAMES[(h + 2) % 4] }
+  if peripheral.hasType("right", "inventory") then
+    dock.fuelDir = HEADING_NAMES[(h + 1) % 4]
+  elseif peripheral.hasType("left", "inventory") then
+    dock.fuelDir = HEADING_NAMES[(h + 3) % 4]
+  end
+  return dock
+end
+
+local function sendDock(dock)
+  print(("This is the dock: %d, %d, %d, chest to the %s."):format(dock.x, dock.y, dock.z, dock.chestDir))
+  applyConfig(request({ type = "set_dock", dock = dock }, "dock_set").config)
 end
 
 ---------------------------------------------------------------- mining
@@ -333,8 +400,12 @@ local function step()
   end
 
   if not config.dock then
-    -- the server has no dock yet: nowhere to unload, so don't start anything
-    setState("waiting", "no dock: run 'miner dock' on it")
+    -- The server has no dock yet. A turtle that hasn't started a job is
+    -- still where the player put it: with a chest behind it, that's the dock.
+    local here = not job and dockHere()
+    if here then return sendDock(here) end
+    -- otherwise there's nowhere to unload, so don't start anything
+    setState("waiting", "no dock: put a chest behind a miner")
     idleWait(15)
     applyConfig(request({ type = "request_job" }, "job").config)
     return
@@ -404,32 +475,16 @@ local function askPosition()
   end
 end
 
-local HEADING_NAMES = { [0] = "north", "east", "south", "west" }
-
--- 'miner dock': the block this turtle is on becomes the dock. It reads the
--- chests around it, so nobody has to copy coordinates into the server's config.
+-- 'miner dock': make this spot the dock even if the server already has one
+-- (moving the dock, or a miner that has already started a job).
 local function markDock()
-  if not peripheral.hasType("bottom", "inventory") then
-    print("Put me on the dock block, with the deposit chest right below me.")
+  local dock = dockHere()
+  if not dock then
+    print("Put a chest directly behind me first: that's the dock chest.")
     return
   end
-  -- sides in turns clockwise from the way the turtle faces
-  local sides, fuelDir, found = { "front", "right", "back", "left" }, nil, 0
-  for turn = 0, 3 do
-    if peripheral.hasType(sides[turn + 1], "inventory") then
-      fuelDir, found = HEADING_NAMES[(nav.getHeading() + turn) % 4], found + 1
-    end
-  end
-  if found ~= 1 then
-    print(found == 0 and "Put the fuel chest right next to me (not above or below)."
-      or "There's more than one chest next to me. Leave just the fuel chest.")
-    return
-  end
-  local p = nav.getPos()
-  local dock = { x = p.x, y = p.y, z = p.z, fuelDir = fuelDir }
-  print(("Dock: %d, %d, %d, fuel chest to the %s. Telling the server..."):format(p.x, p.y, p.z, fuelDir))
-  request({ type = "set_dock", dock = dock }, "dock_set")
-  print("Saved. Reboot me (and the other miners) to start mining.")
+  sendDock(dock)
+  print("Saved. Reboot me to start mining.")
 end
 
 if args[1] and args[1] ~= "dock" then

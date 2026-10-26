@@ -15,8 +15,9 @@ The same code runs on every miner. Make as many as you like.
    `yTop` down to `yBottom` in 3-high layers. Each pass digs the block above
    and the block below.
 3. Throws away junk (cobble, dirt, etc.) as it goes. When its inventory is full or
-   fuel is low, it flies home, empties into the deposit chest, refuels from
-   the fuel chest, and goes back to where it stopped.
+   fuel is low, it flies home, burns the coal it dug, empties into the dock
+   chest, tops up fuel from it (or from a fuel chest beside the dock), and
+   goes back to where it stopped.
 4. Reports progress to the server and repeats. With nothing queued, it parks
    beside the dock.
 
@@ -54,12 +55,15 @@ it to come back before asking for anything (a new job, the dock).
    position, which is the block you're standing on). For facing, stand behind it
    looking the same way and read "Facing".
 
-5. **First miner only, with GPS:** set the dock. Put the turtle on the dock
-   block (deposit chest below, fuel chest beside), press Ctrl+T to stop it, and
-   run `miner dock`. Then reboot it.
+5. **The dock:** place your first miner where the dock should be, with open
+   sky above it, and put a chest **directly behind it**. That's all: with no
+   dock set yet, it makes its own spot the dock (GPS gives the position) and
+   tells the server. A second chest on its left or right is used for fuel;
+   without one it refuels from the dock chest, which fills up with the coal
+   it mines. Put a little coal in the chest to start with.
 
 ```
-miner dock      -- this block is the dock: tell the server (needs GPS)
+miner dock      -- make this spot the dock (chest behind me), e.g. to move it later
 ```
 
 With GPS it also checks its position every 32 blocks mined and before each
@@ -71,10 +75,11 @@ a key if you moved it, then type its position again.
 
 - **Ending up somewhere wrong?** On the turtle, run `gps locate` and compare it
   with F3's Targeted Block while you look at the turtle. If they differ, the
-  GPS hosts have the wrong coordinates. If they match, the dock is wrong: run
-  `miner dock` on the real one. The turtle won't unload at a dock with no
-  chest below it: it stops and says so instead.
-- **No dock yet:** miners wait (status "no dock") until one is set.
+  GPS hosts have the wrong coordinates. If they match, the dock is wrong: put a
+  miner on the real one (chest behind it), press Ctrl+T and run `miner dock`.
+  The turtle won't unload at a dock with no chest: it stops and says so instead.
+- **No dock yet:** miners wait (status "no dock") until a miner is placed with
+  a chest right behind it.
 - **Use ender modems** if you can. A wireless modem only reaches about 64 blocks
   underground, and a turtle out of range can't get the dock or a new job.
 - **Chunk loading**: turtles freeze when their chunk unloads (when you're far

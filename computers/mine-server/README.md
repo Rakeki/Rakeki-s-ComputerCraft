@@ -55,19 +55,19 @@ Monitors can be added or removed while the server is running.
 ## Setup
 
 1. Place the computer and attach a modem and any monitors.
-2. Build the dock: pick a block with open sky above it. Put the **deposit chest
-   directly below** the dock block and the **fuel chest beside** the dock block
-   (on any side). Fill the fuel chest with coal or charcoal.
-3. Copy the files on and reboot.
-4. Set the dock. **With GPS:** put a [miner](../mine-turtle/README.md) on the
-   dock block and run `miner dock`. It finds its position and the chests
-   itself and tells the server. **Without GPS:** set `dock` in `config.lua`.
-   Stand on the deposit chest, press F3 and copy the **Block:** line (not XYZ,
-   whose decimals round the wrong way at negative coordinates), then reboot.
+2. Copy the files on and reboot.
+3. Make the dock. **With GPS:** place a [miner](../mine-turtle/README.md)
+   where the dock should be (open sky above it) with a chest **directly behind
+   it**. It makes that spot the dock by itself; no coordinates to type. A
+   second chest on its left or right holds fuel; without one, miners refuel
+   from the dock chest. **Without GPS:** set `dock` in `config.lua`: deposit
+   chest below the dock block, fuel chest beside it. Stand on the deposit
+   chest, press F3 and copy the **Block:** line (not XYZ, whose decimals round
+   the wrong way at negative coordinates), then reboot.
    Until there's a dock, the map says so and no jobs go out.
 
 ```
-miner dock      -- on a miner sitting on the dock block (Ctrl+T first if it's running)
+miner dock      -- on a miner with a chest behind it: move the dock here
 ```
 
 ## Using the map

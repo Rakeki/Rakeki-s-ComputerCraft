@@ -190,7 +190,7 @@ reply field.
 | Protocol | From → to | Messages |
 |---|---|---|
 | `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
-| `automine` | mine-turtle ↔ mine-server | jobs, progress, docking, `set_dock` (`miner dock`: the turtle's GPS position + fuel chest side becomes the dock); the turtle retries until answered |
+| `automine` | mine-turtle ↔ mine-server | jobs, progress, docking, `set_dock` (a miner with a chest behind it, when there's no dock or on `miner dock`: its GPS position + chest side becomes the dock); the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped). One key per strip |
 | `village_crew` | village-turtle (helper) ↔ village-turtle (lead) | `join` → theme, origin, radius, seed, map, `lane`; `plot` → `i`, `j` (or `none`, `more`); `done` (plot, built entry, paved segments, topY); `alive` every 5 min. GPS on both |

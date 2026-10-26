@@ -139,9 +139,9 @@ function ui:draw(m)
     end
 
     if not m.baseCx then
-      line("No dock yet. Put a", colors.orange)
-      line("miner on the dock", colors.orange)
-      line("and run: miner dock", colors.orange)
+      line("No dock yet. Place a", colors.orange)
+      line("miner with a chest", colors.orange)
+      line("right behind it.", colors.orange)
       line("")
     end
 

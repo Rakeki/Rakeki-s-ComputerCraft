@@ -16,7 +16,7 @@ local DOCK_TIMEOUT = 60 -- free the dock if the turtle holding it goes quiet thi
 local SAVE_INTERVAL = 30
 local MAX_EVENTS = 30
 
--- dockPos: the dock a turtle marked with 'miner dock' (GPS), used over config.dock
+-- dockPos: the dock a miner set by GPS (chest behind it), used over config.dock
 -- chunks: "cx,cz" -> { cx, cz, state = queued|active|player|done, order, turtle, progress }
 -- turtles: id -> { label, pos, fuel, state, msg, job, progress, lastSeen }
 -- dock: who is using the dock, so a restart can't send two turtles into it
@@ -167,20 +167,21 @@ function handlers.request_job(id, msg)
   }
 end
 
--- 'miner dock': a turtle on the dock block sends where it is (GPS) and which
--- side its fuel chest is on.
+-- A miner standing with a chest behind it (on its own when there's no dock
+-- yet, or with 'miner dock') sends where it is (GPS), which side the chest is
+-- on, and the side of a separate fuel chest if it has one.
 function handlers.set_dock(id, msg)
   touch(id, msg)
   local d = msg.dock
   if type(d) ~= "table" or not (tonumber(d.x) and tonumber(d.y) and tonumber(d.z)) then return end
-  state.dockPos = { x = d.x, y = d.y, z = d.z, fuelDir = d.fuelDir or "north" }
+  state.dockPos = { x = d.x, y = d.y, z = d.z, chestDir = d.chestDir, fuelDir = d.fuelDir }
   updateBase()
   -- the home chunk is never mined, so drop it from the plan if it was queued
   local home = state.chunks[key(baseCx, baseCz)]
   if home and home.state ~= "active" then state.chunks[key(baseCx, baseCz)] = nil end
   log(("#%d set the dock to %d,%d,%d"):format(id, d.x, d.y, d.z))
   save()
-  return { type = "dock_set" }
+  return { type = "dock_set", config = turtleConfig() }
 end
 
 function handlers.status(id, msg)
@@ -293,14 +294,14 @@ local function reportStatus()
     if c.state == "queued" then queued = queued + 1 end
   end
   if not dock() then
-    report.set("waiting", "no dock: run 'miner dock' on it")
+    report.set("waiting", "no dock: put a chest behind a miner")
     return
   end
   report.set(state.paused and "paused" or "serving", ("%d/%d turtles, %d queued"):format(online, total, queued))
 end
 announce()
 log("Server started")
-if not dock() then log("No dock yet: put a miner on the dock and run 'miner dock'") end
+if not dock() then log("No dock yet: place a miner with a chest right behind it") end
 save()
 
 -- Tell turtles straight away, rather than waiting for their next status
