@@ -196,7 +196,7 @@ node tools/recipes.mjs pack_recipes.lua <the Minecraft version jar> <your mods f
 disk by default, so a file much bigger than about 700 KB won't fit next to
 the programs.
 Smelting isn't crafting: smooth sandstone, glass and the like aren't made
-on request. The [smelter](../smelter-computer/README.md) smelts ores as they
+on request. The [smelter](../smelter-computer/README.md) smelts ores and cooks raw food as they
 come in, and anything else you add to its list.
 
 ### Fuel

@@ -1,6 +1,7 @@
--- Smelter for the storage system. Keeps every furnace and blast furnace on
--- the storage computer's wired network busy: ores and raw metals in storage
--- go into the furnaces, fuel comes from the storage computer's fuel chest,
+-- Smelter for the storage system. Keeps every furnace, blast furnace and
+-- smoker on the storage computer's wired network busy: ores and raw metals
+-- in storage go into the furnaces and blast furnaces, raw food into the
+-- smokers and furnaces, fuel comes from the storage computer's fuel chest,
 -- and what's smelted goes back into storage through its input chest. It can
 -- also burn spare logs into charcoal, which ends up in the fuel chest.
 --
@@ -13,7 +14,7 @@
 -- that network by wired modems too, and the storage computer
 -- (computers/storage-computer) running. It asks the storage computer for
 -- everything over rednet on the cable, so it needs no wireless modem. Which
--- items get smelted is set in config.lua.
+-- items get smelted and cooked is set in config.lua.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
@@ -34,6 +35,9 @@ local FUEL_SMELTS = { ["minecraft:charcoal"] = 8, ["minecraft:coal"] = 8, ["mine
 local SMELT = config.smelt or { ":raw_", "_ore$", ":ancient_debris$", ":crushed_raw_" }
 local SKIP = config.skip or { "_block$", "coal_ore$", "diamond_ore$", "emerald_ore$", "lapis_ore$", "redstone_ore$",
   "quartz_ore$" }
+local COOK = config.cook or { "^minecraft:beef$", "^minecraft:porkchop$", "^minecraft:chicken$", "^minecraft:mutton$",
+  "^minecraft:rabbit$", "^minecraft:cod$", "^minecraft:salmon$", "^minecraft:potato$", "^minecraft:kelp$" }
+local KEEP = config.keep or { ["minecraft:potato"] = 64 }
 
 local furnaces = {} -- what the screen shows: { name, blast, input, fuel, output } per furnace
 local stock -- the storage computer's last answer to 'stock'
@@ -61,31 +65,36 @@ end
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
-local function isOre(name)
+-- "food" (smokers and furnaces), "ore" (blast furnaces and furnaces) or
+-- nil for an item that isn't smelted by itself.
+local function smeltKind(name)
   for _, p in ipairs(SKIP) do
-    if name:find(p) then return false end
+    if name:find(p) then return nil end
+  end
+  for _, p in ipairs(COOK) do
+    if name:find(p) then return "food" end
   end
   for _, p in ipairs(SMELT) do
-    if name:find(p) then return true end
+    if name:find(p) then return "ore" end
   end
-  return false
+  return nil
 end
 
 -- Logs and wood (bark on all sides) of every tree burn into charcoal;
 -- nether stems don't, and aren't called logs.
 local function isWood(name) return (name:find("_log$") or name:find("_wood$")) ~= nil end
 
-local function kindOf(f) return f.blast and "blast:" or "furnace:" end
+local function kindOf(f) return f.blast and "blast:" or f.smoker and "smoker:" or "furnace:" end
 
--- Every furnace on the wired network (not ones touching this computer: the
--- storage computer can't reach those). Smokers only cook food, so not them.
+-- Every furnace, blast furnace and smoker on the wired network (not ones
+-- touching this computer: the storage computer can't reach those).
 local function findFurnaces()
   local sides, list = {}, {}
   for _, s in ipairs(rs.getSides()) do sides[s] = true end
   for _, name in ipairs(peripheral.getNames()) do
     local t = peripheral.getType(name)
-    if not sides[name] and t and t:find("furnace", 1, true) then
-      list[#list + 1] = { name = name, blast = t:find("blast", 1, true) ~= nil }
+    if not sides[name] and t and (t:find("furnace", 1, true) or t:find("smoker", 1, true)) then
+      list[#list + 1] = { name = name, blast = t:find("blast", 1, true) ~= nil, smoker = t:find("smoker", 1, true) ~= nil }
     end
   end
   table.sort(list, function(a, b) return a.name < b.name end)
@@ -235,14 +244,23 @@ local function round()
     end
   end
 
-  -- what to load: every ore in storage, and the logs the order still needs
-  local want = {}
+  -- what to load: every ore and raw food in storage (less what config.lua
+  -- keeps, like potatoes for planting), and the logs the order still needs
+  local want, kinds = {}, {}
   for name, n in pairs(counts) do
-    if n > 0 and isOre(name) then want[name] = n end
+    local kind = n > 0 and smeltKind(name)
+    if kind then
+      kinds[name] = kind
+      if n > (KEEP[name] or 0) then want[name] = n - (KEEP[name] or 0) end
+    end
   end
   if wood then want[wood] = math.min(counts[wood], order.count - order.loaded) end
+  -- blast furnaces only smelt ores, smokers only cook food, furnaces do both
   local function canTake(f, name)
-    return (want[name] or 0) > 0 and not noSmelt[kindOf(f) .. name] and not (f.blast and name == wood)
+    if (want[name] or 0) <= 0 or noSmelt[kindOf(f) .. name] then return false end
+    if f.blast then return kinds[name] == "ore" end
+    if f.smoker then return kinds[name] == "food" end
+    return true
   end
   local loaded, into = 0, 0
   local function load(f, name, n)
@@ -264,13 +282,15 @@ local function round()
       load(f, f.input.name, math.min(64 - f.input.count, want[f.input.name]))
     end
   end
-  -- then fill empty ones: blast furnaces first (twice as fast, ores only),
-  -- and plain furnaces put a charcoal order ahead of ores
+  -- then fill empty ones: blast furnaces and smokers first (twice as fast,
+  -- but only ores or only food), and plain furnaces put a charcoal order
+  -- ahead of the rest
   local empty = {}
   for _, f in ipairs(furnaces) do
     if not f.input and (f.fuel or haveFuel) then empty[#empty + 1] = f end
   end
-  table.sort(empty, function(a, b) return a.blast and not b.blast end)
+  local function fast(f) return f.blast or f.smoker end
+  table.sort(empty, function(a, b) return fast(a) and not fast(b) end)
   for _, f in ipairs(empty) do
     local pick
     if wood and canTake(f, wood) then
@@ -360,7 +380,7 @@ local function draw()
   local rows = h - 7
   for i = 1, math.min(rows, #furnaces) do
     local f, y = furnaces[i], 3 + i
-    put(2, y, fitText(nice(f.name), 17), f.blast and "orange" or "white")
+    put(2, y, fitText(nice(f.name), 17), f.blast and "orange" or f.smoker and "pink" or "white")
     put(20, y, fitText(f.input and ("%d %s"):format(f.input.count, nice(f.input.name)) or "idle", fuelX - 21),
       f.input and "white" or "gray")
     put(fuelX, y, fitText(f.fuel and ("%d %s"):format(f.fuel.count, nice(f.fuel.name)) or "-", 12), "lightGray")

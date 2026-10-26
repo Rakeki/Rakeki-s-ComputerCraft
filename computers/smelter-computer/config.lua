@@ -10,7 +10,20 @@ return {
     ":ancient_debris$", -- into netherite scrap
     ":crushed_raw_", -- Create's crushed ores
   },
-  -- Never smelted, even when they match the list above.
+  -- Raw food cooked whenever there's any in storage, in smokers and plain
+  -- furnaces (blast furnaces can't). Same kind of patterns as above; add
+  -- mod foods here, e.g. "^farmersdelight:minced_beef$".
+  cook = {
+    "^minecraft:beef$", "^minecraft:porkchop$", "^minecraft:chicken$", "^minecraft:mutton$",
+    "^minecraft:rabbit$", "^minecraft:cod$", "^minecraft:salmon$",
+    "^minecraft:potato$", -- into baked potatoes
+    "^minecraft:kelp$", -- into dried kelp
+  },
+  -- How many of an item to leave in storage uncooked or unsmelted.
+  keep = {
+    ["minecraft:potato"] = 64, -- for planting
+  },
+  -- Never smelted or cooked, even when they match the lists above.
   skip = {
     "_block$", -- blocks of raw iron etc. don't smelt
     -- ores that give more mined with Fortune than smelted: keep them for that

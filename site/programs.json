@@ -735,7 +735,7 @@
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
         ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
         ["craft-overseer", "With several crafting turtles, takes the crafting queue and shares it between them."],
-        ["smelter-computer", "Loads ores and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
+        ["smelter-computer", "Loads ores, raw food and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
@@ -853,7 +853,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Keeps the storage system's furnaces busy: smelts ores as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
+      "tagline": "Keeps the storage system's furnaces busy: smelts ores and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
       "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
@@ -865,15 +865,16 @@
       ],
       "features": [
         "Smelts raw metals, ore blocks and ancient debris from storage by itself",
-        "Shares the work out between furnaces, blast furnaces first",
+        "Cooks raw meat, fish, potatoes and kelp too, in smokers first (keeps 64 potatoes for planting)",
+        "Shares the work out between furnaces, blast furnaces and smokers first",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
         "Smelted goods go back into storage through the input chest"
       ],
       "setup": [
-        "Put a wired modem on each furnace and blast furnace and join them to the storage network with cable. Right-click each modem.",
+        "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
         "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
-        "Install and reboot. Change what gets smelted in config.lua."
+        "Install and reboot. Change what gets smelted and cooked in config.lua."
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
@@ -881,7 +882,7 @@
         ["smelter cancel", "stop making charcoal (or press X)"]
       ],
       "integrates": [
-        ["storage-computer", "Holds the ores and the fuel chest, and loads the furnaces when the smelter asks."],
+        ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks."],
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
         ["status-server", "Shows how many furnaces are smelting, and each finished charcoal order."]

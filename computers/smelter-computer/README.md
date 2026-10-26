@@ -4,41 +4,45 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces and blast furnaces on that network
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network
 
 ## What it does
 
 The furnace arm of the [storage system](../storage-computer/README.md). Every
-10 seconds it looks at each furnace and blast furnace on the storage
-network and:
+10 seconds it looks at each furnace, blast furnace and smoker on the
+storage network and:
 
 - **Empties them.** What's smelted goes into the storage computer's input
   chest, and from there into storage. Charcoal goes on to the fuel chest.
 - **Fills them.** Raw iron, gold and copper, ore blocks and ancient debris
   in storage are shared out between the furnaces that are free, blast
-  furnaces first (they're twice as fast). A furnace already smelting
-  something is topped up with more of it, up to a stack.
+  furnaces first (they're twice as fast). Raw meat, fish, potatoes and kelp
+  are cooked the same way, smokers first. Blast furnaces only take ores and
+  smokers only take food; plain furnaces take either. A furnace already
+  smelting something is topped up with more of it, up to a stack.
 - **Fuels them** from the storage computer's **fuel chest**, with enough
   for what's in each furnace. Charcoal is used first, then coal, then coal
   blocks; when the fuel chest is empty it uses coal kept anywhere else in
   storage.
 
 Ores that drop more when mined with Fortune (coal, diamond, emerald, lapis,
-redstone, quartz) are left alone, and so are blocks of raw metal. Change
-what gets smelted in `config.lua`: add sand for glass, say.
+redstone, quartz) are left alone, and so are blocks of raw metal. 64
+potatoes are always kept back for planting. Change what gets smelted and
+cooked, and how much is kept back, in `config.lua`: add sand for glass, say,
+or a modded food.
 
 ### Making charcoal
 
 When there's far more of one kind of log than you want, burn it into
 charcoal. Press **C**, pick the logs from the list (the kind there's most of
 is first), and say how much charcoal to make. Plain furnaces work on the
-order before ores (blast furnaces can't smelt logs), and the charcoal goes
+order before ores and food (blast furnaces and smokers can't burn logs), and the charcoal goes
 into the fuel chest, where it fuels the furnaces and
 [turtles](../storage-computer/README.md#fuel). The screen shows how far the
 order has got; it carries on after a reboot, and stops early if those logs
 run out.
 
-The screen lists each furnace, what's in it and its fuel, how much
+The screen lists each furnace (blast furnaces in orange, smokers in pink), what's in it and its fuel, how much
 smelting the stored fuel is good for, and what it did last. With a
 wireless modem it also reports to the [status server](../status-server/README.md).
 
@@ -58,7 +62,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
 1. Set up the [storage system](../storage-computer/README.md) first, and
    update it (`install update`) if it was installed before the smelter
    existed.
-2. Place the furnaces and blast furnaces near the storage. Each one needs a
+2. Place the furnaces, blast furnaces and smokers near the storage. Each one needs a
    **wired modem** on it (furnaces are full blocks, so a small modem goes
    straight on), joined to the storage network with networking cable.
    Right-click each modem so it turns red.
@@ -101,5 +105,7 @@ stopping it with Ctrl+T); the running smelter picks it up within 10 seconds.
   until the smelter restarts.
 - If the storage input chest is full, smelted items wait in the furnaces
   and the footer says so.
-- Furnaces you load by hand get fuelled and emptied too. Smokers are left
-  alone.
+- Furnaces and smokers you load by hand get fuelled and emptied too.
+- After `install update`, an older `config.lua` (kept as it was) has no
+  cook list: the smelter then cooks the food listed above and keeps 64
+  potatoes. Copy the `cook` and `keep` lists from the new one to change them.

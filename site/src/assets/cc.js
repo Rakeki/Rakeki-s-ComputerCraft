@@ -617,7 +617,8 @@
   //---------------------------------------------------------------- smelter
 
   // The smelter's screen: same layout as computers/smelter-computer/smelter.lua.
-  // Furnaces smelt down on their own and get reloaded from a pile of ores;
+  // Furnaces smelt down on their own and get reloaded from a pile of ores
+  // (the smoker from a pile of raw food);
   // click the footer (or the order line) to place a charcoal order.
   function smelter(el) {
     const W = 51, H = 19;
@@ -629,14 +630,21 @@
       { name: "blast furnace 1", blast: true, input: ["raw gold", 23], fuel: ["charcoal", 3] },
       { name: "furnace 0", input: ["raw copper", 40], fuel: ["coal", 5] },
       { name: "furnace 1", input: ["raw copper", 40], fuel: ["coal", 5] },
+      { name: "smoker 0", smoker: true, input: ["beef", 24], fuel: ["charcoal", 3] },
       { name: "furnace 2", input: null, fuel: null },
-      { name: "furnace 3", input: null, fuel: null },
     ];
     const ores = { "raw iron": 410, "raw copper": 96, "raw gold": 0 };
+    const food = { beef: 40, porkchop: 18, cod: 12 };
     const st = { fuel: 2384, order: null, msg: ["Loaded 80 items into 2 furnaces.", "lightGray"], tick: 0 };
 
     function load(f) {
-      if (!f.blast && st.order && st.order.loaded < st.order.count) {
+      if (f.smoker) {
+        const name = Object.keys(food).sort((a, b) => food[b] - food[a])[0];
+        if (!food[name]) return;
+        const n = Math.min(64, food[name]);
+        food[name] -= n;
+        f.input = [name, n];
+      } else if (!f.blast && st.order && st.order.loaded < st.order.count) {
         const n = Math.min(64, st.order.count - st.order.loaded);
         st.order.loaded += n;
         f.input = ["spruce log", n];
@@ -656,7 +664,7 @@
       st.tick++;
       for (const f of furnaces) {
         if (!f.input) { load(f); continue; }
-        const n = Math.min(f.input[1], f.blast ? 2 : 1);
+        const n = Math.min(f.input[1], f.blast || f.smoker ? 2 : 1);
         f.input[1] -= n;
         if (f.input[0] === "spruce log" && st.order) st.order.made += n;
         if (st.tick % 8 === 0 && f.fuel) { f.fuel[1]--; st.fuel = Math.max(0, st.fuel - 8); }
@@ -669,6 +677,7 @@
         st.order = null;
       }
       if (!Object.values(ores).some((n) => n > 0) && !furnaces.some((f) => f.input)) Object.assign(ores, { "raw iron": 410, "raw copper": 96, "raw gold": 64 });
+      if (!Object.values(food).some((n) => n > 0) && !furnaces.some((f) => f.smoker && f.input)) Object.assign(food, { beef: 40, porkchop: 18, cod: 12 });
     }
 
     function draw() {
@@ -681,7 +690,7 @@
       s.put(2, 3, "Furnace", "yellow"); s.put(20, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
       furnaces.forEach((f, i) => {
         const y = 4 + i;
-        s.put(2, y, fitT(f.name, 17), f.blast ? "orange" : "white");
+        s.put(2, y, fitT(f.name, 17), f.blast ? "orange" : f.smoker ? "pink" : "white");
         s.put(20, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - 21), f.input ? "white" : "gray");
         s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
       });
