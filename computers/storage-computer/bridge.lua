@@ -68,6 +68,16 @@ function M.new(setup)
       return
     end
     B.problem = nil
+    -- a bridge that isn't on the grid (no power, no channel) still answers,
+    -- just with nothing in it, so an empty list is worth a second look
+    if next(list) == nil then
+      for _, method in ipairs({ "isConnected", "isOnline" }) do
+        if has(method) and call(method) == false then
+          B.problem = ("isn't connected to the %s system (needs power and a channel)"):format(kind)
+          break
+        end
+      end
+    end
     local out, sum = {}, 0
     for _, e in pairs(list) do
       local n = tonumber(e.count or e.amount) or 0

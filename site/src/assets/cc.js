@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal, smelter, craft overseer and colony dashboard.
+// blueprint projector panel, storage terminal, smelter, cooker, craft overseer and colony dashboard.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -712,6 +712,62 @@
     return s;
   }
 
+  //---------------------------------------------------------------- cooker
+
+  // The cooker's screen: same layout as computers/cooker-computer/cooker.lua.
+  // The XS pot cooks steadily, the S pot fills to 321 XS candy and then
+  // cooks, and the M and L pots wait for smaller candy.
+  function cooker(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const pots = [
+      { makes: "exp candy xs", made: 412, state: "cooking", colour: "lime" },
+      { makes: "exp candy s", made: 0, fill: 180, need: 321 },
+      { makes: "exp candy m", made: 0, fill: 0, need: 129 },
+      { makes: "exp candy l", made: 6, state: "needs exp candy m", colour: "orange" },
+    ];
+    const st = { msg: ["Sent 64 items to the pots.", "lightGray"], tick: 0 };
+
+    function step() {
+      st.tick++;
+      pots[0].made++;
+      const p = pots[1];
+      if (p.fill < p.need) {
+        p.fill = Math.min(p.need, p.fill + 25);
+        p.state = `filling ${p.fill}/${p.need}`; p.colour = "lightBlue";
+        st.msg = ["Sent 64 items to the pots.", "lightGray"];
+      } else {
+        p.made++; p.state = "cooking"; p.colour = "lime";
+        st.msg = ["Cooking in 2 pots.", "lightGray"];
+      }
+      pots[2].state = "needs exp candy s"; pots[2].colour = "orange";
+      if (p.made > 40) { p.made = 0; p.fill = 180; pots[0].made = 412; }
+    }
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Cooking pots", "yellow", "gray");
+      s.put(2, 3, "#", "yellow"); s.put(5, 3, "Makes", "yellow"); s.put(21, 3, "Made", "yellow"); s.put(29, 3, "Doing", "yellow");
+      pots.forEach((p, i) => {
+        const y = 4 + i;
+        s.put(2, y, String(i + 1), "lightGray");
+        s.put(5, y, fitT(p.makes, 15), "white");
+        s.put(21, y, fitT(String(p.made), 7), "white");
+        s.put(29, y, fitT(p.state, W - 29), p.colour);
+      });
+      s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+      s.put(1, H, fitT("cooker add / remove / reset in another tab", W), "gray");
+      s.render();
+    }
+
+    step();
+    setInterval(() => { step(); draw(); }, 900);
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- craft overseer
 
   // The crafting overseer's monitor: same layout as
@@ -877,5 +933,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, overseer, colony } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, cooker, overseer, colony } };
 })();

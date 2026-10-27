@@ -905,6 +905,61 @@
       }
     },
     {
+      "name": "cooker-computer",
+      "title": "Cooking Pots",
+      "command": "cooker",
+      "device": "computer",
+      "deviceLabel": "Computer + wired modem",
+      "color": "purple",
+      "tagline": "Runs Cobblemon campfire pots for the storage system: makes exp candy from sculk and honeycomb, and compresses it up to XL.",
+      "libs": ["report", "errlog", "screen", "net", "files"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Pots", "one per recipe"],
+        ["Hoppers", "2 per pot"],
+        ["Cooks", "one every 5 s per pot"],
+        ["Recipes", "exp candy XS to XL"]
+      ],
+      "features": [
+        "Makes exp candy XS from sculk and honeycomb in storage",
+        "Compresses it: 6 XS into S, then 3 into M, L and XL, one pot per size",
+        "The storage computer fills each pot's feed hopper; the output hopper's candy goes back into storage",
+        "Counts everything in and out, so a hopper never spills into the wrong pot slot and jams it",
+        "Says when a pot should be cooking but isn't (lid open, or jammed)",
+        "More pot recipes in config.lua"
+      ],
+      "setup": [
+        "Put a campfire pot on a lit campfire, a hopper pointing into its side and a hopper under it. Put a wired modem on each hopper, join them to the storage network and right-click the modems.",
+        "Power the pot with a redstone block (that shuts its lid), touching neither hopper. Update the storage computer with install update.",
+        "Put this computer on the same network with a wired modem, install, run cooker add for each pot, and reboot."
+      ],
+      "commands": [
+        ["cooker", "start (runs on boot)"],
+        ["cooker add", "add a pot: what it makes, its feed hopper and its output hopper"],
+        ["cooker remove 2", "forget pot 2 (no number: list the pots)"],
+        ["cooker reset 2", "after emptying pot 2 by hand"]
+      ],
+      "integrates": [
+        ["storage-computer", "Holds the sculk, honeycomb and candy, and fills the pots' feed hoppers when the cooker asks."],
+        ["status-server", "Shows how many pots are cooking, and when one is stuck."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "cooker",
+        "caption": "The cooker's screen: each pot, what it makes, how many it has made and what it's doing."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "cooker add exp_candy_s minecraft:hopper_3 minecraft:hopper_4", "cmd"],
+          ["Pot 2 makes exp candy s from 6 exp candy xs.", "", "white"],
+          ["It starts cooking once it holds 321, and keeps up to 384 in it.", "", "white"],
+          ["Keep the pot powered with redstone (lid shut), but not the hoppers.", "", "white"]
+        ]
+      }
+    },
+    {
       "name": "colony-dashboard",
       "title": "Colony Dashboard",
       "command": "colony",

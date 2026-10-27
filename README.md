@@ -41,6 +41,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
 - [craft-overseer](computers/craft-overseer/README.md): shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor
 - [smelter-computer](computers/smelter-computer/README.md): keeps the storage system's furnaces busy smelting ores and cooking raw food, fuels them from its fuel chest, and burns spare logs into charcoal on request
+- [cooker-computer](computers/cooker-computer/README.md): runs Cobblemon cooking pots for the storage system: makes exp candy from sculk and honeycomb and compresses it up to XL
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
 
 ## How they connect

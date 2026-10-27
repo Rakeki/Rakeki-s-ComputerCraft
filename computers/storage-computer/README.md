@@ -197,7 +197,9 @@ disk by default, so a file much bigger than about 700 KB won't fit next to
 the programs.
 Smelting isn't crafting: smooth sandstone, glass and the like aren't made
 on request. The [smelter](../smelter-computer/README.md) smelts ores and cooks raw food as they
-come in, and anything else you add to its list.
+come in, and anything else you add to its list. The
+[cooker](../cooker-computer/README.md) does the same with Cobblemon cooking
+pots: exp candy from sculk and honeycomb, compressed up to XL.
 
 ### Fuel
 
@@ -354,6 +356,10 @@ the turtles and the smelter carry on without being changed.
 - A turtle's chest can't be the input, output, fuel or transfer chest, and
   only chests, barrels, shulker boxes and crates count (never furnaces). A missing input or output chest, or a
   missing bridge in ME or RS mode, stops it.
+- If it shows 0 items in ME or RS mode, the bridge is probably not on the
+  system's grid: it needs power and, for AE2, a free channel (use a dense
+  cable or one next to the controller). The footer says so when the bridge
+  can tell.
 - The ME or RS system's own patterns are trusted: a turtle is told an item
   can be made as soon as there's a pattern for it, even if the system turns
   out to lack the ingredients. The footer says when the system is done.
@@ -361,7 +367,8 @@ the turtles and the smelter carry on without being changed.
   counted with the plain ones, and the bridge may send either. If such an
   item stays in the input chest, the system wouldn't take it: take it out by
   hand.
-- The [smelter](../smelter-computer/README.md) asks for things over the
-  wired network's cable, so it works without a wireless modem.
+- The [smelter](../smelter-computer/README.md) and the
+  [cooker](../cooker-computer/README.md) ask for things over the wired
+  network's cable, so they work without a wireless modem.
 - Turtles' requests are handled one at a time, in the order they arrive; none
   are lost while it's busy with another.

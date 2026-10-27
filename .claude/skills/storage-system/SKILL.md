@@ -38,7 +38,7 @@ supply:seen(r)
 
 - `peer:ask` matches `re` **and** `id`, so a late reply to an earlier
   request is never taken for this one.
-- A program on the storage cable (smelter, overseer, crafter) uses
+- A program on the storage cable (smelter, cooker, overseer, crafter) uses
   `{ open = "any" }`: the storage computer answers on all of its modems, so
   it needs no wireless.
 - nil means "no storage system" (the second value says why): carry on with
@@ -49,8 +49,9 @@ supply:seen(r)
 | `{ type = "count", items = { name, ... }, need = { [name] = n } }` | `counts`, `craftable` (how many more could be crafted, up to `need`) | before starting: is there enough? Add `craftable` to `counts`. |
 | `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `crafting`, `cantCraft` (name → why), `craftProblem`, `to` (`"own"`, `"delivery"` or `"output"`), `error` | tops the turtle's chest **up to** n of each (what's already there counts) and **starts crafting** what's missing. Ask again every ~10 s while waiting. |
 | `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft`, `craftProblem` | start crafting what a coming job lacks, before it's needed |
-| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts) | the smelter |
+| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts) | the smelter and cooker |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
+| `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers); no slot = any slot |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
@@ -61,7 +62,8 @@ with `ready > 0` wins; see `STORAGE_FUEL` in builder.lua). Items with NBT
 is `"no recipe for it"`, `craftProblem` while `crafting` is non-empty.
 
 Putting things away: drop them in the storage computer's **input chest**
-(the smelter pushes furnace output there; farms use it as their chest).
+(the smelter pushes furnace output there, the cooker its pots' output
+hoppers; farms use it as their chest).
 
 ## Crafting on request
 

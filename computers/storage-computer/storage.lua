@@ -772,9 +772,10 @@ end
 --   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
 --   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
---   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter)
+--   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter, cooker)
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
+--   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
 -- From the crafting overseer, which runs the crafting queue when there is one:
 --   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
@@ -812,11 +813,16 @@ local function fuelValue(counts)
   return n
 end
 
--- Only furnaces are loaded for the smelter, so a stray message can't empty
--- the store into some other chest.
+-- Only furnaces (for the smelter) and hoppers (for the cooker's pots) are
+-- loaded, so a stray message can't empty the store into some other chest.
 local function isFurnace(name)
   local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
   return t and (t:find("furnace", 1, true) or t:find("smoker", 1, true)) and true or false
+end
+
+local function isHopper(name)
+  local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
+  return t and t:find("hopper", 1, true) and true or false
 end
 
 ---------------------------------------------------------------- turtles finding their chest
@@ -1106,9 +1112,10 @@ local function handleRequest(from, msg)
     answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })
   elseif type(msg) == "table" and msg.type == "send" then
     local sent, failed = {}, nil
-    if not isFurnace(msg.to) then
-      failed = ("%s isn't a furnace on my network"):format(tostring(msg.to))
-    elseif msg.slot == 2 then
+    local furnace = isFurnace(msg.to)
+    if not furnace and not isHopper(msg.to) then
+      failed = ("%s isn't a furnace or hopper on my network"):format(tostring(msg.to))
+    elseif furnace and msg.slot == 2 then
       -- fuel for this many more items, of the first kind there is (a fuel
       -- slot only takes one kind), from the fuel chest first
       local want = tonumber(msg.fuel) or 0
@@ -1122,17 +1129,19 @@ local function handleRequest(from, msg)
           end
         end
       end
-    elseif msg.slot == 1 and type(msg.items) == "table" then
+    elseif (msg.slot == 1 or not furnace) and type(msg.items) == "table" then
+      -- a hopper: into the slot asked for, or any
+      local slot = furnace and 1 or tonumber(msg.slot)
       for name, n in pairs(msg.items) do
         if type(name) == "string" and type(n) == "number" and n > 0 then
           local err
-          sent[name], err = fetch(name, math.min(64, math.floor(n)), msg.to, 1)
+          sent[name], err = fetch(name, math.min(64, math.floor(n)), msg.to, slot)
           failed = failed or err
         end
       end
     end
     answer(from, msg, { re = "send", sent = sent, fuel = fuelValue(countAll()), error = failed })
-    if failed then message = { "Couldn't load a furnace: " .. failed, "red" } end
+    if failed then message = { "Couldn't load a furnace or hopper: " .. failed, "red" } end
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
     -- top the chest up to n of each item: what's already there counts
