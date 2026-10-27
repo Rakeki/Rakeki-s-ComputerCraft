@@ -330,7 +330,7 @@ local function round()
   end
 
   if oldReplies then
-    say("The storage computer only loads furnaces: 'install update' on it.", "red")
+    say("Storage too old: 'install update' on it, reboot.", "red")
   elseif problem then
     say("Couldn't move items: " .. problem, "red")
   elseif blocked then
