@@ -58,6 +58,9 @@
     medrive: { c: "#34343c", tex: "drive", amt: 0.04 },
     mecable: { c: "#8f6fd9", tex: "flat", box: [0.34, 0.66, 0.28, 0.6, 0.34, 0.66], clear: true },
     bridge: { c: "#8a97a8", tex: "bridge", amt: 0.04 },
+    // cooking pots
+    pot: { c: "#9aa0a8", top: "#b8bcc2", tex: "pot", amt: 0.05, box: [0.1, 0.9, 0, 0.82, 0.1, 0.9], clear: true }, // a campfire pot on its campfire
+    redblock: { c: "#b3261e", tex: "noise", amt: 0.14 },
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 
@@ -161,6 +164,10 @@
         break;
       case "bridge":
         if (inner) { col = "#4c99b2"; shade = 1; }
+        break;
+      case "pot":
+        // the campfire's logs and flames under the pot
+        if (face !== "top" && n > 2 && vc > 0.72) { col = i % 2 ? "#f2b233" : "#6a5031"; shade = 1; }
         break;
     }
     const [r, g, bl] = rgb(col);
@@ -599,6 +606,52 @@
     };
   }
 
+  //---------------------------------------------------------------- cooking pot layouts
+
+  // Example layouts for computers/cooker-computer (see its README's "Example
+  // layouts"). The pot sits on its campfire, raised one block so the output
+  // hopper fits under it; the feed hopper points into its side and the
+  // redstone block on its other side touches neither hopper. Small wired
+  // modems on the hoppers' fronts are left out; the cable they join is shown.
+  function cookerPot(w, x) {
+    w.set(x, 1, 0, "pot");
+    w.set(x, 1, 1, "hopper"); // feed
+    w.set(x, 0, 0, "hopper"); // output
+    w.set(x - 1, 1, 0, "redblock");
+    w.set(x, 0, 1, "cable"); w.set(x, 1, 2, "cable"); // to both hoppers' modems
+  }
+
+  function cookerOne() {
+    const w = new World();
+    w.box(-2, 5, -1, -1, -1, 4, "stone");
+    cookerPot(w, 0);
+    w.box(0, 4, 0, 0, 2, 2, "cable");
+    w.set(2, 0, 3, "fullmodem"); w.set(2, 0, 4, "chest"); // the storage input chest
+    w.set(5, 0, 2, "computer");
+    return {
+      world: w,
+      labels: [[0.3, 2.9, -0.3, "pot on a campfire", O], [-2.6, 1.4, -0.4, "redstone block", R], [-0.6, 1.2, 1.6, "feed hopper", B],
+        [1.2, 0.5, -0.2, "output hopper", G], [2, 1.5, 4, "input chest", G], [5, 1.6, 2, "cooker", P],
+        [3, 0.9, 2, "storage network cable", W]],
+    };
+  }
+
+  function cookerChain() {
+    const w = new World();
+    w.box(-3, 17, -1, -1, -2, 6, "stone");
+    const sizes = ["XS", "S", "M", "L", "XL"];
+    sizes.forEach((_, i) => cookerPot(w, i * 3));
+    w.box(0, 15, 0, 0, 2, 2, "cable");
+    w.set(16, 0, 2, "computer");
+    w.set(7, 0, 3, "fullmodem"); w.set(7, 0, 4, "chest"); // input
+    w.set(13, 0, 3, "cable"); storageComputer(w, 13, 4);
+    return {
+      world: w,
+      labels: [...sizes.map((s, i) => [i * 3, 2.6, 0, s, O]), [16, 1.6, 2, "cooker", P], [7, 1.5, 4, "input chest", G],
+        [13.5, 2.4, 4, "storage computer", B]],
+    };
+  }
+
   // Builder: the blueprint projector (computer, monitor and projector) beside
   // a 7x7 cottage the builder turtle is half way through, placing the next
   // layer from above, and its home block with the supply and spoil chests.
@@ -625,7 +678,7 @@
   }
 
   const SCENES = { excavate, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder,
-    storageChests, storageUpgrades, storageBase, storageAe };
+    storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting
 

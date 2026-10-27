@@ -52,6 +52,24 @@ needs to start), **needs** an item that's run out in storage, or **not
 cooking!** when it should be. With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
+## Example layouts
+
+The website shows each of these in 3D.
+
+### One pot
+
+The pot on its campfire, raised one block so the output hopper fits under
+it. The feed hopper points into the pot's side, and a redstone block behind
+the pot shuts its lid without touching either hopper. A wired modem on each
+hopper joins the storage network's cable, which also reaches the storage
+input chest and this computer.
+
+### Candy chain
+
+Five pots in a row, one for each size from XS to XL, each set up like the
+single pot, all on one cable. XS candy goes back into storage through the
+input chest, then into the S pot, and so on up to XL.
+
 ## Files
 
 - `cooker.lua`: the program

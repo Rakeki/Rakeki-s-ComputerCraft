@@ -949,6 +949,10 @@
         "scene": "cooker",
         "caption": "The cooker's screen: each pot, what it makes, how many it has made and what it's doing."
       },
+      "layouts": [
+        { "title": "One pot", "scene": "cookerOne", "caption": "A pot on its campfire, raised a block: the feed hopper points into its side, the output hopper sits under it, and a redstone block behind it keeps the lid shut without touching either hopper. Both hoppers' modems join the storage network's cable." },
+        { "title": "Candy chain", "scene": "cookerChain", "caption": "Five pots in a row, XS to XL, each set up like the single pot. XS candy goes back into storage through the input chest, then into the S pot, and so on up to XL." }
+      ],
       "terminal": {
         "device": "computer",
         "lines": [
