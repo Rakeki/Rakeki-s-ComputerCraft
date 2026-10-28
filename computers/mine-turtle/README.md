@@ -71,9 +71,18 @@ miner home      -- make this spot my home (chest behind me), e.g. to move it
 ```
 
 With GPS it also checks its position every 32 blocks mined and before each
-trip, and corrects itself (and says so) if it has slipped. Without GPS, on
-every reboot it trusts its saved position, but first waits 10 seconds: press
-a key if you moved it, then type its position again.
+trip, and corrects itself (and says so) if it has slipped.
+
+**If GPS is lost:** once a miner has had GPS, it won't carry on without it.
+When the signal drops (or it starts up without it), it stays where it is and
+tells the server: the map and the event log show "no GPS at x,y,z: waiting
+for it", with the position it last knew. It checks again every 15 seconds and
+carries on by itself when GPS is back, correcting its position first if it
+was off.
+
+A miner set up without GPS at all trusts its saved position on every reboot,
+but first waits 10 seconds: press a key if you moved it, then type its
+position again.
 
 ## Things to know
 

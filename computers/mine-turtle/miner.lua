@@ -15,12 +15,17 @@ local errlog = require("lib.errlog") -- saves errors to /errors.log
 local PROTOCOL = "automine"
 local JOB_FILE = "/.automine_job"
 local HOME_FILE = "/.automine_home"
+local GPS_FILE = "/.automine_gps" -- true once this miner has had GPS: from then on it won't move without it
+local GPS_TRIES = 3 -- attempts before GPS counts as lost (one missed answer isn't a lost signal)
+local GPS_RETRY = 15 -- seconds between GPS checks while waiting for it to come back
 local STATUS_INTERVAL = 5
 local POSITION_CHECK_CELLS = 32 -- cells mined between GPS checks of the tracked position
 
 local serverId
 local config -- sent by the server: cruiseY, lanes, targetFuel, minFuel, junk
 local home -- { x, y, z, heading, chestDir, fuelDir }: this turtle's own spot and chests
+local usesGps = false -- has had GPS (saved in GPS_FILE)
+local gpsLost = false -- started without the GPS it had: main waits for it before doing anything
 local junk = {}
 local job -- { cx, cz, yTop, yBottom, layer, cell }
 local paused = false
@@ -170,12 +175,50 @@ local function check(ok, err)
   if not ok then error("can't move: " .. tostring(err), 0) end
 end
 
--- Tracking can slip (a chunk unloading mid-move, a reboot out of GPS range),
--- and every later move would be off by the same amount, so compare it with
--- GPS now and then and recalibrate if they disagree.
+local function idleWait(seconds)
+  for _ = 1, math.ceil(seconds / STATUS_INTERVAL) do
+    sleep(STATUS_INTERVAL)
+    sendStatus(true)
+  end
+end
+
+local function gpsFix()
+  for _ = 1, GPS_TRIES do
+    local g = nav.locate()
+    if g then return g end
+  end
+end
+
+-- Once a miner has had GPS it won't move without it: tracking alone drifts
+-- (a chunk unloading mid-move), and a wrong position sends it digging and
+-- unloading in the wrong place. It stays where it is, tells the server where
+-- that is (the error and its status carry the position), and waits.
+local function waitForGps()
+  local was, wasMsg = state, stateMsg
+  local p = nav.getPos()
+  local where = ("%d,%d,%d"):format(p.x, p.y, p.z)
+  report.log("GPS lost at " .. where)
+  setState("error", ("no GPS at %s: waiting for it"):format(where))
+  local g
+  repeat
+    idleWait(GPS_RETRY)
+    g = gpsFix()
+  until g
+  print("GPS is back.")
+  report.log("GPS is back")
+  setState(was, wasMsg)
+  return g
+end
+
+-- Tracking can slip (a chunk unloading mid-move, a reboot), and every later
+-- move would be off by the same amount, so compare it with GPS now and then
+-- and recalibrate if they disagree.
 local function checkPosition()
-  local g = nav.locate()
-  if not g then return end -- no GPS, or out of range just now
+  local g = gpsFix()
+  if not g then
+    if not usesGps then return end -- set up without GPS: tracking is all it has
+    g = waitForGps()
+  end
   local p = nav.getPos()
   if g.x ~= p.x or g.y ~= p.y or g.z ~= p.z then
     print(("Position was off: thought %d,%d,%d, GPS says %d,%d,%d. Correcting."):format(p.x, p.y, p.z, g.x, g.y, g.z))
@@ -360,17 +403,15 @@ end
 
 ---------------------------------------------------------------- main
 
-local function idleWait(seconds)
-  for _ = 1, math.ceil(seconds / STATUS_INTERVAL) do
-    sleep(STATUS_INTERVAL)
-    sendStatus(true)
-  end
-end
-
 local function step()
   if jobCancelled then
     job, jobCancelled = nil, false
     saveJob()
+  end
+
+  if gpsLost then
+    gpsLost = false
+    checkPosition() -- waits for GPS, then corrects the saved position if it was off
   end
 
   if not home then
@@ -448,6 +489,10 @@ end
 -- 'miner home': make this spot home, e.g. to move it, or for a miner that
 -- was mid-job when it was set up.
 local function markHome()
+  if gpsLost then
+    print("No GPS signal, so I can't tell where this spot is. Try again once GPS is back.")
+    return
+  end
   local spot = homeHere()
   if not spot then
     print("Put a chest directly behind me first: that's my chest.")
@@ -469,8 +514,18 @@ if not os.getComputerLabel() then os.setComputerLabel("Miner-" .. os.getComputer
 print("AutoMine turtle " .. os.getComputerLabel())
 -- GPS works out the facing by stepping forward, which needs fuel.
 if inv.fuelLevel() < 10 then inv.refuel(100) end
-if nav.locate() then
+usesGps = nav.readFile(GPS_FILE) == true
+if gpsFix() then
   nav.init(true)
+  if not usesGps then
+    usesGps = true
+    nav.writeFile(GPS_FILE, true)
+  end
+elseif usesGps then
+  -- It had GPS, so it doesn't guess: report the saved position and wait.
+  nav.init(false)
+  gpsLost = true
+  print("No GPS signal. I won't move until it's back.")
 elseif not nav.init(false) then
   askPosition()
 elseif not nav.confirmResume("Then type my position again.") then
