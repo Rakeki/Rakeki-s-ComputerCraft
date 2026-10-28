@@ -1,7 +1,7 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
-// and the Mekanism fission guard, power dashboard, fusion control and digital miner manager.
+// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1411,5 +1411,60 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer } };
+  //---------------------------------------------------------------- enricher
+
+  // The enricher's screen: same layout as computers/enricher-computer/enricher.lua.
+  // Three chambers work through the ores in storage; the fourth has run out
+  // of power.
+  function enricher(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const stock = { "iron ore": 412, "raw gold": 147, "deepslate copper ore": 58, "redstone ore": 12 };
+    const rows = [
+      { title: "Chamber 1", item: "iron ore", queued: 64, power: 0.96 },
+      { title: "Chamber 2", item: "raw gold", queued: 63, power: 0.88 },
+      { title: "Factory", item: "deepslate copper ore", queued: 140, power: 0.71 },
+      { title: "Chamber 4", item: "-", queued: 0, power: 0, state: "no power", colour: "red" },
+    ];
+
+    function step() {
+      rows.slice(0, 3).forEach((r, i) => {
+        r.queued -= i === 1 ? 3 : 1 + i;
+        r.state = "enriching"; r.colour = "lime";
+        if (r.queued < 20) r.queued += i === 1 ? 45 : 44;
+      });
+      stock["iron ore"] = Math.max(0, stock["iron ore"] - 1);
+      stock["raw gold"] = Math.max(0, stock["raw gold"] - 3);
+      if (stock["raw gold"] < 3) { stock["raw gold"] = 147; stock["iron ore"] = 412; }
+    }
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Enrichment chambers", "yellow", "gray");
+      [["Chamber", 2], ["Ore", 15], ["Queue", 29], ["Pwr", 35], ["Doing", 40]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
+      rows.forEach((r, i) => {
+        const y = 4 + i, pct = Math.round(r.power * 100);
+        s.put(2, y, fitT(r.title, 12), "white");
+        s.put(15, y, fitT(r.item, 13), "lightGray");
+        s.put(29, y, fitT(String(r.queued), 5), "white");
+        s.put(35, y, fitT(pct + "%", 4), pct < 10 ? "red" : pct < 50 ? "orange" : "lime");
+        s.put(40, y, fitT(r.state, W - 40), r.colour);
+      });
+      const list = Object.entries(stock).sort((a, b) => b[1] - a[1]);
+      const total = list.reduce((n, [, c]) => n + c, 0);
+      s.put(2, H - 2, fitT(`To enrich: ${total} (${list.map(([n, c]) => `${n} ${c}`).join(", ")})`, W - 2), "white");
+      s.put(1, H - 1, fitT("Chamber 4: it has no power", W), "red");
+      s.put(1, H, fitT("Ctrl+T twice, then enricher add / remove", W), "gray");
+      s.render();
+    }
+
+    step();
+    setInterval(() => { step(); draw(); }, 1000);
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher } };
 })();

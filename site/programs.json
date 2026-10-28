@@ -860,7 +860,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Keeps the storage system's furnaces busy: smelts ores and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal or cobblestone into stone on request.",
+      "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal or cobblestone into stone on request.",
       "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
@@ -872,6 +872,7 @@
       ],
       "features": [
         "Smelts raw metals, ore blocks and ancient debris from storage by itself",
+        "Smelts Mekanism dust into ingots, and leaves the ores the enricher takes to it while it runs",
         "Cooks raw meat, fish, potatoes and kelp too, in smokers first (keeps 64 potatoes for planting)",
         "Shares the work out between furnaces, blast furnaces and smokers first",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
@@ -894,6 +895,7 @@
         ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks."],
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
+        ["enricher-computer", "Enriches ores into dust first, for up to twice the ingots; the smelter smelts the dust."],
         ["status-server", "Shows how many furnaces are smelting, and each finished charcoal or stone order."]
       ],
       "render": {
@@ -1192,6 +1194,62 @@
         "caption": "The manager on a monitor. Tap a miner to open its page."
       },
       "terminal": null
+    },
+    {
+      "name": "enricher-computer",
+      "title": "Ore Enricher",
+      "command": "enricher",
+      "device": "computer",
+      "deviceLabel": "Computer + wired modem",
+      "color": "lightGray",
+      "tagline": "Feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore and 4 per 3 raw ores, which the smelter turns into ingots: up to twice the metal.",
+      "libs": ["report", "errlog", "screen", "net", "files"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Ore block", "2 ingots"],
+        ["3 raw ores", "4 ingots"],
+        ["Raw ore block", "12 ingots"],
+        ["Per chamber", "a hopper and a chest"]
+      ],
+      "features": [
+        "Keeps every Enrichment Chamber (and Enriching Factory) on the storage network fed with ores from storage",
+        "Iron, gold, copper, osmium, tin, lead and uranium: ores, raw ores and raw ore blocks, deepslate and nether ores too",
+        "Gem ores too: 2 diamonds, emeralds, coal or quartz, 12 redstone or lapis, 6 fluorite (configurable)",
+        "Raw ores always go in threes, so none are left over in a chamber",
+        "Sets each chamber's bottom to Output with Auto-eject, so the dust drops into a storage input chest",
+        "The smelter leaves those ores alone while the enricher runs, and smelts the dust into ingots instead",
+        "Puts back anything that doesn't go into a chamber, and says when a chamber has no power or nowhere to put its dust"
+      ],
+      "setup": [
+        "Set up the storage computer and the smelter, and install update both.",
+        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a hopper on top pointing down and a chest under it, each with a wired modem, all on the storage network. Add the chest as an extra input chest in storage setup.",
+        "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot."
+      ],
+      "commands": [
+        ["enricher", "start (runs on boot)"],
+        ["enricher add", "add a chamber and the hopper on top of it"],
+        ["enricher remove 2", "forget chamber 2 (no number: list them)"]
+      ],
+      "integrates": [
+        ["storage-computer", "Holds the ores, fills each chamber's hopper when the enricher asks, and takes the dust back through an input chest."],
+        ["smelter-computer", "Asks the enricher which ores to leave alone, and smelts the dust into ingots."],
+        ["digital-miner-manager", "Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the enricher."],
+        ["status-server", "Shows how many chambers are enriching, and when one needs attention."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "enricher",
+        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its hopper, its power and what it's doing."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "enricher add enrichmentChamber_0 minecraft:hopper_5", "cmd"],
+          ["Chamber 1 added: enrichmentChamber_0, fed by minecraft:hopper_5.", "", "white"],
+          ["Put a storage input chest under it (add it in 'storage setup'): its dust comes out there.", "", "white"]
+        ]
+      }
     }
   ],
   "libraries": [

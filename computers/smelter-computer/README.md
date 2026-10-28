@@ -31,6 +31,12 @@ potatoes are always kept back for planting. Change what gets smelted and
 cooked, and how much is kept back, in `config.lua`: add sand for glass, say,
 or a modded food.
 
+With Mekanism, it also smelts **dust** (iron, gold, copper, osmium, tin,
+lead, uranium) into ingots. While the [enricher](../enricher-computer/README.md)
+is running, the ores it puts into its Enrichment Chambers are left to it, so
+they come back as dust and give more ingots. Without it, the smelter smelts
+those ores itself, as before.
+
 ### Making charcoal
 
 When there's far more of one kind of log than you want, burn it into

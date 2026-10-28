@@ -19,6 +19,12 @@ return {
     "^minecraft:potato$", -- into baked potatoes
     "^minecraft:kelp$", -- into dried kelp
   },
+  -- Mekanism dust from the enricher (computers/enricher-computer), smelted
+  -- into ingots. While the enricher runs, the ores it takes are left to it.
+  dusts = {
+    "^mekanism:dust_iron$", "^mekanism:dust_gold$", "^mekanism:dust_copper$", "^mekanism:dust_osmium$",
+    "^mekanism:dust_tin$", "^mekanism:dust_lead$", "^mekanism:dust_uranium$",
+  },
   -- How many of an item to leave in storage uncooked or unsmelted.
   keep = {
     ["minecraft:potato"] = 64, -- for planting

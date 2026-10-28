@@ -4,7 +4,9 @@
 -- smokers and furnaces, fuel comes from the storage computer's fuel chest,
 -- and what's smelted goes back into storage through its input chest. On
 -- order it also burns spare logs into charcoal, which ends up in the fuel
--- chest, and smelts cobblestone into stone.
+-- chest, and smelts cobblestone into stone. With an enricher
+-- (computers/enricher-computer) running, it leaves the ores that go into the
+-- enrichment chambers alone and smelts their dust instead.
 --
 --   smelter                        start (startup.lua runs this)
 --   smelter charcoal <n> [wood]    make n charcoal from logs, e.g. 'smelter charcoal 256 spruce'
@@ -25,6 +27,9 @@ local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves er
 local config = fs.exists("config.lua") and require("config") or {}
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
+local ENRICHER_PROTOCOL = "enricher" -- the enricher says which ores it takes on this
+local ENRICHER_WAIT = 3 -- seconds to wait for the enricher to answer
+local ENRICHER_RETRY = 60 -- seconds before looking for an enricher again after there was none
 local EVERY = 10 -- seconds between rounds of emptying and filling the furnaces
 local REPLY_WAIT = 5 -- seconds to wait for the storage computer to answer
 local LOAD_MIN = 8 -- fewest items put in an empty furnace at once (what one coal smelts)
@@ -39,6 +44,10 @@ local SKIP = config.skip or { "_block$", "coal_ore$", "diamond_ore$", "emerald_o
 local COOK = config.cook or { "^minecraft:beef$", "^minecraft:porkchop$", "^minecraft:chicken$", "^minecraft:mutton$",
   "^minecraft:rabbit$", "^minecraft:cod$", "^minecraft:salmon$", "^minecraft:potato$", "^minecraft:kelp$" }
 local KEEP = config.keep or { ["minecraft:potato"] = 64 }
+-- Mekanism dust (from the enrichment chambers), smelted like ores. Kept out
+-- of "smelt" so a config.lua from before the enricher still gets it.
+local DUSTS = config.dusts or { "^mekanism:dust_iron$", "^mekanism:dust_gold$", "^mekanism:dust_copper$",
+  "^mekanism:dust_osmium$", "^mekanism:dust_tin$", "^mekanism:dust_lead$", "^mekanism:dust_uranium$" }
 
 local furnaces = {} -- what the screen shows: { name, blast, input, fuel, output } per furnace
 local stock -- the storage computer's last answer to 'stock'
@@ -76,6 +85,9 @@ local function smeltKind(name)
     if name:find(p) then return "food" end
   end
   for _, p in ipairs(SMELT) do
+    if name:find(p) then return "ore" end
+  end
+  for _, p in ipairs(DUSTS) do
     if name:find(p) then return "ore" end
   end
   return nil
@@ -171,6 +183,22 @@ local function ask(msg)
   local reply, why = storage:ask(msg)
   if reply then return reply end
   return nil, why == "no answer" and "the storage computer didn't answer" or "no storage computer answered"
+end
+
+local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
+
+-- The ores the enricher is putting into its chambers (patterns on item
+-- ids), or none when there's no enricher or none of its chambers is ready.
+local function enricherTakes()
+  local reply = enricher:ask({ type = "takes" })
+  return reply and type(reply.takes) == "table" and reply.takes or {}
+end
+
+local function leftFor(name, patterns)
+  for _, p in ipairs(patterns) do
+    if type(p) == "string" and name:find(p) then return true end
+  end
+  return false
 end
 
 ---------------------------------------------------------------- a round
@@ -282,8 +310,9 @@ local function round()
   -- what to load: every ore and raw food in storage (less what config.lua
   -- keeps, like potatoes for planting), and what the orders still need
   local want, kinds = {}, {}
+  local enriched = enricherTakes()
   for name, n in pairs(counts) do
-    local kind = n > 0 and smeltKind(name)
+    local kind = n > 0 and not leftFor(name, enriched) and smeltKind(name)
     if kind then
       kinds[name] = kind
       if n > (KEEP[name] or 0) then want[name] = n - (KEEP[name] or 0) end
