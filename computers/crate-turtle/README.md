@@ -75,6 +75,8 @@ and run `crate stop`.
   `crate.lua` to `"front"`, `"top"` or `"bottom"`.
 - It moves one stack at a time. For more at once, run more turtles off
   more crates.
+- If the crate or chest goes (broken or moved) while it has a job, it says
+  so after the next reboot and waits; it carries on once they're back.
 - `crate keep` and `crate stock` send one item first to learn what the crate
   gives, so they never overshoot. `crate stock` also counts what's still
   sitting in the input chest, so it doesn't send the same items twice while

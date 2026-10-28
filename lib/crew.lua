@@ -1,10 +1,11 @@
 -- Hands a building to the builder turtles (computers/builder-turtle) and
 -- keeps track of them: the building is split into side-by-side strips across
--- its longer side, one per free turtle (up to 4), each turtle building its
--- strip bottom layer up and crossing over at a height of its own. A strip
--- nobody could take yet goes to the next turtle that's free: one that
--- finishes its own strip, or one that's free when it looks again. Used by the
--- blueprint projector and build-control.
+-- its longer side, one per builder turtle in range (up to 4, busy ones
+-- too), each turtle building its strip bottom layer up and crossing over at
+-- a height of its own. The free ones start straight away; a strip nobody
+-- could take yet goes to the next turtle that's free: one that finishes its
+-- own strip, or one that's free when it looks again. Used by the blueprint
+-- projector and build-control.
 --
 --   local crew = require("lib.crew")
 --   local c = crew.new({
@@ -66,11 +67,11 @@ local function stripBox(a, i, n)
   return { x0 = a.x0, x1 = a.x1, z0 = s0, z1 = s1 }
 end
 
--- How many strips for this many free turtles: no more than MAX_BUILDERS,
+-- How many strips for this many builder turtles: no more than MAX_BUILDERS,
 -- and none narrower than MIN_STRIP.
-local function stripCount(a, free)
+local function stripCount(a, builders)
   local len = math.max(a.x1 - a.x0, a.z1 - a.z0) + 1
-  return math.max(1, math.min(free, MAX_BUILDERS, math.floor(len / MIN_STRIP)))
+  return math.max(1, math.min(builders, MAX_BUILDERS, math.floor(len / MIN_STRIP)))
 end
 
 -- The blocks in a strip.
@@ -267,7 +268,9 @@ function Crew:start()
   if all == 0 then return self:tell("No builder turtle answered: is one running 'builder' nearby?") end
   if #free == 0 then return self:tell(("All %d builder turtles are busy."):format(all)) end
   local job = self.opts.job()
-  local n = stripCount(job.area, #free)
+  -- a strip for every builder in range, busy ones too: one that's busy now
+  -- takes a waiting strip when it's done, so it isn't left out of the work
+  local n = stripCount(job.area, all)
   local key = ("%d-%s"):format(os.epoch("utc"), job.id or "plan")
   self.build = { key = key, name = job.name, n = n, parts = {} }
   for i = 1, n do

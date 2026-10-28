@@ -599,6 +599,35 @@ local function suckSorting(match, want)
   turtle.select(1)
 end
 
+-- With a buffer chest under the home block: the chest in front pushes exactly
+-- what's wanted into it, from whatever slot it's in, and I take it from
+-- there, so nothing in that chest is moved about and its order doesn't
+-- matter (a barrel with stack upgrades). False when there's no buffer chest.
+local function takeViaBuffer(match, want, current, spare)
+  local chest, buffer = peripheral.wrap("front"), peripheral.wrap("bottom")
+  if not (chest and chest.list and buffer and buffer.list and buffer.pushItems) then return false end
+  spare = spare or 0
+  -- anything left in it from last time goes back first
+  for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
+  for slot, it in pairs(chest.list()) do
+    if match(it.name) then
+      local left = it.count
+      while left > 0 and current() < want and emptySlots() > spare do
+        local ok, n = pcall(chest.pushItems, "bottom", slot, math.min(64, left, want - current()))
+        if not ok or not n or n == 0 then break end
+        left = left - n
+        turtle.select(freeSlotFor(it.name) or 1)
+        turtle.suckDown()
+      end
+    end
+    if current() >= want or emptySlots() <= spare then break end
+  end
+  -- what didn't fit in me goes back
+  for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
+  turtle.select(1)
+  return true
+end
+
 -- Move all count items in a chest slot to another slot. A barrel with
 -- stack upgrades holds thousands in one slot, and each call moves a stack.
 local function moveAll(c, self, from, count, to)
@@ -613,9 +642,10 @@ local function moveAll(c, self, from, count, to)
 end
 
 -- Take up to `want` items matching match() from the chest in front.
--- turtle.suck takes the chest's first stack, so the wanted stack is moved to
--- the front of the chest first.
+-- turtle.suck takes the chest's first stack, so without a buffer chest the
+-- wanted stack is moved to the front of the chest first.
 local function takeFront(match, want, current)
+  if peripheral and takeViaBuffer(match, want, current) then return end
   local c = frontChest()
   if not c then return end
   local self = peripheral.getName(c)

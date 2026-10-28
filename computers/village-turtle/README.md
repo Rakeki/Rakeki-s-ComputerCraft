@@ -168,6 +168,10 @@ Copy these to the turtle:
    biggest: the well (92 blocks) plus its four stretches of main road: about
    380 stone bricks, 32 fences and 16 lanterns for medieval, and some
    cobblestone stairs if the ground slopes.
+   Optional, but best with a big mixed supply chest or barrel: a plain empty
+   **buffer chest** directly **under** the turtle's home block. The chest it's
+   taking from then pushes exactly the blocks it needs into it, from
+   wherever they are, and nothing in the supply chest gets moved about.
 4. Run `village`. Pick a theme, give a radius (Enter for 48), and press Enter.
 
 ### Materials

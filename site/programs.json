@@ -186,7 +186,7 @@
       "setup": [
         "Stand the turtle on fairly flat ground at the village centre, facing the village's \"forward\".",
         "Supply chest directly behind it (a double chest is best), spoil chest to its left. With a storage system, put a wired modem on the supply chest, on the storage cable: the turtle hooks it up itself.",
-        "Fill the supply chest. 'village list medieval' shows what each building needs.",
+        "Fill the supply chest. 'village list medieval' shows what each building needs. Best with a big barrel: an empty buffer chest under the turtle.",
         "Run 'village', pick a theme and a radius."
       ],
       "commands": [
@@ -261,7 +261,7 @@
       "setup": [
         "Pick a spot with open sky. Over an ocean or far from caves works best.",
         "Place the turtle where you want to stand to collect, facing the way the farm should go.",
-        "Supply chest directly behind it. 'mobfarm list' shows what goes in it.",
+        "Supply chest directly behind it. 'mobfarm list' shows what goes in it. Best with a big barrel: an empty buffer chest under the turtle.",
         "Run the command and press Enter."
       ],
       "commands": [
@@ -615,7 +615,7 @@
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a plan from /plans (.json or .lua)"],
         ["projector village", "follow what a village turtle is building"],
-        ["projector build", "have the free builder turtles build the plan where it's shown (or tap Build)"],
+        ["projector build", "have the builder turtles build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
         ["projector check <plan>", "load a plan and list the blocks it needs"],
         ["projector clear", "remove the projection"]
@@ -717,7 +717,7 @@
         "Coordinates are the building's north-west bottom corner; turn it to face any way",
         "build <plan> here uses the pocket computer's GPS position",
         "Shows the box it fills and asks before anything is sent",
-        "Splits the building between the free builders and follows them, as the projector does",
+        "Splits the building between the builders in range and follows them, as the projector does",
         "Picks the build back up after a reboot, so waiting strips still get handed out"
       ],
       "setup": [
@@ -735,7 +735,7 @@
         ["build stop", "call them off; again to give up on ones that don't answer"]
       ],
       "integrates": [
-        ["builder-turtle", "Each free builder takes a strip of the building, as from the projector's Build button."],
+        ["builder-turtle", "Each builder in range takes a strip of the building, as from the projector's Build button."],
         ["blueprint-projector", "Reads the same plans; use it when you want to see and place the building first."],
         ["status-server", "Shows how far the builders have got."]
       ],
@@ -1664,6 +1664,7 @@
       "api": [
         ["plan.load(id)", "The plan in /plans/<id>.json or .lua (or a file path), or nil and what's wrong with it: { name, mats, blocks, layers, w, l, h, clear }."],
         ["plan.ids()", "Every plan name in /plans."],
+        ["plan.copy(id, to)", "Copy the plan's file to to plus its extension and return the new path: build from the copy so an update to /plans can't change a building half way."],
         ["plan.fromTable(raw, id)", "A plan from a table already in memory (legend + layers, or a block list)."],
         ["plan.corner(p, turn, x, y, z)", "Where it goes (\"at\") so its north-west bottom corner is x y z, turned turn quarter turns clockwise."],
         ["plan.world(p, at)", "Block names, and every block as { x, y, z, m } in world coordinates."],
@@ -1681,7 +1682,7 @@
       "usage": "local crew = require(\"lib.crew\")\nlocal c = crew.new({\n  job = function() return { id = id, name = p.name, mats = mats, blocks = blocks, area = area, clear = p.clear } end,\n  build = saved.build, save = function(build) saved.build = build end,\n  tell = print,\n})\nc:start()\nparallel.waitForAny(function() c:run() end, other)",
       "api": [
         ["crew.new(opts)", "job() (the building in world coords), build (saved progress), save(build), tell(text), optional changed() and finished(text)."],
-        ["c:start(), c:stop()", "Split the job between the free builders (up to 4); call them off (twice gives up on silent ones). Or queue crew.START / crew.STOP."],
+        ["c:start(), c:stop()", "Split the job between the builders in range (up to 4, busy ones too: their strips wait); call them off (twice gives up on silent ones). Or queue crew.START / crew.STOP."],
         ["c:run()", "The loop: hears progress and hands out strips still waiting. Run it alongside the rest."],
         ["c.build, c:note(), c:lowY()", "The build in progress (nil when done), a line on how it's going, and the lowest layer being built."]
       ],

@@ -41,17 +41,18 @@ and on the [status server](../status-server/README.md).
 ### Several builders
 
 Set up more builder turtles, each on its own home block with its own supply
-and spoil chests, and the projector shares a building between the ones that
-are free (up to 4). It cuts the building into side-by-side strips across its
+and spoil chests, and the projector shares a building between every one in
+range (up to 4), busy ones too. It cuts the building into side-by-side strips across its
 longer side, at least 3 blocks wide, and each turtle clears and builds only
 its strip, from the bottom up as usual. Each one flies over the building at
 a height of its own, so they don't meet in the air, and never stands in
 another turtle's strip (doors on a strip's edge go in from its own side, or
 from outside the building).
 
-A strip no turtle could take (all busy, or too far from home) waits: it goes
-to the first turtle that finishes its own strip, or to one that's free when
-the projector looks again (every 30 seconds). Each turtle's screen says
+The free ones start straight away. A strip no turtle could take yet (busy,
+or too far from home) waits: it goes to the first turtle that finishes its
+own strip, or to one that's free when the projector looks again (every 30
+seconds). Each turtle's screen says
 which strip it's on, e.g. "Building Cottage (strip 2 of 3): 410 blocks."
 
 ## Files

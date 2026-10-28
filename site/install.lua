@@ -9,6 +9,9 @@
 --   install update                           reinstall everything installed here
 --   install plans                            list the building plans
 --   install plan <name>                      put a plan in /plans (projector, build-control)
+--   install remove <program>                 uninstall a program (also: install uninstall)
+--   install remove plan <name>               remove a plan
+--   install remove                           list what's installed here
 --   install boot                             update what's out of date (every startup.lua runs this)
 --
 -- On boot, programs installed here are updated when the website has a newer
@@ -17,6 +20,7 @@
 local SITE = "{{SITE_URL}}" -- filled in when the website is built
 local INSTALLED_FILE = "/.installed" -- programs installed here, for "install update"
 local VERSIONS_FILE = "/.installed_versions" -- program -> the version installed, for "install boot"
+local FILES_FILE = "/.installed_files" -- program -> the files it put here, so an update can remove ones it dropped
 local SELF_PATH = "/install.lua" -- the installer saves a copy of itself here
 local AUTO_SETTING = "install.autoupdate" -- false: don't check for updates on boot
 local TIMEOUT = 20 -- seconds to wait for each download
@@ -126,6 +130,11 @@ local function markVersion(name, version)
   writeFile(VERSIONS_FILE, textutils.serialize(versions))
 end
 
+local function readFiles()
+  local body = readFile(FILES_FILE)
+  return body and textutils.unserialize(body) or {}
+end
+
 -- Files that an earlier install put here can be replaced without asking.
 local function ownedFiles(manifest)
   local owned = {}
@@ -150,6 +159,7 @@ local function listPrograms(manifest)
   print()
   print("Install one with: install <program>")
   print("Building plans: install plans")
+  print("Uninstall one with: install remove <program>")
   print("More at " .. SITE)
 end
 
@@ -173,6 +183,28 @@ end
 local function saveSelf()
   local body = fetch("install.lua")
   if body and body ~= readFile(SELF_PATH) then writeFile(SELF_PATH, body) end
+end
+
+-- Files the last version of this program put here that the new one doesn't
+-- have any more go, unless another installed program still has them (a
+-- shared lib). Then what this version put here is recorded for next time.
+local function removeDropped(manifest, name, program)
+  local record = readFiles()
+  local now, others = {}, {}
+  for _, file in ipairs(program.files) do now[file.dest] = true end
+  for _, other in ipairs(readInstalled()) do
+    if other ~= name then
+      for _, file in ipairs(manifest.programs[other] and manifest.programs[other].files or {}) do others[file.dest] = true end
+      for _, dest in ipairs(record[other] or {}) do others[dest] = true end
+    end
+  end
+  for _, dest in ipairs(record[name] or {}) do
+    if not now[dest] and not others[dest] and fs.exists(dest) then fs.delete(dest) end
+  end
+  local list = {}
+  for _, file in ipairs(program.files) do list[#list + 1] = file.dest end
+  record[name] = list
+  writeFile(FILES_FILE, textutils.serialize(record))
 end
 
 local function install(manifest, name, updating)
@@ -225,6 +257,7 @@ local function install(manifest, name, updating)
   for i, file in ipairs(program.files) do
     if bodies[i] then writeFile(file.dest, bodies[i]) end
   end
+  removeDropped(manifest, name, program)
   markInstalled(name)
   markVersion(name, program.version)
   saveSelf()
@@ -255,9 +288,120 @@ local function bootUpdate()
   for _, name in ipairs(stale) do install(manifest, name, "boot") end
 end
 
+---------------------------------------------------------------- uninstalling
+
+-- What's installed here, plans shown as "plan <name>".
+local function listInstalled()
+  local installed = readInstalled()
+  if #installed == 0 then return print("Nothing has been installed here.") end
+  say("Installed here:", colours.yellow)
+  for _, name in ipairs(installed) do
+    print("  " .. (name:sub(1, 5) == "plan:" and ("plan " .. name:sub(6)) or name))
+  end
+  print()
+  print("Uninstall one with: install remove <program>")
+  print("or: install remove plan <name>")
+end
+
+-- Delete a folder the uninstall left empty (/lib, /plans).
+local function removeIfEmpty(dir)
+  if fs.isDir(dir) and #fs.list(dir) == 0 then fs.delete(dir) end
+end
+
+-- Uninstall a program (or "plan:<name>"): its files go, except ones another
+-- installed program still uses (a shared lib or plan) and, unless you say
+-- so, your settings. The website is only needed for programs installed
+-- before the installer kept a list of their files.
+local function remove(name)
+  local installed = readInstalled()
+  local here = false
+  for _, n in ipairs(installed) do
+    if n == name then here = true end
+  end
+  if not here then
+    say(("%s isn't installed here."):format(name:sub(1, 5) == "plan:" and ("The plan '" .. name:sub(6) .. "'") or ("'" .. name .. "'")), colours.red)
+    return listInstalled()
+  end
+
+  local record = readFiles()
+  -- the program list says which files are settings, and knows older installs' files
+  local manifest = http and loadManifest(BOOT_TIMEOUT, true)
+  local program = manifest and manifest.programs[name]
+  local files = record[name]
+  if not files and program then
+    files = {}
+    for _, file in ipairs(program.files) do files[#files + 1] = file.dest end
+  end
+  if not files then
+    say("I don't know which files it put here: it was installed before the installer kept a list,", colours.red)
+    say("and the website can't be reached. Try again when it can.", colours.red)
+    return false
+  end
+  local settingsFile = {}
+  for _, file in ipairs(program and program.files or {}) do
+    if file.keep then settingsFile[file.dest] = true end
+  end
+  if not program then settingsFile["config.lua"] = true end
+
+  -- files other installed programs use stay
+  local others = {}
+  for _, other in ipairs(installed) do
+    if other ~= name then
+      for _, dest in ipairs(record[other] or {}) do others[dest] = true end
+      local op = manifest and manifest.programs[other]
+      for _, file in ipairs(op and op.files or {}) do others[file.dest] = true end
+    end
+  end
+  local gone, shared, settings = {}, {}, {}
+  for _, dest in ipairs(files) do
+    if others[dest] then
+      shared[#shared + 1] = dest
+    elseif fs.exists(dest) then
+      if settingsFile[dest] then settings[#settings + 1] = dest else gone[#gone + 1] = dest end
+    end
+  end
+
+  local title = program and program.title or (name:sub(1, 5) == "plan:" and ("the plan " .. name:sub(6)) or name)
+  say(("Uninstalling %s:"):format(title), colours.yellow)
+  if #gone > 0 then print("  deletes " .. table.concat(gone, ", ")) end
+  if #shared > 0 then print("  keeps " .. table.concat(shared, ", ") .. " (other programs here use them)") end
+  if not ask("Carry on?") then return false end
+  if #settings > 0 and ask(("Delete your settings too (%s)?"):format(table.concat(settings, ", "))) then
+    for _, dest in ipairs(settings) do gone[#gone + 1] = dest end
+    settings = {}
+  end
+
+  for _, dest in ipairs(gone) do fs.delete(dest) end
+  removeIfEmpty("lib")
+  removeIfEmpty("plans")
+  local left = {}
+  for _, n in ipairs(installed) do
+    if n ~= name then left[#left + 1] = n end
+  end
+  writeFile(INSTALLED_FILE, textutils.serialize(left))
+  local versions = readVersions()
+  versions[name] = nil
+  writeFile(VERSIONS_FILE, textutils.serialize(versions))
+  record[name] = nil
+  writeFile(FILES_FILE, textutils.serialize(record))
+
+  say(("%s is uninstalled."):format(title:sub(1, 1):upper() .. title:sub(2)), colours.lime)
+  if #settings > 0 then print("Your settings are still here: " .. table.concat(settings, ", ")) end
+  if #shared > 0 then print("If another program here stops starting on boot, 'install update' puts its files back.") end
+  return true
+end
+
 ---------------------------------------------------------------- main
 
 if args[1] == "boot" then return bootUpdate() end
+if args[1] == "remove" or args[1] == "uninstall" then
+  if not args[2] then return listInstalled() end
+  if args[2] == "plan" then
+    if not args[3] then return listInstalled() end
+    return remove("plan:" .. args[3])
+  end
+  return remove(args[2])
+end
 
 if not http then
   say("This computer can't reach the internet: http is turned off in the", colours.red)

@@ -125,13 +125,33 @@ function plan.fromTable(raw, id)
   return p
 end
 
--- The file a plan id stands for: a path, or /plans/<id>.json or .lua.
+-- The file a plan id stands for: a path (anything with a "/" or ending in
+-- .json or .lua), or else /plans/<id>.json or .lua only, so a stray file
+-- named like a plan in the current folder is never picked up instead.
 function plan.path(id)
-  if fs.exists(id) and not fs.isDir(id) then return id end
+  if id:find("/", 1, true) or id:match("%.json$") or id:match("%.lua$") then
+    if fs.exists(id) and not fs.isDir(id) then return id end
+    return nil
+  end
   for _, ext in ipairs({ ".json", ".lua" }) do
     local path = fs.combine(plan.DIR, id .. ext)
     if fs.exists(path) then return path end
   end
+end
+
+-- Copy a plan's file to `to` plus its extension, so a building keeps the
+-- plan it was started with even if /plans/<id> is updated or removed while
+-- it's going up. The new path, or nil and why.
+function plan.copy(id, to)
+  local from = plan.path(id)
+  if not from then return nil, ("No plan called '%s' in %s."):format(id, plan.DIR) end
+  local path = to .. (from:match("%.json$") and ".json" or ".lua")
+  if from == path then return path end
+  for _, old in ipairs({ to .. ".json", to .. ".lua" }) do
+    if fs.exists(old) then fs.delete(old) end
+  end
+  fs.copy(from, path)
+  return path
 end
 
 -- Every plan in /plans, by name.

@@ -18,8 +18,8 @@ faces.
 - Plans built on the ground clear their box first (everything in it
   becomes air), as builder turtles do. Plans built in the air, like the sky
   station, only place their own blocks.
-- Chests, barrels, computers, turtles and other blocks that hold things are
-  never replaced; it says how many it kept.
+- Chests, barrels, furnaces, hoppers, signs, computers, turtles and other
+  blocks that hold things are never replaced; it says how many it kept.
 - Before placing anything it keeps a copy of every block it's about to
   change, so `instabuild undo` puts back exactly what was there.
 - It prints the box it will fill and asks before building.
@@ -69,4 +69,5 @@ instabuild undo                          -- put back what the last build replace
   logs and doors go in facing their default way. A JSON plan can give a
   block's state in the legend, e.g. `"minecraft:oak_stairs[facing=east]"`;
   builder turtles can't use those, though.
-- Undo only remembers the last build. Building again replaces it.
+- Undo only remembers the last build. Building again replaces it. A door
+  or tall plant that loses one half to a build gets both halves back.

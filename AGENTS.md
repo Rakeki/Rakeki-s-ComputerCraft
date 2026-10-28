@@ -155,11 +155,17 @@ the source of truth.
 program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
 `SITE_URL`, and defaults to http://localhost:8080. In-game,
 `wget run <site>/install.lua <program>` installs a program with its libs, and
-`install update` reinstalls everything installed on that computer. Every
+`install update` reinstalls everything installed on that computer, and
+`install remove <program>` uninstalls one (files from `/.installed_files`, or
+the manifest for older installs; files another installed program lists stay,
+`keep` files only if the player says so). Every
 `startup.lua` begins with `install boot`: it fetches `manifest.json` (5 s
 deadline, carries on without it) and reinstalls only programs whose
 `version` (a hash of their files, made by the build) differs from the one
 saved in `/.installed_versions`. `set install.autoupdate false` turns it off.
+`/.installed_files` records the files each program put there, so an update
+removes ones the new version dropped (never a file another installed program
+still lists).
 Plans from `plans/` are in the manifest as `plan:<name>` (not in `order`, so
 not in the program list): `install plan <name>` installs one into `/plans`
 and it updates on boot like a program.

@@ -23,8 +23,15 @@ local HERE_GAP = 2 -- 'here' puts the building this many blocks south of the com
 local READ_MAX = 4096 -- most blocks one getBlockInfos call reads
 local IN_FLIGHT = 128 -- commands sent before waiting for answers
 local AIR = { ["minecraft:air"] = true, ["minecraft:cave_air"] = true, ["minecraft:void_air"] = true }
--- never replaced, even without the block data that gives them away
-local KEEP = { "chest", "barrel", "shulker_box", "computer", "turtle", "monitor", "spawner" }
+-- never replaced, even without the block data that gives them away (a bulk
+-- read may leave it out): anything that holds items or settings
+local KEEP = {
+  "chest", "barrel", "shulker_box", "furnace", "smoker", "hopper", "dispenser", "dropper", "sign",
+  "beacon", "brewing_stand", "lectern", "jukebox", "crafter", "chiseled_bookshelf", "campfire",
+  "decorated_pot", "banner", "command_block", "structure_block", "spawner", "vault",
+  "computer", "turtle", "monitor",
+}
+local KEEP_MODS = { "computercraft:" } -- every block from these mods
 
 local args = { ... }
 
@@ -44,6 +51,9 @@ end
 
 local function keep(info)
   if info.nbt then return true end
+  for _, mod in ipairs(KEEP_MODS) do
+    if info.name:sub(1, #mod) == mod then return true end
+  end
   for _, word in ipairs(KEEP) do
     if info.name:find(word, 1, true) then return true end
   end
@@ -51,6 +61,38 @@ local function keep(info)
 end
 
 ---------------------------------------------------------------- reading the world
+
+-- Where block i of a slab read (x0..x1, z0..z1) is, for each order the list
+-- could come in: x changing fastest, or z.
+local ORDERS = {
+  xFirst = function(i, w, d) return (i - 1) % w, math.floor((i - 1) / w) end,
+  zFirst = function(i, w, d) return math.floor((i - 1) / d), (i - 1) % d end,
+}
+local order -- the one this CC version uses, once checked
+
+-- The first slab that isn't all one block settles the order: a few of its
+-- blocks are read again one at a time where each order says they are.
+local function checkOrder(infos, x0, y, z0, w, d)
+  local samples = {}
+  for i = 2, #infos do
+    if infos[i].name ~= infos[1].name then samples[#samples + 1] = i end
+    if #samples == 3 then break end
+  end
+  if #samples == 0 then return end -- all one block: either order reads the same
+  for _, name in ipairs({ "xFirst", "zFirst" }) do
+    local fits = true
+    for _, i in ipairs(samples) do
+      local dx, dz = ORDERS[name](i, w, d)
+      local one = commands.getBlockInfo(x0 + dx, y, z0 + dz)
+      if not one or one.name ~= infos[i].name then fits = false break end
+    end
+    if fits then
+      order = name
+      return
+    end
+  end
+  error("This version of CC reads blocks in an order I don't know, so I can't tell what's there.", 0)
+end
 
 -- Every block in the box, a slab at a time (getBlockInfos reads at most
 -- READ_MAX blocks): fn(x, y, z, info) for each.
@@ -61,13 +103,14 @@ local function eachBlock(a, fn)
   for y = a.y0, a.y1 do
     for z0 = a.z0, a.z1, rows do
       local z1 = math.min(a.z1, z0 + rows - 1)
+      local d = z1 - z0 + 1
       local infos = commands.getBlockInfos(a.x0, y, z0, a.x1, y, z1)
-      local i = 1
-      for z = z0, z1 do
-        for x = a.x0, a.x1 do
-          fn(x, y, z, infos[i])
-          i = i + 1
-        end
+      -- a single row (or column) reads the same in either order
+      if not order and w > 1 and d > 1 then checkOrder(infos, a.x0, y, z0, w, d) end
+      local at = ORDERS[order or "xFirst"]
+      for i = 1, w * d do
+        local dx, dz = at(i, w, d)
+        fn(a.x0 + dx, y, z0 + dz, infos[i])
       end
     end
   end
@@ -192,7 +235,7 @@ local function build(id, where, facingArg)
   for _, b in ipairs(blocks) do want[key(b[1], b[2], b[3])] = mats[b[4]] end
 
   print("Looking at what's there...")
-  local todo, undo, kept = {}, {}, 0
+  local todo, undo, kept, changing, halves = {}, {}, 0, {}, {}
   local ok, readErr = pcall(eachBlock, a, function(bx, by, bz, info)
     local target = want[key(bx, by, bz)] or (p.clear and "minecraft:air" or nil)
     if not target or not info then return end
@@ -204,12 +247,27 @@ local function build(id, where, facingArg)
     end
     todo[#todo + 1] = { bx, by, bz, target }
     undo[#undo + 1] = { bx, by, bz, AIR[info.name] and "minecraft:air" or blockString(info) }
+    changing[key(bx, by, bz)] = true
+    local half = info.state and info.state.half
+    if half == "lower" or half == "upper" then halves[#halves + 1] = { bx, by + (half == "lower" and 1 or -1), bz, info.name } end
   end)
   if not ok then error("Couldn't read the blocks there: " .. tostring(readErr) .. " Is it all loaded (within render distance)?", 0) end
   if #todo == 0 then return print("It's already there: nothing to change.") end
 
+  -- a door or tall plant loses its other half when one half is replaced:
+  -- keep that half for undo too, if it isn't being replaced anyway
+  for _, h in ipairs(halves) do
+    local inside = h[2] >= a.y0 and h[2] <= a.y1
+    if not (inside and changing[key(h[1], h[2], h[3])]) then
+      local okInfo, info = pcall(commands.getBlockInfo, h[1], h[2], h[3])
+      if okInfo and info and info.name == h[4] then undo[#undo + 1] = { h[1], h[2], h[3], blockString(info) } end
+    end
+  end
+
   local undoRuns = runs(undo)
   undo = nil
+  -- the old copy goes first: two copies of a big build don't fit on the disk
+  files.delete(UNDO_FILE)
   files.write(UNDO_FILE, { name = p.name, runs = undoRuns })
   local failed, why = place(runs(todo), "Building:")
   if failed > 0 then

@@ -75,7 +75,7 @@ projector                  -- show the last plan (startup does this)
 projector pagoda           -- show a plan: /plans/<name>.json or .lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector village          -- follow what a village turtle is building
-projector build            -- have the free builder turtles build the plan where it's shown
+projector build            -- have the builder turtles build the plan where it's shown
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
 projector clear            -- remove the projection (Ctrl+T first to stop it)
@@ -107,14 +107,17 @@ With a [builder turtle](../builder-turtle/README.md) set up nearby, tap
 **Build** and it builds the building exactly where the projection is. Both
 need a wireless or ender modem.
 
-- The projector asks every builder turtle in range whether it's free, and
-  shares the building between the free ones (up to 4): each gets a strip of
-  it, side by side across the longer side, at least 3 blocks wide. With one
-  free turtle it builds the whole thing. The panel says who took it, or why
-  none did (none in range, or all busy).
-- A strip nobody could take waits for the first turtle to come free (one
-  finishing its own strip, or a new one: the projector looks every 30
-  seconds).
+- The projector shares the building between every builder turtle in range
+  (up to 4), busy ones too: each gets a strip of it, side by side across the
+  longer side, at least 3 blocks wide. The free ones start straight away;
+  with one turtle it builds the whole thing. The panel says who took it, or
+  why none did (none in range, or all busy).
+- A strip nobody could take yet waits for the first turtle to come free (one
+  finishing its own strip, one that was busy with something else, or a new
+  one: the projector looks every 30 seconds).
+- It builds from a copy of the plan taken when you tapped Build, so a
+  reboot, or the plan being updated in `/plans` meanwhile, never changes
+  what the waiting strips are cut from.
 - While they build, the panel shows how far they've got ("Builder #7:
   building, 340 of 1200 (28%)", or with a few, "3 builders: 900 of 2400
   (37%)"), and in **Layer** view the projection follows the lowest layer

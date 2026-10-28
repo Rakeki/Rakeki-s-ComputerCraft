@@ -74,7 +74,8 @@ website has a diagram of it all.
 
 **Installer (easiest):** `wget run https://rakeki.github.io/Rakeki-s-ComputerCraft/install.lua <program>`
 downloads a program and the `lib/` files it needs. Afterwards `install update`
-fetches newer versions (your `config.lua` is kept). Building plans for the
+fetches newer versions (your `config.lua` is kept), and `install remove <program>`
+uninstalls one (files another program still uses stay). Building plans for the
 projector and builder turtles live in [`plans/`](plans/): `install plans`
 lists them and `install plan <name>` adds one to a computer's `/plans`.
 Each has a page on the website with a 3D view, and the website's plan viewer

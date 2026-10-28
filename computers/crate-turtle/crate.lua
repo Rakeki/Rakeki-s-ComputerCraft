@@ -20,8 +20,15 @@ local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local net = fs.exists("lib/net.lua") and require("lib.net") -- only 'crate stock' needs it
 
+-- before anything else: MOVES below needs the turtle API
+if not turtle then
+  print("This runs on a turtle.")
+  return
+end
+
 local JOB_FILE = "/.crate_job" -- the running job, so it carries on after a reboot
 local CRATE_SIDE = nil -- "front", "top" or "bottom" if the crate isn't found by itself
+local SIDES_WAIT = 10 -- seconds between looks for a crate or chest that has gone, on resume
 local FULL_WAIT = 5 -- seconds between tries while the chest is full
 local KEEP_WAIT = 2 -- seconds between checks while the chest has enough ('crate keep')
 local STOCK_WAIT = 15 -- seconds between checks while storage has enough ('crate stock')
@@ -153,8 +160,9 @@ end
 local storage = net and net.peer(STORAGE_PROTOCOL, { wait = STORAGE_WAIT, retry = 30 })
 
 -- How many of the item the storage system holds, counting what's still in
--- its input chest (my chest) waiting to be put away. nil and why if no
--- storage computer answered.
+-- its input chest (my chest) waiting to be put away: the storage computer's
+-- count is its storage and fuel chest only, never the input chest, so
+-- nothing is counted twice. nil and why if no storage computer answered.
 local function inStorage(item)
   local reply, why = storage:ask({ type = "count", items = { item } })
   if not reply or type(reply.counts) ~= "table" then return nil, why or "no answer" end
@@ -219,10 +227,6 @@ local function usage()
   print("crate stop         forget the job")
 end
 
-if not turtle then
-  print("This runs on a turtle.")
-  return
-end
 if not os.getComputerLabel() then os.setComputerLabel("Crate-" .. os.getComputerID()) end
 
 local args = { ... }
@@ -261,7 +265,17 @@ if job.mode == "stock" then
 end
 
 local ok, why = findSides()
-if not ok then
+if not ok and args[1] == "resume" then
+  -- the crate or chest has gone (broken, moved): wait here for it to be put
+  -- back rather than stopping, so startup.lua doesn't start me over and over
+  print(why)
+  print("I'll carry on once it's back.")
+  status("waiting", "no crate or chest")
+  repeat
+    sleep(SIDES_WAIT)
+    ok, why = findSides()
+  until ok
+elseif not ok then
   print(why)
   return
 end

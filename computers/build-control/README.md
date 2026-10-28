@@ -13,10 +13,11 @@ needed. From a pocket computer, `build skystation 100 150 -40` puts the
 sky station's north-west bottom corner at 100, 150, -40 and the builders get
 to work.
 
-It works the same way as the projector's **Build** button: the builder
-turtles that are free (up to 4) each take a strip of the building, side by
-side across its longer side, and build it bottom layer up. A strip nobody
-could take waits for the next builder that comes free. While they work it
+It works the same way as the projector's **Build** button: the building is
+cut into a strip per builder turtle in range (up to 4, busy ones too), side
+by side across its longer side, and each builds its strip bottom layer up.
+The free ones start straight away; a strip nobody could take yet waits for
+the next builder that comes free. While they work it
 shows how far they've got, one line whenever it changes:
 
 ```
@@ -79,8 +80,10 @@ east from there whichever way it faces.
   another.
 - The builders report how far they've got to whoever sent the building, so
   follow it from the computer that started it.
-- Builders take strips only when they're free: to have four share a
-  building, set them all up before you run `build`.
+- Every builder in range when you run `build` gets a strip, busy or not;
+  one set up afterwards only picks up a strip that's still waiting.
+- It builds from a copy of the plan taken when it started, so updating the
+  plan in `/plans` (or a reboot) never changes what's still to be handed out.
 - In creative, [instabuild](../instabuild/README.md) places a plan at the
   same coordinates in seconds from a command computer, and undoes it: handy
   for trying a spot before the turtles build it.

@@ -59,6 +59,10 @@ chest hasn't got it.
    - 8 water buckets (it brings the empty buckets back)
    - fuel: a stack of coal or charcoal (it tops itself up to 3,000 and
      uses about 2,000)
+   Optional, but best with a big mixed chest or barrel: a plain empty
+   **buffer chest** directly **under** the turtle's start block. The supply
+   chest then pushes exactly the blocks it needs into it, from wherever they
+   are, and nothing in the supply chest gets moved about.
 4. To build with something other than cobblestone, put a stack of it in the
    turtle's **slot 1** (top left) before you start. That's the block it uses.
 5. Run:

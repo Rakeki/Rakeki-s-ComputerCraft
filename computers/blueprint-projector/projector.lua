@@ -22,6 +22,7 @@ local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local STATE_FILE = "/.projector_state"
+local PLAN_COPY = "/.projector_build_plan" -- the plan being built, copied when Build was tapped (.json or .lua)
 local MAX_SHAPES = 1000     -- never use more projector objects than this (the mod allows 1024)
 local BATCH = 16            -- projector calls sent together; each one waits for a server tick
 local DEBOUNCE = 0.6        -- seconds to wait after the last tap before redrawing the building
@@ -115,7 +116,8 @@ local function decorate(p)
   return p
 end
 
-local function loadPlan(id)
+-- file: load from there instead of /plans (the copy a build was started with)
+local function loadPlan(id, file)
   if id == "village" then
     if not village then return nil, "No village builder heard yet." end
     local ok, p = pcall(plans.fromTable, { name = village.name, blocks = village.blocks }, id)
@@ -125,7 +127,7 @@ local function loadPlan(id)
     p.village, p.fixed, p.world0 = true, village.world, { x = x0, y = y0, z = z0 }
     return decorate(p)
   end
-  local p, err = plans.load(id)
+  local p, err = plans.load(file or id)
   if not p then return nil, err end
   p.id = id
   return decorate(p)
@@ -206,11 +208,12 @@ local function offset(x, z) return plans.offset(plan, state.turn, x, z) end
 local function footprint() return plans.footprint(plan, state) end
 
 -- state.build is lib/crew.lua's build while builder turtles are building
--- the plan.
+-- the plan, and state.buildPlan the copy of the plan it was started with.
 local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
     view = state.view, layer = state.layer, step = state.step, hidden = state.hidden, build = state.build,
+    buildPlan = state.buildPlan,
   })
 end
 
@@ -227,7 +230,10 @@ local function villageLayer()
 end
 
 local function usePlan(id, keepPlace)
-  local p, err = loadPlan(id)
+  -- while it's being built, the plan comes from the copy taken at Build, so
+  -- a reboot shows (and hands out) exactly what the builders are building
+  local building = state.build and state.buildPlan and id == state.plan and fs.exists(state.buildPlan)
+  local p, err = loadPlan(id, building and state.buildPlan or nil)
   if not p then return false, err end
   plan, state.plan = p, id
   state.layer = state.view == "layer" and (villageLayer() or 1) or plan.h
@@ -256,6 +262,18 @@ end
 local function tell(text)
   note = text
   os.queueEvent("projector_status")
+end
+
+-- Hand the plan to the builders (lib/crew.lua, in buildLoop): from a copy,
+-- so a reboot mid-build or an update to /plans can't change what the strips
+-- still waiting are cut from.
+local function requestBuild()
+  if plan.village then return tell("The village builder builds this one itself.") end
+  local copy, err = plans.copy(state.plan, PLAN_COPY)
+  if not copy then return tell(err) end
+  state.buildPlan = copy
+  save()
+  os.queueEvent(crew.START)
 end
 
 local function box(id, x0, y0, z0, x1, y1, z1, color, width)
@@ -453,9 +471,8 @@ end
 local function act(action)
   if not action then return end
   if action == "build" then
-    if plan.village then return tell("The village builder builds this one itself.") end
     -- the talking to the turtles happens in buildLoop, so the panel never waits
-    os.queueEvent(state.build and crew.STOP or crew.START)
+    if state.build then os.queueEvent(crew.STOP) else requestBuild() end
     return
   end
   local moving = MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here"
@@ -642,6 +659,11 @@ builders = crew.new({
   build = state.build,
   save = function(build)
     state.build = build
+    -- done or stopped: the copy of the plan it was built from goes
+    if not build and state.buildPlan then
+      if fs.exists(state.buildPlan) then fs.delete(state.buildPlan) end
+      state.buildPlan = nil
+    end
     save()
   end,
   tell = tell,
@@ -665,9 +687,7 @@ state.build = builders.build
 -- Starts and stops builds asked for on the panel, hears progress, and hands
 -- out strips nobody has taken yet.
 local function buildLoop()
-  if buildOnStart and not state.build then
-    if plan.village then tell("The village builder builds this one itself.") else os.queueEvent(crew.START) end
-  end
+  if buildOnStart and not state.build then requestBuild() end
   builders:run()
 end
 

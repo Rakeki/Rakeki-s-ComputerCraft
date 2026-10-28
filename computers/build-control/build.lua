@@ -23,6 +23,7 @@ local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local STATE_FILE = "/.build_control" -- the plan, where it goes, and the build in progress
+local PLAN_COPY = "/.build_control_plan" -- the plan being built, copied when it started (.json or .lua)
 local FACINGS = { north = 0, east = 1, south = 2, west = 3 }
 local GPS_WAIT = 5 -- seconds to wait for a GPS fix ('build <plan> here')
 
@@ -151,7 +152,11 @@ local function start(id, where, facingArg)
   local answer = read()
   if not answer or answer:lower():sub(1, 1) ~= "y" then return print("Not built.") end
   if not net.open() then error("Needs a wireless or ender modem to reach the builder turtles.", 0) end
-  state.plan, state.at = id, at
+  -- build from a copy: strips handed out after a reboot must come from the
+  -- same plan, even if /plans/<id> is updated meanwhile
+  local copy, copyErr = plans.copy(id, PLAN_COPY)
+  if not copy then error(copyErr, 0) end
+  state.plan, state.at = copy, at
   files.write(STATE_FILE, state)
   if builders:start() then watch() end
 end
