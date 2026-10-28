@@ -526,8 +526,21 @@ local function waitForItem(item, want)
   return true
 end
 
+-- Full, and some of it is what was dug up: time to go and empty it. Full of
+-- blocks to build with (a good load split over part stacks) isn't.
+local function fullOfSpoil()
+  if emptySlots() > 0 then return false end
+  local uses = {}
+  for _, name in ipairs(job.mats) do uses[itemFor(name)] = true end
+  for slot = 1, 16 do
+    local it = turtle.getItemDetail(slot)
+    if it and not uses[it.name] and not FUEL[it.name] then return true end
+  end
+  return false
+end
+
 local function housekeeping()
-  if emptySlots() == 0 then restock(loadPlan(math.max(1, prog.step)), "inventory full") end
+  if fullOfSpoil() then restock(loadPlan(math.max(1, prog.step)), "inventory full") end
   if fuelLevel() < homeDistance() then
     refuelFromInventory(homeDistance() + 500)
     if fuelLevel() < homeDistance() then restock(loadPlan(math.max(1, prog.step)), "low on fuel") end
