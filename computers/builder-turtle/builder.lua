@@ -280,6 +280,19 @@ local function suckSorting(match, want)
   turtle.select(1)
 end
 
+-- Move all count items in a chest slot to another slot. A barrel with
+-- stack upgrades holds thousands in one slot, and each call moves a stack.
+local function moveAll(c, self, from, count, to)
+  local moved = 0
+  for _ = 1, math.ceil(count / 64) + 1 do
+    local ok, n = pcall(c.pushItems, self, from, count - moved, to)
+    if not ok or not n or n == 0 then break end
+    moved = moved + n
+    if moved >= count then break end
+  end
+  return moved
+end
+
 -- Take up to want items matching match() from the chest in front.
 -- turtle.suck takes the chest's first stack, so the wanted stack is moved
 -- to the front of the chest first (as the village builder does).
@@ -305,28 +318,33 @@ local function takeFront(match, want, current)
         for s = 2, c.size() do
           if not items[s] then empty = s break end
         end
-        local ok, n = false, 0
         if empty then
-          ok, n = pcall(c.pushItems, self, 1, 64, empty)
-        elseif emptySlots() >= 2 then
+          moved = moveAll(c, self, 1, items[1].count, empty) >= items[1].count
+        elseif emptySlots() >= 2 and items[1].count <= 64 then
           -- no room in the chest: hold its first stack myself, and put it
           -- back once the wanted stack has left a gap
           held = freeSlotFor("")
           turtle.select(held)
-          ok = turtle.suck()
-          n = ok and 1 or 0
-          if not ok then held = nil end
+          moved = turtle.suck()
+          if not moved then held = nil end
+        else
+          moved = false
         end
-        moved = ok and n and n > 0
       end
-      if moved then
-        local ok, n = pcall(c.pushItems, self, from, 64, 1)
-        moved = ok and n and n > 0
-      end
+      if moved then moved = moveAll(c, self, from, items[from].count, 1) > 0 end
       if not moved then
         if held then
           turtle.select(held)
           turtle.drop()
+        end
+        -- a barrel with stack upgrades puts back whatever is dropped into it
+        -- in the same slot, so taking stacks off the front never gets past it
+        for _, it in pairs(items) do
+          if it.count > 64 then
+            print("Couldn't get to the blocks I need in my supply chest: make room in it (an empty slot).")
+            turtle.select(1)
+            return
+          end
         end
         return suckSorting(match, want - have)
       end
@@ -507,6 +525,9 @@ local function waitForItem(item, want)
   local said = false
   while count(item) == 0 do
     if stopRequested then return false end
+    -- full of other blocks: put back what the next stretch doesn't need, to
+    -- make room for this one
+    if emptySlots() == 0 then dump(loadPlan(prog.step)) end
     orderFromStorage({ [item] = want })
     faceSupply()
     takeFront(function(x) return x == item end, want, function() return count(item) end)
