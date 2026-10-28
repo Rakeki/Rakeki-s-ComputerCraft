@@ -61,6 +61,8 @@
     // cooking pots
     pot: { c: "#9aa0a8", top: "#b8bcc2", tex: "pot", amt: 0.05, box: [0.1, 0.9, 0, 0.82, 0.1, 0.9], clear: true }, // a campfire pot on its campfire
     redblock: { c: "#b3261e", tex: "noise", amt: 0.14 },
+    comparator: { c: "#a7a7a7", top: "#bdb3ad", tex: "noise", amt: 0.05, box: [0, 1, 0, 0.14, 0, 1], clear: true },
+    relay: { c: "#9b9b9b", tex: "ore", ore: "#d42a2a", amt: 0.05 }, // CC: Tweaked redstone relay
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 
@@ -610,45 +612,50 @@
 
   // Example layouts for computers/cooker-computer (see its README's "Example
   // layouts"). The pot sits on its campfire, raised one block so the output
-  // hopper fits under it; the feed hopper points into its side and the
-  // redstone block on its other side touches neither hopper. Small wired
-  // modems on the hoppers' fronts are left out; the cable they join is shown.
+  // hopper fits under it; the feed hopper points into its side, the redstone
+  // block behind it touches neither hopper, and a comparator on its other
+  // side reads it into the relay beyond (the redstone block only meets the
+  // comparator corner to corner). Small wired modems on the hoppers' and
+  // relay's faces are left out; the cable they join is shown.
   function cookerPot(w, x) {
     w.set(x, 1, 0, "pot");
     w.set(x, 1, 1, "hopper"); // feed
     w.set(x, 0, 0, "hopper"); // output
-    w.set(x - 1, 1, 0, "redblock");
+    w.set(x, 1, -1, "redblock");
+    w.set(x + 1, 1, 0, "comparator"); w.set(x + 2, 1, 0, "relay");
     w.set(x, 0, 1, "cable"); w.set(x, 1, 2, "cable"); // to both hoppers' modems
+    w.set(x + 2, 0, 0, "cable"); w.set(x + 2, 0, 1, "cable"); // to the relay's modem
   }
 
   function cookerOne() {
     const w = new World();
-    w.box(-2, 5, -1, -1, -1, 4, "stone");
+    w.box(-2, 5, -1, -1, -2, 4, "stone");
     cookerPot(w, 0);
     w.box(0, 4, 0, 0, 2, 2, "cable");
     w.set(2, 0, 3, "fullmodem"); w.set(2, 0, 4, "chest"); // the storage input chest
     w.set(5, 0, 2, "computer");
     return {
       world: w,
-      labels: [[0.3, 2.9, -0.3, "pot on a campfire", O], [-2.6, 1.4, -0.4, "redstone block", R], [-0.6, 1.2, 1.6, "feed hopper", B],
-        [1.2, 0.5, -0.2, "output hopper", G], [2, 1.5, 4, "input chest", G], [5, 1.6, 2, "cooker", P],
+      labels: [[0.3, 2.9, -0.3, "pot on a campfire", O], [-0.6, 2.4, -1.6, "redstone block", R], [-0.6, 1.2, 1.6, "feed hopper", B],
+        [0.9, 0.1, 1.5, "output hopper", G], [2, 1.5, 4, "input chest", G], [5, 1.6, 2, "cooker", P],
+        [2.1, 1.0, 1.1, "comparator", R], [3.2, 2.6, -0.2, "redstone relay", P],
         [3, 0.9, 2, "storage network cable", W]],
     };
   }
 
   function cookerChain() {
     const w = new World();
-    w.box(-3, 17, -1, -1, -2, 6, "stone");
+    w.box(-2, 20, -1, -1, -2, 6, "stone");
     const sizes = ["XS", "S", "M", "L", "XL"];
-    sizes.forEach((_, i) => cookerPot(w, i * 3));
-    w.box(0, 15, 0, 0, 2, 2, "cable");
-    w.set(16, 0, 2, "computer");
-    w.set(7, 0, 3, "fullmodem"); w.set(7, 0, 4, "chest"); // input
-    w.set(13, 0, 3, "cable"); storageComputer(w, 13, 4);
+    sizes.forEach((_, i) => cookerPot(w, i * 4));
+    w.box(0, 18, 0, 0, 2, 2, "cable");
+    w.set(19, 0, 2, "computer");
+    w.set(9, 0, 3, "fullmodem"); w.set(9, 0, 4, "chest"); // input
+    w.set(15, 0, 3, "cable"); storageComputer(w, 15, 4);
     return {
       world: w,
-      labels: [...sizes.map((s, i) => [i * 3, 2.6, 0, s, O]), [16, 1.6, 2, "cooker", P], [7, 1.5, 4, "input chest", G],
-        [13.5, 2.4, 4, "storage computer", B]],
+      labels: [...sizes.map((s, i) => [i * 4, 2.6, 0, s, O]), [19, 1.6, 2, "cooker", P], [9, 1.5, 4, "input chest", G],
+        [15.5, 2.4, 4, "storage computer", B]],
     };
   }
 

@@ -169,7 +169,7 @@ Existing computers:
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, net, report, errlog (if present) |
 | `craft-overseer` | Takes the storage computer's crafting queue and shares it between every crafting turtle; monitor shows the queue and what's missing | screen, net, files, report, errlog (if present) |
 | `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, net, files, report, errlog (if present) |
-| `cooker-computer` | Runs Cobblemon cooking pots through a feed and an output hopper each (CC can't reach into a pot): exp candy, compressed up to XL; counts what goes in so a hopper never overfills a slot | screen, net, files, report, errlog (if present) |
+| `cooker-computer` | Runs Cobblemon cooking pots through a feed and an output hopper each (CC can't reach into a pot): exp candy, compressed up to XL; a comparator read through a redstone relay says how full each pot is, so it's fed only what fits and a hopper never overfills a slot (nothing is counted) | screen, net, files, report, errlog (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
 | `fission-guard` | Mekanism fission reactor guard: SCRAMs on heat, damage, coolant, heated coolant or waste and latches until Reset; pauses while the Induction Matrix is full; monitor gauges and buttons | screen, files, report, errlog (if present) |
 | `power-dashboard` | Mekanism Induction Matrix monitor: stored, in/out, full/empty forecast, graph, turbines and energy cubes, low-power redstone signal | screen, report, errlog (if present) |

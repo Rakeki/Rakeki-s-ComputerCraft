@@ -864,7 +864,7 @@
       const p = pots[1];
       if (p.fill < p.need) {
         p.fill = Math.min(p.need, p.fill + 25);
-        p.state = `filling ${p.fill}/${p.need}`; p.colour = "lightBlue";
+        p.state = `filling ~${p.fill}/${p.need}`; p.colour = "lightBlue";
         st.msg = ["Sent 64 items to the pots.", "lightGray"];
       } else {
         p.made++; p.state = "cooking"; p.colour = "lime";
@@ -887,7 +887,7 @@
         s.put(29, y, fitT(p.state, W - 29), p.colour);
       });
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("cooker add / remove / reset in another tab", W), "gray");
+      s.put(1, H, fitT("cooker add / relay / remove in another tab", W), "gray");
       s.render();
     }
 

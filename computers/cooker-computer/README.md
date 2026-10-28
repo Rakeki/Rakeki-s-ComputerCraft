@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; two hoppers per cooking pot on that network
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each cooking pot, two hoppers and a redstone relay on that network
 
 ## What it does
 
@@ -24,9 +24,11 @@ Each pot makes one of these. Set up the ones you want, so a pot for each
 size compresses everything up to XL, and pots up to M stop at M. Every 10
 seconds the cooker:
 
-- **Fills the pots.** It asks the storage computer for what each pot needs,
-  and the storage computer puts it in the pot's **feed hopper**, which
-  passes it into the pot.
+- **Looks at each pot.** A comparator next to the pot reads how full it
+  is, and a redstone relay passes that to the cooker.
+- **Fills the pots.** It asks the storage computer for whatever the pot
+  has room for, out of what's in storage, and the storage computer puts it
+  in the pot's **feed hopper**, which passes it into the pot.
 - **Empties them.** The **output hopper** under each pot takes out what's
   cooked, and the cooker sends it to the storage computer's input chest,
   and from there into storage, ready for the next pot up.
@@ -35,22 +37,24 @@ A pot cooks one thing every 5 seconds, as long as its lid is shut, and
 redstone power is what shuts it.
 
 A hopper can't choose which pot slot an item goes in: it fills the first
-slot it can. So the cooker counts everything that goes in and comes out,
-and sends no more than the pot can take:
+slot it can, and a pot given one item too many starts another slot and
+jams. That's what the comparator is for: the cooker sends only what the pot
+has room for, judged from what the pot really holds, so nothing has to be
+counted and you can open a pot without upsetting it.
 
-- **Sculk and honeycomb** go in in pairs, at most a stack of each in the
-  pot. When one of them runs out in storage, the other waits too.
+- **Sculk and honeycomb** go in in pairs, up to a stack between them in
+  the pot. When one of them runs out in storage, the other waits too.
 - **Compressing** needs a slot per candy (6 for S, 3 for the rest), and a
   hopper only starts the next slot once one is full. So a compressing pot
   starts cooking once it holds 5 stacks and 1 (321 XS candy) for an S pot,
-  or 2 stacks and 1 (129) for the others, and keeps up to 6 or 3 stacks in
-  it as it works. Those candies are in the pot, not in storage.
+  or 2 stacks and 1 (129) for the others, and keeps a little more than
+  that in it as it works. Those candies are in the pot, not in storage.
 
-The screen lists each pot, what it makes, how many it has made, and what
-it's doing: **cooking**, **filling** (how many it holds / how many it
-needs to start), **needs** an item that's run out in storage, or **not
-cooking!** when it should be. With a wireless modem it also reports to the
-[status server](../status-server/README.md).
+The screen lists each pot, what it makes, how many it has made since the
+cooker started, and what it's doing: **cooking**, **filling** (about how
+many it holds / how many it needs to start), **needs** an item that's run
+out in storage, or **not cooking!** when it should be. With a wireless
+modem it also reports to the [status server](../status-server/README.md).
 
 ## Example layouts
 
@@ -60,9 +64,10 @@ The website shows each of these in 3D.
 
 The pot on its campfire, raised one block so the output hopper fits under
 it. The feed hopper points into the pot's side, and a redstone block behind
-the pot shuts its lid without touching either hopper. A wired modem on each
-hopper joins the storage network's cable, which also reaches the storage
-input chest and this computer.
+the pot shuts its lid without touching either hopper. A comparator on the
+pot's other side reads it into the redstone relay beyond it. A wired modem on
+each hopper and on the relay joins the storage network's cable, which also
+reaches the storage input chest and this computer.
 
 ### Candy chain
 
@@ -93,41 +98,59 @@ input chest, then into the S pot, and so on up to XL.
    seasonings in the seasoning slots.
 4. Put an **output hopper** under the pot, pointing sideways into a block
    that isn't a chest, so it keeps what it takes out.
-5. Put a **wired modem** on each hopper, join them to the storage network
-   with networking cable, and right-click each modem so it turns red. It
-   says the hopper's name, like `minecraft:hopper_3`: note which is which.
-6. **Power the pot with redstone**, which shuts its lid: place a redstone
+5. On another side of the pot, put a **comparator** facing away from it
+   (its back against the pot), and a **redstone relay** (CC: Tweaked) in
+   front of the comparator. Leave the comparator in its normal mode (front
+   torch off). Nothing else should power the relay.
+6. Put a **wired modem** on each hopper and on the relay, join them to the
+   storage network with networking cable, and right-click each modem so it
+   turns red. It says the block's name, like `minecraft:hopper_3` or
+   `redstone_relay_0`: note which is which.
+7. **Power the pot with redstone**, which shuts its lid: place a redstone
    block touching it, last, after the pot is on the campfire (the lid moves
-   when the power changes). Keep it away from the hoppers: a powered hopper
-   stops moving items.
-7. Place this computer with a wired modem on it, joined to the same network
+   when the power changes). Keep it away from the hoppers (a powered hopper
+   stops moving items) and from the comparator's sides and the relay (they
+   would read it instead of the pot).
+8. Place this computer with a wired modem on it, joined to the same network
    (a wireless modem as well is only needed for the status server). Install
    this program, then add each pot and reboot.
 
    ```
-   cooker add                         -- add a pot: asks what it makes and which hoppers are its
-   cooker add exp_candy_s minecraft:hopper_3 minecraft:hopper_4   -- the same in one go (feed, then output)
+   cooker add                         -- add a pot: asks what it makes, its hoppers and its relay
+   cooker add exp_candy_s minecraft:hopper_3 minecraft:hopper_4 redstone_relay_0   -- the same in one go
    cooker                             -- start (startup.lua does this on boot)
+   cooker relay 2                     -- give pot 2 its relay (pots added before relays were needed)
    cooker remove 2                    -- forget pot 2 (no number: list the pots)
-   cooker reset 2                     -- after emptying pot 2 by hand
    ```
 
-`cooker add`, `remove` and `reset` work from another tab while the cooker
+`cooker add`, `relay` and `remove` work from another tab while the cooker
 runs (Ctrl+T to stop it, or open a tab on an advanced computer); it picks
 up the change straight away.
 
+### Pots set up before the comparator
+
+Older versions of the cooker counted what went into each pot instead of
+reading a comparator, and could lose count. Add a comparator and a relay to
+each pot (steps 5 and 6), then run `cooker relay <n>` for each one. Until it
+has a relay, a pot isn't fed and the screen says **no relay**. Whatever is in
+the pots already is fine: the comparator sees it.
+
 ## Things to know
 
-- **Leave the pots alone.** The cooker knows what's in a pot only by
-  counting. If you take things out of a pot or put things in by hand,
-  empty it completely (its slots, not the hoppers) and run
-  `cooker reset <n>`.
-- If a pot that should be cooking hasn't made anything for 2 minutes, the
-  screen says **not cooking!** Its lid is probably open (no redstone power),
-  or it's jammed: empty it by hand and run `cooker reset <n>`.
-- If the storage computer doesn't answer while loading a pot, the cooker
-  takes it that the items were sent, so it never overfills the pot. If
-  they weren't, the pot just waits longer to start.
+- You can open a pot, take things out or put things in: the cooker sees the
+  change on its next round. Put in only what the pot's recipe takes, though:
+  anything else jams it.
+- If a pot that should be cooking (it's full enough) makes nothing for 2
+  minutes, the screen says **not cooking!** Its lid is probably open (no
+  redstone power), or it's jammed with something it can't cook: empty it by
+  hand. Check too that the output hopper points into a solid block: if it
+  passes candy on to a chest or another hopper, the cooker never sees it
+  come out.
+- The comparator reads a pot in steps of about a stack, so the cooker sends
+  candy in small amounts as a pot gets near full, and keeps the feed hopper
+  nearly empty.
+- If the storage computer doesn't answer while loading a pot, nothing is
+  lost: the cooker sees what arrived in the feed hopper on its next round.
 - Everything with a pot to go into gets used: to keep some sculk,
   honeycomb or smaller candy in storage, add it to `keep` in `config.lua`.
 - With Create installed, Cobblemon also makes XS candy from experience
