@@ -186,6 +186,9 @@ end
 -- up above the building, across, and down, so nothing built gets dug.
 local function travel(p)
   local cur = nav.getPos()
+  -- already there (going home from home): don't fly up over the building and
+  -- back, which a new turtle hasn't the fuel for
+  if cur.x == p.x and cur.y == p.y and cur.z == p.z then return true end
   if inBox(cur) and inBox(p) then return nav.goTo(p.x, p.y, p.z) end
   local cruise = math.max(cur.y, p.y, cruiseHeight())
   local ok, err = nav.goTo(cur.x, cruise, cur.z)

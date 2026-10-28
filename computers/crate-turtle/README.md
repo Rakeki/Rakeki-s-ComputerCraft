@@ -40,15 +40,20 @@ It saves its job, so after a reboot or chunk reload it carries on by itself.
 
 ## Use
 
-1. Place the **Creative Crate** and right-click it with the item you want.
+1. Place the **Creative Crate** and right-click the **filter slot on its top**
+   with the item you want (the item shows in that slot).
 2. Place the turtle so the crate is **in front of it, above it or below
    it**.
 3. Put a **chest** on another of those sides: below the turtle is checked
-   first, then above, then in front. For `crate stock`, that chest is the
-   storage computer's input chest (or one of its extra input chests).
+   first, then above, then in front. It must touch the turtle: a turtle
+   can't reach a chest behind it or beside it, or one with a full-block
+   modem in between. For `crate stock`, that chest is the storage computer's
+   input chest (or one of its extra input chests), with its wired modem on
+   another side of it.
 4. For `crate stock`, give the turtle a **wireless or ender modem** on its
    left or right side.
-5. Run one of these:
+5. Run one of these (a fresh install does nothing on reboot until you've
+   started a job once; after that it carries on by itself):
 
    ```
    crate                    -- fill the chest, then keep it full

@@ -1377,7 +1377,6 @@
       "color": "magenta",
       "tagline": "Pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked.",
       "libs": ["files", "net", "report", "errlog"],
-      "autostart": true,
       "stats": [
         ["Items", "endless"],
         ["Moves", "a stack at a time"],
@@ -1391,7 +1390,7 @@
         "Notices when you change the crate's item, and never drops into the crate"
       ],
       "setup": [
-        "Place the Creative Crate and right-click it with the item you want.",
+        "Place the Creative Crate and right-click the filter slot on its top with the item you want.",
         "Place the turtle with the crate in front of it, above or below.",
         "Put a chest on another of those sides (for crate stock, the storage computer's input chest), and a wireless modem for crate stock.",
         "Run one of the commands: it saves the job and carries on after a reboot."

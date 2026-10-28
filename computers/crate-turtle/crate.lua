@@ -1,5 +1,5 @@
 -- Endless items from a Create Creative Crate. The turtle sits between the
--- crate (set its filter by right-clicking it with the item) and a chest, and
+-- crate (set its item by right-clicking the filter slot on its top) and a chest, and
 -- moves the crate's item into the chest a stack at a time: keeping the chest
 -- full, sending a set amount, keeping a set amount in the chest, or keeping
 -- a set amount in the storage system (the chest is then its input chest).
@@ -81,7 +81,13 @@ local function findSides()
     if side ~= crateSide and isInventory(side) then chestSide = side break end
   end
   if not chestSide then
-    return false, "Put a chest below me, above me or in front of me (not where the crate is)."
+    -- say what is there, so a chest behind me or a modem in the way is easy to spot
+    local seen = {}
+    for _, side in ipairs({ "front", "top", "bottom" }) do
+      seen[#seen + 1] = ("%s: %s"):format(side, peripheral.getType(side) or "nothing I can use")
+    end
+    return false, "Put a chest below me, above me or in front of me (not where the crate is), "
+      .. "touching me: I can't reach one behind me or beside me. I see:\n  " .. table.concat(seen, "\n  ")
   end
   return true
 end
@@ -139,7 +145,7 @@ end
 
 -- The crate gave nothing: its filter is empty.
 local function crateEmpty()
-  say("The crate gives nothing. Right-click it with the item you want. Waiting...")
+  say("The crate gives nothing. Right-click the slot on its top with the item. Waiting...")
   status("waiting", "crate has no item set")
   sleep(EMPTY_WAIT)
 end
