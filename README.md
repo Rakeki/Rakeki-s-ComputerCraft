@@ -43,6 +43,10 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [smelter-computer](computers/smelter-computer/README.md): keeps the storage system's furnaces busy smelting ores and cooking raw food, fuels them from its fuel chest, and burns spare logs into charcoal on request
 - [cooker-computer](computers/cooker-computer/README.md): runs Cobblemon cooking pots for the storage system: makes exp candy from sculk and honeycomb and compresses it up to XL
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
+- [fission-guard](computers/fission-guard/README.md): watches a Mekanism fission reactor and SCRAMs it before it overheats, takes damage, runs short of coolant or backs up on steam or waste; monitor gauges with start, SCRAM and burn-rate buttons
+- [power-dashboard](computers/power-dashboard/README.md): Mekanism Induction Matrix on a monitor: stored power, in and out, time until full or empty, an hour's graph, turbines and energy cubes, and a redstone signal when power runs low
+- [fusion-control](computers/fusion-control/README.md): Mekanism fusion reactor panel: plasma and case temperature, fuel, water and steam, power made, injection-rate buttons and warnings
+- [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
 
 ## How they connect
 

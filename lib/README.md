@@ -15,7 +15,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `gps-deployer` (if present), `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
   present), `craft-overseer` (if present), `smelter-computer` (if present),
-  `cooker-computer` (if present), `colony-dashboard` (if present) and the computer template.
+  `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
+  `power-dashboard` (if present), `fusion-control` (if present),
+  `digital-miner-manager` (if present) and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
   trace), skipping repeats and trimming old entries. Used by
@@ -24,7 +26,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `status-server`, `gps-deployer`, `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
   present), `craft-overseer` (if present), `smelter-computer` (if present),
-  `cooker-computer` (if present), `colony-dashboard` (if present) and the computer template.
+  `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
+  `power-dashboard` (if present), `fusion-control` (if present),
+  `digital-miner-manager` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
@@ -35,7 +39,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   skipped. `screen.find` picks the monitor, sets its text scale once and
   follows monitors as they're added or removed. Used by `mine-server`,
   `status-server`, `blueprint-projector`, `storage-computer`,
-  `craft-overseer`, `smelter-computer`, `cooker-computer` and `colony-dashboard`.
+  `craft-overseer`, `smelter-computer`, `cooker-computer`, `colony-dashboard`,
+  `fission-guard`, `power-dashboard`, `fusion-control` and
+  `digital-miner-manager`.
 - `net.lua`: rednet the same way everywhere: opening wireless or every modem,
   asking another computer something with an id the answer repeats and a
   deadline (`net.ask`), answering (`net.answer`), and a cached lookup of the
@@ -49,7 +55,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
-  `storage-computer`, `craft-overseer`, `smelter-computer` and `cooker-computer`.
+  `storage-computer`, `craft-overseer`, `smelter-computer`, `cooker-computer`
+  and `fission-guard`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,

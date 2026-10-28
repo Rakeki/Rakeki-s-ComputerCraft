@@ -39,7 +39,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -171,6 +171,10 @@ Existing computers:
 | `smelter-computer` | Fills, fuels and empties the furnaces on the storage network; charcoal orders feed the fuel chest | screen, net, files, report, errlog (if present) |
 | `cooker-computer` | Runs Cobblemon cooking pots through a feed and an output hopper each (CC can't reach into a pot): exp candy, compressed up to XL; counts what goes in so a hopper never overfills a slot | screen, net, files, report, errlog (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
+| `fission-guard` | Mekanism fission reactor guard: SCRAMs on heat, damage, coolant, heated coolant or waste and latches until Reset; pauses while the Induction Matrix is full; monitor gauges and buttons | screen, files, report, errlog (if present) |
+| `power-dashboard` | Mekanism Induction Matrix monitor: stored, in/out, full/empty forecast, graph, turbines and energy cubes, low-power redstone signal | screen, report, errlog (if present) |
+| `fusion-control` | Mekanism fusion reactor panel: temperatures, fuel, water/steam, injection-rate buttons, warnings | screen, report, errlog (if present) |
+| `digital-miner-manager` | Every Mekanism Digital Miner on the wired network from one monitor (start/stop/reset, radius, Y, silk, filters); auto eject into the storage input chest | screen, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the
@@ -308,5 +312,13 @@ Detailed guides live in `.claude/skills/`:
 - `turtle.getFuelLevel()` may return `"unlimited"`; treat it as `math.huge`.
 - Turtles freeze when their chunk unloads and the program restarts from
   `startup.lua` when it reloads, hence resumable jobs.
+- Mekanism (written for 10.7 on 1.21.1): every method name, argument and
+  return is in Mekanism's generated list for that version,
+  `src/datagen/generated/mekanism/data/mekanism/computer_help/methods.csv`
+  at the release tag (e.g. `v1.21.1-10.7.19.85`). Methods run on the game's
+  main thread, a tick per call, so the Mekanism programs start all their
+  reads at once with `parallel.waitForAll`. Energy comes in joules (FE =
+  J / 2.5 by default) and fill levels as 0-1; setters throw Mekanism's
+  reason, which the programs show as is.
 - In-game files: `saves/<world>/computercraft/computer/<id>/`. `lib/` is copied
   to `/lib/` on the computer.

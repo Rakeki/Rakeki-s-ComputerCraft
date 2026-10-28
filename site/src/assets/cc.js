@@ -1,6 +1,7 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer and colony dashboard.
+// blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
+// and the Mekanism fission guard, power dashboard, fusion control and digital miner manager.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1061,5 +1062,297 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, overseer, colony } };
+  //---------------------------------------------------------------- Mekanism helpers
+
+  const fitM = (t, w) => (w <= 0 ? "" : t.length > w ? t.slice(0, w) : t.padEnd(w));
+  const pctM = (f) => `${Math.round(f * 100)}%`;
+  // 1234567 -> "1.23 M", like the programs' scaled()/energy()
+  function scaledM(n) {
+    const units = ["", "k", "M", "G", "T", "P"];
+    let i = 0;
+    while (Math.abs(n) >= 1000 && i < units.length - 1) { n /= 1000; i++; }
+    return i === 0 ? `${Math.round(n)} ` : `${n.toFixed(2)} ${units[i]}`;
+  }
+  function barM(s, x, y, w, frac, colour) {
+    const f = Math.round(Math.max(0, Math.min(1, frac)) * w);
+    s.put(x, y, " ".repeat(f), "white", colour); s.put(x + f, y, " ".repeat(Math.max(0, w - f)), "white", "gray");
+  }
+  function clickable(s, el, draw) {
+    el.classList.add("clickable");
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+  }
+
+  //---------------------------------------------------------------- fission guard
+
+  // computers/fission-guard/fission.lua on a monitor, with a made-up reactor
+  // that warms, burns and fills with waste. The buttons work, and a coolant
+  // leak shows the guard SCRAM and latch.
+  function fission(el) {
+    const W = 57, H = 24;
+    const s = new Screen(W, H, el);
+    const LIM = { temp: 1000, coolant: 0.1, heated: 0.9, waste: 0.8 };
+    const r = { on: true, temp: 640, damage: 0, coolant: 1, heated: 0.06, fuel: 0.84, waste: 0.31, burn: 12, max: 20, power: 0.46, leak: false };
+    const st = { latch: null, msg: null, msgC: "white" };
+    const say = (t, c = "white") => { st.msg = t; st.msgC = c; };
+    const problems = () => {
+      const p = [];
+      if (r.damage >= 1) p.push(`damage ${r.damage}% (limit 1%)`);
+      if (r.temp >= LIM.temp) p.push(`temperature ${Math.round(r.temp)} K (limit 1000 K)`);
+      if (r.coolant <= LIM.coolant) p.push(`coolant ${pctM(r.coolant)} (limit 10%)`);
+      if (r.heated >= LIM.heated) p.push(`heated coolant ${pctM(r.heated)} (limit 90%)`);
+      if (r.waste >= LIM.waste) p.push(`waste ${pctM(r.waste)} (limit 80%)`);
+      return p;
+    };
+    const time = () => { const d = new Date(); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+
+    function step() {
+      if (r.leak) r.coolant = Math.max(0, r.coolant - 0.06);
+      else r.coolant = Math.min(1, r.coolant + 0.04);
+      const target = r.on ? 420 + r.burn * 18 + (1 - r.coolant) * 900 : 300;
+      r.temp += (target - r.temp) * 0.25;
+      if (r.on) { r.waste = Math.min(1, r.waste + 0.0008 * r.burn); r.fuel = Math.max(0, r.fuel - 0.0004 * r.burn); }
+      else r.waste = Math.max(0.05, r.waste - 0.01);
+      r.heated = r.on ? 0.04 + r.burn * 0.003 : Math.max(0, r.heated - 0.02);
+      const p = problems();
+      if (r.on && p.length) { r.on = false; st.latch = { reason: p[0], time: time() }; st.msg = null; }
+    }
+
+    function draw() {
+      s.clear();
+      const [word, col] = st.latch ? ["SCRAMMED", "red"] : r.on ? ["RUNNING", "green"] : ["STOPPED", "gray"];
+      s.fill(1, col); s.put(2, 1, "Fission reactor", "white", col); s.put(W - word.length, 1, word, "white", col);
+      const above = (v, l) => (v >= l ? "red" : v >= l * 0.85 ? "orange" : "lime");
+      const below = (v, l) => (v <= l ? "red" : v <= l * 1.5 ? "orange" : "lime");
+      const rows = [
+        ["Temperature", `${Math.round(r.temp)} K`, r.temp / 1200, above(r.temp, LIM.temp)],
+        ["Damage", `${r.damage}%`, r.damage / 100, r.damage > 0 ? "red" : "lime"],
+        ["Coolant", pctM(r.coolant), r.coolant, below(r.coolant, LIM.coolant)],
+        ["Heated coolant", pctM(r.heated), r.heated, above(r.heated, LIM.heated)],
+        ["Fuel", pctM(r.fuel), r.fuel, below(r.fuel, 0.05)],
+        ["Waste", pctM(r.waste), r.waste, above(r.waste, LIM.waste)],
+        ["Matrix", pctM(r.power), r.power, "lightBlue"],
+      ];
+      let y = 3;
+      for (const [k, v, f, c] of rows) { s.put(2, y, fitM(k, 14), "lightGray"); s.put(17, y, fitM(v, 10), c); barM(s, 28, y, W - 28, f, c); y++; }
+      y++;
+      s.put(2, y, fitM("Burn rate", 14), "lightGray"); s.put(17, y, `${r.burn.toFixed(1)} mB/t`);
+      s.put(28, y, fitM(`actual ${(r.on ? r.burn : 0).toFixed(1)}, max ${r.max}`, W - 28), "lightGray"); y++;
+      s.put(2, y, fitM("Heating", 14), "lightGray"); s.put(17, y, `${scaledM(r.on ? r.burn * 20000 : 0)}mB/t`);
+      s.button(W - 25, y, r.leak ? "Fix the coolant leak" : "Simulate a coolant leak", "white", r.leak ? "green" : "red", () => { r.leak = !r.leak; });
+      y += 2;
+      if (st.latch) { s.put(2, y++, fitM(`SCRAM at ${st.latch.time}: ${st.latch.reason}`, W - 2), "red"); }
+      if (st.msg && y < H - 1) s.put(2, y, fitM(st.msg, W - 2), st.msgC);
+      let x = s.button(2, H - 1, "Start", "white", st.latch ? "gray" : "green", () => {
+        if (st.latch) return say("Latched: tap Reset first.", "orange");
+        const p = problems(); if (p.length) return say(`Can't start: ${p[0]}`, "red");
+        if (r.on) return say("Reactor is already active.", "orange");
+        r.on = true; say("Started.", "lime");
+      });
+      x = s.button(x, H - 1, "SCRAM", "white", "red", () => { if (!r.on) return say("Already stopped.", "lightGray"); r.on = false; say("SCRAMmed by hand.", "orange"); });
+      x = s.button(x, H - 1, "Reset", st.latch ? "black" : "white", st.latch ? "yellow" : "gray", () => {
+        if (!st.latch) return say("Nothing to reset.", "lightGray");
+        const p = problems(); if (p.length) return say(`Still unsafe: ${p[0]}`, "red");
+        st.latch = null; say("Reset. Tap Start when ready.", "lime");
+      });
+      s.put(x, H - 1, "Burn", "lightGray"); x += 5;
+      for (const [label, d] of [["-1", -1], ["-.1", -0.1], ["+.1", 0.1], ["+1", 1]]) {
+        x = s.button(x, H - 1, label, "white", "gray", () => { r.burn = Math.max(0, Math.min(r.max, Math.round((r.burn + d) * 10) / 10)); say(`Burn rate set to ${r.burn.toFixed(1)} mB/t.`); });
+      }
+      s.put(2, H, fitM("Limits: 1000 K, coolant 10%, heated 90%, waste 80%", W - 2), "gray");
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 600);
+    clickable(s, el, draw);
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- power dashboard
+
+  // computers/power-dashboard/power.lua on a monitor: a made-up matrix
+  // charging and draining, the graph scrolling (sped up), two turbines and a cube.
+  function power(el) {
+    const W = 57, H = 24;
+    const s = new Screen(W, H, el);
+    const MAX = 2.56e12; // joules
+    const st = { stored: 0.62 * MAX, t: 0, graph: [] };
+    for (let i = 0; i < 40; i++) st.graph.push(0.45 + 0.17 * Math.sin(i / 7) + i * 0.002);
+    const fe = (j, suf = "") => `${scaledM(j / 2.5)}FE${suf}`;
+    const colourOf = (f) => (f < 0.05 ? "red" : f < 0.2 ? "orange" : f < 0.5 ? "yellow" : "lime");
+    const duration = (sec) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m ${Math.floor(sec % 60)}s`; };
+
+    function draw() {
+      st.t++;
+      const input = 2.0e6 + 0.8e6 * Math.sin(st.t / 5), output = 1.6e6 + 0.5e6 * Math.cos(st.t / 4);
+      st.stored = Math.max(0, Math.min(MAX, st.stored + (input - output) * 20 * 600));
+      const fill = st.stored / MAX, net = input - output;
+      if (st.t % 2 === 0) { st.graph.push(fill); if (st.graph.length > W - 2) st.graph.shift(); }
+      s.clear();
+      s.fill(1, "gray"); s.put(2, 1, "Power: Induction Matrix", "yellow", "gray");
+      s.put(2, 3, "Stored", "lightGray"); s.put(10, 3, fitM(`${fe(st.stored)} / ${fe(MAX)}`, W - 16)); s.put(W - 4, 3, fitM(pctM(fill), 4), colourOf(fill));
+      barM(s, 2, 4, W - 2, fill, colourOf(fill));
+      s.put(2, 6, "In", "lightGray"); s.put(6, 6, fe(input, "/t"), "lime"); s.put(23, 6, "Out", "lightGray"); s.put(28, 6, fe(output, "/t"), "orange");
+      const status = net > 0 ? [`Full in ${duration((MAX - st.stored) / net / 20)}`, "lime"] : [`Empty in ${duration(st.stored / -net / 20)}`, "orange"];
+      s.put(2, 7, status[0], status[1]); s.put(W - 10, 7, "Signal off", "lightGray");
+      s.put(2, 8, fitM(`32 cells, 16 providers, up to ${fe(1.024e9, "/t")}`, W - 2), "lightGray");
+      const top = 10, bottom = 20, rows = bottom - top + 1, gw = W - 2, n = st.graph.length;
+      for (let x = 2; x <= 1 + gw - n; x++) for (let yy = top; yy <= bottom; yy++) s.put(x, yy, " ", "white", "gray");
+      st.graph.forEach((f, i) => {
+        const x = 2 + (gw - n) + i, filled = Math.round(f * rows);
+        for (let r = 0; r < rows; r++) s.put(x, bottom - r, " ", "white", r < filled ? colourOf(f) : "gray");
+      });
+      s.put(W - 11, top, "last 60 min", "white", "gray");
+      const lines = [
+        ["Turbine 1", fe(1.1e6 + 0.2e6 * Math.sin(st.t / 3), "/t"), "steam 38% flow 72%", "white"],
+        ["Turbine 2", fe(0.9e6 + 0.2e6 * Math.cos(st.t / 3), "/t"), "steam 41% flow 64%", "white"],
+        ["Ultimate cube", fe(1.8e8), "70%", "lime"],
+      ];
+      lines.forEach(([a, b, c, col], i) => { const y = H - lines.length + 1 + i; s.put(2, y, fitM(a, 14), "lightGray"); s.put(17, y, fitM(b, 14), col); s.put(32, y, fitM(c, W - 32), col); });
+      s.render();
+    }
+
+    setInterval(draw, 1000);
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- fusion control
+
+  // computers/fusion-control/fusion.lua on a monitor with a made-up,
+  // water-cooled reactor. The injection buttons, Stop and Resume work.
+  function fusion(el) {
+    const W = 57, H = 24;
+    const s = new Screen(W, H, el);
+    const MAXP = 1.0e9, MAXC = 1.0e8, IGNITE = 1.0e8, MIN = 2;
+    const r = { rate: 24, plasma: 4.6e8, kase: 4.1e7, deut: 0.72, trit: 0.66, dt: 0.5, water: 0.93, steam: 0.18, lit: true, last: null };
+    const st = { msg: null, msgC: "white" };
+    const say = (t, c = "white") => { st.msg = t; st.msgC = c; };
+    const K = (k) => `${scaledM(k)}K`;
+
+    function step() {
+      if (r.lit) {
+        r.plasma += ((2.0e8 + r.rate * 1.2e7) - r.plasma) * 0.2;
+        r.dt = r.rate > 0 ? 0.5 : Math.max(0, r.dt - 0.12);
+        if (r.dt === 0) r.lit = false;
+      } else r.plasma = Math.max(3e5, r.plasma * 0.85);
+      r.kase += ((r.lit ? 3.0e7 + r.rate * 5e5 : 3e2) - r.kase) * 0.2;
+      r.deut = Math.max(0, Math.min(1, r.deut + (r.lit ? -0.002 : 0.004) * (r.rate / 10)));
+      r.trit = Math.max(0, Math.min(1, r.trit + (r.lit ? -0.002 : 0.004) * (r.rate / 10)));
+      r.steam = r.lit ? 0.1 + r.rate * 0.004 : Math.max(0, r.steam - 0.05);
+    }
+
+    function draw() {
+      s.clear();
+      const [word, col] = r.lit ? ["IGNITED", "green"] : ["NOT IGNITED", "gray"];
+      s.fill(1, col); s.put(2, 1, "Fusion reactor", "white", col); s.put(W - word.length, 1, word, "white", col);
+      const heat = (v, m) => (v / m >= 0.9 ? "red" : v / m >= 0.75 ? "orange" : "lime");
+      const level = (f, low) => (f <= low ? "red" : f <= low * 2 ? "orange" : "lime");
+      const rows = [
+        ["Plasma", K(r.plasma), r.plasma / MAXP, heat(r.plasma, MAXP)],
+        ["Case", K(r.kase), r.kase / MAXC, heat(r.kase, MAXC)],
+        ["Deuterium", pctM(r.deut), r.deut, level(r.deut, 0.1)],
+        ["Tritium", pctM(r.trit), r.trit, level(r.trit, 0.1)],
+        ["D-T fuel", pctM(r.dt), r.dt, "lightBlue"],
+        ["Water", pctM(r.water), r.water, level(r.water, 0.1)],
+        ["Steam", pctM(r.steam), r.steam, r.steam >= 0.95 ? "orange" : "lightBlue"],
+      ];
+      let y = 3;
+      for (const [k, v, f, c] of rows) { s.put(2, y, fitM(k, 14), "lightGray"); s.put(16, y, fitM(v, 11), c); barM(s, 28, y, W - 28, f, c); y++; }
+      y++;
+      s.put(2, y, fitM("Injection", 14), "lightGray"); s.put(16, y, `${r.rate} mB/t`); s.put(28, y, `needs ${MIN}+, max 98`, "lightGray"); y++;
+      s.put(2, y, fitM("Making", 14), "lightGray"); s.put(16, y, `${scaledM(r.lit ? r.rate * 2.4e5 : 0)}FE/t`, r.lit ? "lime" : "white"); y++;
+      s.put(2, y, fitM("Cooling", 14), "lightGray"); s.put(16, y, "water-cooled (steam to turbines)"); y += 2;
+      if (!r.lit) {
+        const hot = r.plasma >= IGNITE;
+        const w = r.rate === 0 ? ["Stopped: injection rate is 0.", "lightGray"] : hot ? ["Plasma is still hot: add a filled Hohlraum to reignite.", "yellow"] : ["Not ignited: needs a filled Hohlraum and a laser burst.", "orange"];
+        s.put(2, y++, fitM(w[0], W - 2), w[1]);
+      }
+      if (st.msg && y < H - 1) s.put(2, y, fitM(st.msg, W - 2), st.msgC);
+      s.put(2, H - 1, "Inject", "lightGray");
+      let x = 9;
+      for (const [label, d] of [["-10", -10], ["-2", -2], ["+2", 2], ["+10", 10]]) {
+        x = s.button(x, H - 1, label, "white", "gray", () => { r.rate = Math.max(0, Math.min(98, r.rate + d)); say(`Injection rate set to ${r.rate} mB/t.`); });
+      }
+      if (r.rate === 0 && r.last) s.button(x, H - 1, `Resume ${r.last}`, "white", "green", () => { r.rate = r.last; say(`Injection rate set to ${r.rate} mB/t.`); });
+      else s.button(x, H - 1, "Stop", "white", "red", () => { if (r.rate > 0) r.last = r.rate; r.rate = 0; say("Injection rate set to 0 mB/t."); });
+      s.put(2, H, fitM(`Limits: plasma ${K(MAXP)}, case ${K(MAXC)}`, W - 2), "gray");
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 900);
+    clickable(s, el, draw);
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- digital miner manager
+
+  // computers/digital-miner-manager/dminer.lua on a monitor with four
+  // made-up miners. Tap one for its page; the buttons change the mock-up.
+  function dminer(el) {
+    const W = 57, H = 24;
+    const s = new Screen(W, H, el);
+    const miners = [
+      { title: "North quarry", state: "mining", left: 8412, radius: 32, minY: -64, maxY: 40, power: 0.92, silk: false, eject: true, filters: ["tag c:ores"] },
+      { title: "South quarry", state: "mining", left: 5120, radius: 32, minY: -64, maxY: 40, power: 0.81, silk: false, eject: true, filters: ["tag c:ores"] },
+      { title: "Diamond pit", state: "stopped", left: 63, radius: 24, minY: -64, maxY: 16, power: 0.40, silk: true, eject: true, filters: ["tag c:ores/diamond"] },
+      { title: "Miner 4", state: "finished", left: 0, radius: 16, minY: 0, maxY: 60, power: 1, silk: false, eject: true, filters: [] },
+    ];
+    const st = { page: null, msg: null, msgC: "white" };
+    const say = (t, c = "white") => { st.msg = t; st.msgC = c; };
+    const COL = { mining: "lime", searching: "yellow", stopped: "orange", finished: "green", idle: "lightGray" };
+    const idleOnly = (m, fn) => () => { if (m.state === "mining" || m.state === "stopped") return say(`${m.title}: Requires miner to be stopped/reset first`, "orange"); fn(); };
+
+    function step() { for (const m of miners) if (m.state === "mining") { m.left = Math.max(0, m.left - 7); if (!m.left) m.state = "finished"; } }
+
+    function drawList() {
+      s.fill(1, "gray"); s.put(2, 1, `Digital Miners (${miners.length})`, "yellow", "gray");
+      const x = s.button(2, 2, "Start all", "white", "green", () => { miners.forEach((m) => { if (m.left) m.state = "mining"; }); say("Start sent to 4 miners.", "lime"); });
+      s.button(x, 2, "Stop all", "white", "red", () => { miners.forEach((m) => { if (m.state === "mining") m.state = "stopped"; }); say("Stop sent to 4 miners.", "lime"); });
+      [["Miner", 2, 12], ["State", 15, 9], ["Left", 25, 7], ["Rad", 33, 3], ["Y", 37, 9], ["Power", 47, 5]].forEach(([t, x0, w]) => s.put(x0, 4, fitM(t, w), "yellow"));
+      miners.forEach((m, i) => {
+        const y = 5 + i;
+        s.put(2, y, fitM(m.title, 12)); s.put(15, y, fitM(m.state, 9), COL[m.state]); s.put(25, y, fitM(String(m.left), 7));
+        s.put(33, y, fitM(String(m.radius), 3), "lightGray"); s.put(37, y, fitM(`${m.minY}..${m.maxY}`, 9), "lightGray"); s.put(47, y, pctM(m.power), m.power < 0.1 ? "red" : "white");
+        s.zones.push({ x1: 1, x2: W, y1: y, y2: y, action: () => { st.page = m; st.msg = null; } });
+      });
+      s.put(2, H, fitM(st.msg || "Tap a miner to control it.", W - 2), st.msg ? st.msgC : "gray");
+    }
+
+    function drawMiner(m) {
+      s.fill(1, "gray");
+      s.button(1, 1, "<", "white", "lightGray", () => { st.page = null; st.msg = null; });
+      s.put(5, 1, fitM(m.title, W - 16), "yellow", "gray"); s.put(W - m.state.length, 1, m.state, COL[m.state], "gray");
+      s.put(2, 3, fitM(`Left ${m.left} blocks   Radius ${m.radius}/32   Y ${m.minY}..${m.maxY}`, W - 2));
+      s.put(2, 4, `Power ${pctM(m.power)}, using ${m.state === "mining" ? "4.6 kFE/t" : "0 FE/t"}`, "lightGray");
+      let x = s.button(2, 6, "Start", "white", "green", () => { if (m.left) { m.state = "mining"; say(`${m.title} started.`, "lime"); } });
+      x = s.button(x, 6, "Stop", "white", "red", () => { if (m.state === "mining") m.state = "stopped"; say(`${m.title} stopped.`, "orange"); });
+      x = s.button(x, 6, "Reset", "black", "yellow", () => { m.state = "idle"; say(`${m.title} reset: settings can change now.`); });
+      x = s.button(x + 1, 6, `Silk ${m.silk ? "on" : "off"}`, "white", m.silk ? "green" : "gray", () => { m.silk = !m.silk; });
+      s.button(x, 6, `Eject ${m.eject ? "on" : "off"}`, "white", m.eject ? "green" : "gray", () => { m.eject = !m.eject; });
+      const steps = (y, label, list, fn) => { s.put(2, y, label, "lightGray"); let xx = 9; for (const [t, d] of list) xx = s.button(xx, y, t, "white", "gray", () => fn(d)); };
+      steps(8, "Radius", [["-8", -8], ["-1", -1], ["+1", 1], ["+8", 8]], (d) => idleOnly(m, () => { m.radius = Math.max(1, Math.min(32, m.radius + d)); say(`${m.title}: radius set to ${m.radius}.`); })());
+      steps(9, "Min Y", [["-16", -16], ["-1", -1], ["+1", 1], ["+16", 16]], (d) => idleOnly(m, () => { m.minY = Math.max(-64, Math.min(m.maxY, m.minY + d)); say(`${m.title}: min Y set to ${m.minY}.`); })());
+      steps(10, "Max Y", [["-16", -16], ["-1", -1], ["+1", 1], ["+16", 16]], (d) => idleOnly(m, () => { m.maxY = Math.max(m.minY, Math.min(320, m.maxY + d)); say(`${m.title}: max Y set to ${m.maxY}.`); })());
+      s.put(2, 12, `Filters (${m.filters.length})`, "yellow");
+      let y = 13;
+      m.filters.forEach((f, i) => { s.button(2, y, "x", "white", "red", idleOnly(m, () => { m.filters.splice(i, 1); say("Filter removed."); })); s.put(6, y, fitM(f, W - 6)); y++; });
+      if (!m.filters.length) s.put(2, y, "None: it mines everything it finds.", "lightGray");
+      x = 2;
+      for (const tag of ["c:ores", "c:ores/diamond", "c:ores/iron"]) {
+        if (m.filters.includes(`tag ${tag}`)) continue;
+        x = s.button(x, H - 1, `+ ${tag}`, "white", "blue", idleOnly(m, () => { m.filters.push(`tag ${tag}`); say(`Added tag ${tag}.`, "lime"); }));
+      }
+      s.put(2, H, fitM(st.msg || "Settings and filters change after Reset.", W - 2), st.msg ? st.msgC : "gray");
+    }
+
+    function draw() { s.clear(); if (st.page) drawMiner(st.page); else drawList(); s.render(); }
+    setInterval(() => { step(); draw(); }, 2000);
+    clickable(s, el, draw);
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, overseer, colony, fission, power, fusion, dminer } };
 })();

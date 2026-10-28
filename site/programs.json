@@ -1007,6 +1007,185 @@
         "caption": "The dashboard on a monitor. Tap the tabs to look at each page."
       },
       "terminal": null
+    },
+    {
+      "name": "fission-guard",
+      "title": "Fission Guard",
+      "command": "fission",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "lime",
+      "tagline": "Watches a Mekanism fission reactor twice a second and SCRAMs it before it overheats, takes damage, runs dry or backs up on steam or waste.",
+      "libs": ["screen", "files", "report", "errlog"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Checks", "twice a second"],
+        ["SCRAM at", "1000 K"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["Needs", "Mekanism Generators"]
+      ],
+      "features": [
+        "SCRAMs on temperature, damage, low coolant, or heated coolant or waste backing up",
+        "A safety SCRAM latches, even across reboots, until the gauges are safe and you tap Reset",
+        "Gauges with Start, SCRAM, Reset and burn-rate buttons on the monitor",
+        "Pauses the reactor while the Induction Matrix is full and starts it again when there's room"
+      ],
+      "setup": [
+        "Put a Fission Reactor Logic Adapter in the reactor's casing and leave its redstone mode on Disabled.",
+        "Place an advanced computer touching it (or on the same wired network) with a monitor next to it.",
+        "Optional: an Induction Port on the same network, a speaker and a wireless modem.",
+        "Check the limits in config.lua, then install and reboot."
+      ],
+      "commands": [
+        ["fission", "start the guard (runs on boot)"],
+        ["edit config.lua", "change the limits, power pause or alarm"]
+      ],
+      "integrates": [
+        ["power-dashboard", "Both read the same Induction Matrix: the guard pauses the reactor while it's full."],
+        ["status-server", "Shows temperature, burn rate and waste, and turns red when the guard SCRAMs."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "fission",
+        "caption": "The guard on a monitor. Tap Simulate a coolant leak to watch it SCRAM, then Reset."
+      },
+      "terminal": null
+    },
+    {
+      "name": "power-dashboard",
+      "title": "Power Dashboard",
+      "command": "power",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "lightBlue",
+      "tagline": "Your Mekanism Induction Matrix on a monitor: stored power, in and out, time until full or empty, an hour's graph, turbines and energy cubes.",
+      "libs": ["screen", "report", "errlog"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Refresh", "every second"],
+        ["Graph", "last 60 min"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["Needs", "Mekanism"]
+      ],
+      "features": [
+        "Stored, in and out per tick, in FE or joules",
+        "\"Full in\" or \"Empty in\" from the last 30 seconds",
+        "A graph of the last hour, plus a line per turbine and energy cube",
+        "Optional redstone signal while power is low, to start your generators"
+      ],
+      "setup": [
+        "Place an advanced computer touching an Induction Port, or connect them with wired modems.",
+        "Add turbine valves and energy cubes to the same cable to see them too.",
+        "Put an advanced monitor next to the computer, then install and reboot."
+      ],
+      "commands": [
+        ["power", "start the dashboard (runs on boot)"],
+        ["edit config.lua", "units, redstone signal, names"]
+      ],
+      "integrates": [
+        ["fission-guard", "The guard pauses the reactor while this matrix is full."],
+        ["status-server", "Shows what's stored and turns red when it's nearly empty."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "power",
+        "caption": "The dashboard on a monitor, with two turbines and a backup energy cube."
+      },
+      "terminal": null
+    },
+    {
+      "name": "fusion-control",
+      "title": "Fusion Control",
+      "command": "fusion",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "magenta",
+      "tagline": "A control panel for a Mekanism fusion reactor: plasma and case temperature, fuel, water and steam, power made and injection-rate buttons.",
+      "libs": ["screen", "report", "errlog"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Refresh", "every second"],
+        ["Injection", "0 to 98 mB/t"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["Needs", "Mekanism Generators"]
+      ],
+      "features": [
+        "Plasma and case temperature against their limits",
+        "Deuterium, tritium and D-T fuel tanks, plus water and steam when water-cooled",
+        "Injection buttons, Stop and Resume",
+        "Says what to do next: fire the laser, add a Hohlraum, refuel, more water"
+      ],
+      "setup": [
+        "Put a Fusion Reactor Logic Adapter in the reactor's casing.",
+        "Place an advanced computer touching it (or on the same wired network) with a monitor next to it.",
+        "Install and reboot."
+      ],
+      "commands": [
+        ["fusion", "start the panel (runs on boot)"],
+        ["edit config.lua", "units and warning levels"]
+      ],
+      "integrates": [
+        ["power-dashboard", "Shows the power the reactor's turbines put into your matrix."],
+        ["status-server", "Shows whether it's ignited and what it's making, and alerts when the reaction goes out."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "fusion",
+        "caption": "The panel on a monitor. The injection buttons work."
+      },
+      "terminal": null
+    },
+    {
+      "name": "digital-miner-manager",
+      "title": "Digital Miner Manager",
+      "command": "dminer",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "cyan",
+      "tagline": "Every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters, with the ore going into your storage.",
+      "libs": ["screen", "report", "errlog"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Miners", "any number"],
+        ["Refresh", "every 2 s"],
+        ["Monitor", "3 × 2 or bigger"],
+        ["Needs", "public miners"]
+      ],
+      "features": [
+        "Every miner's state, blocks left, radius, Y range and power at a glance",
+        "Start all, stop all, or tap a miner to start, stop or reset it",
+        "Change radius, Y range, silk touch and auto eject from the monitor",
+        "One-tap tag filters (c:ores by default), and commands for item and mod filters"
+      ],
+      "setup": [
+        "Set each Digital Miner's security to Public.",
+        "Put a wired modem on each miner and join them to the computer with networking cable.",
+        "Put the storage system's input chest behind each miner's eject port (middle of its back, top row), or pipe it there.",
+        "Put an advanced monitor next to the computer, then install and reboot."
+      ],
+      "commands": [
+        ["dminer", "start the monitor (runs on boot)"],
+        ["dminer list", "every miner with its number"],
+        ["dminer start all", "start every miner (or one: dminer start 2)"],
+        ["dminer stop all", "stop every miner (or one: dminer stop 2)"],
+        ["dminer reset 2", "reset miner 2 so its settings can change"],
+        ["dminer filter 2 add tag c:ores", "add a filter (also item <name>, mod <id>)"],
+        ["dminer filter 2 remove 1", "remove miner 2's first filter"]
+      ],
+      "integrates": [
+        ["storage-computer", "Auto eject sends what the miners dig into its input chest."],
+        ["status-server", "Shows how many miners are working and how many blocks are left."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "dminer",
+        "caption": "The manager on a monitor. Tap a miner to open its page."
+      },
+      "terminal": null
     }
   ],
   "libraries": [

@@ -50,7 +50,7 @@
   }
 
   function screenEl(scene, compact) {
-    const kind = scene === "dashboard" || scene === "projector" || scene === "colony" || scene === "storageMonitor" ? "monitor" : "advanced";
+    const kind = ["dashboard", "projector", "colony", "storageMonitor", "fission", "power", "fusion", "dminer"].includes(scene) ? "monitor" : "advanced";
     const b = h(`<div class="bezel ${kind} lit"><div class="screen"><pre class="cc-term"></pre></div></div>`);
     if (compact) { b.style.padding = "8px 8px 14px"; b.style.boxShadow = "inset 3px 3px 0 var(--frame-hi), inset -3px -3px 0 var(--frame-lo)"; }
     CC.screens[scene]($("pre", b));
