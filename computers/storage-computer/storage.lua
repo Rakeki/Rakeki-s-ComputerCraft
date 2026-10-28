@@ -357,7 +357,9 @@ local function drawTerminal()
   end
 
   put(t, 1, h - 1, fitText(message[1], w), message[2])
-  local other = canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
+  -- while searching, how to clear it matters more than the Tab hint (both don't fit)
+  local other = query ~= "" and "  Del: clear"
+    or canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
   put(t, 1, h, fitText((tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one")
     .. other, w), "gray")
   t.setCursorPos(9 + #query, 3)
@@ -605,6 +607,8 @@ local function uiLoop()
     elseif event == "key" then
       if a == keys.tab and canCraftAny() then
         tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
+      elseif a == keys.delete then
+        query, selected, scroll = "", 1, 0
       elseif a == keys.backspace then
         query, selected, scroll = query:sub(1, -2), 1, 0
       elseif a == keys.up then

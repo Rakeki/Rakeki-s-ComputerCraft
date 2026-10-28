@@ -711,7 +711,7 @@
         ["Monitor", "optional, touch"]
       ],
       "features": [
-        "Type to search every chest at once",
+        "Type to search every chest at once (Delete clears it)",
         "Enter sends a stack to the output chest, Right arrow just one",
         "A touch monitor: sort, search on an on-screen keyboard, tap an item and send 1, 16 or 64 to the output chest",
         "Puts new items next to the same item when it can",

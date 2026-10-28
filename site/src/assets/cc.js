@@ -577,7 +577,7 @@
       }
       if (!list.length) s.put(2, 5, "No matches.", "lightGray");
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT(st.tab === "craft" ? "Enter: craft a stack  Right: craft one  Tab: stored" : "Enter: a stack  Right: one  Tab: craftable", W), "gray");
+      s.put(1, H, fitT((st.tab === "craft" ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one") + (st.query ? "  Del: clear" : st.tab === "craft" ? "  Tab: stored" : "  Tab: craftable"), W), "gray");
       s.render({ x: 9 + st.query.length, y: 3 });
     }
 

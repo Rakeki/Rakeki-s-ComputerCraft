@@ -43,8 +43,8 @@ storage, except the ones you choose for:
 The terminal shows every stored item with its count, biggest first. Type to
 search (by name, as you'd see it in game), pick with the arrow keys or the
 mouse, then Enter for a stack or Right arrow for just one (or click the
-picked row again for a stack). The top line shows how many chests and slots
-are in use (or how full the ME or RS system is).
+picked row again for a stack). Delete clears the search. The top line shows
+how many chests and slots are in use (or how full the ME or RS system is).
 
 An optional **Craftable** tab can sit next to the stored items (see
 [Crafting](#crafting)); it's off unless you turn it on.
