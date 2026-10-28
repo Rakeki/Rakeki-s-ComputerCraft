@@ -28,6 +28,10 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   net.lua                   Rednet: opening modems, requests with ids and deadlines, answers, cached lookups
   files.lua                 Crash-safe save files (temp file, then move); nav.writeFile etc. are these
   inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
+  plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks)
+  crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
+plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
+                            'install plan <name>' puts one in /plans, a program's "plans" field installs some with it
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
@@ -39,7 +43,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence, build control)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -109,6 +113,7 @@ One entry per program under `programs`, in the order they appear on the site:
 | `device`, `deviceLabel` | `"turtle"` or `"computer"`, and the label shown on the card |
 | `color` | CC colour name for its accent (`orange`, `lime`, `lightBlue`, ...) |
 | `libs` | Modules from `lib/` the installer adds |
+| `plans` | Plans (names from the `plans` list) installed into `/plans` with it |
 | `keep` | Files the installer never overwrites (player settings) |
 | `autostart` | `true` if `startup.lua` runs it, so the installer says "reboot" |
 | `stats` | Four `[label, value]` pairs for the stat boxes |
@@ -120,7 +125,9 @@ One entry per program under `programs`, in the order they appear on the site:
 | `terminal` | A scripted session for the typing demo, or `null`. Use the program's real `print` text |
 
 `libraries` has one entry per `lib/` module (`usage` snippet, `api` table,
-`notes`). The installer takes every `.lua` in the program folder plus its
+`notes`). `plans` has one entry per file in `plans/` (`name`, `file`,
+`title`, `tagline`, `size`, `blocks`): the website lists them and
+`install plan <name>` installs them. The installer takes every `.lua` in the program folder plus its
 `libs`. Keep `programs.json` text consistent with the README; the README is
 the source of truth.
 
@@ -151,6 +158,9 @@ program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
 deadline, carries on without it) and reinstalls only programs whose
 `version` (a hash of their files, made by the build) differs from the one
 saved in `/.installed_versions`. `set install.autoupdate false` turns it off.
+Plans from `plans/` are in the manifest as `plan:<name>` (not in `order`, so
+not in the program list): `install plan <name>` installs one into `/plans`
+and it updates on boot like a program.
 The installer downloads a version's files from `v/<version>/...` (the build
 copies them there), because GitHub Pages serves a cached copy of a file for
 up to 10 minutes after it changes (a `?query` doesn't get round it); the
@@ -170,7 +180,8 @@ Existing computers:
 | `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog, inv, files |
-| `blueprint-projector` | Projects building plans with CC: Spatial Projector, monitor controls; Build sends the plan to a builder turtle | screen, net, files, report, errlog (if present) |
+| `blueprint-projector` | Projects building plans from /plans with CC: Spatial Projector, monitor controls; Build sends the plan to the builder turtles (lib/crew.lua) | screen, net, files, plan, crew, report, errlog (if present) |
+| `build-control` | Sends a plan from /plans to the builder turtles at typed coordinates (north-west bottom corner, facing), no projector; follows them | plan, crew, net, files, report, errlog (if present) |
 | `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim, inv, net, files |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog, inv, files |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog, inv, files |
@@ -209,7 +220,7 @@ reply field.
 | `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
 | `automine` | mine-turtle ↔ mine-server | jobs, progress; `hello` and `status` carry the miner's `home` (where it was placed, its own chest behind it: it unloads, refuels and idles there; the server never mines a home chunk); the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
-| `projector_build` | blueprint-projector ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height; `clear = false` for a plan built in the air: don't dig out the box) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped). One key per strip |
+| `projector_build` | blueprint-projector or build-control (both through `lib/crew.lua`) ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height; `clear = false` for a plan built in the air: don't dig out the box) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped). One key per strip |
 | `village_crew` | village-turtle (helper) ↔ village-turtle (lead) | `join` → theme, origin, radius, seed, map, `lane`; `plot` → `i`, `j` (or `none`, `more`); `done` (plot, built entry, paved segments, topY); `alive` every 5 min. GPS on both |
 | `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer, cooker-computer, enricher-computer, essence-computer, crate-turtle → storage-computer | `count` (+ `need`), `prepare` (start crafting), `recipes` (every recipe using an item matching a pattern), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), from the overseer `crafters` / `load` / `clear` / `jobdone` / `problem`, `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot, or a hopper: furnaces and hoppers only) |
 | `craft_overseer` | storage-computer → craft-overseer | `jobs` (each { id, plan, name, steps, count, grid, top }) → ack; the overseer then asks the storage computer (`storage` protocol) for `crafters`, `load`, `clear`, `stock`, and reports `jobdone` and `problem` |

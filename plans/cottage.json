@@ -1,0 +1,21 @@
+{
+  "name": "Cottage",
+  "legend": {
+    "C": "minecraft:cobblestone",
+    "D": "minecraft:oak_door",
+    "G": "minecraft:glass_pane",
+    "L": "minecraft:oak_log",
+    "P": "minecraft:oak_planks",
+    "S": "minecraft:spruce_planks"
+  },
+  "layers": [
+    ["CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC", "CCCCCCC"],
+    ["LPPDPPL", "P.....P", "P.....P", "P.....P", "P.....P", "P.....P", "LPPPPPL"],
+    ["LPGDGPL", "P.....P", "G.....G", "P.....P", "G.....G", "P.....P", "LPPGPPL"],
+    ["LPPPPPL", "P.....P", "P.....P", "P.....P", "P.....P", "P.....P", "LPPPPPL"],
+    ["SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS"],
+    [".......", ".SSSSS.", ".SSSSS.", ".SSSSS.", ".SSSSS.", ".SSSSS.", "......."],
+    [".......", ".......", "..SSS..", "..SSS..", "..SSS..", ".......", "......."],
+    [".......", ".......", ".......", "...S...", ".......", ".......", "......."]
+  ]
+}

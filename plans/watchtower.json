@@ -1,0 +1,23 @@
+{
+  "name": "Watchtower",
+  "legend": {
+    "A": "minecraft:stone_brick_wall",
+    "B": "minecraft:spruce_planks",
+    "D": "minecraft:spruce_door",
+    "G": "minecraft:glass_pane",
+    "S": "minecraft:stone_bricks"
+  },
+  "layers": [
+    [".......", ".SSSSS.", ".SSSSS.", ".SSSSS.", ".SSSSS.", ".SSSSS.", "......."],
+    [".......", ".SSDSS.", ".S...S.", ".S...S.", ".S...S.", ".SSSSS.", "......."],
+    [".......", ".SSDSS.", ".S...S.", ".S...S.", ".S...S.", ".SSSSS.", "......."],
+    [".......", ".SSSSS.", ".S...S.", ".S...S.", ".S...S.", ".SSSSS.", "......."],
+    [".......", ".SSGSS.", ".S...S.", ".G...G.", ".S...S.", ".SSGSS.", "......."],
+    [".......", ".SSGSS.", ".S...S.", ".G...G.", ".S...S.", ".SSGSS.", "......."],
+    [".......", ".SSSSS.", ".S...S.", ".S...S.", ".S...S.", ".SSSSS.", "......."],
+    [".......", ".SSSSS.", ".S...S.", ".S...S.", ".S...S.", ".SSSSS.", "......."],
+    ["SSSSSSS", "SBBBBBS", "SBBBBBS", "SBBBBBS", "SBBBBBS", "SBBBBBS", "SSSSSSS"],
+    ["AAAAAAA", "A.....A", "A.....A", "A.....A", "A.....A", "A.....A", "AAAAAAA"],
+    ["A.A.A.A", ".......", "A.....A", ".......", "A.....A", ".......", "A.A.A.A"]
+  ]
+}

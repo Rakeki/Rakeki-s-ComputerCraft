@@ -63,7 +63,21 @@ function programFiles(program) {
   for (const lib of program.libs) {
     files.push({ src: `lib/${lib}.lua`, dest: `lib/${lib}.lua`, lines: lineCount(path.join(ROOT, "lib", `${lib}.lua`)), lib: true });
   }
+  // plans it comes with (programs.json "plans"), into /plans
+  for (const name of program.plans || []) {
+    const plan = planByName[name];
+    if (!plan) throw new Error(`${program.name}: no plan called ${name} in programs.json "plans"`);
+    files.push(planFile(plan));
+  }
   return files;
+}
+
+// Plans (plans/, listed under "plans" in programs.json) install into /plans
+// with 'install plan <name>': each is in the manifest as "plan:<name>", so it
+// updates on boot like a program, but isn't in the program list.
+const planByName = Object.fromEntries((data.plans || []).map((pl) => [pl.name, pl]));
+function planFile(plan) {
+  return { src: `plans/${plan.file}`, dest: `plans/${plan.file}`, lines: lineCount(path.join(ROOT, "plans", plan.file)), plan: true };
 }
 
 // Changes whenever any file the installer would replace changes, so a
@@ -98,6 +112,17 @@ for (const program of data.programs) {
     next: nextSteps(program),
   };
   if (program.device === "turtle") manifest.programs[program.name].device = "turtle";
+}
+for (const plan of data.plans || []) {
+  plan.files = [planFile(plan)];
+  plan.version = versionOf(plan.files);
+  manifest.programs[`plan:${plan.name}`] = {
+    title: plan.title,
+    device: "plan",
+    files: plan.files.map(({ src, dest }) => ({ src: `v/${plan.version}/${src}`, dest })),
+    version: plan.version,
+    next: [`Show it with: projector ${plan.name}`, `Or build it with: build ${plan.name} <x> <y> <z>`],
+  };
 }
 for (const lib of data.libraries) {
   lib.lines = lineCount(path.join(ROOT, lib.file));
@@ -236,7 +261,8 @@ copyDir(path.join(SRC, "assets"), path.join(OUT, "assets"));
 copyDir(path.join(ROOT, "computers"), path.join(OUT, "computers"), (n) => n === "_template");
 copyDir(path.join(ROOT, "lib"), path.join(OUT, "lib"));
 copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"));
-for (const program of data.programs) {
+copyDir(path.join(ROOT, "plans"), path.join(OUT, "plans"));
+for (const program of [...data.programs, ...(data.plans || [])]) {
   for (const f of program.files) {
     const to = path.join(OUT, "v", program.version, f.src);
     fs.mkdirSync(path.dirname(to), { recursive: true });

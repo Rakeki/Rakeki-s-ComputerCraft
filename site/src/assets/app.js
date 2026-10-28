@@ -141,6 +141,18 @@
     $("#way-installer").innerHTML = field(installCmd("excavate-turtle"));
     $("#way-wget").innerHTML = field(`wget ${SITE.url}/${example.files[0].src} ${example.files[0].dest}`);
 
+    const planCards = $("#plan-cards");
+    for (const pl of SITE.plans || []) {
+      const card = h(`
+        <div class="lib-card">
+          <h3>${esc(pl.title)}</h3>
+          <p>${esc(pl.tagline)}</p>
+          ${field(`install plan ${pl.name}`)}
+          <div class="meta"><span class="pill">${esc(pl.size)}</span><span class="pill">${pl.blocks.toLocaleString("en")} blocks</span><a class="pill" href="${ROOT}plans/${pl.file}">${esc(pl.file)}</a></div>
+        </div>`);
+      planCards.append(card);
+    }
+
     const libs = $("#libs");
     for (const l of SITE.libraries) {
       const card = h(`

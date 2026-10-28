@@ -8,7 +8,8 @@
 ## What it does
 
 Builds whatever a [blueprint projector](../blueprint-projector/README.md) is
-showing, exactly where it's shown. Move and turn the projection until the
+showing, exactly where it's shown, or a plan sent from
+[build control](../build-control/README.md) at coordinates you type. Move and turn the projection until the
 building sits where you want it, tap **Build** on the projector's panel, and
 the projector sends the plan (every block, in real world coordinates) to
 this turtle over rednet.
@@ -118,6 +119,10 @@ red) it says so and tries again 5 minutes later.
 - Clearing digs out the whole box the building fills, so check where the
   projection is first: the outline (Outline view) is the box. Keep chests
   and the projector out of it.
+- The supply chest can be any chest or barrel, Sophisticated Storage ones
+  with stack upgrades too. Keep at least one slot in it empty: the turtle
+  can only take from the first slot, so it moves the block it needs there
+  through a free slot.
 - Plans say which block goes where but not which way it faces, so stairs,
   logs and the like face whichever way the turtle happens to be facing.
   Beds and other two-block things may need placing by hand.

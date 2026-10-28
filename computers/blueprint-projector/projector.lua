@@ -2,25 +2,26 @@
 -- with a CC: Spatial Projector, so anyone wearing bound Spatial Goggles sees
 -- the building before it's built. A monitor (or this computer's screen) moves
 -- and turns it, and steps through its layers so you can build from it block
--- by block. Plans are built in (sample_plans.lua) or files in /plans/.
+-- by block. Plans are files in /plans/ (.json or .lua, see lib/plan.lua):
+-- 'install plan <name>' gets more from the website.
 --
 -- Usage:
 --   projector                 show the last plan (startup runs this)
---   projector <plan>          show a plan: cottage, /plans/<plan>.lua, or a file path
+--   projector <plan>          show a plan: /plans/<plan>.json or .lua, or a file path
 --   projector village         show what a village turtle is building, where it's building it
 --   projector build           have a builder turtle (computers/builder-turtle) build the plan where it's shown
 --   projector list            list the plans
 --   projector check <plan>    load a plan and print its size and blocks
 --   projector clear           remove the projection (stays hidden after a reboot)
 local ui = require("ui")
-local samples = require("sample_plans")
+local plans = require("lib.plan") -- loading plans and placing them in the world
+local crew = require("lib.crew") -- hands the plan to builder turtles
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local STATE_FILE = "/.projector_state"
-local PLAN_DIR = "/plans"
 local MAX_SHAPES = 1000     -- never use more projector objects than this (the mod allows 1024)
 local BATCH = 16            -- projector calls sent together; each one waits for a server tick
 local DEBOUNCE = 0.6        -- seconds to wait after the last tap before redrawing the building
@@ -36,11 +37,6 @@ local INSET_BLOCK = 0.04    -- shrink single blocks a little so neighbours' outl
 local INSET_MERGED = 0.01
 local VILLAGE_FILE = "/.projector_village" -- the last building heard from a village turtle
 local PLAN_PROTOCOL = "village_plan" -- rednet protocol village turtles share their building on
-local BUILD_PROTOCOL = "projector_build" -- rednet protocol builder turtles take buildings on
-local BUILD_WAIT = 5 -- seconds to wait for each builder turtle to answer
-local MAX_BUILDERS = 4 -- most builder turtles one building is split between
-local MIN_STRIP = 3 -- narrowest strip of a building (blocks) one turtle is given
-local RETRY_EVERY = 30 -- seconds between offers of strips nobody has taken yet to builders that are free
 
 local args = { ... }
 
@@ -109,153 +105,41 @@ end
 
 ---------------------------------------------------------------- plans
 
--- Turn a plan table (layers + legend, or a block list) into one shape:
--- blocks { x, y, z, m } from 0 with m indexing mats, sorted bottom up.
-local function normalize(raw, id)
-  if type(raw) ~= "table" then error("the plan file must return a table", 0) end
-  local mats, byKey, blocks, usedChars = {}, {}, {}, {}
-
-  local function material(key, def, char)
-    if byKey[key] then return byKey[key] end
-    local block, color
-    if type(def) == "string" then
-      block = def
-    elseif type(def) == "table" then
-      block, color = def.block or def[1], def.color or def[2]
-    end
-    if type(block) ~= "string" then error(("the legend entry for '%s' needs a block name"):format(key), 0) end
-    color = color or colorFor(block)
-    mats[#mats + 1] = { block = block, char = char, color = color, term = termColor(color), light = isLight(color), total = 0 }
-    byKey[key] = #mats
-    if char then usedChars[char] = true end
-    return #mats
+-- Colours for the projection and the panel's map.
+local function decorate(p)
+  for _, m in ipairs(p.mats) do
+    m.color = m.color or colorFor(m.block)
+    m.term, m.light = termColor(m.color), isLight(m.color)
   end
-
-  local function add(x, y, z, m) blocks[#blocks + 1] = { x = x, y = y, z = z, m = m } end
-
-  if raw.layers then
-    local legend = raw.legend or {}
-    for y, layer in ipairs(raw.layers) do
-      if type(layer) ~= "table" then error(("layer %d should be a list of rows"):format(y), 0) end
-      for z, row in ipairs(layer) do
-        for x = 1, #row do
-          local ch = row:sub(x, x)
-          if ch ~= "." and ch ~= " " then
-            if legend[ch] == nil then
-              error(("layer %d row %d: '%s' isn't in the legend"):format(y, z, ch), 0)
-            end
-            add(x - 1, y - 1, z - 1, material(ch, legend[ch], ch))
-          end
-        end
-      end
-    end
-  elseif raw.blocks then
-    for i, b in ipairs(raw.blocks) do
-      local x, y, z, block = b.x or b[1], b.y or b[2], b.z or b[3], b.block or b[4]
-      if type(x) ~= "number" or type(y) ~= "number" or type(z) ~= "number" or type(block) ~= "string" then
-        error(("block %d should look like { x, y, z, \"minecraft:stone\" }"):format(i), 0)
-      end
-      add(math.floor(x), math.floor(y), math.floor(z), material(block, block))
-    end
-  else
-    error("the plan needs either layers or blocks", 0)
-  end
-  if #blocks == 0 then error("the plan has no blocks", 0) end
-
-  -- a map letter for materials from a block list: initial, then lower case, then anything free
-  for _, m in ipairs(mats) do
-    if not m.char then
-      local initial = m.block:gsub("^.-:", ""):sub(1, 1)
-      for _, ch in ipairs({ initial:upper(), initial:lower(), "#", "%", "&", "@", "$", "+", "=" }) do
-        if not usedChars[ch] then m.char = ch break end
-      end
-      m.char = m.char or "?"
-      usedChars[m.char] = true
-    end
-  end
-
-  -- layers can be written in any order, and block lists can start anywhere
-  local x0, y0, z0, x1, y1, z1 = math.huge, math.huge, math.huge, -math.huge, -math.huge, -math.huge
-  for _, b in ipairs(blocks) do
-    x0, y0, z0 = math.min(x0, b.x), math.min(y0, b.y), math.min(z0, b.z)
-    x1, y1, z1 = math.max(x1, b.x), math.max(y1, b.y), math.max(z1, b.z)
-  end
-  local seen, unique = {}, {}
-  for _, b in ipairs(blocks) do
-    b.x, b.y, b.z = b.x - x0, b.y - y0, b.z - z0
-    local k = b.x .. "," .. b.y .. "," .. b.z
-    if seen[k] then unique[seen[k]].m = b.m else unique[#unique + 1] = b; seen[k] = #unique end
-  end
-  blocks = unique
-  for _, b in ipairs(blocks) do mats[b.m].total = mats[b.m].total + 1 end
-  table.sort(blocks, function(a, b)
-    if a.y ~= b.y then return a.y < b.y end
-    if a.z ~= b.z then return a.z < b.z end
-    return a.x < b.x
-  end)
-
-  local plan = {
-    id = id, name = raw.name or id, mats = mats, blocks = blocks, layers = {},
-    w = x1 - x0 + 1, h = y1 - y0 + 1, l = z1 - z0 + 1, cache = {},
-    clear = raw.clear ~= false, -- false: built in the air, so builders don't dig out its box first
-  }
-  for y = 1, plan.h do plan.layers[y] = {} end
-  for _, b in ipairs(blocks) do table.insert(plan.layers[b.y + 1], b) end
-  -- turning spins the plan about this block
-  plan.cx, plan.cz = math.floor((plan.w - 1) / 2), math.floor((plan.l - 1) / 2)
-  return plan
-end
-
-local function planPath(id)
-  if fs.exists(id) and not fs.isDir(id) then return id end
-  local path = fs.combine(PLAN_DIR, id .. ".lua")
-  if fs.exists(path) then return path end
+  p.cache = {}
+  return p
 end
 
 local function loadPlan(id)
-  local raw
-  local path = planPath(id)
   if id == "village" then
     if not village then return nil, "No village builder heard yet." end
-    local ok, p = pcall(normalize, { name = village.name, blocks = village.blocks }, id)
+    local ok, p = pcall(plans.fromTable, { name = village.name, blocks = village.blocks }, id)
     if not ok then return nil, "village: " .. p end
     local x0, y0, z0 = math.huge, math.huge, math.huge
     for _, b in ipairs(village.blocks) do x0, y0, z0 = math.min(x0, b[1]), math.min(y0, b[2]), math.min(z0, b[3]) end
     p.village, p.fixed, p.world0 = true, village.world, { x = x0, y = y0, z = z0 }
-    return p
-  elseif path then
-    local fn, err = loadfile(path, nil, setmetatable({}, { __index = _G }))
-    if not fn then return nil, err end
-    local ok, result = pcall(fn)
-    if not ok then return nil, result end
-    raw = result
-  else
-    for _, p in ipairs(samples) do
-      if p.id == id then raw = p end
-    end
-    if not raw then return nil, ("No plan called '%s'. Try 'projector list'."):format(id) end
+    return decorate(p)
   end
-  local ok, plan = pcall(normalize, raw, id)
-  if not ok then return nil, ("%s: %s"):format(id, plan) end
-  return plan
+  local p, err = plans.load(id)
+  if not p then return nil, err end
+  p.id = id
+  return decorate(p)
 end
 
--- Every plan id: built-ins first, then /plans/ (a file there replaces a
--- built-in of the same name), then extra, a file path that was asked for.
+-- Every plan id: the ones in /plans/, the village builder's, then extra, a
+-- file path that was asked for.
 local function planIds(extra)
   local ids, seen = {}, {}
   local function add(id)
     if id and not seen[id] then ids[#ids + 1] = id; seen[id] = true end
   end
-  for _, p in ipairs(samples) do add(p.id) end
+  for _, id in ipairs(plans.ids()) do add(id) end
   if village then add("village") end
-  if fs.isDir(PLAN_DIR) then
-    local names = fs.list(PLAN_DIR)
-    table.sort(names)
-    for _, f in ipairs(names) do
-      if f:sub(-4) == ".lua" then add(f:sub(1, -5)) end
-    end
-  end
   add(extra)
   return ids
 end
@@ -314,26 +198,15 @@ end
 local projector, origin, budget
 local state = readFile(STATE_FILE) or {}
 local plan
+local builders -- the builder turtles building the plan (lib/crew.lua), set up below
 
--- Plan block (x, z) as an offset from the anchor, turned clockwise (seen
--- from above) a quarter turn per state.turn about the plan's centre.
-local function offset(x, z)
-  local dx, dz = x - plan.cx, z - plan.cz
-  for _ = 1, state.turn % 4 do dx, dz = -dz, dx end
-  return dx, dz
-end
+-- Plan block (x, z) as an offset from where it's shown (state x, y, z, turn
+-- are lib/plan.lua's "at"), and the ground it covers.
+local function offset(x, z) return plans.offset(plan, state.turn, x, z) end
+local function footprint() return plans.footprint(plan, state) end
 
--- World block range the building covers on the ground.
-local function footprint()
-  local ax, az = offset(0, 0)
-  local bx, bz = offset(plan.w - 1, plan.l - 1)
-  return state.x + math.min(ax, bx), state.z + math.min(az, bz), state.x + math.max(ax, bx), state.z + math.max(az, bz)
-end
-
--- state.build, while builder turtles are building the plan: { key, name, n
--- (strips), stopping, parts = { { key, builder, finished, stopped, stage,
--- done, total, y, skipped, note, cleared, toClear } } }, one part per strip,
--- filled in from its turtle's progress messages.
+-- state.build is lib/crew.lua's build while builder turtles are building
+-- the plan.
 local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
@@ -377,6 +250,11 @@ local note, loadNote -- why the projection isn't the whole plan; why a plan was 
 
 local function setStatus(text, color)
   status.text, status.color = text, color or colors.lightGray
+  os.queueEvent("projector_status")
+end
+
+local function tell(text)
+  note = text
   os.queueEvent("projector_status")
 end
 
@@ -539,40 +417,6 @@ local function villageNote()
   return who .. (plan.fixed and "following" or "no GPS: move it into place")
 end
 
--- What the builder turtles are up to, for the panel.
-local function buildNote()
-  local parts = state.build.parts or { state.build }
-  if #parts > 1 then
-    local done, total, working, waiting = 0, 0, 0, 0
-    for _, p in ipairs(parts) do
-      total = total + (p.total or 0)
-      if p.finished then
-        done = done + (p.total or 0)
-      elseif p.builder then
-        working = working + 1
-        done = done + (p.stage == "build" and p.done or 0)
-      else
-        waiting = waiting + 1
-      end
-    end
-    local text = ("%d builder%s: %d of %d (%d%%)"):format(working, working == 1 and "" or "s", done, total,
-      total > 0 and math.floor(done / total * 100) or 0)
-    if state.build.stopping then text = text .. ", stopping" end
-    if waiting > 0 then text = text .. (", %d strips waiting"):format(waiting) end
-    return text
-  end
-  local b = parts[1]
-  local who = ("Builder #%s: "):format(tostring(b.builder))
-  if b.stage == "build" and b.total and b.total > 0 then
-    return who .. ("building, %d of %d (%d%%)"):format(b.done or 0, b.total, math.floor((b.done or 0) / b.total * 100))
-  elseif b.stage == "clear" and b.toClear and b.toClear > 0 then
-    return who .. ("clearing the plot, %d%%"):format(math.floor((b.cleared or 0) / b.toClear * 100))
-  elseif b.stage == "waiting" or b.stage == "restocking" then
-    return who .. (b.note or "fetching blocks")
-  end
-  return who .. "starting"
-end
-
 -- What the panel shows: the current layer as a top-down map (north up) and
 -- the blocks it needs.
 local function model()
@@ -600,7 +444,7 @@ local function model()
   for i, id in ipairs(ids) do if id == state.plan then index = i end end
   return {
     plan = plan, index = index, planCount = #ids, state = state, facing = FACING[state.turn % 4],
-    status = status, note = note or (state.build and buildNote()) or (plan.village and villageNote()),
+    status = status, note = note or (state.build and builders:note()) or (plan.village and villageNote()),
     map = map, counts = counts, building = state.build ~= nil, canBuild = not plan.village,
     countTitle = (from == state.layer and "Layer %d: %d" or "Layers 1-%d: %d"):format(state.layer, total),
   }
@@ -609,8 +453,9 @@ end
 local function act(action)
   if not action then return end
   if action == "build" then
-    -- the talking to the turtle happens in buildLoop, so the panel never waits
-    os.queueEvent(state.build and "projector_build_stop" or "projector_build_start")
+    if plan.village then return tell("The village builder builds this one itself.") end
+    -- the talking to the turtles happens in buildLoop, so the panel never waits
+    os.queueEvent(state.build and crew.STOP or crew.START)
     return
   end
   local moving = MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here"
@@ -784,312 +629,46 @@ local function waitForVillage()
   print("Heard from it: " .. village.name .. ".")
 end
 
----------------------------------------------------------------- builder turtle
+---------------------------------------------------------------- builder turtles
 
 local buildOnStart = false -- 'projector build': build once everything's running
 
-local function tell(text)
-  note = text
-  os.queueEvent("projector_status")
-end
-
--- The plan as it's shown: every block in world coordinates, and the block
--- names its materials stand for.
-local function worldPlan()
-  local mats, blocks = {}, {}
-  for i, m in ipairs(plan.mats) do mats[i] = m.block end
-  for i, b in ipairs(plan.blocks) do
-    local dx, dz = offset(b.x, b.z)
-    blocks[i] = { state.x + dx, state.y + b.y, state.z + dz, b.m }
-  end
-  return mats, blocks
-end
-
--- With several builder turtles free, the building is split into side-by-side
--- strips across its longer side, one per turtle. Each turtle clears and
--- builds only its strip (bottom layer up, as on its own), and crosses over
--- at a height of its own. A strip nobody could take yet goes to the next
--- turtle that's free: one that finishes its own strip, or a new one.
-
--- The building's box, in world coordinates.
-local function buildArea()
-  local fx0, fz0, fx1, fz1 = footprint()
-  return { x0 = fx0, z0 = fz0, x1 = fx1, z1 = fz1, y0 = state.y, y1 = state.y + plan.h - 1 }
-end
-
--- Strip i of n: the area cut across its longer side.
-local function stripBox(i, n)
-  local a = buildArea()
-  local alongX = a.x1 - a.x0 >= a.z1 - a.z0
-  local lo, hi = alongX and a.x0 or a.z0, alongX and a.x1 or a.z1
-  local len = hi - lo + 1
-  local s0 = lo + math.floor((i - 1) * len / n)
-  local s1 = lo + math.floor(i * len / n) - 1
-  if alongX then return { x0 = s0, x1 = s1, z0 = a.z0, z1 = a.z1 } end
-  return { x0 = a.x0, x1 = a.x1, z0 = s0, z1 = s1 }
-end
-
--- How many strips for this many free turtles: no more than MAX_BUILDERS,
--- and none narrower than MIN_STRIP.
-local function stripCount(free)
-  local a = buildArea()
-  local len = math.max(a.x1 - a.x0, a.z1 - a.z0) + 1
-  return math.max(1, math.min(free, MAX_BUILDERS, math.floor(len / MIN_STRIP)))
-end
-
--- The blocks of the plan in a strip.
-local function stripBlocks(part)
-  local _, blocks = worldPlan()
-  local mine = {}
-  for _, b in ipairs(blocks) do
-    if b[1] >= part.x0 and b[1] <= part.x1 and b[3] >= part.z0 and b[3] <= part.z1 then mine[#mine + 1] = b end
-  end
-  return mine
-end
-
--- A build saved by an older projector (one turtle, no strips) as one strip.
-local function upgradeBuild()
-  local b = state.build
-  if b and not b.parts then
-    state.build = { key = b.key, name = b.name, n = 1, parts = { {
-      key = b.key, builder = b.builder, stage = b.stage, done = b.done, total = b.total, y = b.y,
-      skipped = b.skipped, note = b.note, cleared = b.cleared, toClear = b.toClear } } }
-  end
-end
-
-local function partFor(key)
-  for i, p in ipairs(state.build and state.build.parts or {}) do
-    if p.key == key then return p, i end
-  end
-end
-
-local function pending()
-  local n = 0
-  for _, p in ipairs(state.build.parts) do
-    if not p.builder and not p.finished then n = n + 1 end
-  end
-  return n
-end
-
--- Every strip is finished (built, stopped, or given up on): say how it went.
-local function finishBuild()
-  local b = state.build
-  local skipped, stopped, builders = 0, false, {}
-  for _, p in ipairs(b.parts) do
-    skipped = skipped + (p.skipped or 0)
-    stopped = stopped or p.stopped
-    if p.builder then builders[#builders + 1] = "#" .. p.builder end
-  end
-  local who = #builders == 1 and ("Builder " .. builders[1]) or ("Builders " .. table.concat(builders, ", "))
-  state.build = nil
-  if stopped then
-    note = ("%s stopped. Tap Build to start again."):format(who)
-  elseif skipped > 0 then
-    note = ("%s built it, but skipped %d blocks."):format(who, skipped)
-  else
-    note = ("%s built it."):format(who)
-  end
-  if report then report.log(note) end
-end
-
-local function checkFinished()
-  for _, p in ipairs(state.build.parts) do
-    if not p.finished then return end
-  end
-  finishBuild()
-end
-
--- Progress from a builder turtle building a strip of this projector's plan:
--- keep the panel up to date, and in Layer view follow the lowest layer
--- being built.
-local function onBuilder(from, msg)
-  if type(msg) ~= "table" or msg.type ~= "progress" or not state.build then return end
-  local p = partFor(msg.key)
-  if not p then return end
-  p.stage, p.done, p.total, p.y, p.skipped, p.note = msg.stage, msg.done, msg.total, msg.y, msg.skipped, msg.note
-  p.cleared, p.toClear, p.builder = msg.cleared, msg.toClear, from
-  if msg.stage == "done" or msg.stage == "stopped" then
-    p.finished, p.stopped = true, msg.stage == "stopped"
-    -- free again: it can take a strip nobody has yet
-    if not p.stopped and not state.build.stopping and pending() > 0 then os.queueEvent("projector_build_more", from) end
-    checkFinished()
-  elseif state.view == "layer" then
-    local low
-    for _, q in ipairs(state.build.parts) do
-      if q.y and not q.finished and q.stage == "build" then low = math.min(low or q.y, q.y) end
-    end
-    local layer = low and math.max(1, math.min(plan.h, low - state.y + 1))
-    if layer and layer ~= state.layer then
-      state.layer = layer
-      redraw()
-    end
-  end
-  save()
-  os.queueEvent("projector_status")
-end
-
--- The builder turtles that answer and aren't building anything: ids.
-local function freeBuilders()
-  local ids = { rednet.lookup(BUILD_PROTOCOL) }
-  if #ids == 0 then return {}, 0 end
-  local probe = ("free-%d"):format(os.epoch("utc"))
-  for _, id in ipairs(ids) do rednet.send(id, { type = "status", id = 0, key = probe }, BUILD_PROTOCOL) end
-  local free, seen = {}, {}
-  local deadline = os.clock() + BUILD_WAIT
-  while os.clock() < deadline and #free < #ids do
-    local from, msg = rednet.receive(BUILD_PROTOCOL, math.max(0.1, deadline - os.clock()))
-    if from and type(msg) == "table" and msg.type == "idle" and msg.key == probe and not seen[from] then
-      seen[from] = true
-      free[#free + 1] = from
-    elseif from then
-      onBuilder(from, msg)
-    end
-  end
-  table.sort(free)
-  return free, #ids
-end
-
--- Offer strip i to builder id. True if it took it, or false and why not.
-local function offer(i, id)
-  local b = state.build
-  local p = b.parts[i]
-  local mats = worldPlan()
-  local part = stripBox(i, b.n)
-  local blocks = stripBlocks(part)
-  -- the turtle answers accepted, busy or refused, with the strip's key
-  local msg = net.ask(id, BUILD_PROTOCOL, { type = "build", key = p.key,
-    name = b.n > 1 and ("%s (strip %d of %d)"):format(b.name, i, b.n) or b.name,
-    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1,
-    clear = plan.clear },
-    { wait = BUILD_WAIT, match = function(reply) return reply.key == p.key and reply.type ~= "progress" end,
-      other = onBuilder })
-  if not msg then return false, ("Builder #%d didn't answer in time."):format(id) end
-  if msg.type == "accepted" then
-    p.builder, p.stage, p.done, p.total = id, "clear", 0, #blocks
-    return true
-  end
-  return false, ("Builder #%d %s"):format(id, msg.type == "busy" and ("is busy with " .. tostring(msg.name))
-    or ("refused: " .. tostring(msg.why)))
-end
-
--- Give the strips nobody has yet to these free builders, one each.
--- Returns how many were taken, and why the last one wasn't.
-local function handOut(ids)
-  local taken, why, k = 0, nil, 1
-  for i, p in ipairs(state.build.parts) do
-    if not p.builder and not p.finished then
-      while k <= #ids do
-        local id = ids[k]
-        k = k + 1
-        local ok, err = offer(i, id)
-        if ok then
-          taken = taken + 1
-          break
-        end
-        why = err
+builders = crew.new({
+  -- the plan where it's shown, in world coordinates
+  job = function()
+    local mats, blocks = plans.world(plan, state)
+    return { id = state.plan, name = plan.name, mats = mats, blocks = blocks, area = plans.area(plan, state), clear = plan.clear }
+  end,
+  build = state.build,
+  save = function(build)
+    state.build = build
+    save()
+  end,
+  tell = tell,
+  -- in Layer view, follow the lowest layer being built
+  changed = function()
+    local low = builders:lowY()
+    if state.view == "layer" and low then
+      local layer = math.max(1, math.min(plan.h, low - state.y + 1))
+      if layer ~= state.layer then
+        state.layer = layer
+        save()
+        redraw()
       end
     end
-  end
-  return taken, why
-end
-
--- Split the plan between the builder turtles that are free.
-local function startBuild()
-  if plan.village then return tell("The village builder builds this one itself.") end
-  if not openWireless() then return tell("Needs a wireless modem to reach a builder turtle.") end
-  tell("Looking for free builder turtles...")
-  local free, all = freeBuilders()
-  if all == 0 then return tell("No builder turtle answered: is one running 'builder' nearby?") end
-  if #free == 0 then return tell(("All %d builder turtles are busy."):format(all)) end
-  local n = stripCount(#free)
-  local key = ("%d-%s"):format(os.epoch("utc"), state.plan)
-  state.build = { key = key, name = plan.name, n = n, parts = {} }
-  for i = 1, n do
-    local empty = #stripBlocks(stripBox(i, n)) == 0
-    -- a strip with nothing in it needs no turtle (the plan has a gap there)
-    state.build.parts[i] = { key = ("%s/%d"):format(key, i), total = 0, finished = empty }
-  end
-  tell(n > 1 and ("Sending %d blocks to %d builder turtles..."):format(#plan.blocks, n)
-    or ("Sending %d blocks to a builder turtle..."):format(#plan.blocks))
-  local taken, why = handOut(free)
-  if taken == 0 then
-    state.build = nil
-    return tell(why or "No builder turtle took it.")
-  end
-  save()
-  local left = pending()
-  if n == 1 then
-    tell(("Builder #%d is building %s."):format(state.build.parts[1].builder, plan.name))
-  else
-    tell(("%d builder turtles are building %s%s."):format(taken, plan.name,
-      left > 0 and (", %d strips wait for the next free one"):format(left) or ""))
-  end
-end
-
-local function stopBuild()
-  local b = state.build
-  if b.stopping then
-    -- asked twice: a turtle that never answers (broken, unloaded) is given up on
-    for _, p in ipairs(b.parts) do
-      if not p.finished then p.finished, p.stopped = true, true end
-    end
-    finishBuild()
-    save()
-    return tell(note)
-  end
-  b.stopping = true
-  local asked = 0
-  for _, p in ipairs(b.parts) do
-    if p.builder and not p.finished then
-      if openWireless() then rednet.send(p.builder, { type = "stop", id = 0, key = p.key }, BUILD_PROTOCOL) end
-      asked = asked + 1
-    elseif not p.finished then
-      p.finished, p.stopped = true, true -- nobody had started it
-    end
-  end
-  save()
-  if asked == 0 then
-    finishBuild()
-    save()
-    return tell(note)
-  end
-  tell(asked == 1 and "Asked the builder to stop..." or ("Asked %d builders to stop..."):format(asked))
-end
+    os.queueEvent("projector_status")
+  end,
+  finished = function(text) if report then report.log(text) end end,
+})
+state.build = builders.build
 
 -- Starts and stops builds asked for on the panel, hears progress, and hands
 -- out strips nobody has taken yet.
 local function buildLoop()
-  upgradeBuild()
-  -- after a restart, ask the turtles where they've got to
-  if state.build and openWireless() then
-    for _, p in ipairs(state.build.parts) do
-      if p.builder and not p.finished then
-        rednet.send(p.builder, { type = "status", id = 0, key = p.key }, BUILD_PROTOCOL)
-      end
-    end
-  elseif buildOnStart then
-    startBuild()
+  if buildOnStart and not state.build then
+    if plan.village then tell("The village builder builds this one itself.") else os.queueEvent(crew.START) end
   end
-  local retry = os.startTimer(RETRY_EVERY)
-  while true do
-    local ev = { os.pullEvent() }
-    if ev[1] == "projector_build_start" and not state.build then
-      startBuild()
-    elseif ev[1] == "projector_build_stop" and state.build then
-      stopBuild()
-    elseif ev[1] == "rednet_message" and ev[4] == BUILD_PROTOCOL then
-      onBuilder(ev[2], ev[3])
-    elseif ev[1] == "projector_build_more" and state.build and not state.build.stopping and pending() > 0 then
-      if handOut({ ev[2] }) > 0 then save() os.queueEvent("projector_status") end
-    elseif ev[1] == "timer" and ev[2] == retry then
-      -- strips still waiting: offer them to any builder that's free now
-      if state.build and not state.build.stopping and pending() > 0 and openWireless() then
-        local free = freeBuilders()
-        if #free > 0 and handOut(free) > 0 then save() os.queueEvent("projector_status") end
-      end
-      retry = os.startTimer(RETRY_EVERY)
-    end
-  end
+  builders:run()
 end
 
 ---------------------------------------------------------------- commands
@@ -1116,7 +695,8 @@ local function listPlans()
       printError("  " .. err)
     end
   end
-  print(("Add your own as %s/<name>.lua (see sample_plans.lua)."):format(PLAN_DIR))
+  print(("Add your own as %s/<name>.json or .lua (see lib/plan.lua),"):format(plans.DIR))
+  print("or get one from the website: install plan <name>")
 end
 
 local function checkPlan(id)
@@ -1164,7 +744,9 @@ local function main()
     if ok then
       state.layer = math.max(1, math.min(plan.h, layer or plan.h))
     else
-      local okFirst, err = usePlan(samples[1].id, false)
+      local first = plans.ids()[1]
+      if not first then error(("No plans in %s yet. Get one with: install plan cottage"):format(plans.DIR), 0) end
+      local okFirst, err = usePlan(first, false)
       if not okFirst then error(err, 0) end
     end
   end

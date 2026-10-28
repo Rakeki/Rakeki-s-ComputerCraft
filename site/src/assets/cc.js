@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
 // and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher,
-// and the essence computer.
+// the essence computer, and build control on a pocket computer.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1530,5 +1530,45 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence } };
+  //---------------------------------------------------------------- build control
+
+  // computers/build-control/build.lua on a pocket computer: the sky station
+  // handed to four builders, then their progress line as it changes (the
+  // program's own print text).
+  function buildControl(el) {
+    const W = 26, H = 20;
+    const s = new Screen(W, H, el);
+    const total = 21548;
+    const intro = [
+      ["> build skystation", "white"], ["  100 150 -40", "white"],
+      ["Sky Station facing north:", "white"], ["63 x 63 x 78, 21548 blocks,", "white"],
+      ["from 100,150,-40 to", "white"], ["162,227,22.", "white"],
+      ["It's built in the air:", "lightGray"], ["nothing is dug out first.", "lightGray"],
+      ["Build it? (y/n) y", "yellow"], ["Looking for free builder", "white"], ["turtles...", "white"],
+      ["4 builder turtles are", "lime"], ["building Sky Station.", "lime"],
+    ];
+    let done = 0;
+    // wrap a line to the pocket computer's width, as print does
+    const wrap = (t) => {
+      const out = [];
+      let line = "";
+      for (const word of t.split(" ")) {
+        if (line && (line + " " + word).length > W) { out.push(line); line = word; } else line = line ? line + " " + word : word;
+      }
+      out.push(line);
+      return out;
+    };
+    function draw() {
+      s.clear();
+      const progress = wrap(`4 builders: ${done} of ${total} (${Math.floor(done / total * 100)}%)`);
+      const lines = [...intro, ...progress.map((t) => [t, "white"])].slice(-H);
+      lines.forEach(([t, c], i) => s.put(1, i + 1, t.slice(0, W), c));
+      s.render();
+    }
+    setInterval(() => { done = done >= total ? 0 : Math.min(total, done + 137); draw(); }, 1200);
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence, buildControl } };
 })();

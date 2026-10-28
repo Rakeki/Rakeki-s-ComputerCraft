@@ -7,6 +7,8 @@
 --   wget run <site>/install.lua <program>    install one
 --   install <program>                        same, once the installer is saved here
 --   install update                           reinstall everything installed here
+--   install plans                            list the building plans
+--   install plan <name>                      put a plan in /plans (projector, build-control)
 --   install boot                             update what's out of date (every startup.lua runs this)
 --
 -- On boot, programs installed here are updated when the website has a newer
@@ -147,7 +149,25 @@ local function listPrograms(manifest)
   end
   print()
   print("Install one with: install <program>")
+  print("Building plans: install plans")
   print("More at " .. SITE)
+end
+
+-- Plans are in the manifest as "plan:<name>": installed and updated like
+-- programs, into /plans.
+local function listPlans(manifest)
+  local names = {}
+  for name in pairs(manifest.programs) do
+    if name:sub(1, 5) == "plan:" then names[#names + 1] = name:sub(6) end
+  end
+  table.sort(names)
+  say("Building plans you can install:", colours.yellow)
+  for _, name in ipairs(names) do
+    write(("  %-18s"):format(name))
+    say(manifest.programs["plan:" .. name].title, colours.lightGrey)
+  end
+  print()
+  print("Install one with: install plan <name>")
 end
 
 local function saveSelf()
@@ -157,7 +177,11 @@ end
 
 local function install(manifest, name, updating)
   local program = manifest.programs[name]
-  if not program then
+  if not program and name:sub(1, 5) == "plan:" then
+    say(("There's no plan called '%s'."):format(name:sub(6)), colours.red)
+    listPlans(manifest)
+    return false
+  elseif not program then
     say(("There's no program called '%s'."):format(name), colours.red)
     listPrograms(manifest)
     return false
@@ -253,6 +277,10 @@ elseif args[1] == "update" then
     return
   end
   for _, name in ipairs(installed) do install(manifest, name, true) end
+elseif args[1] == "plans" or (args[1] == "plan" and not args[2]) then
+  listPlans(manifest)
+elseif args[1] == "plan" then
+  install(manifest, "plan:" .. args[2], false)
 else
   install(manifest, args[1], false)
 end

@@ -587,22 +587,23 @@
       "deviceLabel": "Advanced computer + monitor + Spatial Projector",
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
-      "libs": ["report", "errlog", "screen", "net", "files"],
+      "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Built-in plans", "4"],
+        ["Plans", "4, plus install plan"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
-        "Loads your own plans from /plans: each layer drawn as rows of letters",
+        "Plans are JSON or Lua files in /plans: install more with install plan <name>, or write your own",
         "Move, raise and turn the building from the monitor",
         "Layer view outlines every block of one layer to build from",
         "Top-down map of the layer and the blocks it needs",
         "Follows a village turtle and projects the building it's working on",
         "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them",
-        "Built-in sky station: 63 wide, 78 high, raised into the sky and built in the air"
+        "Comes with a sky station: 63 wide, 78 high, raised into the sky and built in the air"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -612,7 +613,7 @@
       ],
       "commands": [
         ["projector", "show the last plan (startup does this)"],
-        ["projector <plan>", "show a built-in plan or /plans/<plan>.lua"],
+        ["projector <plan>", "show a plan from /plans (.json or .lua)"],
         ["projector village", "follow what a village turtle is building"],
         ["projector build", "have the free builder turtles build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
@@ -694,6 +695,56 @@
           ["Built Cottage.", "", "lime"]
         ]
       }
+    },
+    {
+      "name": "build-control",
+      "title": "Build Control",
+      "command": "build",
+      "device": "computer",
+      "deviceLabel": "Any computer or pocket computer + wireless modem",
+      "color": "pink",
+      "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
+      "libs": ["plan", "crew", "net", "files", "report", "errlog"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
+      "stats": [
+        ["Plans", "JSON or Lua in /plans"],
+        ["Builders", "up to 4 at once"],
+        ["Runs on", "pocket computers too"],
+        ["Needs", "a wireless modem"]
+      ],
+      "features": [
+        "Any plan in /plans: install more with install plan <name>, or write your own JSON",
+        "Coordinates are the building's north-west bottom corner; turn it to face any way",
+        "build <plan> here uses the pocket computer's GPS position",
+        "Shows the box it fills and asks before anything is sent",
+        "Splits the building between the free builders and follows them, as the projector does",
+        "Picks the build back up after a reboot, so waiting strips still get handed out"
+      ],
+      "setup": [
+        "Set up the builder turtles first, each on its home block with its chests.",
+        "Install this on any computer or pocket computer with a wireless or ender modem.",
+        "Get a plan if it's not there yet: install plan <name> (install plans lists them).",
+        "Run build <plan> <x> <y> <z> [facing], check the box it prints, and press y."
+      ],
+      "commands": [
+        ["build list", "the plans on this computer, with their sizes"],
+        ["build check <plan>", "its size and the blocks it needs"],
+        ["build <plan> <x> <y> <z> [facing]", "build it with its north-west bottom corner at x y z"],
+        ["build <plan> here [facing]", "the same, at this computer's GPS position"],
+        ["build watch", "follow the builders (runs on boot while one is building)"],
+        ["build stop", "call them off; again to give up on ones that don't answer"]
+      ],
+      "integrates": [
+        ["builder-turtle", "Each free builder takes a strip of the building, as from the projector's Build button."],
+        ["blueprint-projector", "Reads the same plans; use it when you want to see and place the building first."],
+        ["status-server", "Shows how far the builders have got."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "buildControl",
+        "caption": "On a pocket computer: the sky station sent to four builder turtles, then their progress as it changes."
+      },
+      "terminal": null
     },
     {
       "name": "storage-computer",
@@ -1556,6 +1607,73 @@
         ["screen.fit(text, w)", "Cut or pad text to exactly w characters."]
       ],
       "notes": "Clearing a monitor and redrawing it in place makes it flash, so every program with a screen draws through this. Skipping unchanged frames also saves sending them to every player who can see the monitor. Turtles driving past fire peripheral events, so refresh() never rescales a monitor that is still there: rescaling is what flashes it."
+    },
+    {
+      "name": "plan",
+      "title": "lib/plan",
+      "file": "lib/plan.lua",
+      "color": "pink",
+      "tagline": "Building plans: load a .json or .lua plan from /plans and place it in the world, turned to face any way.",
+      "usage": "local plan = require(\"lib.plan\")\n\nlocal p = assert(plan.load(\"skystation\"))   -- /plans/skystation.json or .lua\nlocal at = plan.corner(p, 0, 100, 150, -40) -- north-west bottom corner, facing north\nlocal mats, blocks = plan.world(p, at)     -- names; { x, y, z, m } in world coords\nprint(p.name, p.w, p.l, p.h, #blocks)",
+      "api": [
+        ["plan.load(id)", "The plan in /plans/<id>.json or .lua (or a file path), or nil and what's wrong with it: { name, mats, blocks, layers, w, l, h, clear }."],
+        ["plan.ids()", "Every plan name in /plans."],
+        ["plan.fromTable(raw, id)", "A plan from a table already in memory (legend + layers, or a block list)."],
+        ["plan.corner(p, turn, x, y, z)", "Where it goes (\"at\") so its north-west bottom corner is x y z, turned turn quarter turns clockwise."],
+        ["plan.world(p, at)", "Block names, and every block as { x, y, z, m } in world coordinates."],
+        ["plan.area(p, at), plan.footprint(p, at)", "The box it fills, and the ground it covers."],
+        ["plan.offset(p, turn, x, z)", "A plan block's offset from at, turned."]
+      ],
+      "notes": "A plan file is JSON (legend + layers, each layer rows of letters seen from above with the first row north; or blocks: [[x, y, z, \"minecraft:stone\"], ...]) or a Lua file returning the same table, for plans made by code. \"clear\": false marks one built in the air, so builders don't dig out its box first."
+    },
+    {
+      "name": "crew",
+      "title": "lib/crew",
+      "file": "lib/crew.lua",
+      "color": "pink",
+      "tagline": "Hands a building to the builder turtles in strips, follows them, gives waiting strips to the next free one, and stops them.",
+      "usage": "local crew = require(\"lib.crew\")\nlocal c = crew.new({\n  job = function() return { id = id, name = p.name, mats = mats, blocks = blocks, area = area, clear = p.clear } end,\n  build = saved.build, save = function(build) saved.build = build end,\n  tell = print,\n})\nc:start()\nparallel.waitForAny(function() c:run() end, other)",
+      "api": [
+        ["crew.new(opts)", "job() (the building in world coords), build (saved progress), save(build), tell(text), optional changed() and finished(text)."],
+        ["c:start(), c:stop()", "Split the job between the free builders (up to 4); call them off (twice gives up on silent ones). Or queue crew.START / crew.STOP."],
+        ["c:run()", "The loop: hears progress and hands out strips still waiting. Run it alongside the rest."],
+        ["c.build, c:note(), c:lowY()", "The build in progress (nil when done), a line on how it's going, and the lowest layer being built."]
+      ],
+      "notes": "Talks to builder turtles on the projector_build protocol. The blueprint projector and build-control both use it, so a building goes up the same way from either."
+    }
+  ],
+  "plans": [
+    {
+      "name": "cottage",
+      "file": "cottage.json",
+      "title": "Cottage",
+      "tagline": "A small cobblestone and oak cottage with a door, windows and a stepped spruce roof.",
+      "size": "7 × 7 × 8",
+      "blocks": 205
+    },
+    {
+      "name": "watchtower",
+      "file": "watchtower.json",
+      "title": "Watchtower",
+      "tagline": "A stone-brick tower with a door, windows, and a wider lookout with a walled parapet on top.",
+      "size": "7 × 7 × 11",
+      "blocks": 222
+    },
+    {
+      "name": "pagoda",
+      "file": "pagoda.lua",
+      "title": "Pagoda",
+      "tagline": "Five storeys on a stepped plinth, with balconies, deep upturned eaves, lanterns and a gold spire.",
+      "size": "31 × 32 × 59",
+      "blocks": 9199
+    },
+    {
+      "name": "skystation",
+      "file": "skystation.lua",
+      "title": "Sky Station",
+      "tagline": "Four hollow rings round a core with a glass dome, spire and spike, floors inside; built in the air.",
+      "size": "63 × 63 × 78",
+      "blocks": 21548
     }
   ]
 }

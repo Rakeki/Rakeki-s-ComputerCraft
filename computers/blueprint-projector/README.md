@@ -35,26 +35,31 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-Four plans come built in: a **cottage** (7×7, 8 high), a **watchtower**
-(7×7, 11 high), a five-storey **pagoda** (31×32, 59 high, over 9,000
-blocks) with balconies, upturned eaves and a gold spire, and a **sky
-station** (63×63, 78 high, about 21,500 blocks) to hang in the sky: four
-hollow rings round a core with a glass dome and a spire on top and a spike
-below, with floors to walk round inside (see
-[Building in the sky](#building-in-the-sky)). Your own plans go in the
-`/plans` folder (see [Plans](#plans)).
+It comes with four plans, in the `/plans` folder: a **cottage** (7×7, 8
+high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
+high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
+and a **sky station** (63×63, 78 high, about 21,500 blocks) to hang in the
+sky: four hollow rings round a core with a glass dome and a spire on top
+and a spike below, with floors to walk round inside (see
+[Building in the sky](#building-in-the-sky)). `install plans` lists the
+plans on the website and `install plan <name>` adds one; your own go in
+`/plans` too (see [Plans](#plans)). The same plans work with
+[build control](../build-control/README.md), which sends a plan to the
+builder turtles without a projector.
 
 ## Files
 
 - `projector.lua`: the program: loads plans, works out the shapes and draws them. Tunables are at the top.
 - `ui.lua`: the monitor control panel
-- `sample_plans.lua`: the built-in plans, and examples of the plan format
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`); `install plan <name>` adds more
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- [`lib/plan.lua`](../../lib/plan.lua): loads plans and places them in the world (copy to `/lib/plan.lua`). Needed.
+- [`lib/crew.lua`](../../lib/crew.lua): hands the plan to the builder turtles and follows them (copy to `/lib/crew.lua`). Needed.
 
 ## Setup
 
@@ -67,7 +72,7 @@ below, with floors to walk round inside (see
 
 ```
 projector                  -- show the last plan (startup does this)
-projector pagoda           -- show a plan: built in, or /plans/<name>.lua
+projector pagoda           -- show a plan: /plans/<name>.json or .lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector village          -- follow what a village turtle is building
 projector build            -- have the free builder turtles build the plan where it's shown
@@ -168,45 +173,70 @@ modem, and they must be in range of each other.
 
 ## Plans
 
-A plan is a Lua file in `/plans/` named after the plan (`/plans/house.lua` is
-`projector house`). Draw each layer from above, bottom layer first, one
-character per block:
+A plan is a file in `/plans/` named after it: `/plans/house.json` (or
+`house.lua`) is `projector house`. Every plan there appears on the monitor.
 
-```lua
-return {
-  name = "Gatehouse",                    -- shown on the monitor
-  legend = {
-    C = "minecraft:cobblestone",
-    P = "minecraft:oak_planks",
-    G = { "minecraft:glass", 0x99ddff },  -- optional colour for the projection
+### Getting plans
+
+`install plans` lists the plans on the website, and `install plan <name>`
+puts one in `/plans` (they update on boot like programs). Your own: write
+it on your PC and drag the file onto the computer's screen, or
+`wget <url> plans/house.json`, or `edit plans/house.json`. Run
+`projector check house` to see that it loads and what it needs. Give your
+own plans names of their own: `install update` puts the plans that came
+with the projector back as they were.
+
+### Writing one (JSON)
+
+Draw each layer from above, bottom layer first, one character per block:
+
+```json
+{
+  "name": "Gatehouse",
+  "legend": {
+    "C": "minecraft:cobblestone",
+    "P": "minecraft:oak_planks",
+    "G": ["minecraft:glass", "#99ddff"]
   },
-  layers = {
-    { "CCCCC",                           -- layer 1, the ground floor
-      "C...C",                           -- the first row is the front:
-      "CCCCC" },                         -- it faces north until you turn it
-    { "PPGPP",
-      "P...P",
-      "PPPPP" },
-  },
+  "layers": [
+    ["CCCCC",
+     "C...C",
+     "CCCCC"],
+    ["PPGPP",
+     "P...P",
+     "PPPPP"]
+  ]
 }
 ```
 
 - `.` and spaces are air. Every other character needs a legend entry.
-- Each row runs west to east, and later rows are further south.
-- Colours are picked from the block name (oak, spruce, stone, glass, white
-  wool...), so most plans don't need any.
-- Instead of `layers`, a plan can list blocks:
-  `blocks = { { x, y, z, "minecraft:stone" }, ... }`. A plan is a Lua
-  program, so a loop can make one: the watchtower in `sample_plans.lua` is
-  built that way.
-- `clear = false` says the plan is built in the air, so builder turtles
+- The first row of a layer is the front: it faces north until you turn it.
+  Each row runs west to east, and later rows are further south.
+- `name` is what the monitor shows. A colour after a block (`"#99ddff"`)
+  is only for the projection, and is picked from the block name (oak,
+  spruce, stone, glass, white wool...) when left out.
+- Instead of `legend` and `layers`, a plan can list its blocks:
+  `"blocks": [[0, 0, 0, "minecraft:stone"], [1, 0, 0, "minecraft:glass"]]`
+  (x east, y up, z south), which suits plans made by a tool.
+- `"clear": false` says the plan is built in the air, so builder turtles
   don't dig out its box first (the sky station has it). Leave it out for
   anything built on the ground.
 
-Getting a plan onto the computer: `edit plans/house.lua` and type it in, or
-write it on your PC and use `wget <url> plans/house.lua`,
-`pastebin get <code> plans/house.lua`, or drag the file onto the computer's
-screen. Run `projector check house` to see that it loads and what it needs.
+`plans/cottage.json` and `plans/watchtower.json` are examples.
+
+### Plans made by code (Lua)
+
+A `.lua` plan returns the same table, so a loop can make one: handy for
+big or round buildings that would be huge as JSON. `plans/pagoda.lua` and
+`plans/skystation.lua` are made that way:
+
+```lua
+local plan = { name = "Pillar", blocks = {} }
+for y = 0, 9 do
+  plan.blocks[#plan.blocks + 1] = { 0, y, 0, "minecraft:quartz_pillar" }
+end
+return plan
+```
 
 ## Things to know
 

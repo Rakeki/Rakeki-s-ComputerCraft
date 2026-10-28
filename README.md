@@ -35,6 +35,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [mob-farm-turtle](computers/mob-farm-turtle/README.md): standalone turtle that builds a mob farm: a dark spawning room with water channels, a drop shaft and a collection chest
 - [blueprint-projector](computers/blueprint-projector/README.md): projects a building plan into the world with CC: Spatial Projector; move and turn it from a monitor, then build it layer by layer, or tap Build and a builder turtle builds it
 - [builder-turtle](computers/builder-turtle/README.md): turtle that builds whatever the blueprint projector is showing, right where it's shown
+- [build-control](computers/build-control/README.md): sends a plan to the builder turtles at coordinates you type, from any computer or pocket computer, no projector needed
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
 - [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest and a touch monitor to take items from, and serves items to every turtle
@@ -72,7 +73,9 @@ website has a diagram of it all.
 
 **Installer (easiest):** `wget run https://rakeki.github.io/Rakeki-s-ComputerCraft/install.lua <program>`
 downloads a program and the `lib/` files it needs. Afterwards `install update`
-fetches newer versions (your `config.lua` is kept).
+fetches newer versions (your `config.lua` is kept). Building plans for the
+projector and builder turtles live in [`plans/`](plans/): `install plans`
+lists them and `install plan <name>` adds one to a computer's `/plans`.
 
 ### Updates
 
