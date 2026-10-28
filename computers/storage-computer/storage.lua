@@ -3,8 +3,8 @@
 -- system does the storing, through an Advanced Peripherals ME Bridge or RS
 -- Bridge (chests.lua and bridge.lua; 'storage setup' picks). Drop items in
 -- the input chest and they get put away; type to search on the terminal and
--- press Enter to have a stack sent to the output chest. A monitor, if
--- attached, shows what's stored most.
+-- press Enter to have a stack sent to the output chest. A touch monitor, if
+-- attached, lists what's stored and sends what you tap there too.
 --
 -- Turtles and computers ask it for items over rednet ("storage" protocol)
 -- and never see which kind of store is behind it, so the village builder,
@@ -67,6 +67,8 @@ local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept 
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local MONITOR_SCALE = 0.5 -- text size on the monitor
+local MONITOR_AMOUNTS = { 1, 16, 64 } -- the monitor's buttons for how many of the picked item to send
+local MONITOR_COLUMN = 26 -- fewest characters per column of items on the monitor (wide monitors get more columns)
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
 local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest before going back
@@ -277,11 +279,16 @@ local function canCraftAny()
   return CRAFTABLE_TAB and ((crafting and hasCrafter()) or store.craftables ~= nil) and true or false
 end
 
+-- q is lower case already.
+local function hit(it, q)
+  return q == "" or it.displayName:lower():find(q, 1, true) or it.key:lower():find(q, 1, true)
+end
+
 -- The search hits in the open tab, plus those in each tab (for their counts).
 local function matches()
   local q, stored, craft = query:lower(), {}, {}
   for _, it in ipairs(totals()) do
-    if q == "" or it.displayName:lower():find(q, 1, true) or it.key:lower():find(q, 1, true) then
+    if hit(it, q) then
       if it.craftable then craft[#craft + 1] = it else stored[#stored + 1] = it end
     end
   end
@@ -359,43 +366,179 @@ local function drawTerminal()
   termScreen:show()
 end
 
+-- The monitor is a touch screen of its own: sort, a search typed on an
+-- on-screen keyboard, pages of items, and a bar for the picked item with
+-- buttons that send that many to the output chest (or craft them).
+local mon = {
+  sort = "count", -- "count" (most first) or "name"
+  query = "",
+  typing = false, -- the keyboard is open
+  page = 1,
+  pick = nil, -- key of the picked item
+  zones = {}, -- { x1, x2, y, action } for each button on the last frame
+}
+local KEY_ROWS = { "abcdefghij", "klmnopqrst", "uvwxyz" } -- the third row ends in space, backspace and clear
+local takeItem -- in the loops section below
+
+-- 1234, 12.3k, 4.5M: fits next to a name in a narrow column.
+local function shortCount(n)
+  if n < 10000 then return tostring(n) end
+  if n < 1000000 then return ("%.1fk"):format(n / 1000) end
+  return ("%.1fM"):format(n / 1000000)
+end
+
 local function drawMonitor()
   -- cheap while the monitor is still there; picks one up (and scales it once) when it's attached
   monScreen:refresh()
   if not monScreen.target then return end
   local w, h = monScreen:size()
-  local list = totals()
-  local used, total, text = store.space()
-  -- the uiLoop redraws on every event: only touch the monitor when what it
-  -- shows has changed (each change is sent to every player who can see it)
-  local sig = { text, used or "", total or "" }
-  for i = 1, h - 5 do
-    local it = list[i]
-    if not it then break end
-    sig[#sig + 1] = it.displayName .. "=" .. tostring(it.count) .. (it.craftable and "+" or "")
+  -- Drawn as a list of writes first: the uiLoop redraws on every event, and
+  -- the monitor is only touched when they differ from the last frame's (each
+  -- change is sent to every player who can see it).
+  local ops, zones = {}, {}
+  local function text(x, y, s, fg, bg) ops[#ops + 1] = { x, y, s, fg or "white", bg or "black" } end
+  local function button(x, y, label, fg, bg, action)
+    text(x, y, label, fg, bg)
+    zones[#zones + 1] = { x, x + #label - 1, y, action }
   end
-  if monScreen:same(table.concat(sig, "|")) then return end
-  local mon
-  mon, w, h = monScreen:frame()
-  put(mon, 1, 1, (" "):rep(w), "white", "gray")
-  put(mon, 2, 1, "Storage", "yellow", "gray")
-  -- how full it is, as a bar (when the store can say)
+
+  local all = totals()
+  local q, list = mon.query:lower(), {}
+  for _, it in ipairs(all) do
+    if hit(it, q) then list[#list + 1] = it end
+  end
+  if mon.sort == "name" then
+    table.sort(list, function(a, b) return a.displayName:lower() < b.displayName:lower() end)
+  end
+  local picked
+  for _, it in ipairs(all) do
+    if it.key == mon.pick then picked = it end
+  end
+  if not picked then mon.pick = nil end
+
+  -- title, and how full it is as a bar (when the store can say)
+  local used, total, stat = store.space()
+  text(1, 1, (" "):rep(w), "white", "gray")
+  text(2, 1, "Storage", "yellow", "gray")
+  if #stat + 11 <= w then text(w - #stat, 1, stat, "lightGray", "gray") end
   if used and total and total > 0 then
-    local frac = used / total
-    local barW = w - 2
-    local filled = math.floor(frac * barW + 0.5)
-    local barColour = frac > 0.9 and "red" or frac > 0.7 and "orange" or "green"
-    put(mon, 2, 3, (" "):rep(filled), "white", barColour)
-    put(mon, 2 + filled, 3, (" "):rep(barW - filled), "white", "gray")
+    local frac = math.min(1, used / total)
+    local filled = math.floor(frac * w + 0.5)
+    local bar = fitText((" %d%% full"):format(math.floor(frac * 100 + 0.5)), w)
+    text(1, 2, bar:sub(1, filled), "white", frac > 0.9 and "red" or frac > 0.7 and "orange" or "green")
+    text(filled + 1, 2, bar:sub(filled + 1), "white", "gray")
   end
-  put(mon, 2, 4, text, "lightGray")
-  for i = 1, h - 5 do
-    local it = list[i]
-    if not it then break end
-    local count = it.craftable and (it.count and ("+" .. it.count) or "craft") or tostring(it.count)
-    put(mon, 2, 5 + i, fitText(it.displayName, w - #count - 3), it.craftable and "lightBlue" or "white")
-    put(mon, w - #count, 5 + i, count, it.craftable and "lightBlue" or "lightGray")
+
+  -- the item area: columns of rows, filled down then across
+  local top, bottom = 4, mon.typing and h - 5 or h - 2
+  local rows = math.max(0, bottom - top + 1)
+  local cols = math.max(1, math.floor(w / MONITOR_COLUMN))
+  local colW = math.floor(w / cols)
+  local perPage = math.max(1, rows * cols)
+  local pages = math.max(1, math.ceil(#list / perPage))
+  mon.page = math.max(1, math.min(mon.page, pages))
+  local first = (mon.page - 1) * perPage
+  for c = 1, cols do
+    local x0 = (c - 1) * colW + 1
+    local cw = c == cols and w - x0 + 1 or colW - 1
+    for r = 1, rows do
+      local it = list[first + (c - 1) * rows + r]
+      if it then
+        local y = top + r - 1
+        local count = it.craftable and (it.count and ("+" .. shortCount(it.count)) or "craft") or shortCount(it.count)
+        local on = it.key == mon.pick
+        local bg = on and "blue" or "black"
+        text(x0, y, fitText(" " .. it.displayName, cw - #count - 1), it.craftable and not on and "lightBlue" or "white", bg)
+        text(x0 + cw - #count - 1, y, count .. " ", on and "white" or it.craftable and "lightBlue" or "lightGray", bg)
+        local key = it.key
+        zones[#zones + 1] = { x0, x0 + cw - 1, y, function() mon.pick = mon.pick ~= key and key or nil end }
+      end
+    end
   end
+  if #list == 0 and rows > 0 then
+    text(2, top, mon.query ~= "" and "No matches." or "Nothing stored yet.", "lightGray")
+  end
+
+  -- controls: sort, search, pages
+  local pageText = ("%d/%d"):format(mon.page, pages)
+  local px = w - #pageText - 5
+  if pages > 1 then
+    button(px, 3, " < ", "white", mon.page > 1 and "gray" or "black", function() mon.page = mon.page - 1 end)
+    text(px + 3, 3, pageText, "lightGray")
+    button(px + 3 + #pageText, 3, " > ", "white", mon.page < pages and "gray" or "black", function() mon.page = mon.page + 1 end)
+  else
+    px = w + 1
+  end
+  local sortLabel = mon.sort == "count" and " Most " or " A-Z "
+  button(1, 3, sortLabel, "black", "lightGray", function()
+    mon.sort, mon.page = mon.sort == "count" and "name" or "count", 1
+  end)
+  local findX = #sortLabel + 2
+  local findLabel = mon.typing and (" " .. mon.query .. "_ ") or mon.query ~= "" and (" " .. mon.query .. " ") or " Find "
+  local room = px - findX - 1
+  if #findLabel > room then findLabel = room > 0 and findLabel:sub(-room) or "" end -- keep the end: what's being typed
+  if #findLabel > 0 then
+    button(findX, 3, findLabel, "black", (mon.typing or mon.query ~= "") and "yellow" or "lightGray",
+      function() mon.typing = not mon.typing end)
+  end
+
+  -- the keyboard for the search
+  if mon.typing then
+    local kw = math.max(1, math.min(4, math.floor(w / 10)))
+    local kx = math.floor((w - kw * 10) / 2) + 1
+    local function key(i, y, label, width, action)
+      local x = kx + (i - 1) * kw
+      local cell = kw > 1 and width * kw - 1 or width
+      local pad = math.floor((cell - #label) / 2)
+      local shade = (kw > 1 or (i + y) % 2 == 0) and "gray" or "lightGray"
+      button(x, y, fitText((" "):rep(pad) .. label, cell), "white", shade, action)
+    end
+    local function typeChar(ch) return function() mon.query, mon.page = mon.query .. ch, 1 end end
+    for r, chars in ipairs(KEY_ROWS) do
+      local y = h - 5 + r
+      for i = 1, #chars do key(i, y, chars:sub(i, i), 1, typeChar(chars:sub(i, i))) end
+    end
+    local y = h - 2
+    key(7, y, "_", 1, typeChar(" "))
+    key(8, y, "<", 1, function() mon.query, mon.page = mon.query:sub(1, -2), 1 end)
+    local clearW = kw > 1 and 2 * kw - 1 or 2
+    key(9, y, clearW >= 5 and "Clear" or clearW >= 3 and "Clr" or "C", 2, function() mon.query, mon.page = "", 1 end)
+  end
+
+  -- footer: what's going on, and the picked item's buttons
+  text(1, h - 1, fitText(message[1], w), message[2])
+  if picked then
+    local labels, width = {}, 3 -- the " x " button
+    for i, n in ipairs(MONITOR_AMOUNTS) do
+      labels[i] = " " .. n .. " "
+      width = width + #labels[i] + 1
+    end
+    while width > w and #labels > 1 do -- a narrow monitor gets the smaller amounts
+      width = width - #labels[#labels] - 1
+      labels[#labels] = nil
+    end
+    local bx = w - width + 1
+    local verb = picked.craftable and "Craft" or "Get"
+    local name = picked.displayName .. " " .. (picked.craftable and (picked.count and ("can make " .. picked.count) or "pattern")
+      or tostring(picked.count))
+    text(1, h, fitText(" " .. name, math.max(0, bx - #verb - 2)), picked.craftable and "lightBlue" or "white")
+    if bx - #verb - 1 > 1 then text(bx - #verb - 1, h, verb, "lightGray") end
+    for i, label in ipairs(labels) do
+      local n = MONITOR_AMOUNTS[i]
+      button(bx, h, label, "black", picked.craftable and "lightBlue" or "lime", function() takeItem(picked, n) end)
+      bx = bx + #label + 1
+    end
+    button(bx, h, " x ", "white", "red", function() mon.pick = nil end)
+  else
+    text(1, h, fitText(" Tap an item to send some to the output chest.", w), "gray")
+  end
+
+  mon.zones = zones
+  local parts = {}
+  for i, op in ipairs(ops) do parts[i] = table.concat(op, ",") end
+  if monScreen:same(table.concat(parts, "|")) then return end
+  local win = monScreen:frame()
+  for _, op in ipairs(ops) do put(win, op[1], op[2], op[3], op[4], op[5]) end
   monScreen:show()
 end
 
@@ -414,10 +557,9 @@ end
 
 local orderCraft -- in the crafting section below
 
-local function take(amount)
-  local list = matches()
-  local it = list[selected]
-  if not it then return end
+-- Send amount of an item from the list to the output chest, or have it
+-- crafted if it isn't stored (from the terminal or a monitor button).
+function takeItem(it, amount)
   if it.craftable then
     -- not stored: have it made, and outputLoop sends it on once it's ready
     local made, why = orderCraft(it.name, it.count and math.min(amount, it.count) or amount)
@@ -439,11 +581,26 @@ local function take(amount)
   end
 end
 
+-- The terminal's picked row.
+local function take(amount)
+  local it = matches()[selected]
+  if it then takeItem(it, amount) end
+end
+
 local function uiLoop()
   while true do
     redraw()
-    local event, a, x, y = os.pullEvent()
-    if event == "char" then
+    local ev = { os.pullEvent() }
+    local event, a, x, y = ev[1], ev[2], ev[3], ev[4]
+    local mx, my = monScreen:clicked(ev)
+    if mx then
+      for _, z in ipairs(mon.zones) do
+        if my == z[3] and mx >= z[1] and mx <= z[2] then
+          z[4]()
+          break
+        end
+      end
+    elseif event == "char" then
       query, selected, scroll = query .. a, 1, 0
     elseif event == "key" then
       if a == keys.tab and canCraftAny() then
@@ -472,7 +629,8 @@ local function uiLoop()
           if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
         end
       elseif y >= 4 and y <= h - 2 then
-        selected = scroll + y - 3
+        -- clicking the picked row again takes a stack, like Enter
+        if selected == scroll + y - 3 then take(64) else selected = scroll + y - 3 end
       end
     end
   end

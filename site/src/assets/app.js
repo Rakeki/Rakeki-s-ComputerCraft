@@ -50,7 +50,7 @@
   }
 
   function screenEl(scene, compact) {
-    const kind = scene === "dashboard" || scene === "projector" || scene === "colony" ? "monitor" : "advanced";
+    const kind = scene === "dashboard" || scene === "projector" || scene === "colony" || scene === "storageMonitor" ? "monitor" : "advanced";
     const b = h(`<div class="bezel ${kind} lit"><div class="screen"><pre class="cc-term"></pre></div></div>`);
     if (compact) { b.style.padding = "8px 8px 14px"; b.style.boxShadow = "inset 3px 3px 0 var(--frame-hi), inset -3px -3px 0 var(--frame-lo)"; }
     CC.screens[scene]($("pre", b));
@@ -294,6 +294,12 @@
       const stage = h(`<figure class="stage" style="margin:0"><div class="screen-holder"></div></figure>`);
       $(".screen-holder", stage).append(screenEl(r.scene));
       holder.append(stage, h(`<p class="caption">${esc(r.caption)}</p>`));
+      // more screens of the same program (render.more in programs.json), e.g. its monitor
+      for (const m of r.more || []) {
+        const more = h(`<figure class="stage" style="margin:16px 0 0"><div class="screen-holder"></div></figure>`);
+        $(".screen-holder", more).append(screenEl(m.scene));
+        holder.append(more, h(`<p class="caption">${esc(m.caption)}</p>`));
+      }
     }
   }
 

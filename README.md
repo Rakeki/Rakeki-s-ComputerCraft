@@ -37,7 +37,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [builder-turtle](computers/builder-turtle/README.md): turtle that builds whatever the blueprint projector is showing, right where it's shown
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
-- [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest, and serves items to every turtle
+- [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest and a touch monitor to take items from, and serves items to every turtle
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
 - [craft-overseer](computers/craft-overseer/README.md): shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor
 - [smelter-computer](computers/smelter-computer/README.md): keeps the storage system's furnaces busy smelting ores and cooking raw food, fuels them from its fuel chest, and burns spare logs into charcoal on request

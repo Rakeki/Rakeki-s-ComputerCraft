@@ -39,7 +39,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage, smelter, cooker, colony)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -115,7 +115,7 @@ One entry per program under `programs`, in the order they appear on the site:
 | `features`, `setup` | Short bullet points and numbered setup steps |
 | `commands` | `[command, what it does]` pairs |
 | `integrates` | `[program or lib name, how they work together]` pairs |
-| `render` | `voxel` (a scene in `voxel.js`), `screen` (a scene in `cc.js`) or `gallery` (SVGs from `preview/`) |
+| `render` | `voxel` (a scene in `voxel.js`), `screen` (a scene in `cc.js`; `more: [{ scene, caption }]` adds more screens below it, e.g. a monitor) or `gallery` (SVGs from `preview/`) |
 | `layouts` | Optional `[{ title, scene, caption }]`: example builds shown as tabs under "Example layouts" (scenes in `voxel.js`); describe each in the README's "Example layouts" too |
 | `terminal` | A scripted session for the typing demo, or `null`. Use the program's real `print` text |
 

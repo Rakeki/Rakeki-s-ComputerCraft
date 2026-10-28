@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal, smelter, cooker, craft overseer and colony dashboard.
+// blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer and colony dashboard.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -614,6 +614,134 @@
     return s;
   }
 
+  //---------------------------------------------------------------- storage monitor
+
+  // The storage computer's touch monitor: same layout as drawMonitor in
+  // computers/storage-computer/storage.lua. Sort, search on the on-screen
+  // keyboard, page, tap an item, then how many to send.
+  function storageMonitor(el) {
+    const W = 57, H = 19, AMOUNTS = [1, 16, 64], COLUMN = 26;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (w <= 0 ? "" : t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const short = (n) => (n < 10000 ? String(n) : n < 1e6 ? `${(n / 1000).toFixed(1)}k` : `${(n / 1e6).toFixed(1)}M`);
+    const items = [
+      ["Cobblestone", 51200], ["Cobbled Deepslate", 23110], ["Dirt", 8400], ["Oak Log", 1388], ["Wheat", 912], ["Andesite", 870],
+      ["Granite", 655], ["Carrot", 455], ["Oak Planks", 410], ["Iron Ingot", 302], ["Coal", 268], ["Sand", 250], ["Gravel", 233],
+      ["Redstone Dust", 197], ["Bone Meal", 160], ["Oak Sapling", 140], ["Copper Ingot", 128], ["Iron Ore", 96], ["String", 88],
+      ["Gold Ingot", 75], ["Potato", 64], ["Glass", 60], ["Torch", 52], ["Lapis Lazuli", 41], ["Bread", 30], ["Diamond", 23],
+      ["Raw Iron", 18], ["Emerald", 12], ["Iron Pickaxe", 1], ["Enchanted Book", 3], ["Ender Pearl", 7], ["Iron Block", 9],
+      ["Raw Gold", 33], ["Feather", 21], ["Leather", 17], ["Bow", 2],
+    ].map(([name, count]) => ({ name, count }));
+    const SLOTS = 27 * 80;
+    const st = { sort: "count", query: "", typing: false, page: 1, pick: null, msg: ["", "lightGray"], auto: true };
+
+    function take(it, n) {
+      const sent = Math.min(n, it.count);
+      it.count -= sent;
+      st.msg = sent > 0 ? [`Sent ${sent} ${it.name} to the output chest.`, "lime"] : ["Couldn't send it: is the output chest full?", "red"];
+      if (!it.count) st.pick = null;
+    }
+
+    function draw() {
+      s.clear();
+      const btn = (x, y, label, fg, bg, action) => { s.put(x, y, label, fg, bg); s.zones.push({ x1: x, x2: x + label.length - 1, y1: y, y2: y, action }); };
+      let list = items.filter((it) => it.count > 0 && it.name.toLowerCase().includes(st.query));
+      list = st.sort === "name" ? list.sort((a, b) => a.name.localeCompare(b.name)) : list.sort((a, b) => b.count - a.count);
+      const picked = items.find((it) => it.name === st.pick && it.count > 0);
+
+      const used = items.reduce((k, it) => k + Math.ceil(it.count / 64), 0);
+      s.fill(1, "gray");
+      s.put(2, 1, "Storage", "yellow", "gray");
+      const stat = `80 chests, ${used}/${SLOTS} slots`;
+      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      const frac = Math.min(1, used / SLOTS), filled = Math.round(frac * W);
+      const bar = fitT(` ${Math.round(frac * 100)}% full`, W);
+      s.put(1, 2, bar.slice(0, filled), "white", frac > 0.9 ? "red" : frac > 0.7 ? "orange" : "green");
+      s.put(filled + 1, 2, bar.slice(filled), "white", "gray");
+
+      const top = 4, rows = (st.typing ? H - 5 : H - 2) - top + 1;
+      const cols = Math.max(1, Math.floor(W / COLUMN)), colW = Math.floor(W / cols);
+      const per = rows * cols, pages = Math.max(1, Math.ceil(list.length / per));
+      st.page = Math.max(1, Math.min(st.page, pages));
+      const first = (st.page - 1) * per;
+      for (let c = 1; c <= cols; c++) {
+        const x0 = (c - 1) * colW + 1, cw = c === cols ? W - x0 + 1 : colW - 1;
+        for (let r = 1; r <= rows; r++) {
+          const it = list[first + (c - 1) * rows + r - 1];
+          if (!it) continue;
+          const y = top + r - 1, count = short(it.count), on = it.name === st.pick, bg = on ? "blue" : "black";
+          s.put(x0, y, fitT(" " + it.name, cw - count.length - 1), "white", bg);
+          s.put(x0 + cw - count.length - 1, y, count + " ", on ? "white" : "lightGray", bg);
+          s.zones.push({ x1: x0, x2: x0 + cw - 1, y1: y, y2: y, action: () => { st.pick = st.pick === it.name ? null : it.name; } });
+        }
+      }
+      if (!list.length) s.put(2, top, st.query ? "No matches." : "Nothing stored yet.", "lightGray");
+
+      const pageText = `${st.page}/${pages}`;
+      let px = W - pageText.length - 5;
+      if (pages > 1) {
+        btn(px, 3, " < ", "white", st.page > 1 ? "gray" : "black", () => { st.page--; });
+        s.put(px + 3, 3, pageText, "lightGray");
+        btn(px + 3 + pageText.length, 3, " > ", "white", st.page < pages ? "gray" : "black", () => { st.page++; });
+      } else px = W + 1;
+      const sortLabel = st.sort === "count" ? " Most " : " A-Z ";
+      btn(1, 3, sortLabel, "black", "lightGray", () => { st.sort = st.sort === "count" ? "name" : "count"; st.page = 1; });
+      let find = st.typing ? ` ${st.query}_ ` : st.query ? ` ${st.query} ` : " Find ";
+      const room = px - sortLabel.length - 3;
+      if (find.length > room) find = room > 0 ? find.slice(-room) : "";
+      if (find) btn(sortLabel.length + 2, 3, find, "black", st.typing || st.query ? "yellow" : "lightGray", () => { st.typing = !st.typing; });
+
+      if (st.typing) {
+        const kw = Math.max(1, Math.min(4, Math.floor(W / 10))), kx = Math.floor((W - kw * 10) / 2) + 1;
+        const key = (i, y, label, width, action) => {
+          const cell = kw > 1 ? width * kw - 1 : width, pad = Math.floor((cell - label.length) / 2);
+          btn(kx + (i - 1) * kw, y, fitT(" ".repeat(pad) + label, cell), "white", "gray", action);
+        };
+        const typeCh = (ch) => () => { st.query += ch; st.page = 1; };
+        ["abcdefghij", "klmnopqrst", "uvwxyz"].forEach((chars, r) => [...chars].forEach((ch, i) => key(i + 1, H - 4 + r, ch, 1, typeCh(ch))));
+        key(7, H - 2, "_", 1, typeCh(" "));
+        key(8, H - 2, "<", 1, () => { st.query = st.query.slice(0, -1); st.page = 1; });
+        key(9, H - 2, "Clear", 2, () => { st.query = ""; st.page = 1; });
+      }
+
+      s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+      if (picked) {
+        const labels = AMOUNTS.map((n) => ` ${n} `);
+        let bx = W - (3 + labels.reduce((k, l) => k + l.length + 1, 0)) + 1;
+        s.put(1, H, fitT(` ${picked.name} ${picked.count}`, bx - 5), "white");
+        s.put(bx - 4, H, "Get", "lightGray");
+        labels.forEach((l, i) => { btn(bx, H, l, "black", "lime", () => take(picked, AMOUNTS[i])); bx += l.length + 1; });
+        btn(bx, H, " x ", "white", "red", () => { st.pick = null; });
+      } else s.put(1, H, fitT(" Tap an item to send some to the output chest.", W), "gray");
+      s.render();
+    }
+
+    // the demo: open the keyboard, type "iron", pick one, send 16, then sort A-Z and page
+    const script = [() => { st.typing = true; }, ...[..."iron"].map((ch) => () => { st.query += ch; }),
+      () => { st.typing = false; }, () => { st.pick = "Iron Ingot"; }, () => take(items.find((it) => it.name === "Iron Ingot"), 16), () => {},
+      () => { st.pick = null; st.query = ""; st.msg = ["", "lightGray"]; }, () => { st.sort = "name"; }, () => {}, () => { st.page = 2; }, () => {},
+      () => { st.page = 1; st.sort = "count"; }, () => {}];
+    items.forEach((it) => { it.base = it.count; });
+    let step = 0;
+    setInterval(() => {
+      if (!st.auto) return;
+      script[step % script.length]();
+      step++;
+      if (step % script.length === 0) items.forEach((it) => { it.count = it.base; });
+      draw();
+    }, 900);
+
+    el.addEventListener("click", (ev) => {
+      if (st.auto) { st.auto = false; st.typing = false; st.query = ""; st.pick = null; st.msg = ["", "lightGray"]; }
+      const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y);
+      if (z) z.action();
+      draw();
+    });
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- smelter
 
   // The smelter's screen: same layout as computers/smelter-computer/smelter.lua.
@@ -933,5 +1061,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, smelter, cooker, overseer, colony } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, overseer, colony } };
 })();

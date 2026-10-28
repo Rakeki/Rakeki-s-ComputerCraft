@@ -708,11 +708,12 @@
         ["Stores in", "chests, ME or RS"],
         ["Put away", "every 2 s"],
         ["Rescan", "every 60 s"],
-        ["Monitor", "optional"]
+        ["Monitor", "optional, touch"]
       ],
       "features": [
         "Type to search every chest at once",
         "Enter sends a stack to the output chest, Right arrow just one",
+        "A touch monitor: sort, search on an on-screen keyboard, tap an item and send 1, 16 or 64 to the output chest",
         "Puts new items next to the same item when it can",
         "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
         "Turtles can ask for items over rednet; the village builder and builder stock themselves from it",
@@ -746,7 +747,10 @@
       "render": {
         "kind": "screen",
         "scene": "storage",
-        "caption": "The storage terminal: type to search, Enter for a stack. Shown with the optional Craftable tab turned on: it lists what isn't stored but can be made. Click a tab or a row, and a row again to take (or craft) a stack."
+        "caption": "The storage terminal: type to search, Enter for a stack. Shown with the optional Craftable tab turned on: it lists what isn't stored but can be made. Click a tab or a row, and the row again to take (or craft) a stack.",
+        "more": [
+          { "scene": "storageMonitor", "caption": "The monitor (an advanced one, for touch): Most / A-Z sorts, Find opens the on-screen keyboard, the arrows turn the page. Tap an item, then how many to send to the output chest. Click to try it." }
+        ]
       },
       "layouts": [
         { "title": "Chest wall", "scene": "storageChests", "caption": "The basic setup: a wall of chests joined by full-block modems and cable, input and output chests, and the computer with a monitor and a wireless modem for turtles." },

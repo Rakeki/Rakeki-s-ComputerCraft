@@ -42,15 +42,37 @@ storage, except the ones you choose for:
 
 The terminal shows every stored item with its count, biggest first. Type to
 search (by name, as you'd see it in game), pick with the arrow keys or the
-mouse, then Enter for a stack or Right arrow for just one. The top line shows
-how many chests and slots are in use (or how full the ME or RS system is).
+mouse, then Enter for a stack or Right arrow for just one (or click the
+picked row again for a stack). The top line shows how many chests and slots
+are in use (or how full the ME or RS system is).
 
 An optional **Craftable** tab can sit next to the stored items (see
 [Crafting](#crafting)); it's off unless you turn it on.
 
-A monitor, if one is attached, shows a bar of how full the storage is and the
-items there's most of. With a wireless modem it also reports to the
+With a wireless modem it also reports to the
 [status server](../status-server/README.md).
+
+### The monitor
+
+A monitor, if one is attached, is a second way in: anyone walking past can
+take things out without using the computer. Use an **advanced monitor**, so
+it can be tapped. It shows:
+
+- a bar of how full the storage is, with the chests and slots in use
+- every stored item with its count (12.3k for big ones), in columns on a
+  wide monitor, and pages with **<** and **>** when they don't all fit
+- **Most** / **A-Z**: tap to sort by count or by name
+- **Find**: opens an on-screen keyboard; tap letters to search (by name, as
+  on the terminal), **_** for a space, **<** to rub out, **Clear** to start
+  again. Tap the search box again to close the keyboard; the search stays
+  until you clear it.
+
+Tap an item to pick it (tap again to drop it). The bottom line then shows
+it with **1**, **16** and **64** buttons: tap one and that many go to the
+output chest (fewer if there aren't that many). **x** drops the pick. With
+the Craftable tab on, craftable items are listed too (in light blue), and
+their buttons have them crafted for the output chest instead. The line
+above shows what happened, the same message as the terminal's footer.
 
 Enchanted books, named tools and other items with extra data are
 listed separately from plain ones.
@@ -316,7 +338,7 @@ and answer yes when it finds the bridge. A Refined Storage system with an
    the bridge and join it to the same network.
 4. Join all the modems with networking cable, and right-click each one so it
    turns red. Chat shows the name of each chest it connects.
-5. Optional: put a monitor next to the computer (or on the network), and a
+5. Optional: put a monitor (advanced, to tap it) next to the computer (or on the network), and a
    wireless modem on it for turtles and the status server.
 6. Run `storage`. The first time it asks whether to use the ME or RS system
    (if it found a bridge), then lists the chests it can see by name and asks
