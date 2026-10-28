@@ -197,6 +197,7 @@ local function normalize(raw, id)
   local plan = {
     id = id, name = raw.name or id, mats = mats, blocks = blocks, layers = {},
     w = x1 - x0 + 1, h = y1 - y0 + 1, l = z1 - z0 + 1, cache = {},
+    clear = raw.clear ~= false, -- false: built in the air, so builders don't dig out its box first
   }
   for y = 1, plan.h do plan.layers[y] = {} end
   for _, b in ipairs(blocks) do table.insert(plan.layers[b.y + 1], b) end
@@ -958,7 +959,8 @@ local function offer(i, id)
   -- the turtle answers accepted, busy or refused, with the strip's key
   local msg = net.ask(id, BUILD_PROTOCOL, { type = "build", key = p.key,
     name = b.n > 1 and ("%s (strip %d of %d)"):format(b.name, i, b.n) or b.name,
-    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1 },
+    mats = mats, blocks = blocks, area = buildArea(), part = b.n > 1 and part or nil, lane = i - 1,
+    clear = plan.clear },
     { wait = BUILD_WAIT, match = function(reply) return reply.key == p.key and reply.type ~= "progress" end,
       other = onBuilder })
   if not msg then return false, ("Builder #%d didn't answer in time."):format(id) end

@@ -60,7 +60,8 @@ local args = { ... }
 -- { key, name, from, mats, blocks = { { x, y, z, m } } } in world coordinates;
 -- for one strip of a building shared by several turtles also area (the whole
 -- building's box), part (this strip's x0, x1, z0, z1) and lane (0, 1, ...:
--- how many blocks higher than the others I cross over)
+-- how many blocks higher than the others I cross over); clear = false for a
+-- building in the air (nothing to dig out of its box first)
 local job
 local prog -- { stage = "clear" | "build", step }
 local home -- { x, y, z, heading, gps }
@@ -581,7 +582,7 @@ local function runJob()
   buildPlan()
   print(("Building %s: %d blocks."):format(job.name, total()))
   if prog.stage == "clear" then
-    if CLEAR_FIRST then
+    if CLEAR_FIRST and job.clear ~= false then
       local size = clearCells()
       status("clearing", job.name)
       sendProgress("clear")
@@ -671,7 +672,7 @@ local function onMessage(from, msg)
     end
     job = { key = msg.key, name = tostring(msg.name or "a building"), from = from, mats = msg.mats, blocks = msg.blocks,
       area = type(msg.area) == "table" and msg.area or nil, part = type(msg.part) == "table" and msg.part or nil,
-      lane = tonumber(msg.lane) }
+      lane = tonumber(msg.lane), clear = msg.clear ~= false }
     prog = { stage = "clear", step = 0, skipped = 0 }
     nav.writeFile(JOB_FILE, job)
     save()

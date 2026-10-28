@@ -592,7 +592,7 @@
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Built-in plans", "3"],
+        ["Built-in plans", "4"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
@@ -601,7 +601,8 @@
         "Layer view outlines every block of one layer to build from",
         "Top-down map of the layer and the blocks it needs",
         "Follows a village turtle and projects the building it's working on",
-        "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them"
+        "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them",
+        "Built-in sky station: 63 wide, 78 high, raised into the sky and built in the air"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -657,7 +658,7 @@
         ["Range", "256 blocks"]
       ],
       "features": [
-        "Clears the plot, then builds every layer from the block above it",
+        "Clears the plot (not for a plan built in the air), then builds every layer from the block above it",
         "Restocks from the supply chest behind its home, or orders from the storage system",
         "Reports to the projector: the panel shows how far it's got and Layer view follows it",
         "Several builders share one building, a strip each, crossing over at heights of their own",

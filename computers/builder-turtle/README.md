@@ -17,7 +17,9 @@ The turtle then:
 
 1. **Clears the plot:** everything inside the building's box is dug out
    (grass, trees, a hill in the way). Chests, computers and turtles are never
-   dug.
+   dug. A plan built in the air, like the projector's
+   [sky station](../blueprint-projector/README.md#building-in-the-sky),
+   skips this.
 2. **Builds it from the bottom up,** one layer at a time, back and forth
    along the rows, placing each block from the block above it. Doors go in
    last on their layer, from the side.

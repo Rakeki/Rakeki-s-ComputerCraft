@@ -13,7 +13,9 @@ local files = {}
 function files.write(path, value)
   local tmp = path .. ".tmp"
   local f = fs.open(tmp, "w")
-  f.write(textutils.serialize(value))
+  -- compact: no indents or line breaks, a third of the size, so a builder's
+  -- job of 20,000 blocks fits on a turtle's disk (older CC ignores the option)
+  f.write(textutils.serialize(value, { compact = true }))
   f.close()
   if fs.exists(path) then fs.delete(path) end
   fs.move(tmp, path)

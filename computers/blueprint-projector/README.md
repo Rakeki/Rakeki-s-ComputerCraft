@@ -35,10 +35,14 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-Three plans come built in: a **cottage** (7×7, 8 high), a **watchtower**
-(7×7, 11 high) and a five-storey **pagoda** (31×32, 59 high, over 9,000
-blocks) with balconies, upturned eaves and a gold spire. Your own plans go
-in the `/plans` folder (see [Plans](#plans)).
+Four plans come built in: a **cottage** (7×7, 8 high), a **watchtower**
+(7×7, 11 high), a five-storey **pagoda** (31×32, 59 high, over 9,000
+blocks) with balconies, upturned eaves and a gold spire, and a **sky
+station** (63×63, 78 high, about 21,500 blocks) to hang in the sky: four
+hollow rings round a core with a glass dome and a spire on top and a spike
+below, with floors to walk round inside (see
+[Building in the sky](#building-in-the-sky)). Your own plans go in the
+`/plans` folder (see [Plans](#plans)).
 
 ## Files
 
@@ -118,6 +122,30 @@ need a wireless or ender modem.
   if any. A restart of the projector keeps track: it asks each turtle where
   it's got to.
 
+### Building in the sky
+
+The **sky station** (`projector skystation`) is meant to float. Set **Step**
+to 16 and tap **Up** until it's as high as you want it (Outline view shows
+its box), then tap **Build**. The builders fly over the top of it, so keep
+its bottom no higher than about Y 235 (the station is 78 high, and the
+build limit is Y 319).
+
+- Plans built in the air say so (`clear = false`, see [Plans](#plans)), so
+  the builders don't dig out the box first: that would mean flying through
+  every empty block of it. They go straight to building, bottom layer
+  first, placing each block from the one above it, so nothing needs
+  holding up.
+- It's about 21,500 blocks, mostly concrete (white, gray, light gray, black
+  and red), smooth stone for the floors, glass, light blue stained glass,
+  sea lanterns and a little iron. `projector check skystation` lists them.
+  A [Creative Crate turtle](../crate-turtle/README.md) with `crate stock`
+  keeps the storage system supplied.
+- Use four builders: with one, it's a long job. The whole thing is too big
+  for the projector to outline every block in its colours, so Whole view
+  shows it in one colour or only part of it; Layer view shows each layer in
+  full.
+- Turtles stop when their chunk unloads, so stay nearby while they work.
+
 ## Following a village turtle
 
 `projector village` shows the building a [village turtle](../village-turtle/README.md#seeing-it-with-a-projector)
@@ -171,6 +199,9 @@ return {
   `blocks = { { x, y, z, "minecraft:stone" }, ... }`. A plan is a Lua
   program, so a loop can make one: the watchtower in `sample_plans.lua` is
   built that way.
+- `clear = false` says the plan is built in the air, so builder turtles
+  don't dig out its box first (the sky station has it). Leave it out for
+  anything built on the ground.
 
 Getting a plan onto the computer: `edit plans/house.lua` and type it in, or
 write it on your PC and use `wget <url> plans/house.lua`,

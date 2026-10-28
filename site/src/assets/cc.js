@@ -417,7 +417,7 @@
       [".......", ".......", "..SSS..", "..SSS..", "..SSS..", ".......", "......."],
       [".......", ".......", ".......", "...S...", ".......", ".......", "......."],
     ];
-    const plans = ["Cottage", "Watchtower", "Pagoda"];
+    const plans = ["Cottage", "Watchtower", "Pagoda", "Sky Station"];
     const st = { plan: 0, x: 100, y: 64, z: -15, turn: 0, view: "whole", layer: 8, step: 1, hidden: false };
     const FACING = ["north", "east", "south", "west"], STEPS = [1, 5, 16], VIEWS = ["whole", "layer", "outline"];
     const LABEL = { whole: "Whole", layer: "Layer", outline: "Outline" };
