@@ -84,11 +84,17 @@ const manifest = { site: SITE_URL, order: [], programs: {} };
 for (const program of data.programs) {
   program.files = programFiles(program);
   manifest.order.push(program.name);
+  // The installer downloads each version's files from a folder of their own
+  // (v/<version>/...): GitHub Pages' servers keep a copy of a file for up to
+  // 10 minutes after it changes (a ?query doesn't get round that), so a fixed
+  // path could hand out the old file under the new version.
+  const version = versionOf(program.files);
+  program.version = version;
   manifest.programs[program.name] = {
     title: program.title,
     device: program.deviceLabel,
-    files: program.files.map(({ src, dest, keep }) => ({ src, dest, ...(keep ? { keep } : {}) })),
-    version: versionOf(program.files),
+    files: program.files.map(({ src, dest, keep }) => ({ src: `v/${version}/${src}`, dest, ...(keep ? { keep } : {}) })),
+    version,
     next: nextSteps(program),
   };
   if (program.device === "turtle") manifest.programs[program.name].device = "turtle";
@@ -230,6 +236,13 @@ copyDir(path.join(SRC, "assets"), path.join(OUT, "assets"));
 copyDir(path.join(ROOT, "computers"), path.join(OUT, "computers"), (n) => n === "_template");
 copyDir(path.join(ROOT, "lib"), path.join(OUT, "lib"));
 copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"));
+for (const program of data.programs) {
+  for (const f of program.files) {
+    const to = path.join(OUT, "v", program.version, f.src);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, f.src), to);
+  }
+}
 write(".nojekyll", "");
 write("assets/turtle.svg", pixelSvg(TURTLE).replace(/#c99a2e/g, "#f2b233"));
 write("assets/computer.svg", pixelSvg(COMPUTER));

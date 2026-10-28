@@ -79,7 +79,8 @@ fetches newer versions (your `config.lua` is kept).
 Installed programs update themselves: on every boot `startup.lua` asks the
 website whether there's a newer version and, if so, downloads it before the
 program starts (your `config.lua` is kept). Without internet it carries on
-after a few seconds. To turn it off on one computer, type
+after a few seconds. After a push, the website takes a few minutes (up to
+about 15) before computers see the new version. To turn it off on one computer, type
 `set install.autoupdate false`. A turtle that reboots in the middle of a job
 carries on with the new version.
 

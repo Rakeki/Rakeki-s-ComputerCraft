@@ -151,6 +151,11 @@ program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
 deadline, carries on without it) and reinstalls only programs whose
 `version` (a hash of their files, made by the build) differs from the one
 saved in `/.installed_versions`. `set install.autoupdate false` turns it off.
+The installer downloads a version's files from `v/<version>/...` (the build
+copies them there), because GitHub Pages serves a cached copy of a file for
+up to 10 minutes after it changes (a `?query` doesn't get round it); the
+manifest itself can lag that long, so a reboot just after a push may still
+say "up to date".
 
 Existing computers:
 
