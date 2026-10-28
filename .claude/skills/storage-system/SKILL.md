@@ -133,7 +133,8 @@ craftable item takes too long.
   first on `putAway`, `fetch(..., fuelFirst)` takes from it first, and its
   contents count as stock.
 - **Special chests** (`setup`): input, output, delivery (shared), crafter,
-  fuel, transfer, and `deliveries` (turtle id → its own chest, from
+  fuel, transfer, `inputs` (extra input chests, emptied like `input`;
+  `stock` only ever reports `input`, so returns go there), and `deliveries` (turtle id → its own chest, from
   `claim`; `claimChest` probes, `assign` records it in the setup file too,
   `storage setup` keeps them). `reserved` is per chest. Only input and output are required; a missing optional one
   turns its feature off with a footer message.

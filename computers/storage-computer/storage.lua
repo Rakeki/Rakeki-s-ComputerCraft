@@ -87,7 +87,7 @@ local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
 local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
 
 -- { backend = "chests" or "bridge", input, output = name, delivery, crafter, fuel, transfer = name or nil,
---   deliveries = { [turtle id] = name } }
+--   inputs = { extra input chest names }, deliveries = { [turtle id] = name } }
 -- deliveries are the turtles' own chests, and crafter can be, too: each
 -- turtle finds its chest on the network itself (lib/claim.lua, the "claim"
 -- request). delivery is the shared one for turtles without their own.
@@ -220,18 +220,30 @@ local function putAway(from, slot, item, count)
   return left
 end
 
+-- The input chest, then any extra ones (setup.inputs). Programs that send
+-- items back (smelter, cooker) only use the first.
+local function inputChests()
+  local list = { setup.input }
+  for _, name in ipairs(setup.inputs) do list[#list + 1] = name end
+  return list
+end
+
 local function storeInput()
-  local ok, list = pcall(peripheral.call, setup.input, "list")
-  if not ok or not next(list) then return false end
-  local full = false
-  for slot, item in pairs(list) do
-    if putAway(setup.input, slot, item, item.count) > 0 then full = true end
+  local any, full = false, false
+  for _, chest in ipairs(inputChests()) do
+    local ok, list = pcall(peripheral.call, chest, "list")
+    if ok and next(list) then
+      any = true
+      for slot, item in pairs(list) do
+        if putAway(chest, slot, item, item.count) > 0 then full = true end
+      end
+    end
   end
   if full then
     message = { "Storage is full: some items are still in the input chest.", "red" }
     if report then report.log("storage full") end
   end
-  return true
+  return any
 end
 
 -- Send up to amount of the item with this key to the chest named to (into
@@ -1005,6 +1017,9 @@ local function claimable(name)
   for _, which in ipairs({ "input", "output", "fuel", "transfer" }) do
     if name == setup[which] then return false end
   end
+  for _, chest in ipairs(setup.inputs) do
+    if name == chest then return false end
+  end
   if not isInventory(name) then return false end
   local t = peripheral.getType(name)
   for _, kind in ipairs(CLAIM_TYPES) do
@@ -1558,6 +1573,14 @@ local function chooseChests()
     end
   end
   s.input = ask("Which is the input chest? ")
+  print("More input chests are emptied the same way. Type each")
+  print("one's number, then just Enter when there are no more.")
+  s.inputs = {}
+  while true do
+    local more = ask("Another input chest? [done] ", true)
+    if not more then break end
+    s.inputs[#s.inputs + 1] = more
+  end
   s.output = ask("Which is the output chest? ")
   print("Turtles (village builder, builder, crafter) find their own")
   print("chest on the network when they start: no need to pick those.")
@@ -1613,6 +1636,16 @@ for _, which in ipairs({ "delivery", "crafter", "fuel", "transfer" }) do
     print("Check its modem is red, or run 'storage setup'.")
     missingChest = ("No %s chest found (%s): check its modem."):format(which, setup[which])
     setup[which] = nil
+  end
+end
+setup.inputs = setup.inputs or {}
+for i = #setup.inputs, 1, -1 do
+  local name = setup.inputs[i]
+  if not peripheral.isPresent(name) then
+    print(("Can't find the extra input chest (%s), so I'll do without it."):format(name))
+    print("Check its modem is red, or run 'storage setup'.")
+    missingChest = ("No input chest found (%s): check its modem."):format(name)
+    table.remove(setup.inputs, i)
   end
 end
 setup.deliveries, setup.crafters = setup.deliveries or {}, setup.crafters or {}

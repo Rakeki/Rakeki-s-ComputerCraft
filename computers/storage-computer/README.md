@@ -22,6 +22,10 @@ storage, except the ones you choose for:
 
 - **Input chest:** anything you drop in here is put away within a couple of
   seconds, into a chest that already holds that item if there is one.
+  You can have more than one: after the input chest, `storage setup` asks
+  for extra input chests (say one by each farm or at the miners' eject
+  port), emptied the same way. The smelter and cooker send their goods back
+  through the first one.
 - **Output chest:** search on the computer, press Enter, and a stack of that
   item turns up here.
 - **Turtles' chests** (nothing to choose): the

@@ -727,7 +727,7 @@
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
         "For AE2 or Refined Storage: put an ME Bridge or RS Bridge against the system, with a wired modem on the same cable.",
-        "Run storage and answer its questions: the store, then the input, output and (optional) shared delivery, crafter, fuel and transfer chests. Turtles' chests need no picking: they find their own. Reboot."
+        "Run storage and answer its questions: the store, then the input (and any extra input chests), output and (optional) shared delivery, crafter, fuel and transfer chests. Turtles' chests need no picking: they find their own. Reboot."
       ],
       "commands": [
         ["storage", "start (asks how it's set up the first time)"],

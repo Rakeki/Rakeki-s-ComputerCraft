@@ -63,8 +63,8 @@ function M.new(setup)
     for _, which in ipairs({ "input", "output", "delivery", "crafter", "fuel", "transfer" }) do
       if name == setup[which] then return false end
     end
-    -- turtles' own delivery and crafter chests (lib/claim.lua)
-    for _, list in ipairs({ setup.deliveries or {}, setup.crafters or {} }) do
+    -- extra input chests, and turtles' own delivery and crafter chests (lib/claim.lua)
+    for _, list in ipairs({ setup.inputs or {}, setup.deliveries or {}, setup.crafters or {} }) do
       for _, chest in pairs(list) do
         if name == chest then return false end
       end
