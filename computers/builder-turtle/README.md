@@ -73,6 +73,9 @@ which strip it's on, e.g. "Building Cottage (strip 2 of 3): 410 blocks."
 2. Put the **supply chest** directly behind it and a **spoil chest** directly
    to its left. Fill the supply chest with the blocks the building needs and
    some coal: `projector check <plan>` on the projector lists them.
+   Optional, but best with a big mixed supply chest or barrel: a plain
+   **buffer chest** directly **under** the home block (the turtle sits on
+   it). See [Things to know](#things-to-know).
 3. Install the program and run `builder`. It needs its real position: with
    [GPS](../gps-deployer/README.md) it finds it by itself; without GPS it asks
    for its X, Y and Z (look at its block with F3 open) and which way it faces.
@@ -120,9 +123,12 @@ red) it says so and tries again 5 minutes later.
   projection is first: the outline (Outline view) is the box. Keep chests
   and the projector out of it.
 - The supply chest can be any chest or barrel, Sophisticated Storage ones
-  with stack upgrades too. Keep at least one slot in it empty: the turtle
-  can only take from the first slot, so it moves the block it needs there
-  through a free slot.
+  with stack upgrades too. A turtle can only take from a chest's first
+  slot, so with a **buffer chest** under its home block the supply chest
+  pushes exactly the blocks it needs into that chest, from wherever they
+  are, and the turtle takes them from there: quick, and nothing in the
+  supply chest moves. Without one, it moves the block it needs to the first
+  slot itself, which is slower with stack upgrades; keep a slot empty.
 - Plans say which block goes where but not which way it faces, so stairs,
   logs and the like face whichever way the turtle happens to be facing.
   Beds and other two-block things may need placing by hand.

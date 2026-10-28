@@ -667,7 +667,7 @@
         "GPS or a typed-in position: it builds in real world coordinates"
       ],
       "setup": [
-        "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left.",
+        "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left, and (best with a big barrel) an empty buffer chest under it.",
         "Run builder: with GPS it finds its position, otherwise type its X Y Z and facing (F3). Reboot.",
         "Fill the supply chest with the plan's blocks and coal (or put a wired modem on it, on the storage cable, and the storage system fills it), then tap Build on the projector."
       ],

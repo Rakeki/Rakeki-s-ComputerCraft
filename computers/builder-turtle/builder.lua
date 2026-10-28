@@ -293,10 +293,40 @@ local function moveAll(c, self, from, count, to)
   return moved
 end
 
+-- With a buffer chest under my home block: the supply chest (in front)
+-- pushes exactly what's wanted into it, from whatever slot it's in, and I
+-- take it from there. Nothing in the supply chest is moved about, so its
+-- order doesn't matter. False when there's no buffer chest.
+local function takeViaBuffer(match, want, current)
+  local supply, buffer = peripheral.wrap("front"), peripheral.wrap("bottom")
+  if not (supply and supply.list and buffer and buffer.list and buffer.pushItems) then return false end
+  -- anything left in it from last time goes back first
+  for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
+  for slot, it in pairs(supply.list()) do
+    if match(it.name) then
+      local left = it.count
+      while left > 0 and current() < want and emptySlots() > 0 do
+        local ok, n = pcall(supply.pushItems, "bottom", slot, math.min(64, left, want - current()))
+        if not ok or not n or n == 0 then break end
+        left = left - n
+        turtle.select(freeSlotFor(it.name) or 1)
+        turtle.suckDown()
+      end
+    end
+    if current() >= want or emptySlots() == 0 then break end
+  end
+  -- what didn't fit in me goes back
+  for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
+  turtle.select(1)
+  return true
+end
+
 -- Take up to want items matching match() from the chest in front.
--- turtle.suck takes the chest's first stack, so the wanted stack is moved
--- to the front of the chest first (as the village builder does).
+-- turtle.suck takes the chest's first stack, so without a buffer chest the
+-- wanted stack is moved to the front of the chest first (as the village
+-- builder does).
 local function takeFront(match, want, current)
+  if takeViaBuffer(match, want, current) then return end
   local c = peripheral.wrap("front")
   if not (c and c.list) then return end
   local self = peripheral.getName(c)
