@@ -831,7 +831,7 @@
       if (!lines.length) s.put(1, H - 2, fitT(" No orders.", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("C: charcoal  S: stone  X: cancel an order", W), "gray");
+      s.put(1, H, fitT("C: charcoal  S: stone  G: glass  X: cancel an order", W), "gray");
       const order = () => {
         if (!st.orders.length) {
           st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });

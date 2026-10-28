@@ -53,8 +53,19 @@ run out.
 Press **S** and say how much stone to make from the cobblestone in
 storage. It works like a charcoal order (plain furnaces only, carries on
 after a reboot, stops early if the cobblestone runs out), and the stone
-goes into storage. Both orders can run at once: plain furnaces start on
-the charcoal first, then the stone, and both come before ores and food.
+goes into storage.
+
+### Making glass
+
+Press **G** and say how much glass to make. It smelts sand and red sand,
+whichever there's more of, and carries on with the other when one runs
+out (`smelter glass <n> red` sticks to red sand). Like stone, it uses
+plain furnaces only (blast furnaces and smokers can't smelt sand), carries
+on after a reboot, and the glass goes into storage.
+
+All three orders can run at once: plain furnaces start on the charcoal
+first, then the stone, then the glass, and all of them come before ores and
+food.
 
 The screen lists each furnace (blast furnaces in orange, smokers in pink), what's in it and its fuel, how much
 smelting the stored fuel is good for, and what it did last. With a
@@ -93,13 +104,16 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter charcoal 256 spruce    -- make 256 charcoal from spruce logs
    smelter charcoal 64            -- make 64 from the logs there are most of
    smelter stone 512              -- make 512 stone from cobblestone
+   smelter glass 256              -- make 256 glass from sand (or red sand)
+   smelter glass 64 red           -- make 64 glass from red sand only
    smelter cancel stone           -- stop making stone
-   smelter cancel                 -- stop both orders
+   smelter cancel                 -- stop every order
    ```
 
 On the running smelter, **C** starts a charcoal order, **S** a stone order,
-and **X** cancels one (it asks which when both are running). The `smelter
-charcoal` and `smelter stone` commands do the same from another tab (or
+**G** a glass order, and **X** cancels one (it asks which when more than one
+is running). The `smelter charcoal`, `smelter stone` and `smelter glass`
+commands do the same from another tab (or
 after stopping it with Ctrl+T); the running smelter picks them up within
 10 seconds.
 

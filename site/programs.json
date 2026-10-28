@@ -987,7 +987,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal or cobblestone into stone on request.",
+      "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal, cobblestone into stone or sand into glass on request.",
       "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
@@ -1004,7 +1004,7 @@
         "Shares the work out between furnaces, blast furnaces and smokers first",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
-        "Press S to smelt cobblestone into stone; both orders can run at once",
+        "Press S to smelt cobblestone into stone, G to smelt sand into glass; the orders can run at once",
         "Smelted goods go back into storage through the input chest"
       ],
       "setup": [
@@ -1016,6 +1016,7 @@
         ["smelter", "start (runs on boot)"],
         ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
         ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
+        ["smelter glass 256", "make 256 glass from sand or red sand (or press G)"],
         ["smelter cancel stone", "stop an order; no name stops both (or press X)"]
       ],
       "integrates": [
@@ -1023,12 +1024,12 @@
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
         ["enricher-computer", "Enriches ores into dust first, for up to twice the ingots; the smelter smelts the dust."],
-        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal or stone order."]
+        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal, stone or glass order."]
       ],
       "render": {
         "kind": "screen",
         "scene": "smelter",
-        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal or stone order."
+        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order."
       },
       "terminal": {
         "device": "computer",

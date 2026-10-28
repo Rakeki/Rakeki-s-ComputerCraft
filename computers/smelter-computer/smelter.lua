@@ -4,7 +4,7 @@
 -- smokers and furnaces, fuel comes from the storage computer's fuel chest,
 -- and what's smelted goes back into storage through its input chest. On
 -- order it also burns spare logs into charcoal, which ends up in the fuel
--- chest, and smelts cobblestone into stone. With an enricher
+-- chest, smelts cobblestone into stone and sand into glass. With an enricher
 -- (computers/enricher-computer) running, it leaves the ores that go into the
 -- enrichment chambers alone and smelts their dust instead.
 --
@@ -12,7 +12,9 @@
 --   smelter charcoal <n> [wood]    make n charcoal from logs, e.g. 'smelter charcoal 256 spruce'
 --                                  (no wood: the kind there's most of)
 --   smelter stone <n>              make n stone from cobblestone
---   smelter cancel [charcoal|stone]  stop an order (no name: both)
+--   smelter glass <n> [red]        make n glass from sand (red: from red sand only;
+--                                  otherwise whichever sand there's most of)
+--   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -129,18 +131,38 @@ local function pickWood(want, counts)
   return best
 end
 
+-- Both sands make glass. The sand a glass order smelts: the one it names,
+-- or whichever there's most of, round by round, so it carries on with the
+-- other when one runs out.
+local SANDS = { "minecraft:sand", "minecraft:red_sand" }
+local function isSand(name) return name == SANDS[1] or name == SANDS[2] end
+local function pickSand(want, counts)
+  local best, most = nil, 0
+  for _, name in ipairs(SANDS) do
+    local n = counts[name] or 0
+    if n > most and not noSmelt["furnace:" .. name] and (not want or want == name) then best, most = name, n end
+  end
+  return best
+end
+
 -- What can be ordered, worked on in this order by plain furnaces (blast
--- furnaces and smokers can't burn logs or cobblestone). Each order is kept
--- in its own file across reboots; the charcoal one keeps its old name.
+-- furnaces and smokers can't burn logs, cobblestone or sand). Each order is
+-- kept in its own file across reboots; the charcoal one keeps its old name.
+-- key: the screen's key for it; input/verb: how the cancel message says it;
+-- mixed: may change input from round to round (otherwise it sticks to the
+-- first one it picks).
 local ORDERS = {
-  { kind = "charcoal", file = "/.smelter_job", made = "minecraft:charcoal", from = "logs",
-    isInput = isWood, pick = pickWood },
-  { kind = "stone", file = "/.smelter_stone", made = "minecraft:stone", from = "cobblestone",
+  { kind = "charcoal", key = "c", file = "/.smelter_job", made = "minecraft:charcoal", from = "logs",
+    input = "Logs", verb = "burn", isInput = isWood, pick = pickWood },
+  { kind = "stone", key = "s", file = "/.smelter_stone", made = "minecraft:stone", from = "cobblestone",
+    input = "Cobblestone", verb = "smelts",
     isInput = function(name) return name == "minecraft:cobblestone" end,
     pick = function(_, counts)
       local name = "minecraft:cobblestone"
       if (counts[name] or 0) > 0 and not noSmelt["furnace:" .. name] then return name end
     end },
+  { kind = "glass", key = "g", file = "/.smelter_glass", made = "minecraft:glass", from = "sand",
+    input = "Sand", verb = "smelts", mixed = true, isInput = isSand, pick = pickSand },
 }
 local orderKind = {}
 for _, o in ipairs(ORDERS) do orderKind[o.kind] = o end
@@ -284,7 +306,7 @@ local function round()
     local t = orders[o.kind]
     if t then
       local item = o.pick(t.item, counts)
-      if not t.item then t.item = item end -- 'any logs': stick to one kind
+      if not t.item and not o.mixed then t.item = item end -- 'any logs': stick to one kind
       local burning = false
       for _, f in ipairs(furnaces) do
         if f.input and o.isInput(f.input.name) then burning = true end
@@ -348,7 +370,7 @@ local function round()
   end
   -- then fill empty ones: blast furnaces and smokers first (twice as fast,
   -- but only ores or only food), and plain furnaces put the orders ahead of
-  -- the rest, charcoal before stone
+  -- the rest, charcoal before stone before glass
   local empty = {}
   for _, f in ipairs(furnaces) do
     if not f.input and (f.fuel or haveFuel) then empty[#empty + 1] = f end
@@ -468,7 +490,7 @@ local function draw()
     put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
   end
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("C: charcoal  S: stone  X: cancel an order", w), "gray")
+  put(1, h, fitText("C: charcoal  S: stone  G: glass  X: cancel an order", w), "gray")
   display:show()
 end
 
@@ -517,43 +539,56 @@ local function charcoalPrompt()
   say(("Making %d charcoal from %s."):format(n, nice(pick.name)), "lightBlue")
 end
 
--- Ask how much stone to make from the cobblestone in storage.
-local function stonePrompt()
+-- Ask how much stone (or glass) to make from the cobblestone (or sand) in
+-- storage. item: what it's made from, nil for any of the order's inputs.
+local function amountPrompt(kind, item)
+  local o = orderKind[kind]
   promptScreen()
-  local have = stock and stock.counts["minecraft:cobblestone"] or 0
+  local have = 0
+  for name, n in pairs(stock and stock.counts or {}) do
+    if o.isInput(name) and (not item or name == item) then have = have + n end
+  end
   if have == 0 then
-    print(stock and "There's no cobblestone in storage to make stone from." or "The storage computer hasn't answered yet.")
+    print(stock and ("There's no %s in storage to make %s from."):format(o.from, kind) or "The storage computer hasn't answered yet.")
     anyKey()
     return
   end
-  if jobs.stone then print(("This replaces the order for %d stone."):format(jobs.stone.count)) end
-  write(("How much stone? (up to %d, Enter to cancel) "):format(have))
+  if jobs[kind] then print(("This replaces the order for %d %s."):format(jobs[kind].count, kind)) end
+  write(("How much %s? (up to %d, Enter to cancel) "):format(kind, have))
   local n = tonumber(read())
   if not n or n < 1 then return end
   n = math.floor(n)
-  newOrder("stone", "minecraft:cobblestone", n)
+  newOrder(kind, item, n)
   jobs = readOrders()
-  say(("Making %d stone from cobblestone."):format(n), "lightBlue")
+  say(("Making %d %s from %s."):format(n, kind, o.from), "lightBlue")
 end
 
 local function cancelled(kind)
-  return ("%s order cancelled. %s already in furnaces still %s."):format(kind == "charcoal" and "Charcoal" or "Stone",
-    kind == "charcoal" and "Logs" or "Cobblestone", kind == "charcoal" and "burn" or "smelts")
+  local o = orderKind[kind]
+  return ("%s%s order cancelled. %s already in furnaces still %s."):format(kind:sub(1, 1):upper(), kind:sub(2), o.input, o.verb)
 end
 
--- Cancel the one order there is, or ask which when there are both.
+-- Cancel the one order there is, or ask which when there are more.
 local function cancelPrompt()
-  local kind = jobs.charcoal and "charcoal" or "stone"
-  if jobs.charcoal and jobs.stone then
+  local running = {}
+  for _, o in ipairs(ORDERS) do
+    if jobs[o.kind] then running[#running + 1] = o end
+  end
+  if #running == 0 then return end
+  local kind = running[1].kind
+  if #running > 1 then
     promptScreen()
     print("Cancel which order?")
-    print(("  C  charcoal (%d of %d made)"):format(jobs.charcoal.made, jobs.charcoal.count))
-    print(("  S  stone (%d of %d made)"):format(jobs.stone.made, jobs.stone.count))
-    print("  any other key: neither")
+    for _, o in ipairs(running) do
+      print(("  %s  %s (%d of %d made)"):format(o.key:upper(), o.kind, jobs[o.kind].made, jobs[o.kind].count))
+    end
+    print("  any other key: none")
     local _, c = os.pullEvent("char")
-    c = c:lower()
-    if c ~= "c" and c ~= "s" then return end
-    kind = c == "c" and "charcoal" or "stone"
+    kind = nil
+    for _, o in ipairs(running) do
+      if c:lower() == o.key then kind = o.kind end
+    end
+    if not kind then return end
   end
   cancelOrder(kind)
   jobs[kind] = nil
@@ -569,8 +604,10 @@ local function uiLoop()
     if a == "c" then
       charcoalPrompt()
     elseif a == "s" then
-      stonePrompt()
-    elseif a == "x" and (jobs.charcoal or jobs.stone) then
+      amountPrompt("stone", "minecraft:cobblestone")
+    elseif a == "g" then
+      amountPrompt("glass", nil)
+    elseif a == "x" then
       cancelPrompt()
     end
   end
@@ -612,9 +649,20 @@ elseif args[1] == "stone" then
   print(("Stone order saved: %d from cobblestone."):format(math.floor(n)))
   print("The smelter starts on it within 10 seconds, or when it's next started.")
   return
+elseif args[1] == "glass" then
+  local n = tonumber(args[2])
+  if not n or n < 1 or (args[3] and args[3] ~= "red") then
+    print("Usage: smelter glass <how many> [red]")
+    return
+  end
+  local sand = args[3] == "red" and "minecraft:red_sand" or nil
+  newOrder("glass", sand, math.floor(n))
+  print(("Glass order saved: %d from %s."):format(math.floor(n), sand and "red sand" or "whichever sand there's most of"))
+  print("The smelter starts on it within 10 seconds, or when it's next started.")
+  return
 elseif args[1] == "cancel" then
   if args[2] and not orderKind[args[2]] then
-    print("Usage: smelter cancel [charcoal|stone]")
+    print("Usage: smelter cancel [charcoal|stone|glass]")
     return
   end
   for _, o in ipairs(ORDERS) do

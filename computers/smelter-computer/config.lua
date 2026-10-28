@@ -2,8 +2,8 @@
 return {
   -- Items smelted whenever there are any in storage: Lua patterns matched
   -- against the item's id, like "minecraft:raw_iron". Add more to smelt
-  -- other things, e.g. "^minecraft:sand$" for glass or
-  -- "^minecraft:cobblestone$" for stone.
+  -- other things, e.g. "^minecraft:sand$" to turn all sand into glass
+  -- (for a set amount, use a glass order: G on the screen).
   smelt = {
     ":raw_", -- raw iron, gold and copper, and raw ores from mods
     "_ore$", -- ore blocks (silk-touched, or from mods)
