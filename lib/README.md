@@ -30,7 +30,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
   `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present), `crate-turtle` (if present),
-  `build-control` (if present) and the computer template.
+  `build-control` (if present), `instabuild` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
@@ -59,7 +59,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer`, `smelter-computer`, `cooker-computer`,
-  `fission-guard`, `enricher-computer`, `crate-turtle` and `build-control`.
+  `fission-guard`, `enricher-computer`, `crate-turtle`, `build-control` and `instabuild`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,
@@ -67,7 +67,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `gps-deployer` and `builder-turtle`.
 - `plan.lua`: building plans: loads a `.json` or `.lua` plan from `/plans`
   (legend + layers, or a block list) and places it in the world, turned to
-  face any way. Used by `blueprint-projector` and `build-control`.
+  face any way. Used by `blueprint-projector`, `build-control` and `instabuild`.
 - `crew.lua`: hands a building to the [builder
   turtles](../computers/builder-turtle/README.md) in strips (up to 4), follows
   their progress, gives waiting strips to the next free one, and stops them.

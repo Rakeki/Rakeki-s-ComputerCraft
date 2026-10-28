@@ -28,7 +28,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   net.lua                   Rednet: opening modems, requests with ids and deadlines, answers, cached lookups
   files.lua                 Crash-safe save files (temp file, then move); nav.writeFile etc. are these
   inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
-  plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks)
+  plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks); projector, build-control, instabuild
   crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
                             'install plan <name>' puts one in /plans, a program's "plans" field installs some with it
@@ -43,7 +43,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence, build control)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence, build control, instabuild)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -182,6 +182,7 @@ Existing computers:
 | `mob-farm-turtle` | Standalone turtle: drop-tower mob farm with water channels | nav, report, errlog, inv, files |
 | `blueprint-projector` | Projects building plans from /plans with CC: Spatial Projector, monitor controls; Build sends the plan to the builder turtles (lib/crew.lua) | screen, net, files, plan, crew, report, errlog (if present) |
 | `build-control` | Sends a plan from /plans to the builder turtles at typed coordinates (north-west bottom corner, facing), no projector; follows them | plan, crew, net, files, report, errlog (if present) |
+| `instabuild` | Command computer (creative): places a plan from /plans with setblock/fill runs at typed coordinates, clears ground plans' box, keeps block entities, undo | plan, files, errlog (if present) |
 | `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim, inv, net, files |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog, inv, files |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog, inv, files |

@@ -747,6 +747,52 @@
       "terminal": null
     },
     {
+      "name": "instabuild",
+      "title": "Instabuild",
+      "command": "instabuild",
+      "device": "computer",
+      "deviceLabel": "Command computer (creative only)",
+      "color": "purple",
+      "tagline": "Creative only: places a whole plan in seconds from a command computer, no turtles or materials, and undoes it again.",
+      "libs": ["plan", "files", "errlog"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
+      "stats": [
+        ["Sky station", "21,548 blocks in seconds"],
+        ["Plans", "JSON or Lua in /plans"],
+        ["Undo", "the last build"],
+        ["Needs", "a command computer"]
+      ],
+      "features": [
+        "Any plan in /plans, at the same coordinates and facing as build control",
+        "Ground plans clear their box first; plans built in the air only place their blocks",
+        "Never replaces chests, barrels, computers or turtles",
+        "Keeps a copy of what it changes: instabuild undo puts it all back",
+        "A row of the same block goes in with one fill"
+      ],
+      "setup": [
+        "In a creative world: /give @s computercraft:computer_command, and place it anywhere.",
+        "Install this on it. More plans: install plan <name>.",
+        "Run instabuild <plan> <x> <y> <z> [facing], check the box it prints, and press y."
+      ],
+      "commands": [
+        ["instabuild list", "the plans here, with their sizes"],
+        ["instabuild check <plan>", "its size and the blocks it uses"],
+        ["instabuild <plan> <x> <y> <z> [facing]", "build it with its north-west bottom corner at x y z"],
+        ["instabuild <plan> here [facing]", "2 blocks south of this computer, on its level"],
+        ["instabuild undo", "put back what the last build replaced"]
+      ],
+      "integrates": [
+        ["build-control", "Same plans and coordinates: try a spot with instabuild, undo, then have the turtles build it for real."],
+        ["blueprint-projector", "Shows the same plans as outlines first."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "instabuild",
+        "caption": "On a command computer: the sky station placed in one go, a run of the same block at a time."
+      },
+      "terminal": null
+    },
+    {
       "name": "storage-computer",
       "title": "Storage System",
       "command": "storage",

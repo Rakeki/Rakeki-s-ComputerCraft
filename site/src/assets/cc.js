@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
 // and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher,
-// the essence computer, and build control on a pocket computer.
+// the essence computer, build control on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1570,5 +1570,40 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence, buildControl } };
+  //---------------------------------------------------------------- instabuild
+
+  // computers/instabuild/instabuild.lua on a command computer: the sky
+  // station going in, with the program's own print text.
+  function instabuild(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const runs = 10459;
+    let done = 0;
+    function draw() {
+      s.clear();
+      const lines = [
+        ["> instabuild skystation 100 150 -40", "white"],
+        ["Sky Station facing north: 63 x 63 x 78, 21548", "white"], ["blocks,", "white"],
+        ["from 100,150,-40 to 162,227,22.", "white"],
+        ["It's built in the air: only its own blocks are", "lightGray"], ["placed.", "lightGray"],
+        ["Build it? (y/n) y", "yellow"],
+        ["Looking at what's there...", "white"],
+        [`Building: ${done} of ${runs} runs`, "white"],
+      ];
+      if (done >= runs) {
+        lines.push(["Built Sky Station: 21548 blocks changed.", "lime"], ["'instabuild undo' puts back what was there.", "white"]);
+      }
+      lines.forEach(([t, c], i) => s.put(1, i + 1, t.slice(0, W), c));
+      s.render();
+    }
+    let pause = 0;
+    setInterval(() => {
+      if (done >= runs) { if (++pause > 4) { done = 0; pause = 0; } } else done = Math.min(runs, done + 800);
+      draw();
+    }, 600);
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence, buildControl, instabuild } };
 })();

@@ -81,3 +81,6 @@ east from there whichever way it faces.
   follow it from the computer that started it.
 - Builders take strips only when they're free: to have four share a
   building, set them all up before you run `build`.
+- In creative, [instabuild](../instabuild/README.md) places a plan at the
+  same coordinates in seconds from a command computer, and undoes it: handy
+  for trying a spot before the turtles build it.
