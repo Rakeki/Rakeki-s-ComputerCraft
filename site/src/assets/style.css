@@ -483,3 +483,18 @@ pre.code, .readme pre {
   * { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* plan viewer (plans.js) */
+.plan-stage { padding: 10px 0 64px; }
+.plan-layers { position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+.plan-layers input[type=range] { flex: 1; min-width: 140px; accent-color: var(--cc-pink); }
+.plan-layers .only { display: flex; gap: 6px; align-items: center; }
+.plan-info { margin-top: 14px; display: grid; gap: 12px; }
+.plan-mats td:last-child { text-align: right; white-space: nowrap; }
+.plan-mats .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 1px solid #000; vertical-align: -1px; }
+.plan-uses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+@media (max-width: 900px) { .plan-uses { grid-template-columns: 1fr; } }
+.lib-card h3 a { color: inherit; }
+.drop { display: grid; gap: 4px; place-items: center; padding: 22px 12px; border: 2px dashed var(--line); border-radius: var(--radius); cursor: pointer; text-align: center; color: var(--muted); }
+.drop.over, .drop:hover { border-color: var(--cc-pink); color: var(--text); }
+.paste { width: 100%; min-height: 110px; margin: 12px 0 10px; font-family: var(--font-code); font-size: 13px; background: #111; color: #f0f0f0; border: 2px solid #000; padding: 8px; box-sizing: border-box; resize: vertical; }

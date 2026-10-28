@@ -8,6 +8,7 @@
   const cc = (name) => `var(--cc-${name})`;
   const icon = (device) => `${ROOT}assets/${device === "turtle" ? "turtle" : "computer"}.svg`;
   const progUrl = (name) => `${ROOT}programs/${name}/`;
+  const planUrl = (name) => `${ROOT}plans/${name}/`;
   const libUrl = (name) => `${ROOT}libraries/${name}/`;
   const byName = Object.fromEntries(SITE.programs.map((p) => [p.name, p]));
   const libByName = Object.fromEntries(SITE.libraries.map((l) => [l.name, l]));
@@ -145,10 +146,10 @@
     for (const pl of SITE.plans || []) {
       const card = h(`
         <div class="lib-card">
-          <h3>${esc(pl.title)}</h3>
+          <h3><a href="${planUrl(pl.name)}">${esc(pl.title)}</a></h3>
           <p>${esc(pl.tagline)}</p>
           ${field(`install plan ${pl.name}`)}
-          <div class="meta"><span class="pill">${esc(pl.size)}</span><span class="pill">${pl.blocks.toLocaleString("en")} blocks</span><a class="pill" href="${ROOT}plans/${pl.file}">${esc(pl.file)}</a></div>
+          <div class="meta"><span class="pill">${esc(pl.size)}</span><span class="pill">${pl.blocks.toLocaleString("en")} blocks</span><a class="pill" href="${planUrl(pl.name)}">See it in 3D</a></div>
         </div>`);
       planCards.append(card);
     }
@@ -488,6 +489,108 @@
     highlight();
   }
 
+  //---------------------------------------------------------------- plans
+
+  // The plan, loaded and drawn into holder by plans.js; says why if it can't.
+  async function showPlan(holder, loading) {
+    holder.innerHTML = `<div class="loading">Loading the plan</div>`;
+    try {
+      const plan = await loading;
+      PlanView.mount(holder, plan);
+      return plan;
+    } catch (e) {
+      holder.innerHTML = `<div class="box"><h3>Couldn't show that plan</h3><p>${esc(e.message || e)}</p></div>`;
+    }
+  }
+
+  // How to use a plan, in each program that takes one.
+  const planUses = (name) => `
+    <div class="box"><h3>Show it</h3>${field(`projector ${name}`)}<p>On the <a href="${progUrl("blueprint-projector")}">blueprint projector</a>: outlines in the world, moved and turned from the monitor, then Build.</p></div>
+    <div class="box"><h3>Have turtles build it</h3>${field(`build ${name} <x> <y> <z> north`)}<p>From <a href="${progUrl("build-control")}">build control</a>: the builder turtles share it, in strips. x y z is its north-west bottom corner.</p></div>
+    <div class="box"><h3>Place it at once (creative)</h3>${field(`instabuild ${name} <x> <y> <z> north`)}<p>From a command computer with <a href="${progUrl("instabuild")}">instabuild</a>; <code>instabuild undo</code> takes it away again.</p></div>`;
+
+  function planPage(pl) {
+    document.body.style.setProperty("--c", cc("pink"));
+    const main = $("main");
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#plans">Plans</a> / ${esc(pl.title)}</div>
+          <div class="p-title"><img class="icon" src="${ROOT}assets/floppy.svg" alt=""><h1>${esc(pl.title)}<small>plans/${esc(pl.file)}</small></h1></div>
+          <p class="lead">${esc(pl.tagline)}</p>
+          <div class="meta"><span class="pill">${esc(pl.size)}</span><span class="pill">${pl.blocks.toLocaleString("en")} blocks</span><a class="pill" href="https://github.com/${SITE.repo}/blob/main/plans/${pl.file}">Source on GitHub</a></div>
+        </div>
+        <div class="mc-panel install-panel">
+          <h3><img src="${ROOT}assets/floppy.svg" alt=""> Install</h3>
+          ${field(`install plan ${pl.name}`)}
+          <p>Puts it in <code>/plans</code> on the computer, where the projector, build control and instabuild find it. It comes with all three already.</p>
+        </div>
+      </div></section>
+      <section class="block" style="padding-top:20px"><div class="wrap"><div id="plan-view"></div></div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Use it</small>Build it</h2></div>
+        <div class="plan-uses">${planUses(pl.name)}</div>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Source</small>plans/${esc(pl.file)}</h2><p>${pl.file.endsWith(".lua") ? "Made by code: a Lua plan returns the same table a JSON plan holds." : "A JSON plan: each layer drawn as rows of letters, seen from above."} <a href="${ROOT}viewer/">View a plan of your own</a>.</p></div>
+        <div id="files"></div>
+      </div></section>`;
+    showPlan($("#plan-view"), PlanView.load(`${ROOT}plans/${pl.file}`));
+    filesSection(pl.files, $("#files"), true);
+  }
+
+  // Any plan: drop or pick a file, or paste JSON, and see it.
+  function viewerPage() {
+    document.body.style.setProperty("--c", cc("pink"));
+    const main = $("main");
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#plans">Plans</a> / Plan viewer</div>
+          <div class="p-title"><img class="icon" src="${ROOT}assets/floppy.svg" alt=""><h1>Plan viewer<small>JSON or Lua</small></h1></div>
+          <p class="lead">See any building plan in 3D before it goes on a computer: drop in a plan file, or paste one. It's read the way the computers read it, so if it shows here, it loads there.</p>
+          <div class="meta">${(SITE.plans || []).map((p) => `<button class="chip" data-plan="${esc(p.file)}">${esc(p.title)}</button>`).join(" ")}</div>
+        </div>
+        <div class="mc-panel install-panel">
+          <h3><img src="${ROOT}assets/floppy.svg" alt=""> Your plan</h3>
+          <label class="drop" tabindex="0"><input type="file" accept=".json,.lua" hidden><b>Drop a .json or .lua plan here</b><span>or click to pick one</span></label>
+          <textarea class="paste" spellcheck="false" placeholder='{ "name": "Hut", "legend": { "P": "minecraft:oak_planks" }, "layers": [["PPP", "P.P", "PPP"]] }'></textarea>
+          <button class="mc-btn small green show">Show it</button>
+        </div>
+      </div></section>
+      <section class="block" style="padding-top:20px"><div class="wrap"><div id="plan-view"><div class="box"><p>Pick a plan above, or drop one in.</p></div></div></div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>Writing one</small>The plan format</h2><p>The full guide is in the <a href="${progUrl("blueprint-projector")}#plans">blueprint projector's manual</a>.</p></div>
+        <pre class="code"><code class="language-json"></code></pre>
+      </div></section>`;
+    $("pre code", main).textContent = `{
+  "name": "Gatehouse",
+  "legend": {
+    "C": "minecraft:cobblestone",
+    "P": "minecraft:oak_planks",
+    "G": ["minecraft:glass", "#99ddff"]
+  },
+  "layers": [
+    ["CCCCC", "C...C", "CCCCC"],
+    ["PPGPP", "P...P", "PPPPP"]
+  ]
+}`;
+    highlight();
+    const view = $("#plan-view");
+    const input = $(".drop input", main);
+    const fromFile = async (file) => showPlan(view, PlanView.fromText(await file.text(), file.name));
+    input.onchange = () => input.files[0] && fromFile(input.files[0]);
+    const drop = $(".drop", main);
+    drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+    drop.ondragleave = () => drop.classList.remove("over");
+    drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) fromFile(e.dataTransfer.files[0]); };
+    $(".show", main).onclick = () => {
+      const text = $(".paste", main).value;
+      if (text.trim()) showPlan(view, PlanView.fromText(text, /^\s*[{[]/.test(text) ? "pasted.json" : "pasted.lua"));
+    };
+    main.querySelectorAll("[data-plan]").forEach((b) => { b.onclick = () => showPlan(view, PlanView.load(`${ROOT}plans/${b.dataset.plan}`)); });
+  }
+
   //---------------------------------------------------------------- go
 
   const kind = document.body.dataset.kind;
@@ -495,6 +598,8 @@
   const start = () => {
     if (kind === "program") programPage(byName[name]);
     else if (kind === "library") libraryPage(libByName[name]);
+    else if (kind === "plan") planPage((SITE.plans || []).find((p) => p.name === name));
+    else if (kind === "viewer") viewerPage();
     else home();
   };
   // fonts first, so canvases and terminals measure correctly
