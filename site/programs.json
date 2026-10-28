@@ -430,12 +430,11 @@
       "setup": [
         "Place an advanced computer with a modem, plus any monitors.",
         "Reboot. The server starts on its own and restarts if it ever stops.",
-        "With GPS, place a miner with a chest right behind it: that spot becomes the dock. Without GPS, set it in config.lua."
+        "Place each miner where it should live, with its own chest right behind it: that spot is its home."
       ],
       "commands": [
-        ["miner dock", "on a miner with a chest behind it: move the dock there"],
         ["server clear", "drop every queued and in-progress chunk (Ctrl+T first, then reboot)"],
-        ["edit config.lua", "cruise height, depth, monitors (and the dock without GPS)"],
+        ["edit config.lua", "cruise height, depth, monitors, junk list"],
         ["reboot", "start the server"]
       ],
       "integrates": [
@@ -463,24 +462,24 @@
       ],
       "features": [
         "Flies at its own cruise lane so miners don't collide",
-        "Drops junk as it goes, docks to unload and refuel",
+        "Drops junk as it goes, goes home to unload and refuel",
         "Picks up where it stopped after a reboot",
-        "Parks beside the dock when there's nothing queued"
+        "Waits at home, its own spot and chest, when there's nothing queued"
       ],
       "setup": [
         "Craft a mining turtle with an ender modem (or wireless modem).",
         "Place it, give it a bit of coal and run 'refuel all'.",
         "Install and reboot. It names itself Miner-<id>.",
         "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z.",
-        "First miner: put a chest right behind it, open sky above. That spot becomes the dock (GPS), no coordinates needed."
+        "Every miner: put its own chest right behind it, open sky above. That spot is its home: it unloads, refuels and waits there."
       ],
       "commands": [
-        ["miner dock", "make this spot the dock (chest behind me), e.g. to move it"],
+        ["miner home", "make this spot my home (chest behind me), e.g. to move it"],
         ["refuel all", "before the first start"],
         ["reboot", "start mining"]
       ],
       "integrates": [
-        ["mine-server", "Gets jobs and dock access from the server."],
+        ["mine-server", "Gets jobs from the server; the server never mines a chunk with a miner's home in it."],
         ["gps-deployer", "GPS lets new miners find their position and facing on their own, and keeps them on track while mining."],
         ["status-server", "Each miner shows up with its chunk, progress and fuel."]
       ],
@@ -492,7 +491,8 @@
           ["travelling: to chunk 3,-2", "", "lightBlue"],
           ["mining: chunk 3,-2 layer 4/40", "", "lime"],
           ["mining: chunk 3,-2 layer 5/40", "", "lime"],
-          ["docking: inventory full", "", "lightBlue"],
+          ["returning", "", "lightBlue"],
+          ["unloading", "", "lightBlue"],
           ["mining: chunk 3,-2 layer 6/40", "", "lime"]
         ]
       }

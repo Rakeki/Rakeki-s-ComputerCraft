@@ -8,7 +8,7 @@ local OFFLINE_AFTER = 30
 
 local STATE_COLOR = {
   mining = colors.lime,
-  docking = colors.lightBlue,
+  unloading = colors.lightBlue,
   waiting = colors.yellow,
   returning = colors.lightBlue,
   idle = colors.lightGray,
@@ -60,8 +60,6 @@ function status:draw(m)
   end
   y = y + 1
   put(win, 2, y, ("Turtles %d/%d online"):format(online, #ids), colors.lightGray)
-  local dockText = m.dockHolder and ("Dock: #" .. m.dockHolder) or "Dock: free"
-  if w >= 24 + #dockText then put(win, w - #dockText, y, dockText, colors.lightGray) end
   y = y + 2
 
   -- one row per turtle: name, state, chunk, progress bar, fuel

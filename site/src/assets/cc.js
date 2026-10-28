@@ -181,7 +181,7 @@
     const turtles = [
       { id: 3, label: "Miner-3", state: "mining", detail: "layer 31/40", fuel: 4120 },
       { id: 7, label: "Miner-7", state: "mining", detail: "layer 12/40", fuel: 2210 },
-      { id: 12, label: "Miner-12", state: "docking", detail: "inventory full", fuel: 860 },
+      { id: 12, label: "Miner-12", state: "unloading", detail: "at home", fuel: 860 },
     ];
     let viewX = 0, viewZ = 0, brush = "look", selected = null, paused = false;
     const BRUSHES = [["look", "Look"], ["queued", "Queue"], ["player", "Me"], ["none", "Clear"], ["done", "Done"]];
@@ -294,7 +294,7 @@
     const start = now();
     const comps = [
       { id: 7, label: "Miner-7", role: "auto miner", kind: "turtle", state: "mining", detail: "chunk -2,0 layer 12/40", pos: [-27, 41, 6], from: "tracked", fuel: 2210, limit: 20000 },
-      { id: 12, label: "Miner-12", role: "auto miner", kind: "turtle", state: "unloading", detail: "at the dock", pos: [3, 64, 2], from: "tracked", fuel: 860, limit: 20000 },
+      { id: 12, label: "Miner-12", role: "auto miner", kind: "turtle", state: "unloading", detail: "at home", pos: [3, 64, 2], from: "tracked", fuel: 860, limit: 20000 },
       { id: 21, label: "Excavator-21", role: "excavator", kind: "turtle", state: "digging", detail: "hall 43% (room 3/24)", pos: [140, -8, -61], from: "gps", fuel: 9840, limit: 20000 },
       { id: 4, label: "AutoMine", role: "mine server", kind: "computer", state: "running", detail: "3 turtles, 9 queued", pos: [0, 65, -3], from: "fixed" },
       { id: 30, label: "Builder-30", role: "village builder", kind: "turtle", state: "waiting", detail: "needs 87 spruce_stairs", pos: [212, 70, 88], from: "gps", fuel: 4100, limit: 20000 },
@@ -372,7 +372,7 @@
         if (c.state === "digging") { c.fuel -= 14; c.detail = c.detail.replace(/(\d+)%/, (_, n) => `${Math.min(99, +n + 1)}%`); }
         if (c.label === "Miner-12" && Math.random() < 0.25) {
           c.state = c.state === "unloading" ? "travelling" : c.state === "travelling" ? "mining" : "unloading";
-          c.detail = { unloading: "at the dock", travelling: "to chunk 2,-1", mining: "chunk 2,-1 layer 1/40" }[c.state];
+          c.detail = { unloading: "at home", travelling: "to chunk 2,-1", mining: "chunk 2,-1 layer 1/40" }[c.state];
           if (c.state === "unloading") c.fuel = 18500;
         }
       }

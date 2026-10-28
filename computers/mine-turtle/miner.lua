@@ -1,11 +1,10 @@
 -- AutoMine turtle: asks the server for a chunk, strip-mines it top to bottom
--- in 3-high layers, and returns to the dock to unload and refuel when needed.
+-- in 3-high layers, and goes home to unload and refuel when needed. Home is
+-- where the player placed it, with its own chest right behind it; with
+-- nothing to do it waits there.
 --
 --   miner          mine (startup.lua runs this)
---   miner dock     make this spot the dock (chest behind me), e.g. to move it
---
--- With no dock yet, a miner with a chest right behind it makes its own spot
--- the dock (position from GPS), so nobody types coordinates.
+--   miner home     make this spot my home (chest behind me), e.g. to move it
 local args = { ... }
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
@@ -15,11 +14,13 @@ local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local PROTOCOL = "automine"
 local JOB_FILE = "/.automine_job"
+local HOME_FILE = "/.automine_home"
 local STATUS_INTERVAL = 5
 local POSITION_CHECK_CELLS = 32 -- cells mined between GPS checks of the tracked position
 
 local serverId
-local config -- sent by the server: dock, cruiseY, lanes, targetFuel, minFuel, junk
+local config -- sent by the server: cruiseY, lanes, targetFuel, minFuel, junk
+local home -- { x, y, z, heading, chestDir, fuelDir }: this turtle's own spot and chests
 local junk = {}
 local job -- { cx, cz, yTop, yBottom, layer, cell }
 local paused = false
@@ -104,6 +105,7 @@ local function sendStatus(force)
     msg = stateMsg,
     job = job and { cx = job.cx, cz = job.cz },
     progress = progress(),
+    home = home, -- the server never mines a chunk with a miner's home in it
   })
 end
 
@@ -141,8 +143,8 @@ local fuelLevel = inv.fuelLevel
 -- Each turtle travels at its own altitude so they don't fly into each other.
 local function laneY() return config.cruiseY + (os.getComputerID() % config.lanes) end
 
-local function fuelToDock()
-  local p, d = nav.getPos(), config.dock
+local function fuelToHome()
+  local p, d = nav.getPos(), home
   return math.abs(p.y - laneY()) + math.abs(p.x - d.x) + math.abs(p.z - d.z) + math.abs(laneY() - d.y)
 end
 
@@ -162,7 +164,7 @@ local function dropJunk()
   turtle.select(1)
 end
 
----------------------------------------------------------------- travel and dock
+---------------------------------------------------------------- travel and home
 
 local function check(ok, err)
   if not ok then error("can't move: " .. tostring(err), 0) end
@@ -191,16 +193,6 @@ local function travelTo(x, y, z)
   check(nav.goTo(x, y, z))
 end
 
-local function acquireDock()
-  setState("waiting", "dock busy")
-  while true do
-    local r = request({ type = "dock_request" }, "dock")
-    if r.granted then return end
-    sendStatus()
-    sleep(3)
-  end
-end
-
 -- Facing a chest: take fuel out of it until reaching target. Anything that
 -- isn't fuel (or is left over) goes back in. Same as excavate-turtle's.
 local function refuelFromChest(target)
@@ -225,95 +217,77 @@ local function refuelFromChest(target)
   turtle.select(1)
 end
 
--- Fly home, burn the coal it dug, empty everything into the dock's chest
--- (behind the dock spot; below it on an older dock set in config.lua), top up
--- fuel from the fuel chest or the dock chest, then climb back to cruising height.
-local function visitDock()
-  dropJunk()
-  acquireDock()
-  setState("docking")
-  local d = config.dock
-  local ok, err = pcall(function()
-    travelTo(d.x, d.y, d.z)
-    local side, drop = "bottom", turtle.dropDown
-    if d.chestDir then
-      nav.face(d.chestDir)
-      side, drop = "front", turtle.drop
+-- At home: burn the coal it dug, empty everything into the chest behind
+-- the home spot, top up fuel from the fuel chest beside it (or the home chest
+-- itself), then face the way it was placed.
+local function unloadAtHome()
+  nav.face(home.chestDir)
+  -- A wrong home (or a wrong GPS) would otherwise mean emptying everything
+  -- onto the ground.
+  if not peripheral.hasType("front", "inventory") then
+    error(("No chest behind my home (%d,%d,%d). Put me back on my spot with my chest behind me and run 'miner home'."):format(home.x, home.y, home.z), 0)
+  end
+  refuelFromInventory(config.targetFuel)
+  for slot = 1, 16 do
+    turtle.select(slot)
+    while turtle.getItemCount(slot) > 0 and not turtle.drop() do
+      setState("error", "home chest full")
+      sleep(10)
     end
-    -- A wrong dock (or a wrong GPS) would otherwise mean emptying
-    -- everything onto the ground.
-    if not peripheral.hasType(side, "inventory") then
-      local p = nav.getPos()
-      error(("No chest at the dock (%d,%d,%d). Put a miner with a chest behind it on the right spot and run 'miner dock'."):format(p.x, p.y, p.z), 0)
-    end
-    refuelFromInventory(config.targetFuel)
-    for slot = 1, 16 do
-      turtle.select(slot)
-      while turtle.getItemCount(slot) > 0 and not drop() do
-        setState("error", "dock chest full")
-        sleep(10)
-      end
-    end
-    turtle.select(1)
-    if d.fuelDir and not d.chestDir then
-      nav.face(d.fuelDir)
-      while fuelLevel() < config.targetFuel do
-        if turtle.suck() then
-          while fuelLevel() < config.targetFuel and turtle.refuel(1) do end
-          if turtle.getItemCount(1) > 0 then
-            -- put unused fuel back; pass empty buckets and non-fuel on to the deposit chest
-            if turtle.refuel(0) then turtle.drop() else turtle.dropDown() end
-          end
-        elseif fuelLevel() >= config.minFuel then
-          break
-        else
-          setState("error", "fuel chest empty")
-          sleep(10)
-        end
-      end
-    else
-      -- the fuel chest beside the dock if there is one, else the dock chest itself
-      nav.face(d.fuelDir or d.chestDir)
-      while true do
-        refuelFromChest(config.targetFuel)
-        if fuelLevel() >= config.minFuel then break end
-        setState("error", "no fuel in the dock chest")
-        sleep(10)
-      end
-    end
-    setState("docking")
-    check(nav.goTo(d.x, laneY(), d.z))
-  end)
-  send({ type = "dock_release" })
-  if not ok then error(err, 0) end
+  end
+  turtle.select(1)
+  nav.face(home.fuelDir or home.chestDir)
+  while true do
+    refuelFromChest(config.targetFuel)
+    if fuelLevel() >= config.minFuel then break end
+    setState("error", home.fuelDir and "fuel chest empty" or "no fuel in my chest")
+    sleep(10)
+  end
+  nav.face(home.heading)
 end
 
--- Idle turtles hover beside the dock column, each at its own lane height.
+-- Fly home (up to this turtle's lane, across, straight down into its own
+-- spot) and unload. Mining resumes from there: goToCell climbs back up.
+local function visitHome()
+  dropJunk()
+  setState("returning")
+  travelTo(home.x, home.y, home.z)
+  setState("unloading")
+  unloadAtHome()
+end
+
+-- Idle and paused turtles wait at home, emptied and fuelled.
 local function park()
-  local d = config.dock
-  travelTo(d.x + 2, laneY(), d.z)
+  local p = nav.getPos()
+  if p.x == home.x and p.y == home.y and p.z == home.z and emptySlots() == 16 then
+    return nav.face(home.heading)
+  end
+  visitHome()
 end
 
 local HEADING_NAMES = { [0] = "north", "east", "south", "west" }
 
--- A miner standing with a chest directly behind it is on the dock: the chest
+-- A miner standing with a chest directly behind it is at home: the chest
 -- takes what it mines, and a second chest on its left or right, if any, is
--- for fuel. Its position comes from GPS, so nobody types coordinates.
-local function dockHere()
+-- for fuel. Its position comes from GPS (or the player), so nobody types it twice.
+local function homeHere()
   if not peripheral.hasType("back", "inventory") then return nil end
   local p, h = nav.getPos(), nav.getHeading()
-  local dock = { x = p.x, y = p.y, z = p.z, chestDir = HEADING_NAMES[(h + 2) % 4] }
+  local spot = { x = p.x, y = p.y, z = p.z, heading = HEADING_NAMES[h], chestDir = HEADING_NAMES[(h + 2) % 4] }
   if peripheral.hasType("right", "inventory") then
-    dock.fuelDir = HEADING_NAMES[(h + 1) % 4]
+    spot.fuelDir = HEADING_NAMES[(h + 1) % 4]
   elseif peripheral.hasType("left", "inventory") then
-    dock.fuelDir = HEADING_NAMES[(h + 3) % 4]
+    spot.fuelDir = HEADING_NAMES[(h + 3) % 4]
   end
-  return dock
+  return spot
 end
 
-local function sendDock(dock)
-  print(("This is the dock: %d, %d, %d, chest to the %s."):format(dock.x, dock.y, dock.z, dock.chestDir))
-  applyConfig(request({ type = "set_dock", dock = dock }, "dock_set").config)
+local function setHome(spot)
+  home = spot
+  nav.writeFile(HOME_FILE, home)
+  print(("Home: %d, %d, %d, chest to the %s%s."):format(home.x, home.y, home.z, home.chestDir,
+    home.fuelDir and (", fuel chest to the " .. home.fuelDir) or ""))
+  sendStatus(true)
 end
 
 ---------------------------------------------------------------- mining
@@ -364,15 +338,15 @@ local function mineJob()
       if emptySlots() <= 1 then
         dropJunk()
         if emptySlots() <= 2 then
-          visitDock()
+          visitHome()
           setState("mining")
         end
       end
-      local reserve = fuelToDock() + 200
+      local reserve = fuelToHome() + 200
       if fuelLevel() < reserve then
         refuelFromInventory(reserve + 1000)
         if fuelLevel() < reserve then
-          visitDock()
+          visitHome()
           setState("mining")
         end
       end
@@ -399,21 +373,18 @@ local function step()
     saveJob()
   end
 
-  if not config.dock then
-    -- The server has no dock yet. A turtle that hasn't started a job is
-    -- still where the player put it: with a chest behind it, that's the dock.
-    local here = not job and dockHere()
-    if here then return sendDock(here) end
-    -- otherwise there's nowhere to unload, so don't start anything
-    setState("waiting", "no dock: put a chest behind a miner")
+  if not home then
+    -- Nowhere to unload, so don't start anything. A turtle that hasn't
+    -- started a job is still where the player put it: once a chest goes
+    -- behind it, that's home.
+    local here = not job and homeHere()
+    if here then return setHome(here) end
+    setState("waiting", job and "no home: put me on my spot, then 'miner home'" or "no home: put a chest behind me")
     idleWait(15)
-    applyConfig(request({ type = "request_job" }, "job").config)
     return
   end
 
   if paused then
-    setState("returning")
-    if emptySlots() < 16 then visitDock() end
     park()
     setState("paused")
     while paused do idleWait(5) end
@@ -425,7 +396,6 @@ local function step()
     applyConfig(r.config)
     paused = r.paused
     if not r.job then
-      if emptySlots() < 16 then visitDock() end
       park()
       setState("idle")
       idleWait(15)
@@ -475,20 +445,20 @@ local function askPosition()
   end
 end
 
--- 'miner dock': make this spot the dock even if the server already has one
--- (moving the dock, or a miner that has already started a job).
-local function markDock()
-  local dock = dockHere()
-  if not dock then
-    print("Put a chest directly behind me first: that's the dock chest.")
+-- 'miner home': make this spot home, e.g. to move it, or for a miner that
+-- was mid-job when it was set up.
+local function markHome()
+  local spot = homeHere()
+  if not spot then
+    print("Put a chest directly behind me first: that's my chest.")
     return
   end
-  sendDock(dock)
+  setHome(spot)
   print("Saved. Reboot me to start mining.")
 end
 
-if args[1] and args[1] ~= "dock" then
-  print("Usage: miner [dock]")
+if args[1] and args[1] ~= "home" then
+  print("Usage: miner [home]")
   return
 end
 
@@ -508,10 +478,11 @@ elseif not nav.confirmResume("Then type my position again.") then
 end
 local p = nav.getPos()
 print(("I'm at %d, %d, %d, facing %s."):format(p.x, p.y, p.z, HEADING_NAMES[nav.getHeading()]))
-if args[1] == "dock" then return markDock() end
+home = nav.readFile(HOME_FILE)
+if args[1] == "home" then return markHome() end
 
 local saved = loadJob()
-local welcome = request({ type = "hello", label = os.getComputerLabel() }, "welcome")
+local welcome = request({ type = "hello", label = os.getComputerLabel(), home = home }, "welcome")
 applyConfig(welcome.config)
 paused = welcome.paused
 if saved and welcome.job and welcome.job.cx == saved.cx and welcome.job.cz == saved.cz then

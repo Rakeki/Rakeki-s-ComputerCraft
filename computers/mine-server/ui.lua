@@ -89,7 +89,6 @@ function ui:draw(m)
   put(win, 2, 1, "AutoMine", colors.yellow, colors.gray)
   if m.paused then put(win, 11, 1, "PAUSED", colors.red, colors.gray) end
   local x = L.w - 20
-  if not m.baseCx then put(win, 18, 1, "No dock", colors.orange, colors.gray) end
   x = self:button(x, 1, "\27", colors.white, colors.lightGray, function() self:pan(-1, 0) end)
   x = self:button(x, 1, "\24", colors.white, colors.lightGray, function() self:pan(0, -1) end)
   x = self:button(x, 1, "\25", colors.white, colors.lightGray, function() self:pan(0, 1) end)
@@ -105,7 +104,7 @@ function ui:draw(m)
       local k = cx .. "," .. cz
       local c = m.chunks[k]
       local style, label
-      if cx == m.baseCx and cz == m.baseCz then
+      if m.homeChunks[k] then
         style, label = STYLE.base, "HQ"
       elseif not c then
         style, label = STYLE.none, " \183"
@@ -139,9 +138,9 @@ function ui:draw(m)
     end
 
     if not m.baseCx then
-      line("No dock yet. Place a", colors.orange)
-      line("miner with a chest", colors.orange)
-      line("right behind it.", colors.orange)
+      line("No miners home yet.", colors.orange)
+      line("Place one with a", colors.orange)
+      line("chest behind it.", colors.orange)
       line("")
     end
 
@@ -151,8 +150,8 @@ function ui:draw(m)
       line("Chunk " .. cx .. "," .. cz, colors.yellow)
       line(("x %d..%d"):format(cx * 16, cx * 16 + 15), colors.lightGray)
       line(("z %d..%d"):format(cz * 16, cz * 16 + 15), colors.lightGray)
-      if cx == m.baseCx and cz == m.baseCz then
-        line("Home base")
+      if m.homeChunks[cx .. "," .. cz] then
+        line(("Home of #%d"):format(m.homeChunks[cx .. "," .. cz]))
       elseif not c then
         line("Not planned")
       elseif c.state == "queued" then

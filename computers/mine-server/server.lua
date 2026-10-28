@@ -15,35 +15,34 @@ local config = dofile(fs.combine(dir, "config.lua"))
 
 local PROTOCOL = "automine"
 local STATE_FILE = "/.automine_state"
-local DOCK_TIMEOUT = 60 -- free the dock if the turtle holding it goes quiet this long
 local SAVE_INTERVAL = 30
 local MAX_EVENTS = 30
 
--- dockPos: the dock a miner set by GPS (chest behind it), used over config.dock
 -- chunks: "cx,cz" -> { cx, cz, state = queued|active|player|done, order, turtle, progress }
--- turtles: id -> { label, pos, fuel, state, msg, job, progress, lastSeen }
--- dock: who is using the dock, so a restart can't send two turtles into it
+-- turtles: id -> { label, pos, fuel, state, msg, job, progress, home, lastSeen }
+--   home: where the miner was placed, with its own chest behind it; it
+--   unloads, refuels and waits there
 -- events: recent log lines, newest last
-local state = { chunks = {}, turtles = {}, nextOrder = 1, paused = false, dock = {}, events = {} }
+local state = { chunks = {}, turtles = {}, nextOrder = 1, paused = false, events = {} }
 local saveDue, lastSave = false, 0
-
--- The old config.lua shipped this as an example; it was never anyone's dock,
--- and it sent every turtle thousands of blocks away.
-local function realDock(d)
-  return d and d.x and d.y and d.z and not (d.x == 0 and d.y == 64 and d.z == 0) and d or nil
-end
-
-local function dock() return realDock(state.dockPos) or realDock(config.dock) end
-
--- the home chunk (holds the dock; never mined), nil while there's no dock
-local baseCx, baseCz
-local function updateBase()
-  local d = dock()
-  if d then baseCx, baseCz = math.floor(d.x / 16), math.floor(d.z / 16) else baseCx, baseCz = nil, nil end
-end
 
 local function now() return os.epoch("utc") / 1000 end
 local function key(cx, cz) return cx .. "," .. cz end
+
+-- Chunks holding a miner's home are never mined: homeChunks["cx,cz"] = turtle id.
+-- baseCx/baseCz (the map's HQ) is the lowest-numbered miner's home chunk.
+local homeChunks, baseCx, baseCz = {}, nil, nil
+local function updateHomes()
+  homeChunks, baseCx, baseCz = {}, nil, nil
+  local first
+  for id, t in pairs(state.turtles) do
+    if t.home then
+      local cx, cz = math.floor(t.home.x / 16), math.floor(t.home.z / 16)
+      homeChunks[key(cx, cz)] = id
+      if not first or id < first then first, baseCx, baseCz = id, cx, cz end
+    end
+  end
+end
 
 local function save()
   files.write(STATE_FILE, state)
@@ -54,10 +53,9 @@ local function load()
   local s = files.read(STATE_FILE)
   if not s then return end
   state = s
-  state.dock = state.dock or {}
   state.events = state.events or {}
-  -- give the turtle that held the dock time to report in before reassigning it
-  if state.dock.holder then state.dock.since = now() end
+  -- from before each miner had its own home: one shared dock, now unused
+  state.dock, state.dockPos = nil, nil
 end
 
 ---------------------------------------------------------------- displays
@@ -99,8 +97,8 @@ end
 
 local function nextQueued()
   local best
-  for _, c in pairs(state.chunks) do
-    if c.state == "queued" and (not best or c.order < best.order) then best = c end
+  for k, c in pairs(state.chunks) do
+    if c.state == "queued" and not homeChunks[k] and (not best or c.order < best.order) then best = c end
   end
   return best
 end
@@ -111,7 +109,6 @@ end
 
 local function turtleConfig()
   return {
-    dock = dock(), -- nil until one is set: turtles wait
     cruiseY = config.cruiseY,
     lanes = config.lanes,
     targetFuel = config.targetFuel,
@@ -152,6 +149,18 @@ local function touch(id, msg)
   end
   t.label = msg.label or t.label
   t.lastSeen = now()
+  local h = msg.home
+  if type(h) == "table" and tonumber(h.x) and tonumber(h.y) and tonumber(h.z)
+    and not (t.home and t.home.x == h.x and t.home.y == h.y and t.home.z == h.z) then
+    t.home = { x = h.x, y = h.y, z = h.z }
+    updateHomes()
+    -- a home chunk is never mined, so drop it from the plan if it was queued
+    local k = key(math.floor(h.x / 16), math.floor(h.z / 16))
+    local c = state.chunks[k]
+    if c and c.state == "queued" then state.chunks[k] = nil end
+    log(("#%d home: %d,%d,%d"):format(id, h.x, h.y, h.z))
+    save()
+  end
   return t
 end
 
@@ -169,7 +178,7 @@ end
 function handlers.request_job(id, msg)
   touch(id, msg)
   local c = assignedTo(id)
-  if not c and not state.paused and dock() then
+  if not c and not state.paused then
     c = nextQueued()
     if c then
       c.state, c.turtle, c.progress, c.order = "active", id, 0, nil
@@ -185,29 +194,6 @@ function handlers.request_job(id, msg)
   }
 end
 
--- A miner standing with a chest behind it (on its own when there's no dock
--- yet, or with 'miner dock') sends where it is (GPS), which side the chest is
--- on, and the side of a separate fuel chest if it has one.
-function handlers.set_dock(id, msg)
-  touch(id, msg)
-  local d = msg.dock
-  if type(d) ~= "table" or not (tonumber(d.x) and tonumber(d.y) and tonumber(d.z)) then return end
-  local hadDock = dock()
-  state.dockPos = { x = d.x, y = d.y, z = d.z, chestDir = d.chestDir, fuelDir = d.fuelDir }
-  updateBase()
-  -- Chunks queued with no real dock were planned around the wrong home (the
-  -- old 0, 64, 0 example), likely thousands of blocks away and off the map now.
-  if not hadDock then
-    for _, t in ipairs(clearPlan("it was made before there was a dock")) do sendControl(t) end
-  end
-  -- the home chunk is never mined, so drop it from the plan if it was queued
-  local home = state.chunks[key(baseCx, baseCz)]
-  if home and home.state ~= "active" then state.chunks[key(baseCx, baseCz)] = nil end
-  log(("#%d set the dock to %d,%d,%d"):format(id, d.x, d.y, d.z))
-  save()
-  return { type = "dock_set", config = turtleConfig() }
-end
-
 function handlers.status(id, msg)
   local t = touch(id, msg)
   if msg.state == "error" and (t.state ~= "error" or t.msg ~= msg.msg) then
@@ -218,7 +204,6 @@ function handlers.status(id, msg)
   t.job = c and { cx = c.cx, cz = c.cz } or nil
   t.progress = c and msg.progress or nil
   if c and msg.job and msg.job.cx == c.cx and msg.job.cz == c.cz then c.progress = msg.progress end
-  if state.dock.holder == id then state.dock.since = now() end
   saveDue = true
   return controlMsg(id)
 end
@@ -234,31 +219,11 @@ function handlers.job_done(id, msg)
   return { type = "ack" }
 end
 
-function handlers.dock_request(id, msg)
-  touch(id, msg)
-  local d = state.dock
-  if not d.holder or d.holder == id or now() - d.since > DOCK_TIMEOUT then
-    if d.holder ~= id then
-      d.holder, d.since = id, now()
-      save()
-    end
-    return { type = "dock", granted = true }
-  end
-  return { type = "dock", granted = false }
-end
-
-function handlers.dock_release(id)
-  if state.dock.holder == id then
-    state.dock.holder = nil
-    save()
-  end
-end
-
 ---------------------------------------------------------------- map actions
 
 local function paint(cx, cz, newState)
-  if cx == baseCx and cz == baseCz then return end -- never touch the home chunk
   local k = key(cx, cz)
+  if homeChunks[k] then return end -- a miner lives here: never mined
   local c = state.chunks[k]
   local current = c and c.state or "none"
   if current == newState or (current == "active" and newState == "queued") then return end
@@ -293,7 +258,7 @@ end
 ---------------------------------------------------------------- main
 
 load()
-updateBase()
+updateHomes()
 if args[1] == "clear" then
   -- turtles hear about it when the server starts again (it tells each one)
   local released = clearPlan("by 'server clear'")
@@ -308,7 +273,7 @@ rednet.host(PROTOCOL, "server")
 report.init("mining server")
 errlog.init("server")
 
--- Start the map on the dock, or (no dock yet) on this computer, by GPS.
+-- Start the map on the first miner's home, or (none yet) on this computer, by GPS.
 if baseCx then
   view.viewX, view.viewZ = baseCx, baseCz
 else
@@ -326,15 +291,10 @@ local function reportStatus()
   for _, c in pairs(state.chunks) do
     if c.state == "queued" then queued = queued + 1 end
   end
-  if not dock() then
-    report.set("waiting", "no dock: put a chest behind a miner")
-    return
-  end
   report.set(state.paused and "paused" or "serving", ("%d/%d turtles, %d queued"):format(online, total, queued))
 end
 announce()
 log("Server started")
-if not dock() then log("No dock yet: place a miner with a chest right behind it") end
 save()
 
 -- Tell turtles straight away, rather than waiting for their next status
@@ -346,8 +306,8 @@ local function model()
     chunks = state.chunks,
     turtles = state.turtles,
     paused = state.paused,
-    dockHolder = state.dock.holder,
     events = state.events,
+    homeChunks = homeChunks,
     baseCx = baseCx,
     baseCz = baseCz,
     now = now(),

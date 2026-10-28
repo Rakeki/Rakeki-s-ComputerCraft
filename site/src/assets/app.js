@@ -187,7 +187,7 @@
     // status: a bus under the dashboard to the row of computers (turtles report too: see the corners)
     edges += line("M600,88 L600,140 M130,140 L1100,140", P.lime, 2.5, ` opacity=".75"`);
     for (const k of ["server", "projector", "storage", "colony", "hosts"]) edges += line(`M${N[k][0]},140 L${N[k][0]},192`, P.lime, 2.5, ` opacity=".75"`);
-    // AutoMine jobs and docking
+    // AutoMine jobs and progress
     edges += line("M100,248 L100,352", P.orange, 3) + line("M150,352 L150,248", P.orange, 3);
     // the deployer builds the GPS hosts
     edges += line("M1100,352 L1100,248", P.purple, 3);

@@ -1,18 +1,6 @@
 -- AutoMine settings. Edit these, then reboot the server. Turtles pick up
 -- changes the next time they ask for a job.
 return {
-  -- Where turtles unload and refuel. Leave this nil with GPS: place a miner
-  -- with a chest right behind it and that spot becomes the dock (used over
-  -- this one; 'miner dock' moves it later).
-  -- Without GPS, set it here instead: stand on the deposit chest (your feet are
-  -- then in the dock block), press F3 and copy the "Block:" line, not "XYZ:",
-  -- e.g. dock = { x = 1499, y = 70, z = 8071, fuelDir = "north" },
-  --   * deposit chest goes directly BELOW the dock block
-  --   * fuel chest goes right next to the dock block, on the fuelDir side
-  --   * keep the column above the dock open: turtles fly straight down into it
-  -- The chunk containing the dock is never mined. No jobs go out until there's a dock.
-  dock = nil,
-
   -- Turtles travel at cruiseY + (turtle ID % lanes) so they don't collide.
   -- Set it above your tallest build: turtles dig through anything in their path
   -- (except chests, barrels, furnaces, hoppers, spawners and ComputerCraft blocks).
@@ -30,7 +18,7 @@ return {
   mapMonitor = nil,
   statusMonitor = nil,
 
-  -- Fuel the turtle tops up to at the dock, and the minimum it will leave with
+  -- Fuel the turtle tops up to at home, and the minimum it will leave with
   -- if the fuel chest runs dry.
   targetFuel = 5000,
   minFuel = 1000,
