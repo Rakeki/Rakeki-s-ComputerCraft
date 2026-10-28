@@ -47,7 +47,7 @@ repo root.
 7. If it uses `lib/` modules, add it to that module's "Used by" text in
    `lib/README.md`.
 8. Add an entry to `site/programs.json` so it appears on the website and in
-   the installer (title, command, device, libs, keep, stats, setup, commands,
+   the installer (title, command, device, group, libs, keep, stats, setup, commands,
    render, optional layouts). Add a scene to `voxel.js` or `cc.js` for its
    render. Run `node site/build.mjs` to check it builds.
 

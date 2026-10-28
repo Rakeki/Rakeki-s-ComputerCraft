@@ -25,6 +25,11 @@ function siteUrl() {
 const SITE_URL = siteUrl();
 
 const data = JSON.parse(fs.readFileSync(path.join(ROOT, "site", "programs.json"), "utf8"));
+// every program goes in one of the groups the home page shows
+const groupIds = new Set((data.groups || []).map((g) => g.id));
+for (const p of data.programs) {
+  if (!groupIds.has(p.group)) throw new Error(`${p.name}: "group" must be one of ${[...groupIds].join(", ")} (programs.json "groups")`);
+}
 
 //---------------------------------------------------------------- files
 

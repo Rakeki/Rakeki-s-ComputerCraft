@@ -8,6 +8,7 @@
   const cc = (name) => `var(--cc-${name})`;
   const icon = (device) => `${ROOT}assets/${device === "turtle" ? "turtle" : "computer"}.svg`;
   const progUrl = (name) => `${ROOT}programs/${name}/`;
+  const groupById = Object.fromEntries((SITE.groups || []).map((g) => [g.id, g]));
   const planUrl = (name) => `${ROOT}plans/${name}/`;
   const libUrl = (name) => `${ROOT}libraries/${name}/`;
   const byName = Object.fromEntries(SITE.programs.map((p) => [p.name, p]));
@@ -107,8 +108,24 @@
     $("#stat-libs").textContent = SITE.libraries.length;
     $("#stat-lines").textContent = lines.toLocaleString("en");
 
-    const grid = $("#programs-grid");
+    // a section per group, in the order of "groups"; chips show one group
+    const holder = $("#program-groups");
+    const filters = $("#group-filters");
+    const sections = {};
+    for (const g of SITE.groups || []) {
+      const members = SITE.programs.filter((p) => p.group === g.id);
+      if (!members.length) continue;
+      const sec = h(`<section class="group" id="group-${g.id}" data-group="${g.id}">
+        <div class="group-head"><h3>${esc(g.title)} <span class="count">${members.length}</span></h3><p>${esc(g.tagline)}</p></div>
+        <div class="grid"></div></section>`);
+      holder.append(sec);
+      sections[g.id] = $(".grid", sec);
+    }
+    const chip = (id, label) => `<button class="chip" data-filter="${id}" aria-pressed="${id === "all"}">${esc(label)}</button>`;
+    filters.innerHTML = chip("all", "All") + (SITE.groups || []).filter((g) => sections[g.id]).map((g) => chip(g.id, g.title)).join("");
     for (const p of SITE.programs) {
+      const grid = sections[p.group];
+      if (!grid) continue;
       const card = h(`
         <a class="card" href="${progUrl(p.name)}" style="--c:${cc(p.color)}" data-device="${p.device}">
           <div class="thumb"><span class="tag">${esc(p.deviceLabel)}</span></div>
@@ -125,11 +142,21 @@
       grid.append(card);
       thumb(p, $(".thumb", card));
     }
-    document.querySelectorAll(".filters .chip").forEach((chip) => chip.addEventListener("click", () => {
-      document.querySelectorAll(".filters .chip").forEach((c) => c.setAttribute("aria-pressed", c === chip));
-      const f = chip.dataset.filter;
-      grid.querySelectorAll(".card").forEach((c) => { c.hidden = f !== "all" && c.dataset.device !== f; });
-    }));
+    const pick = (f) => {
+      filters.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", c.dataset.filter === f));
+      holder.querySelectorAll(".group").forEach((s) => { s.hidden = f !== "all" && s.dataset.group !== f; });
+    };
+    filters.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => pick(c.dataset.filter)));
+    // a link to #group-<id> (from a program page) shows just that group
+    const follow = (wait) => {
+      const linked = location.hash.match(/^#group-(\w+)$/);
+      if (!linked || !sections[linked[1]]) return;
+      pick(linked[1]);
+      // once the cards have laid out, or the page jumps under it
+      setTimeout(() => $("#programs").scrollIntoView(), wait);
+    };
+    follow(300);
+    window.addEventListener("hashchange", () => follow(0));
 
     $("#diagram").innerHTML = diagram();
     // squeeze any title that renders wider than its box
@@ -405,7 +432,7 @@
     main.innerHTML = `
       <section class="p-hero"><div class="wrap">
         <div>
-          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#programs">Programs</a> / ${esc(p.title)}</div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#programs">Programs</a> / ${groupById[p.group] ? `<a href="${ROOT}#group-${p.group}">${esc(groupById[p.group].title)}</a> / ` : ""}${esc(p.title)}</div>
           <div class="p-title"><img class="icon" src="${icon(p.device)}" alt=""><h1>${esc(p.title)}<small>computers/${esc(p.name)}</small></h1></div>
           <p class="lead">${esc(p.tagline)}</p>
           <div class="meta">

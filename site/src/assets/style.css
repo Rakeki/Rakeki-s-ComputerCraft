@@ -498,3 +498,10 @@ pre.code, .readme pre {
 .drop { display: grid; gap: 4px; place-items: center; padding: 22px 12px; border: 2px dashed var(--line); border-radius: var(--radius); cursor: pointer; text-align: center; color: var(--muted); }
 .drop.over, .drop:hover { border-color: var(--cc-pink); color: var(--text); }
 .paste { width: 100%; min-height: 110px; margin: 12px 0 10px; font-family: var(--font-code); font-size: 13px; background: #111; color: #f0f0f0; border: 2px solid #000; padding: 8px; box-sizing: border-box; resize: vertical; }
+
+/* program groups on the home page */
+#program-groups { display: grid; gap: 46px; }
+.group-head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid var(--line); }
+.group-head h3 { font-family: var(--font-pixel); font-size: 26px; margin: 0; }
+.group-head .count { font-family: var(--font-body); font-size: 14px; color: var(--faint); margin-left: 6px; }
+.group-head p { margin: 0; color: var(--muted); }
