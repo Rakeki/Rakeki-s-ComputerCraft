@@ -54,7 +54,7 @@ which strip it's on, e.g. "Building Cottage (strip 2 of 3): 410 blocks."
 ## Files
 
 - `builder.lua`: the program
-- `startup.lua`: starts it on boot: it carries on with an unfinished building, or waits for one
+- `startup.lua`: starts it on boot: it carries on with an unfinished building, or waits for one (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): position tracking and movement (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).

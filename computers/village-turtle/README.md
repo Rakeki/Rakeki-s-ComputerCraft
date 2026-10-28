@@ -145,7 +145,7 @@ Copy these to the turtle:
 - `village.lua`: the program. Plot size, terrain limits etc. are at the top.
 - `village_themes.lua`: the themes and their blocks
 - `village_blueprints.lua`: the buildings
-- `startup.lua`: resumes after a reboot or chunk reload
+- `startup.lua`: resumes after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): status server reporting (copy to `/lib/report.lua`); does nothing without a modem
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).

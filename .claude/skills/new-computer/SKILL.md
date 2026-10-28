@@ -14,7 +14,14 @@ repo root.
    e.g. `excavate-turtle`, `mine-server`, `wheat-farm`.
 2. Write the program as `computers/<name>/<program>.lua`. The program name is
    what the player types in-game (`excavate`, `miner`, `village`).
-3. Replace `startup.lua`. Typical shapes:
+3. Replace `startup.lua`. Every one starts with the boot update check (the
+   installer, saved as `/install.lua`, updates programs the website has a
+   newer version of; `set install.autoupdate false` turns it off), then one
+   of the typical shapes:
+     ```lua
+     -- Get newer versions from the website first ('set install.autoupdate false' turns this off).
+     if fs.exists("/install.lua") then shell.run("/install.lua", "boot") end
+     ```
    - **Resumable job** (standalone turtles):
      ```lua
      -- Pick an unfinished excavation back up after a reboot or chunk reload.
@@ -75,7 +82,7 @@ when the chest fills or fuel runs out.
 
 ## Files
 - `<program>.lua`: the program. Tunables are at the top.
-- `startup.lua`: resumes an unfinished job after a reboot or chunk reload
+- `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).

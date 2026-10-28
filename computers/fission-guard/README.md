@@ -46,7 +46,7 @@ Low fuel only shows a warning: an empty reactor just stops.
 
 - `fission.lua`: the program. How often it checks and the text size are at the top.
 - `config.lua`: the limits, the power pause and the alarm. `install update` never replaces it.
-- `startup.lua`: starts it on boot and restarts it if it stops
+- `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): saves the latch so a reboot doesn't clear it (copy to `/lib/files.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.

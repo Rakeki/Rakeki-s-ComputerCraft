@@ -12,7 +12,7 @@ computers/                  In-game programs, one folder each (never in the repo
   <name>/                   One in-game computer or turtle program
     README.md               The player's manual (format below); shown on the website
     <program>.lua           The program; its file name is the command typed in-game
-    startup.lua             Runs on boot (resume an unfinished job, or keep a service running)
+    startup.lua             Runs on boot: install boot (update from the site), then resume a job or keep a service running
     <helper>.lua            Optional modules loaded with require("<helper>"), e.g. ui.lua
     config.lua              Optional player settings; list it under "keep" in programs.json
     preview/*.svg           Optional renders, linked from the README and the website
@@ -146,7 +146,11 @@ the source of truth.
 program. The site address comes from `GITHUB_REPOSITORY` on Actions, or
 `SITE_URL`, and defaults to http://localhost:8080. In-game,
 `wget run <site>/install.lua <program>` installs a program with its libs, and
-`install update` reinstalls everything installed on that computer.
+`install update` reinstalls everything installed on that computer. Every
+`startup.lua` begins with `install boot`: it fetches `manifest.json` (5 s
+deadline, carries on without it) and reinstalls only programs whose
+`version` (a hash of their files, made by the build) differs from the one
+saved in `/.installed_versions`. `set install.autoupdate false` turns it off.
 
 Existing computers:
 

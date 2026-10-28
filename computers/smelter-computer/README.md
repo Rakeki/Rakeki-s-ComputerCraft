@@ -58,7 +58,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
 
 - `smelter.lua`: the program
 - `config.lua`: which items get smelted (kept when you update)
-- `startup.lua`: starts it on boot and restarts it if it stops
+- `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.

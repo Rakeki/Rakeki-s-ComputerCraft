@@ -35,6 +35,7 @@ the turtle, it's copied to each host, and the hosts appear on the
 ## Files
 
 - `gps-deploy.lua`: the program
+- `startup.lua`: fetches any newer version from the website on boot (the deployer itself is started by hand)
 - [`lib/nav.lua`](../../lib/nav.lua): movement (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): optional, passed on to the hosts (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).

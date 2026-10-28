@@ -40,7 +40,7 @@ with `crafter learn`.
 ## Files
 
 - `crafter.lua`: the program
-- `startup.lua`: starts it on boot and restarts it if it stops
+- `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is its crafter chest (copy to `/lib/claim.lua`). Needed.

@@ -247,7 +247,7 @@
         </div>
         <div class="tab-pane" data-pane="i">
           ${field(installCmd(p.name))}
-          <p>Downloads ${p.files.length} files${hasLib ? `, including <code>lib/</code>,` : ""} onto the ${p.device === "turtle" ? "turtle" : "computer"}. Later, <code>install update</code> fetches the newest version${p.keep ? ` and keeps your <code>${p.keep.join(", ")}</code>` : ""}.</p>
+          <p>Downloads ${p.files.length} files${hasLib ? `, including <code>lib/</code>,` : ""} onto the ${p.device === "turtle" ? "turtle" : "computer"}. It updates itself from this site each time it boots (<code>set install.autoupdate false</code> turns that off), and <code>install update</code> fetches the newest version now${p.keep ? ` and keeps your <code>${p.keep.join(", ")}</code>` : ""}.</p>
         </div>
         <div class="tab-pane" data-pane="w" hidden>
           <div class="wget-list">${wget.map(field).join("")}</div>

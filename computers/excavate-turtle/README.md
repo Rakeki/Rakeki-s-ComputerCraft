@@ -64,7 +64,7 @@ size you choose can't be.
 ## Files
 
 - `excavate.lua`: the program. Room size, ledge width, floor height etc. are at the top.
-- `startup.lua`: resumes an unfinished job after a reboot or chunk reload
+- `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too, just without reporting.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).

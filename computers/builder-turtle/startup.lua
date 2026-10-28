@@ -1,3 +1,6 @@
+-- Get newer versions from the website first ('set install.autoupdate false' turns this off).
+if fs.exists("/install.lua") then shell.run("/install.lua", "boot") end
+
 -- Keep the builder running: it carries on with an unfinished building, or
 -- waits for one from a projector. If it ever stops or crashes, start it again.
 while true do

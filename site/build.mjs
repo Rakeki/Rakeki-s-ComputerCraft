@@ -7,6 +7,7 @@
 // installer and every wget command point at the published site.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -65,6 +66,14 @@ function programFiles(program) {
   return files;
 }
 
+// Changes whenever any file the installer would replace changes, so a
+// computer checking on boot only downloads programs that are out of date.
+function versionOf(files) {
+  const hash = crypto.createHash("sha1");
+  for (const f of files.filter((f) => !f.keep)) hash.update(f.dest).update(fs.readFileSync(path.join(ROOT, f.src)));
+  return hash.digest("hex").slice(0, 12);
+}
+
 function nextSteps(program) {
   if (program.name === "mine-server") return ["Start it with: reboot", "Then place a miner with a chest right behind it: that's the dock"];
   if (program.autostart) return ["Start it with: reboot"];
@@ -79,6 +88,7 @@ for (const program of data.programs) {
     title: program.title,
     device: program.deviceLabel,
     files: program.files.map(({ src, dest, keep }) => ({ src, dest, ...(keep ? { keep } : {}) })),
+    version: versionOf(program.files),
     next: nextSteps(program),
   };
   if (program.device === "turtle") manifest.programs[program.name].device = "turtle";

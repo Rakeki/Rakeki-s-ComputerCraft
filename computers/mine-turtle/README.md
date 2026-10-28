@@ -26,7 +26,7 @@ blocks, including other turtles.
 
 ## Files
 
-- `startup.lua`: starts the miner on boot and restarts it if it ever stops
+- `startup.lua`: starts the miner on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - `miner.lua`: job loop, mining pattern, dock trips
 - [`lib/nav.lua`](../../lib/nav.lua): position tracking and safe movement (shared; copy it to `/lib/nav.lua` on the turtle)
 - [`lib/report.lua`](../../lib/report.lua): reports to the [status server](../status-server/README.md) (copy it to `/lib/report.lua`)

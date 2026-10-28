@@ -1,6 +1,6 @@
 ---
 name: storage-system
-description: How programs get items from the storage system (the storage protocol, deliveries, crafting on request, fuel) and how storage-computer works inside (chest / ME / RS backends, fuel chest, crafter, smelter, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle or smelter-computer.
+description: How programs get items from the storage system (the storage protocol, deliveries, crafting on request, fuel) and how storage-computer works inside (chest / ME / RS backends, fuel chest, crafter, smelter, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer, smelter-computer or cooker-computer.
 ---
 
 # The storage system
@@ -55,6 +55,20 @@ supply:seen(r)
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
+The craft overseer's own requests (same protocol; only it sends these):
+
+| Request | Reply fields | Use |
+|---|---|---|
+| `{ type = "crafters" }` | `crafters` (turtle id → its chest, present ones only), `shared` (`setup.crafter`) | which turtles can take a job |
+| `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest |
+| `{ type = "clear", crafter = id }` | `ok` | empty its chest back into storage |
+| `{ type = "jobdone", job = id, ok, why }` | `ok` | → `jobFinished` (fixes `pendingCraft`, drops the rest of a failed plan) |
+| `{ type = "problem", text }` | `ok` | why crafting is stuck (nil: it isn't); shown to turtles as `craftProblem` |
+
+Protocol `storage_crafter` (storage computer or overseer → crafter-turtle):
+`{ type = "craft", steps, grid }` → `{ re = "crafted", made, item, error }`,
+and `{ type = "ping" }` → `pong`.
+
 Fuel: order `minecraft:coal`, then `charcoal`, then `coal_block` (first one
 with `ready > 0` wins; see `STORAGE_FUEL` in builder.lua). Items with NBT
 (enchanted, named) are never counted or sent. Things to report to the player:
@@ -64,6 +78,13 @@ is `"no recipe for it"`, `craftProblem` while `crafting` is non-empty.
 Putting things away: drop them in the storage computer's **input chest**
 (the smelter pushes furnace output there, the cooker its pots' output
 hoppers; farms use it as their chest).
+
+The smelter and cooker only ever `stock`, `send` and empty into the input
+chest. The smelter's orders (`ORDERS` in smelter.lua: charcoal from logs into
+the fuel chest, stone from cobblestone) each have their own save file and go
+into plain furnaces ahead of ores, in that order. The cooker can't see inside
+a pot: a comparator into a redstone relay says how full it is, and it sends
+the feed hopper only what still fits.
 
 ## Crafting on request
 

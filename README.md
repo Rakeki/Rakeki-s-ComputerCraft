@@ -71,6 +71,15 @@ website has a diagram of it all.
 downloads a program and the `lib/` files it needs. Afterwards `install update`
 fetches newer versions (your `config.lua` is kept).
 
+### Updates
+
+Installed programs update themselves: on every boot `startup.lua` asks the
+website whether there's a newer version and, if so, downloads it before the
+program starts (your `config.lua` is kept). Without internet it carries on
+after a few seconds. To turn it off on one computer, type
+`set install.autoupdate false`. A turtle that reboots in the middle of a job
+carries on with the new version.
+
 In-game files live in your world save at
 `saves/<world>/computercraft/computer/<id>/` (turtles too, keyed by ID — run `id` in-game to see it).
 Options:

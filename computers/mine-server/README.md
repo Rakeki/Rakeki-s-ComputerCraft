@@ -13,7 +13,7 @@ keeps track of their progress, and shows a chunk map for planning.
 
 ## Files
 
-- `startup.lua`: starts the server on boot and restarts it if it ever stops
+- `startup.lua`: starts the server on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - `server.lua`: assigns jobs, tracks turtles, controls the dock
 - `ui.lua`: chunk map and turtle panel
 - `status.lua`: status board for a monitor

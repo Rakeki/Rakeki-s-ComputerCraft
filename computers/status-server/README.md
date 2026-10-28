@@ -42,7 +42,7 @@ The list is saved to `/.status_state`, so a restart keeps it.
 
 ## Files
 
-- `startup.lua`: starts the server on boot and restarts it if it ever stops
+- `startup.lua`: starts the server on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - `server.lua`: listens for status broadcasts and tracks each computer
 - `dashboard.lua`: the monitor UI
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
