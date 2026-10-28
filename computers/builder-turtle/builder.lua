@@ -36,6 +36,7 @@ local LOAD_SLOTS = 13 -- stacks of building blocks taken per trip; the rest stay
 local REFUEL_TO = 2000 -- fuel level to fill up to at home
 local FUEL_MARGIN = 100 -- spare fuel kept on top of what the trip home needs
 local MAX_DISTANCE = 256 -- furthest a building may be from home, in blocks
+local WORLD_TOP = 319 -- highest Y a turtle can be at (the build limit since 1.18)
 local PLACE_TRIES = 3 -- tries at placing a block (a mob in the way) before skipping it
 local REPORT_EVERY = 10 -- blocks between progress messages to the projector
 local CHECK_EVERY = 50 -- blocks between GPS position checks
@@ -165,7 +166,8 @@ end
 -- the next), and with several turtles each at its own height.
 local function cruiseHeight()
   local top = type(job.area) == "table" and job.area.y1 or box.y1
-  return math.max(top + 2, home.y + 2) + (tonumber(job.lane) or 0)
+  -- never above the build limit: nothing can move up from there
+  return math.min(WORLD_TOP, math.max(top + 2, home.y + 2) + (tonumber(job.lane) or 0))
 end
 
 -- A cell another turtle's strip of the building may fill: never stand there.
@@ -768,6 +770,18 @@ local function onMessage(from, msg)
     local far = math.abs(b[1] - home.x) + math.abs(b[3] - home.z)
     if far > MAX_DISTANCE then
       answer({ type = "refused", why = ("it's %d blocks from my home, more than %d"):format(far, MAX_DISTANCE) })
+      return
+    end
+    -- I fly over the top of it, so its top must leave me room under the build limit
+    local top = type(msg.area) == "table" and msg.area.y1
+    if not top then
+      top = -math.huge
+      for _, blk in ipairs(msg.blocks) do top = math.max(top, blk[2]) end
+    end
+    local need = top + 2 + (tonumber(msg.lane) or 0)
+    if need > WORLD_TOP then
+      answer({ type = "refused", why = ("its top is at Y %d: I'd fly over it at Y %d, above the build limit (Y %d). Lower it by %d"):format(
+        top, need, WORLD_TOP, need - WORLD_TOP) })
       return
     end
     job = { key = msg.key, name = tostring(msg.name or "a building"), from = from, mats = msg.mats, blocks = msg.blocks,

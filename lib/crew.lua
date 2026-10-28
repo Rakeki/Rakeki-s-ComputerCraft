@@ -31,9 +31,20 @@ local WAIT = 5 -- seconds to wait for each builder turtle to answer
 local MAX_BUILDERS = 4 -- most builder turtles one building is split between
 local MIN_STRIP = 3 -- narrowest strip of a building (blocks) one turtle is given
 local RETRY_EVERY = 30 -- seconds between offers of strips nobody has taken yet to builders that are free
+crew.TOP = 319 -- the build limit: builders fly over a building, so its top has to stay below this
 
 local Crew = {}
 Crew.__index = Crew
+
+-- Why a building in this box can't be built by n builders, or nil: they
+-- cross over it 2 blocks above its top, each a block higher than the last,
+-- and can't go above the build limit.
+function crew.tooHigh(area, n)
+  local need = area.y1 + 2 + math.max(0, (n or 1) - 1)
+  if need <= crew.TOP then return nil end
+  return ("Too high: its top is at Y %d, and the builders fly over it up to Y %d, above the build limit (Y %d). Lower it by %d block%s."):format(
+    area.y1, need, crew.TOP, need - crew.TOP, need - crew.TOP == 1 and "" or "s")
+end
 
 -- build, while builder turtles are building: { key, name, n (strips),
 -- stopping, parts = { { key, builder, finished, stopped, stage, done, total,
@@ -271,6 +282,8 @@ function Crew:start()
   -- a strip for every builder in range, busy ones too: one that's busy now
   -- takes a waiting strip when it's done, so it isn't left out of the work
   local n = stripCount(job.area, all)
+  local high = crew.tooHigh(job.area, n)
+  if high then return self:tell(high) end
   local key = ("%d-%s"):format(os.epoch("utc"), job.id or "plan")
   self.build = { key = key, name = job.name, n = n, parts = {} }
   for i = 1, n do

@@ -130,6 +130,10 @@ red) it says so and tries again 5 minutes later.
   are, and the turtle takes them from there: quick, and nothing in the
   supply chest moves. Without one, it moves the block it needs to the first
   slot itself, which is slower with stack upgrades; keep a slot empty.
+- It flies over the top of a building, so the building's top has to stay
+  a few blocks below the build limit (Y 319): 2 blocks, plus 1 for each
+  extra builder sharing it. One that's too high is refused, saying how far
+  to lower it.
 - Plans say which block goes where but not which way it faces, so stairs,
   logs and the like face whichever way the turtle happens to be facing.
   Beds and other two-block things may need placing by hand.

@@ -143,6 +143,8 @@ local function start(id, where, facingArg)
   local a = plans.area(p, at)
   print(("%s facing %s: %d x %d x %d, %d blocks,"):format(p.name, facingName(turn), p.w, p.l, p.h, #p.blocks))
   print(("from %d,%d,%d to %d,%d,%d."):format(a.x0, a.y0, a.z0, a.x1, a.y1, a.z1))
+  local high = crew.tooHigh(a, 1)
+  if high then error(high, 0) end
   if p.clear then
     print("The builders dig out everything in that box first: keep chests and computers out of it.")
   else

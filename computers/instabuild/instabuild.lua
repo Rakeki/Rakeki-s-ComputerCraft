@@ -20,6 +20,7 @@ local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves er
 local UNDO_FILE = "/.instabuild_undo" -- what the last build replaced, for 'instabuild undo'
 local FACINGS = { north = 0, east = 1, south = 2, west = 3 }
 local HERE_GAP = 2 -- 'here' puts the building this many blocks south of the computer
+local WORLD_TOP, WORLD_BOTTOM = 319, -64 -- where blocks can go (1.18 and later)
 local READ_MAX = 4096 -- most blocks one getBlockInfos call reads
 local IN_FLIGHT = 128 -- commands sent before waiting for answers
 local AIR = { ["minecraft:air"] = true, ["minecraft:cave_air"] = true, ["minecraft:void_air"] = true }
@@ -222,6 +223,9 @@ local function build(id, where, facingArg)
   local a = plans.area(p, at)
   print(("%s facing %s: %d x %d x %d, %d blocks,"):format(p.name, facingName(turn), p.w, p.l, p.h, #p.blocks))
   print(("from %d,%d,%d to %d,%d,%d."):format(a.x0, a.y0, a.z0, a.x1, a.y1, a.z1))
+  if a.y1 > WORLD_TOP or a.y0 < WORLD_BOTTOM then
+    error(("That goes outside the world: blocks can only go from Y %d to Y %d."):format(WORLD_BOTTOM, WORLD_TOP), 0)
+  end
   print(p.clear and "Everything else in that box is cleared to air (chests and computers are kept)."
     or "It's built in the air: only its own blocks are placed.")
   write("Build it? (y/n) ")
