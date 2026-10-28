@@ -30,6 +30,7 @@
     soulsand: { c: "#51402f", tex: "noise", amt: 0.16 },
     glowstone: { c: "#d9b24a", tex: "noise", amt: 0.22 },
     gravel: { c: "#857b78", tex: "noise", amt: 0.22 },
+    crate: { c: "#7a4fa8", tex: "barrel", trim: "#c99a3a", amt: 0.04 }, // Create's Creative Crate
     chest: { c: "#a2702a", tex: "chest", amt: 0.04, box: [0.06, 0.94, 0, 0.88, 0.06, 0.94], clear: true },
     computer: { c: "#b9b9b9", tex: "computer", amt: 0.03 },
     advanced: { c: "#d6b444", tex: "computer", amt: 0.03 },
@@ -507,6 +508,22 @@
     };
   }
 
+  // computers/crate-turtle: crate on top, turtle, chest below; the second
+  // tap's chest is the storage input chest (full-block modem on the cable)
+  function crateScene() {
+    const w = new World();
+    w.box(-1, 7, -1, -1, -1, 3, "stone");
+    for (const x of [0, 4]) {
+      w.set(x, 0, 1, "chest"); w.set(x, 1, 1, "turtle"); w.set(x, 2, 1, "crate");
+    }
+    w.set(5, 0, 1, "fullmodem"); w.set(6, 0, 1, "chest"); w.set(7, 0, 1, "computer");
+    return {
+      world: w,
+      labels: [[0, 3.4, 1, "creative crate", "#b266e5"], [0, -0.2, 2, "its chest", "#f2b233"],
+        [4, 3.4, 1, "crate stock", "#7fcc19"], [6.5, 1.6, 1, "storage", "#99b2f2"]],
+    };
+  }
+
   //---------------------------------------------------------------- storage layouts
 
   // Example layouts for computers/storage-computer (see its README's
@@ -684,7 +701,7 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder,
+  const SCENES = { excavate, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder, crate: crateScene,
     storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting

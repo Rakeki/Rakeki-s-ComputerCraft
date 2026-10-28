@@ -49,6 +49,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
 - [enricher-computer](computers/enricher-computer/README.md): feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore (4 per 3 raw), which the smelter turns into ingots
 - [essence-computer](computers/essence-computer/README.md): empties Botany Pots of Mystical Agriculture essence into the storage system, and looks up and orders what the essence crafts into
+- [crate-turtle](computers/crate-turtle/README.md): turtle that pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked
 
 ## How they connect
 

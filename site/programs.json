@@ -743,6 +743,7 @@
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
         ["essence-computer", "Empties Botany Pots of Mystical Agriculture essence into the input chest, and orders what the essence crafts into."],
+        ["crate-turtle", "Keeps it stocked with a Creative Crate's item through the input chest."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
       ],
       "render": {
@@ -1363,6 +1364,62 @@
             "",
             "lime"
           ]
+        ]
+      }
+    },
+    {
+      "name": "crate-turtle",
+      "title": "Creative Crate Tap",
+      "command": "crate",
+      "device": "turtle",
+      "deviceLabel": "Any turtle",
+      "color": "magenta",
+      "tagline": "Pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked.",
+      "libs": ["files", "net", "report", "errlog"],
+      "autostart": true,
+      "stats": [
+        ["Items", "endless"],
+        ["Moves", "a stack at a time"],
+        ["Fuel", "none"],
+        ["Resumes", "after reboot"]
+      ],
+      "features": [
+        "Keeps a chest full, tops it up as you take things out",
+        "Sends an exact amount, or keeps a set amount in the chest",
+        "Keeps a set amount in the storage system: never floods it",
+        "Notices when you change the crate's item, and never drops into the crate"
+      ],
+      "setup": [
+        "Place the Creative Crate and right-click it with the item you want.",
+        "Place the turtle with the crate in front of it, above or below.",
+        "Put a chest on another of those sides (for crate stock, the storage computer's input chest), and a wireless modem for crate stock.",
+        "Run one of the commands: it saves the job and carries on after a reboot."
+      ],
+      "commands": [
+        ["crate", "fill the chest, then keep it full"],
+        ["crate 500", "send 500, then stop"],
+        ["crate keep 256", "keep 256 of the item in the chest"],
+        ["crate stock 1000", "keep 1000 in the storage system"],
+        ["crate stop", "forget the job"]
+      ],
+      "integrates": [
+        ["storage-computer", "With crate stock, the chest is its input chest and the turtle asks it how many are stored."],
+        ["status-server", "Shows what it's sending and how many are there."]
+      ],
+      "render": {
+        "kind": "voxel",
+        "scene": "crate",
+        "caption": "The Creative Crate on top of the turtle and a chest under it. Two taps side by side: one on its own chest, one on the storage computer's input chest for crate stock."
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "crate stock 1000", "cmd"],
+          ["Crate top, chest bottom.", "", "white"],
+          ["Topping up in storage: 0 of 1000.", "", "white"],
+          ["The crate gives cobblestone.", "", "white"],
+          ["Topping up in storage: 1 of 1000.", "", "white"],
+          ["1000 cobblestone in storage. Waiting for it to drop below 1000.", "", "lime"]
         ]
       }
     }

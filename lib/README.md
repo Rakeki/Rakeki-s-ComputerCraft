@@ -17,7 +17,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   present), `craft-overseer` (if present), `smelter-computer` (if present),
   `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present) and the computer template.
+  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present), `crate-turtle` (if present) and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
   trace), skipping repeats and trimming old entries. Used by
@@ -28,7 +28,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   present), `craft-overseer` (if present), `smelter-computer` (if present),
   `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present) and the computer template.
+  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present), `crate-turtle` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
@@ -48,7 +48,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   computer hosting a protocol (`net.peer`). Used by `village-turtle`,
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
-  `smelter-computer`, `cooker-computer`, `enricher-computer` and `essence-computer`.
+  `smelter-computer`, `cooker-computer`, `enricher-computer`, `essence-computer` and
+  `crate-turtle` (for `crate stock`).
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
   `writeFile` / `readFile` / `deleteFile` are these. Used by
@@ -56,7 +57,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer`, `smelter-computer`, `cooker-computer`,
-  `fission-guard` and `enricher-computer`.
+  `fission-guard`, `enricher-computer` and `crate-turtle`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,
