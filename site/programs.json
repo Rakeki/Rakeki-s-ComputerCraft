@@ -860,7 +860,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Keeps the storage system's furnaces busy: smelts ores and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal.",
+      "tagline": "Keeps the storage system's furnaces busy: smelts ores and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal or cobblestone into stone on request.",
       "libs": ["report", "errlog", "screen", "net", "files"],
       "keep": ["config.lua"],
       "autostart": true,
@@ -868,7 +868,7 @@
         ["Furnaces", "as many as you cable"],
         ["Checks", "every 10 s"],
         ["Fuel", "from the fuel chest"],
-        ["Charcoal", "on request"]
+        ["Orders", "charcoal, stone"]
       ],
       "features": [
         "Smelts raw metals, ore blocks and ancient debris from storage by itself",
@@ -876,6 +876,7 @@
         "Shares the work out between furnaces, blast furnaces and smokers first",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
+        "Press S to smelt cobblestone into stone; both orders can run at once",
         "Smelted goods go back into storage through the input chest"
       ],
       "setup": [
@@ -886,18 +887,19 @@
       "commands": [
         ["smelter", "start (runs on boot)"],
         ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
-        ["smelter cancel", "stop making charcoal (or press X)"]
+        ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
+        ["smelter cancel stone", "stop an order; no name stops both (or press X)"]
       ],
       "integrates": [
         ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks."],
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
-        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal order."]
+        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal or stone order."]
       ],
       "render": {
         "kind": "screen",
         "scene": "smelter",
-        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal order."
+        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal or stone order."
       },
       "terminal": {
         "device": "computer",
@@ -931,12 +933,13 @@
         "The storage computer fills each pot's feed hopper; the output hopper's candy goes back into storage",
         "Reads each pot through a comparator and a redstone relay, and sends only what it has room for, so a hopper never spills into the wrong pot slot and jams it",
         "Nothing to count or reset: open a pot and the cooker sees it next round. Says when a pot should be cooking but isn't (lid open, or jammed)",
+        "Optional monitor: every candy size in storage and in the pots, the exp it's all worth, and the sculk and honeycomb left",
         "More pot recipes in config.lua"
       ],
       "setup": [
         "Put a campfire pot on a lit campfire, a hopper pointing into its side, a hopper under it, and a comparator facing away from it into a redstone relay. Put a wired modem on each hopper and the relay, join them to the storage network and right-click the modems.",
         "Power the pot with a redstone block (that shuts its lid), touching neither the hoppers, the comparator's sides nor the relay. Update the storage computer with install update.",
-        "Put this computer on the same network with a wired modem, install, run cooker add for each pot, and reboot."
+        "Put this computer on the same network with a wired modem (and a monitor for the candy count), install, run cooker add for each pot, and reboot."
       ],
       "commands": [
         ["cooker", "start (runs on boot)"],
@@ -951,7 +954,10 @@
       "render": {
         "kind": "screen",
         "scene": "cooker",
-        "caption": "The cooker's screen: each pot, what it makes, how many it has made and what it's doing."
+        "caption": "The cooker's screen: each pot, what it makes, how many it has made and what it's doing.",
+        "more": [
+          { "scene": "cookerMonitor", "caption": "The candy monitor: each size in storage and in the pots, the exp it's worth, and what's left to make more XS from." }
+        ]
       },
       "layouts": [
         { "title": "One pot", "scene": "cookerOne", "caption": "A pot on its campfire, raised a block: the feed hopper points into its side, the output hopper sits under it, a redstone block behind it keeps the lid shut without touching either hopper, and a comparator on its other side reads it into the redstone relay beyond. The hoppers' and the relay's modems join the storage network's cable." },

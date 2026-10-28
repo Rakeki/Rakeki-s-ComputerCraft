@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each cooking pot, two hoppers and a redstone relay on that network
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each cooking pot, two hoppers and a redstone relay on that network; optional monitor for the candy count
 
 ## What it does
 
@@ -56,6 +56,22 @@ many it holds / how many it needs to start), **needs** an item that's run
 out in storage, or **not cooking!** when it should be. With a wireless
 modem it also reports to the [status server](../status-server/README.md).
 
+### Candy monitor
+
+Put a monitor on the computer (or on the network with a wired modem) and it
+shows how much candy you have:
+
+- each size, XS to XL, and rare candy: how many are in storage, about how
+  many are in the compressing pots, and the exp they're worth (XS 100, S
+  800, M 3,000, L 10,000, XL 30,000, as in Cobblemon);
+- the exp of all the candy in storage together;
+- how much sculk and honeycomb is left for making more XS.
+
+It needs room for 36 characters across: a monitor 4 blocks wide, or 2 or 3
+wide (it then uses smaller text), and at least 2 blocks tall. It updates
+every 10 seconds, with the pots. To pick one monitor out of several, or
+change what it lists, see `monitor` and `candy` in `config.lua`.
+
 ## Example layouts
 
 The website shows each of these in 3D.
@@ -78,7 +94,7 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `cooker.lua`: the program
-- `config.lua`: what the pots can make, and what to leave in storage (kept when you update)
+- `config.lua`: what the pots can make, what to leave in storage, and the candy monitor (kept when you update)
 - `startup.lua`: starts it on boot and restarts it if it stops
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -112,8 +128,9 @@ input chest, then into the S pot, and so on up to XL.
    stops moving items) and from the comparator's sides and the relay (they
    would read it instead of the pot).
 8. Place this computer with a wired modem on it, joined to the same network
-   (a wireless modem as well is only needed for the status server). Install
-   this program, then add each pot and reboot.
+   (a wireless modem as well is only needed for the status server). For the
+   [candy monitor](#candy-monitor), put a monitor on it too. Install this
+   program, then add each pot and reboot.
 
    ```
    cooker add                         -- add a pot: asks what it makes, its hoppers and its relay
@@ -151,6 +168,9 @@ the pots already is fine: the comparator sees it.
   nearly empty.
 - If the storage computer doesn't answer while loading a pot, nothing is
   lost: the cooker sees what arrived in the feed hopper on its next round.
+- After `install update`, an older `config.lua` (kept as it was) has no
+  `monitor` or `candy` settings: the monitor then uses any monitor it finds
+  and lists the candy above.
 - Everything with a pot to go into gets used: to keep some sculk,
   honeycomb or smaller candy in storage, add it to `keep` in `config.lua`.
 - With Create installed, Cobblemon also makes XS candy from experience

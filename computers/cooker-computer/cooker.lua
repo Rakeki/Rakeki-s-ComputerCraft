@@ -8,6 +8,9 @@
 --   cooker relay <n> [relay]                give pot n its redstone relay
 --   cooker remove <n>                       forget pot n (no number: list them)
 --
+-- With a monitor attached (or on the network), it shows how much candy
+-- there is: each size in storage and in the pots, and the exp it's all worth.
+--
 -- CC can't reach into a pot, so every pot has, on the network: a feed hopper
 -- pointing into its side, which the storage computer fills; an output hopper
 -- under it, which this program empties into the storage computer's input
@@ -57,10 +60,21 @@ local RECIPES = config.recipes or {
   exp_candy_xl = { make = "cobblemon:exp_candy_xl", "cobblemon:exp_candy_l", times = 3 },
 }
 local KEEP = config.keep or {}
+-- The candy the monitor lists: item, what to call it, and the exp one gives
+-- (Cobblemon's own amounts; rare candy depends on the Pokemon).
+local CANDY = config.candy or {
+  { "cobblemon:exp_candy_xs", "XS", 100 },
+  { "cobblemon:exp_candy_s", "S", 800 },
+  { "cobblemon:exp_candy_m", "M", 3000 },
+  { "cobblemon:exp_candy_l", "L", 10000 },
+  { "cobblemon:exp_candy_xl", "XL", 30000 },
+  { "cobblemon:rare_candy", "Rare" },
+}
 
 local pots = {} -- what the screen shows: each pot with its recipe and how it's doing
 local message = { "Looking for the storage computer...", "lightGray" }
 local made = {} -- feed hopper -> how many it has made since the cooker started
+local stock = nil -- the storage computer's last counts: item -> how many
 local madeAt = {} -- feed hopper -> os.clock() when something last came out of it
 local stackOf = {} -- item -> items to a stack, from the feed hoppers
 
@@ -283,6 +297,7 @@ local function round()
     status("waiting", ("storage computer: %s"):format(err or "too old to answer"))
     return
   end
+  stock = reply.counts
   local input, avail = reply.input, {}
   for name, n in pairs(reply.counts) do avail[name] = math.max(0, n - (KEEP[name] or 0)) end
 
@@ -431,10 +446,95 @@ local function draw()
   display:show()
 end
 
+-- The candy monitor, if there is one (the terminal keeps the pots).
+local monitor = screen.find({ scales = { 1, 0.5 }, minW = 36, minH = 12, name = config.monitor })
+
+local function commas(n)
+  local text = tostring(math.floor(n))
+  local k
+  repeat text, k = text:gsub("^(%d+)(%d%d%d)", "%1,%2") until k == 0
+  return text
+end
+
+-- What a recipe without "times" is made from (sculk and honeycomb): the
+-- monitor shows how much is left for making more.
+local function rawItems()
+  local seen, list = {}, {}
+  for key in pairs(RECIPES) do
+    local r = recipeOf(key)
+    if r and not r.same then
+      for _, name in ipairs(r.items) do
+        if not seen[name] then seen[name], list[#list + 1] = true, name end
+      end
+    end
+  end
+  table.sort(list)
+  return list
+end
+
+local function drawMonitor()
+  if not monitor.target then return end
+  -- candy in the compressing pots: at least what their comparators read
+  local inPots = {}
+  for _, p in ipairs(pots) do
+    if p.recipe and p.recipe.same and p.level and p.level > 0 then
+      local name = p.recipe.items[1]
+      inPots[name] = (inPots[name] or 0) + fewestAt(p.level, (stacks(p.recipe)))
+    end
+  end
+  local rows, total = {}, 0
+  for _, c in ipairs(CANDY) do
+    local n = stock and stock[c[1]] or 0
+    total = total + n * (c[3] or 0)
+    rows[#rows + 1] = { c[2], stock and commas(n) or "?", inPots[c[1]] and ("~" .. commas(inPots[c[1]])) or "",
+      c[3] and stock and commas(n * c[3]) or "-" }
+  end
+  local raw = {}
+  for _, name in ipairs(rawItems()) do
+    raw[#raw + 1] = ("%s %s"):format(nice(name), stock and commas(stock[name] or 0) or "?")
+  end
+  local key = { stock and commas(total) or "?", table.concat(raw, " "), message[1], message[2] }
+  for _, r in ipairs(rows) do key[#key + 1] = table.concat(r, "|") end
+  if monitor:same(table.concat(key, "/")) then return end
+
+  local win, w, h = monitor:frame()
+  local function at(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
+  local function right(x, y, text, fg) at(x - #text + 1, y, text, fg) end
+  local expR = w - 1
+  local potsR = expR - 11
+  local storedR = potsR - 8
+  at(1, 1, (" "):rep(w), "white", "gray")
+  at(2, 1, "Exp candy", "yellow", "gray")
+  at(2, 3, "Candy", "yellow")
+  right(storedR, 3, "Stored", "yellow")
+  right(potsR, 3, "In pots", "yellow")
+  right(expR, 3, "Exp", "yellow")
+  for i, r in ipairs(rows) do
+    local y = 3 + i
+    if y < h - 2 then
+      at(2, y, r[1], "white")
+      right(storedR, y, r[2], "white")
+      right(potsR, y, r[3], "lightBlue")
+      right(expR, y, r[4], "lightGray")
+    end
+  end
+  local y = math.min(3 + #rows + 2, h - 2)
+  at(2, y, "Exp stored", "white")
+  right(expR, y, stock and commas(total) or "?", "lime")
+  if #raw > 0 and y + 1 < h then at(2, y + 1, fitText("For more: " .. table.concat(raw, ", "), w - 2), "lightGray") end
+  at(1, h, fitText(message[1], w), message[2])
+  monitor:show()
+end
+
 local function uiLoop()
   while true do
     draw()
-    os.pullEvent("cooker_changed")
+    drawMonitor()
+    repeat
+      local event = os.pullEvent()
+      if event == "peripheral" or event == "peripheral_detach" then monitor:refresh() end
+    until event == "cooker_changed" or event == "peripheral" or event == "peripheral_detach"
+      or event == "monitor_resize" or event == "term_resize"
   end
 end
 

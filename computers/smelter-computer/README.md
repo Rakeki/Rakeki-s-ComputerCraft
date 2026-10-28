@@ -42,6 +42,14 @@ into the fuel chest, where it fuels the furnaces and
 order has got; it carries on after a reboot, and stops early if those logs
 run out.
 
+### Making stone
+
+Press **S** and say how much stone to make from the cobblestone in
+storage. It works like a charcoal order (plain furnaces only, carries on
+after a reboot, stops early if the cobblestone runs out), and the stone
+goes into storage. Both orders can run at once: plain furnaces start on
+the charcoal first, then the stone, and both come before ores and food.
+
 The screen lists each furnace (blast furnaces in orange, smokers in pink), what's in it and its fuel, how much
 smelting the stored fuel is good for, and what it did last. With a
 wireless modem it also reports to the [status server](../status-server/README.md).
@@ -78,12 +86,16 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter                        -- start (startup.lua does this on boot)
    smelter charcoal 256 spruce    -- make 256 charcoal from spruce logs
    smelter charcoal 64            -- make 64 from the logs there are most of
-   smelter cancel                 -- stop making charcoal
+   smelter stone 512              -- make 512 stone from cobblestone
+   smelter cancel stone           -- stop making stone
+   smelter cancel                 -- stop both orders
    ```
 
-On the running smelter, **C** starts a charcoal order and **X** cancels it.
-The `smelter charcoal` command does the same from another tab (or after
-stopping it with Ctrl+T); the running smelter picks it up within 10 seconds.
+On the running smelter, **C** starts a charcoal order, **S** a stone order,
+and **X** cancels one (it asks which when both are running). The `smelter
+charcoal` and `smelter stone` commands do the same from another tab (or
+after stopping it with Ctrl+T); the running smelter picks them up within
+10 seconds.
 
 ## Things to know
 
@@ -99,6 +111,8 @@ stopping it with Ctrl+T); the running smelter picks it up within 10 seconds.
   footer says so and it tries again every 10 seconds.
 - Making charcoal needs some fuel to start with: one coal or charcoal
   burns 8 logs into 8 charcoal.
+- A stone order only makes plain stone from cobblestone, not smooth stone
+  or deepslate.
 - If a furnace has fuel but doesn't smelt what's in it for 2 minutes (an
   item that doesn't smelt there, like a modded ore in a blast furnace), the
   item goes back into storage and isn't put in that kind of furnace again

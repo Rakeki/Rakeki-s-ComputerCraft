@@ -2,13 +2,15 @@
 -- smoker on the storage computer's wired network busy: ores and raw metals
 -- in storage go into the furnaces and blast furnaces, raw food into the
 -- smokers and furnaces, fuel comes from the storage computer's fuel chest,
--- and what's smelted goes back into storage through its input chest. It can
--- also burn spare logs into charcoal, which ends up in the fuel chest.
+-- and what's smelted goes back into storage through its input chest. On
+-- order it also burns spare logs into charcoal, which ends up in the fuel
+-- chest, and smelts cobblestone into stone.
 --
 --   smelter                        start (startup.lua runs this)
 --   smelter charcoal <n> [wood]    make n charcoal from logs, e.g. 'smelter charcoal 256 spruce'
 --                                  (no wood: the kind there's most of)
---   smelter cancel                 stop making charcoal
+--   smelter stone <n>              make n stone from cobblestone
+--   smelter cancel [charcoal|stone]  stop an order (no name: both)
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -23,7 +25,6 @@ local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves er
 local config = fs.exists("config.lua") and require("config") or {}
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
-local JOB_FILE = "/.smelter_job" -- the charcoal order, kept across reboots
 local EVERY = 10 -- seconds between rounds of emptying and filling the furnaces
 local REPLY_WAIT = 5 -- seconds to wait for the storage computer to answer
 local LOAD_MIN = 8 -- fewest items put in an empty furnace at once (what one coal smelts)
@@ -41,7 +42,7 @@ local KEEP = config.keep or { ["minecraft:potato"] = 64 }
 
 local furnaces = {} -- what the screen shows: { name, blast, input, fuel, output } per furnace
 local stock -- the storage computer's last answer to 'stock'
-local job -- the charcoal order: { at, wood, count, loaded, made }
+local jobs = {} -- kind -> the order: { at, item, count, loaded, made }
 local message = { "Looking for the storage computer...", "lightGray" }
 local stuckSince = {} -- furnace name -> { name, count, since }: an input that hasn't gone down since
 local news -- { text, colour, untilTime }: a finished order or a put-back item, shown for a minute
@@ -101,29 +102,10 @@ local function findFurnaces()
   return list
 end
 
----------------------------------------------------------------- the charcoal order
+---------------------------------------------------------------- orders
 
-local function readJob()
-  local t = files.read(JOB_FILE)
-  return type(t) == "table" and t or nil
-end
-
-local function writeJob(t) files.write(JOB_FILE, t) end
-
-local function newJob(wood, count)
-  writeJob({ at = os.epoch("utc"), wood = wood, count = count, loaded = 0, made = 0 })
-  os.queueEvent("smelter_order")
-end
-
--- A round only saves or ends the order it started with: one placed
--- meanwhile (from the keyboard, or 'smelter charcoal' in another tab) wins.
-local function sameJob(t)
-  local cur = readJob()
-  return cur ~= nil and cur.at == t.at
-end
-
--- The log an order burns: the item it names, or the matching log there's
--- most of (wood may be part of a name, like "spruce", or nil for any).
+-- The log a charcoal order burns: the item it names, or the matching log
+-- there's most of (wood may be part of a name, like "spruce", or nil for any).
 local function pickWood(want, counts)
   if want and (counts[want] or 0) > 0 and not noSmelt["furnace:" .. want] then return want end
   local best, most = nil, 0
@@ -133,6 +115,49 @@ local function pickWood(want, counts)
     end
   end
   return best
+end
+
+-- What can be ordered, worked on in this order by plain furnaces (blast
+-- furnaces and smokers can't burn logs or cobblestone). Each order is kept
+-- in its own file across reboots; the charcoal one keeps its old name.
+local ORDERS = {
+  { kind = "charcoal", file = "/.smelter_job", made = "minecraft:charcoal", from = "logs",
+    isInput = isWood, pick = pickWood },
+  { kind = "stone", file = "/.smelter_stone", made = "minecraft:stone", from = "cobblestone",
+    isInput = function(name) return name == "minecraft:cobblestone" end,
+    pick = function(_, counts)
+      local name = "minecraft:cobblestone"
+      if (counts[name] or 0) > 0 and not noSmelt["furnace:" .. name] then return name end
+    end },
+}
+local orderKind = {}
+for _, o in ipairs(ORDERS) do orderKind[o.kind] = o end
+
+local function readOrder(o)
+  local t = files.read(o.file)
+  if type(t) ~= "table" then return nil end
+  t.item = t.item or t.wood -- charcoal orders saved before stone orders existed
+  return t
+end
+
+local function readOrders()
+  local t = {}
+  for _, o in ipairs(ORDERS) do t[o.kind] = readOrder(o) end
+  return t
+end
+
+local function newOrder(kind, item, count)
+  files.write(orderKind[kind].file, { at = os.epoch("utc"), item = item, count = count, loaded = 0, made = 0 })
+  os.queueEvent("smelter_order")
+end
+
+local function cancelOrder(kind) files.delete(orderKind[kind].file) end
+
+-- A round only saves or ends the order it started with: one placed
+-- meanwhile (from the keyboard, or 'smelter charcoal' in another tab) wins.
+local function sameOrder(o, t)
+  local cur = readOrder(o)
+  return cur ~= nil and cur.at == t.at
 end
 
 ---------------------------------------------------------------- talking to storage
@@ -171,7 +196,7 @@ local function round()
   end
   parallel.waitForAll(table.unpack(reads))
   furnaces = list
-  job = readJob()
+  jobs = readOrders()
 
   local reply, err = ask({ type = "stock" })
   if not reply or type(reply.counts) ~= "table" then
@@ -182,7 +207,7 @@ local function round()
   end
   stock = reply
   local counts, input = reply.counts, reply.input
-  local order = job
+  local orders = jobs
 
   -- what's smelted goes back through the input chest (charcoal is put in
   -- the fuel chest from there)
@@ -191,7 +216,10 @@ local function round()
     if f.output then
       local ok, moved = pcall(peripheral.call, f.name, "pushItems", input, 3)
       if not ok then problem, moved = tostring(moved), 0 end
-      if order and f.output.name == "minecraft:charcoal" then order.made = order.made + moved end
+      for _, o in ipairs(ORDERS) do
+        local t = orders[o.kind]
+        if t and f.output.name == o.made then t.made = t.made + moved end
+      end
       f.output.count = f.output.count - moved
       if f.output.count > 0 then blocked = true else f.output = nil end
     end
@@ -219,33 +247,40 @@ local function round()
     end
   end
 
-  -- the charcoal order: done once it's made, or once nothing's burning and
+  -- each order: done once it's made, or once nothing's burning for it and
   -- there's nothing more to burn (every input was read before its output
-  -- was emptied, so all the charcoal from finished logs has been counted)
-  local wood
-  if order then
-    wood = pickWood(order.wood, counts)
-    if not order.wood then order.wood = wood end -- 'any logs': stick to one kind
-    local burning = false
-    for _, f in ipairs(furnaces) do
-      if f.input and isWood(f.input.name) then burning = true end
-    end
-    if order.made >= order.count or (not burning and (order.loaded >= order.count or not wood)) then
-      local where = stock.fuelChest and "the fuel chest" or "storage"
-      if order.made >= order.count then
-        tell(("Made %d charcoal. It's in %s."):format(order.made, where), "lime")
-      else
-        tell(("Ran out of %s: made %d of %d charcoal."):format(order.wood and nice(order.wood) or "logs",
-          order.made, order.count), "orange")
+  -- was emptied, so everything made from finished inputs has been counted)
+  local orderItems = {} -- the item each running order burns, in ORDERS order
+  local byItem = {} -- item -> the order it's loaded for
+  for _, o in ipairs(ORDERS) do
+    local t = orders[o.kind]
+    if t then
+      local item = o.pick(t.item, counts)
+      if not t.item then t.item = item end -- 'any logs': stick to one kind
+      local burning = false
+      for _, f in ipairs(furnaces) do
+        if f.input and o.isInput(f.input.name) then burning = true end
       end
-      if report then report.log(("made %d charcoal"):format(order.made)) end
-      if sameJob(order) then files.delete(JOB_FILE) end
-      order, wood, job = nil, nil, nil
+      if t.made >= t.count or (not burning and (t.loaded >= t.count or not item)) then
+        if t.made >= t.count then
+          local where = o.kind == "charcoal" and stock.fuelChest and "the fuel chest" or "storage"
+          tell(("Made %d %s. It's in %s."):format(t.made, o.kind, where), "lime")
+        else
+          tell(("Ran out of %s: made %d of %d %s."):format(t.item and nice(t.item) or o.from,
+            t.made, t.count, o.kind), "orange")
+        end
+        if report then report.log(("made %d %s"):format(t.made, o.kind)) end
+        if sameOrder(o, t) then cancelOrder(o.kind) end
+        orders[o.kind] = nil
+      elseif item then
+        orderItems[#orderItems + 1] = item
+        byItem[item] = t
+      end
     end
   end
 
   -- what to load: every ore and raw food in storage (less what config.lua
-  -- keeps, like potatoes for planting), and the logs the order still needs
+  -- keeps, like potatoes for planting), and what the orders still need
   local want, kinds = {}, {}
   for name, n in pairs(counts) do
     local kind = n > 0 and smeltKind(name)
@@ -254,7 +289,7 @@ local function round()
       if n > (KEEP[name] or 0) then want[name] = n - (KEEP[name] or 0) end
     end
   end
-  if wood then want[wood] = math.min(counts[wood], order.count - order.loaded) end
+  for item, t in pairs(byItem) do want[item] = math.min(counts[item], t.count - t.loaded) end
   -- blast furnaces only smelt ores, smokers only cook food, furnaces do both
   local function canTake(f, name)
     if (want[name] or 0) <= 0 or noSmelt[kindOf(f) .. name] then return false end
@@ -270,7 +305,7 @@ local function round()
     if got > 0 then
       want[name] = want[name] - got
       if f.input then f.input.count = f.input.count + got else f.input = { name = name, count = got } end
-      if name == wood then order.loaded = order.loaded + got end
+      if byItem[name] then byItem[name].loaded = byItem[name].loaded + got end
       loaded, into = loaded + got, into + 1
     end
   end
@@ -283,8 +318,8 @@ local function round()
     end
   end
   -- then fill empty ones: blast furnaces and smokers first (twice as fast,
-  -- but only ores or only food), and plain furnaces put a charcoal order
-  -- ahead of the rest
+  -- but only ores or only food), and plain furnaces put the orders ahead of
+  -- the rest, charcoal before stone
   local empty = {}
   for _, f in ipairs(furnaces) do
     if not f.input and (f.fuel or haveFuel) then empty[#empty + 1] = f end
@@ -293,12 +328,13 @@ local function round()
   table.sort(empty, function(a, b) return fast(a) and not fast(b) end)
   for _, f in ipairs(empty) do
     local pick
-    if wood and canTake(f, wood) then
-      pick = wood
-    else
+    for _, item in ipairs(orderItems) do
+      if not pick and canTake(f, item) then pick = item end
+    end
+    if not pick then
       local most = 0
       for name, n in pairs(want) do
-        if name ~= wood and n > most and canTake(f, name) then pick, most = name, n end
+        if not byItem[name] and n > most and canTake(f, name) then pick, most = name, n end
       end
     end
     if pick then
@@ -327,8 +363,11 @@ local function round()
     end
   end
 
-  if order and sameJob(order) then writeJob(order) end
-  if order then job = order end
+  for _, o in ipairs(ORDERS) do
+    local t = orders[o.kind]
+    if t and sameOrder(o, t) then files.write(o.file, t) end
+  end
+  jobs = orders
 
   local busy = 0
   for _, f in ipairs(furnaces) do
@@ -377,7 +416,15 @@ local function draw()
   put(2, 3, "Furnace", "yellow")
   put(20, 3, "Smelting", "yellow")
   put(fuelX, 3, "Fuel", "yellow")
-  local rows = h - 7
+  local lines = {}
+  for _, o in ipairs(ORDERS) do
+    local t = jobs[o.kind]
+    if t then
+      lines[#lines + 1] = ("%s%s: %d of %d made from %s"):format(o.kind:sub(1, 1):upper(), o.kind:sub(2), t.made,
+        t.count, t.item and nice(t.item) or o.from)
+    end
+  end
+  local rows = h - 6 - math.max(#lines, 1)
   for i = 1, math.min(rows, #furnaces) do
     local f, y = furnaces[i], 3 + i
     put(2, y, fitText(nice(f.name), 17), f.blast and "orange" or f.smoker and "pink" or "white")
@@ -385,23 +432,34 @@ local function draw()
       f.input and "white" or "gray")
     put(fuelX, y, fitText(f.fuel and ("%d %s"):format(f.fuel.count, nice(f.fuel.name)) or "-", 12), "lightGray")
   end
-  if #furnaces > rows then put(2, h - 3, ("...and %d more"):format(#furnaces - rows), "gray") end
+  if #furnaces > rows then put(2, 4 + rows, ("...and %d more"):format(#furnaces - rows), "gray") end
   if #furnaces == 0 then put(2, 4, "No furnaces yet.", "gray") end
-  local order = job and ("Charcoal: %d of %d made from %s"):format(job.made, job.count, job.wood and nice(job.wood) or "logs")
-  put(1, h - 2, fitText(" " .. (order or "No charcoal order."), w), order and "lightBlue" or "gray")
+  if #lines == 0 then put(1, h - 2, fitText(" No orders.", w), "gray") end
+  for i, line in ipairs(lines) do
+    put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
+  end
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("C: make charcoal  X: cancel charcoal", w), "gray")
+  put(1, h, fitText("C: charcoal  S: stone  X: cancel an order", w), "gray")
   display:show()
+end
+
+local function promptScreen()
+  term.setBackgroundColor(colors.black)
+  term.setTextColor(colors.white)
+  term.clear()
+  term.setCursorPos(1, 1)
+end
+
+local function anyKey()
+  print("Press any key.")
+  os.pullEvent("key")
 end
 
 -- Ask which logs to burn and how much charcoal to make, from what the
 -- storage computer last said it holds.
 local function charcoalPrompt()
   local _, h = term.getSize()
-  term.setBackgroundColor(colors.black)
-  term.setTextColor(colors.white)
-  term.clear()
-  term.setCursorPos(1, 1)
+  promptScreen()
   local woods = {}
   for name, n in pairs(stock and stock.counts or {}) do
     if isWood(name) and n > 0 then woods[#woods + 1] = { name = name, n = n } end
@@ -409,11 +467,10 @@ local function charcoalPrompt()
   table.sort(woods, function(a, b) return a.n > b.n end)
   if #woods == 0 then
     print(stock and "There are no logs in storage to make charcoal from." or "The storage computer hasn't answered yet.")
-    print("Press any key.")
-    os.pullEvent("key")
+    anyKey()
     return
   end
-  if job then print(("This replaces the order for %d charcoal."):format(job.count)) end
+  if jobs.charcoal then print(("This replaces the order for %d charcoal."):format(jobs.charcoal.count)) end
   print("Make charcoal from which logs?")
   for i = 1, math.min(#woods, h - 5) do
     print(("%2d  %-26s %d"):format(i, nice(woods[i].name), woods[i].n))
@@ -426,9 +483,52 @@ local function charcoalPrompt()
   local n = tonumber(read())
   if not n or n < 1 then return end
   n = math.floor(n)
-  newJob(pick.name, n)
-  job = readJob()
+  newOrder("charcoal", pick.name, n)
+  jobs = readOrders()
   say(("Making %d charcoal from %s."):format(n, nice(pick.name)), "lightBlue")
+end
+
+-- Ask how much stone to make from the cobblestone in storage.
+local function stonePrompt()
+  promptScreen()
+  local have = stock and stock.counts["minecraft:cobblestone"] or 0
+  if have == 0 then
+    print(stock and "There's no cobblestone in storage to make stone from." or "The storage computer hasn't answered yet.")
+    anyKey()
+    return
+  end
+  if jobs.stone then print(("This replaces the order for %d stone."):format(jobs.stone.count)) end
+  write(("How much stone? (up to %d, Enter to cancel) "):format(have))
+  local n = tonumber(read())
+  if not n or n < 1 then return end
+  n = math.floor(n)
+  newOrder("stone", "minecraft:cobblestone", n)
+  jobs = readOrders()
+  say(("Making %d stone from cobblestone."):format(n), "lightBlue")
+end
+
+local function cancelled(kind)
+  return ("%s order cancelled. %s already in furnaces still %s."):format(kind == "charcoal" and "Charcoal" or "Stone",
+    kind == "charcoal" and "Logs" or "Cobblestone", kind == "charcoal" and "burn" or "smelts")
+end
+
+-- Cancel the one order there is, or ask which when there are both.
+local function cancelPrompt()
+  local kind = jobs.charcoal and "charcoal" or "stone"
+  if jobs.charcoal and jobs.stone then
+    promptScreen()
+    print("Cancel which order?")
+    print(("  C  charcoal (%d of %d made)"):format(jobs.charcoal.made, jobs.charcoal.count))
+    print(("  S  stone (%d of %d made)"):format(jobs.stone.made, jobs.stone.count))
+    print("  any other key: neither")
+    local _, c = os.pullEvent("char")
+    c = c:lower()
+    if c ~= "c" and c ~= "s" then return end
+    kind = c == "c" and "charcoal" or "stone"
+  end
+  cancelOrder(kind)
+  jobs[kind] = nil
+  say(cancelled(kind))
 end
 
 local function uiLoop()
@@ -436,12 +536,13 @@ local function uiLoop()
     draw()
     local event, a = os.pullEvent()
     -- char, not key: read() in the prompt would otherwise get the "c" too
-    if event == "char" and (a == "c" or a == "C") then
+    a = event == "char" and a:lower()
+    if a == "c" then
       charcoalPrompt()
-    elseif event == "char" and (a == "x" or a == "X") and job then
-      files.delete(JOB_FILE)
-      job = nil
-      say("Charcoal order cancelled. Logs already in furnaces still burn.")
+    elseif a == "s" then
+      stonePrompt()
+    elseif a == "x" and (jobs.charcoal or jobs.stone) then
+      cancelPrompt()
     end
   end
 end
@@ -450,7 +551,7 @@ local function workLoop()
   while true do
     round()
     os.queueEvent("smelter_changed")
-    -- a new charcoal order starts straight away
+    -- a new order starts straight away
     local timer = os.startTimer(EVERY)
     repeat
       local event, value = os.pullEvent()
@@ -468,13 +569,31 @@ if args[1] == "charcoal" then
     return
   end
   local wood = #args >= 3 and table.concat(args, "_", 3):lower() or nil
-  newJob(wood, math.floor(n))
+  newOrder("charcoal", wood, math.floor(n))
   print(("Charcoal order saved: %d from %s."):format(math.floor(n), wood and nice(wood) or "whichever logs there are most of"))
   print("The smelter starts on it within 10 seconds, or when it's next started.")
   return
+elseif args[1] == "stone" then
+  local n = tonumber(args[2])
+  if not n or n < 1 then
+    print("Usage: smelter stone <how many>")
+    return
+  end
+  newOrder("stone", "minecraft:cobblestone", math.floor(n))
+  print(("Stone order saved: %d from cobblestone."):format(math.floor(n)))
+  print("The smelter starts on it within 10 seconds, or when it's next started.")
+  return
 elseif args[1] == "cancel" then
-  files.delete(JOB_FILE)
-  print("Charcoal order cancelled. Logs already in furnaces still burn.")
+  if args[2] and not orderKind[args[2]] then
+    print("Usage: smelter cancel [charcoal|stone]")
+    return
+  end
+  for _, o in ipairs(ORDERS) do
+    if not args[2] or args[2] == o.kind then
+      cancelOrder(o.kind)
+      print(cancelled(o.kind))
+    end
+  end
   return
 end
 
@@ -484,7 +603,7 @@ if not net.open("any") then
   return
 end
 
-job = readJob()
+jobs = readOrders()
 term.clear()
 if report then report.init("smelter") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, workLoop,

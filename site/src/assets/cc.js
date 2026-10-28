@@ -748,7 +748,8 @@
   // The smelter's screen: same layout as computers/smelter-computer/smelter.lua.
   // Furnaces smelt down on their own and get reloaded from a pile of ores
   // (the smoker from a pile of raw food);
-  // click the footer (or the order line) to place a charcoal order.
+  // click the footer (or the order lines) to place a charcoal order, then a
+  // stone order as well, then cancel both.
   function smelter(el) {
     const W = 51, H = 19;
     const s = new Screen(W, H, el);
@@ -764,7 +765,7 @@
     ];
     const ores = { "raw iron": 410, "raw copper": 96, "raw gold": 0 };
     const food = { beef: 40, porkchop: 18, cod: 12 };
-    const st = { fuel: 2384, order: null, msg: ["Loaded 80 items into 2 furnaces.", "lightGray"], tick: 0 };
+    const st = { fuel: 2384, orders: [], msg: ["Loaded 80 items into 2 furnaces.", "lightGray"], tick: 0 };
 
     function load(f) {
       if (f.smoker) {
@@ -773,10 +774,11 @@
         const n = Math.min(64, food[name]);
         food[name] -= n;
         f.input = [name, n];
-      } else if (!f.blast && st.order && st.order.loaded < st.order.count) {
-        const n = Math.min(64, st.order.count - st.order.loaded);
-        st.order.loaded += n;
-        f.input = ["spruce log", n];
+      } else if (!f.blast && st.orders.some((o) => o.loaded < o.count)) {
+        const o = st.orders.find((o) => o.loaded < o.count);
+        const n = Math.min(64, o.count - o.loaded);
+        o.loaded += n;
+        f.input = [o.from, n];
       } else {
         const name = Object.keys(ores).sort((a, b) => ores[b] - ores[a])[0];
         if (!ores[name]) return;
@@ -795,15 +797,16 @@
         if (!f.input) { load(f); continue; }
         const n = Math.min(f.input[1], f.blast || f.smoker ? 2 : 1);
         f.input[1] -= n;
-        if (f.input[0] === "spruce log" && st.order) st.order.made += n;
+        for (const o of st.orders) if (f.input[0] === o.from) o.made += n;
         if (st.tick % 8 === 0 && f.fuel) { f.fuel[1]--; st.fuel = Math.max(0, st.fuel - 8); }
         if (f.fuel && f.fuel[1] <= 0) f.fuel = null;
         if (f.input[1] <= 0) f.input = null;
       }
-      if (st.order && st.order.made >= st.order.count) {
-        st.fuel += st.order.made * 8;
-        st.msg = [`Made ${st.order.made} charcoal. It's in the fuel chest.`, "lime"];
-        st.order = null;
+      for (const o of st.orders.filter((o) => o.made >= o.count)) {
+        const charcoal = o.kind === "Charcoal";
+        if (charcoal) st.fuel += o.made * 8;
+        st.msg = [`Made ${o.made} ${o.kind.toLowerCase()}. It's in ${charcoal ? "the fuel chest" : "storage"}.`, "lime"];
+        st.orders = st.orders.filter((x) => x !== o);
       }
       if (!Object.values(ores).some((n) => n > 0) && !furnaces.some((f) => f.input)) Object.assign(ores, { "raw iron": 410, "raw copper": 96, "raw gold": 64 });
       if (!Object.values(food).some((n) => n > 0) && !furnaces.some((f) => f.smoker && f.input)) Object.assign(food, { beef: 40, porkchop: 18, cod: 12 });
@@ -823,15 +826,24 @@
         s.put(20, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - 21), f.input ? "white" : "gray");
         s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
       });
-      const o = st.order;
-      s.put(1, H - 2, fitT(" " + (o ? `Charcoal: ${o.made} of ${o.count} made from spruce log` : "No charcoal order."), W), o ? "lightBlue" : "gray");
+      const lines = st.orders.map((o) => `${o.kind}: ${o.made} of ${o.count} made from ${o.from}`);
+      if (!lines.length) s.put(1, H - 2, fitT(" No orders.", W), "gray");
+      lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("C: make charcoal  X: cancel charcoal", W), "gray");
+      s.put(1, H, fitT("C: charcoal  S: stone  X: cancel an order", W), "gray");
       const order = () => {
-        st.order = st.order ? null : { count: 128, loaded: 0, made: 0 };
-        st.msg = st.order ? ["Making 128 charcoal from spruce log.", "lightBlue"] : ["Charcoal order cancelled. Logs already in furnaces still burn.", "lightGray"];
+        if (!st.orders.length) {
+          st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });
+          st.msg = ["Making 128 charcoal from spruce log.", "lightBlue"];
+        } else if (st.orders.length === 1) {
+          st.orders.push({ kind: "Stone", from: "cobblestone", count: 256, loaded: 0, made: 0 });
+          st.msg = ["Making 256 stone from cobblestone.", "lightBlue"];
+        } else {
+          st.orders = [];
+          st.msg = ["Orders cancelled. What's in the furnaces still smelts.", "lightGray"];
+        }
       };
-      s.zones.push({ x1: 1, x2: W, y1: H - 2, y2: H, action: order });
+      s.zones.push({ x1: 1, x2: W, y1: H - 3, y2: H, action: order });
       s.render();
     }
 
@@ -892,6 +904,51 @@
     }
 
     step();
+    setInterval(() => { step(); draw(); }, 900);
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- cooker monitor
+
+  // The cooker's candy monitor: same layout as drawMonitor in
+  // computers/cooker-computer/cooker.lua. XS candy comes out of its pot and
+  // gets compressed into S now and then.
+  function cookerMonitor(el) {
+    const W = 39, H = 12;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const commas = (n) => Math.floor(n).toLocaleString("en-US");
+    const candy = [["XS", 1654, 100, 352], ["S", 213, 800, 171], ["M", 58, 3000, 0], ["L", 9, 10000, 0], ["XL", 2, 30000, 0], ["Rare", 12, null, 0]];
+    const st = { sculk: 412, honeycomb: 96, tick: 0 };
+
+    function step() {
+      st.tick++;
+      candy[0][1]++; st.sculk--; st.honeycomb--;
+      if (st.tick % 5 === 0) { candy[0][1] -= 6; candy[1][1]++; }
+      if (st.honeycomb <= 0) { st.honeycomb = 96; st.sculk = 412; }
+    }
+
+    function draw() {
+      s.clear();
+      const right = (x, y, t, c) => s.put(x - t.length + 1, y, t, c);
+      const expR = W - 1, potsR = expR - 11, storedR = potsR - 8;
+      s.fill(1, "gray");
+      s.put(2, 1, "Exp candy", "yellow", "gray");
+      s.put(2, 3, "Candy", "yellow"); right(storedR, 3, "Stored", "yellow"); right(potsR, 3, "In pots", "yellow"); right(expR, 3, "Exp", "yellow");
+      let total = 0;
+      candy.forEach(([name, n, exp, pots], i) => {
+        const y = 4 + i;
+        total += n * (exp || 0);
+        s.put(2, y, name, "white"); right(storedR, y, commas(n), "white");
+        right(potsR, y, pots ? "~" + commas(pots) : "", "lightBlue"); right(expR, y, exp ? commas(n * exp) : "-", "lightGray");
+      });
+      s.put(2, 10, "Exp stored", "white"); right(expR, 10, commas(total), "lime");
+      s.put(2, 11, fitT(`For more: honeycomb ${st.honeycomb}, sculk ${st.sculk}`, W - 2), "lightGray");
+      s.put(1, H, fitT("Cooking in 2 pots.", W), "lightGray");
+      s.render();
+    }
+
     setInterval(() => { step(); draw(); }, 900);
     draw();
     return s;
@@ -1354,5 +1411,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, overseer, colony, fission, power, fusion, dminer } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer } };
 })();
