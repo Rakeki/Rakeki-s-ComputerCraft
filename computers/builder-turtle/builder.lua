@@ -297,6 +297,7 @@ local function takeFront(match, want, current)
       if match(it.name) and (not from or slot < from) then from = slot end
     end
     if not from then break end
+    local held -- my slot holding the chest's first stack for a moment (a full chest)
     if from ~= first then
       local moved = true
       if items[1] then
@@ -305,17 +306,38 @@ local function takeFront(match, want, current)
           if not items[s] then empty = s break end
         end
         local ok, n = false, 0
-        if empty then ok, n = pcall(c.pushItems, self, 1, 64, empty) end
+        if empty then
+          ok, n = pcall(c.pushItems, self, 1, 64, empty)
+        elseif emptySlots() >= 2 then
+          -- no room in the chest: hold its first stack myself, and put it
+          -- back once the wanted stack has left a gap
+          held = freeSlotFor("")
+          turtle.select(held)
+          ok = turtle.suck()
+          n = ok and 1 or 0
+          if not ok then held = nil end
+        end
         moved = ok and n and n > 0
       end
       if moved then
         local ok, n = pcall(c.pushItems, self, from, 64, 1)
         moved = ok and n and n > 0
       end
-      if not moved then return suckSorting(match, want - have) end
+      if not moved then
+        if held then
+          turtle.select(held)
+          turtle.drop()
+        end
+        return suckSorting(match, want - have)
+      end
     end
     turtle.select(freeSlotFor(items[from].name) or 1)
-    if not turtle.suck(math.min(64, want - have)) then break end
+    local took = turtle.suck(math.min(64, want - have))
+    if held then
+      turtle.select(held)
+      turtle.drop()
+    end
+    if not took then break end
   end
   turtle.select(1)
 end
