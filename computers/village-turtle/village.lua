@@ -633,13 +633,24 @@ local function takeFront(match, want, current)
     if from ~= first then
       local moved = true
       if items[1] then
-        local empty
+        -- clear slot 1 into a slot with the same item, else an empty one.
+        -- Only what's needed is moved into it (below), so after the first
+        -- time it holds a few leftovers, not a barrel's thousands
+        local left, empty = items[1].count, false
         for s = 2, c.size() do
-          if not items[s] then empty = s break end
+          if left <= 0 then break end
+          if s ~= from and items[s] and items[s].name == items[1].name then left = left - moveAll(c, self, 1, left, s) end
         end
-        if empty then
-          moved = moveAll(c, self, 1, items[1].count, empty) >= items[1].count
-        elseif emptySlots() >= 2 and items[1].count <= 64 then
+        for s = 2, c.size() do
+          if left <= 0 then break end
+          if not items[s] then
+            empty = true
+            left = left - moveAll(c, self, 1, left, s)
+          end
+        end
+        if left <= 0 then
+          moved = true
+        elseif not empty and emptySlots() >= 2 and left <= 64 then
           -- no room in the chest: hold its first stack myself, and put it
           -- back once the wanted stack has left a gap
           held = freeSlotFor("")
@@ -650,7 +661,7 @@ local function takeFront(match, want, current)
           moved = false
         end
       end
-      if moved then moved = moveAll(c, self, from, items[from].count, 1) > 0 end
+      if moved then moved = moveAll(c, self, from, math.min(items[from].count, want - have), 1) > 0 end
       if not moved then
         if held then
           turtle.select(held)
