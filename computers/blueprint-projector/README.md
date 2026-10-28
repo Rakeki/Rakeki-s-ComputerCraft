@@ -38,7 +38,7 @@ the plan and the view are saved, so a reboot puts it straight back.
 It comes with four plans, in the `/plans` folder: a **cottage** (7×7, 8
 high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
 high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
-and a **sky station** (63×63, 78 high, about 21,500 blocks) to hang in the
+and a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
 sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
 [Building in the sky](#building-in-the-sky)). `install plans` lists the
@@ -132,7 +132,7 @@ need a wireless or ender modem.
 The **sky station** (`projector skystation`) is meant to float. Set **Step**
 to 16 and tap **Up** until it's as high as you want it (Outline view shows
 its box), then tap **Build**. The builders fly over the top of it, so keep
-its bottom no higher than about Y 235 (the station is 78 high, and the
+its bottom no higher than about Y 215 (the station is 98 high, and the
 build limit is Y 319).
 
 - Plans built in the air say so (`clear = false`, see [Plans](#plans)), so
@@ -140,7 +140,7 @@ build limit is Y 319).
   every empty block of it. They go straight to building, bottom layer
   first, placing each block from the one above it, so nothing needs
   holding up.
-- It's about 21,500 blocks, mostly concrete (white, gray, light gray, black
+- It's about 21,200 blocks, mostly concrete (white, gray, light gray, black
   and red), smooth stone for the floors, glass, light blue stained glass,
   sea lanterns and a little iron. `projector check skystation` lists them.
   A [Creative Crate turtle](../crate-turtle/README.md) with `crate stock`

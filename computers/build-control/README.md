@@ -20,7 +20,7 @@ could take waits for the next builder that comes free. While they work it
 shows how far they've got, one line whenever it changes:
 
 ```
-4 builders: 5210 of 21548 (24%)
+4 builders: 5210 of 21166 (24%)
 ```
 
 Before anything is sent it prints the box the building will fill and asks

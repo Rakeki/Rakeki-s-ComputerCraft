@@ -1538,11 +1538,11 @@
   function buildControl(el) {
     const W = 26, H = 20;
     const s = new Screen(W, H, el);
-    const total = 21548;
+    const total = 21166;
     const intro = [
       ["> build skystation", "white"], ["  100 150 -40", "white"],
-      ["Sky Station facing north:", "white"], ["63 x 63 x 78, 21548 blocks,", "white"],
-      ["from 100,150,-40 to", "white"], ["162,227,22.", "white"],
+      ["Sky Station facing north:", "white"], ["63 x 63 x 98, 21166 blocks,", "white"],
+      ["from 100,150,-40 to", "white"], ["162,247,22.", "white"],
       ["It's built in the air:", "lightGray"], ["nothing is dug out first.", "lightGray"],
       ["Build it? (y/n) y", "yellow"], ["Looking for free builder", "white"], ["turtles...", "white"],
       ["4 builder turtles are", "lime"], ["building Sky Station.", "lime"],
@@ -1583,15 +1583,15 @@
       s.clear();
       const lines = [
         ["> instabuild skystation 100 150 -40", "white"],
-        ["Sky Station facing north: 63 x 63 x 78, 21548", "white"], ["blocks,", "white"],
-        ["from 100,150,-40 to 162,227,22.", "white"],
+        ["Sky Station facing north: 63 x 63 x 98, 21166", "white"], ["blocks,", "white"],
+        ["from 100,150,-40 to 162,247,22.", "white"],
         ["It's built in the air: only its own blocks are", "lightGray"], ["placed.", "lightGray"],
         ["Build it? (y/n) y", "yellow"],
         ["Looking at what's there...", "white"],
         [`Building: ${done} of ${runs} runs`, "white"],
       ];
       if (done >= runs) {
-        lines.push(["Built Sky Station: 21548 blocks changed.", "lime"], ["'instabuild undo' puts back what was there.", "white"]);
+        lines.push(["Built Sky Station: 21166 blocks changed.", "lime"], ["'instabuild undo' puts back what was there.", "white"]);
       }
       lines.forEach(([t, c], i) => s.put(1, i + 1, t.slice(0, W), c));
       s.render();

@@ -8,7 +8,7 @@
 ## What it does
 
 Places a whole plan from `/plans` in one go, for creative worlds: the sky
-station's 21,548 blocks go in within seconds, with no turtles and no
+station's 21,166 blocks go in within seconds, with no turtles and no
 materials. It uses the same plans as the
 [blueprint projector](../blueprint-projector/README.md) and
 [build control](../build-control/README.md), and the same coordinates as

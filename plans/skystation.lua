@@ -1,10 +1,10 @@
 -- Plan for the blueprint projector and build-control (see lib/plan.lua):
 -- a Lua plan returns the same table a JSON plan holds, made by code.
 --
--- A space station to hang high in the sky, 63 wide and 77 high: a hollow
+-- A space station to hang high in the sky, 63 wide and 98 high: a hollow
 -- core with a glass dome and a spire on top and a spike below, and four
--- hollow rings round it, the upper three joined to the core by hollow
--- spokes. Each ring has a floor to walk round on, with a deck across the
+-- hollow rings round it, 18 blocks apart, the upper three joined to the
+-- core by round hollow spokes. Each ring has a floor to walk round on, with a deck across the
 -- core at the same height. It's built in the air, so builders don't clear
 -- its box first (clear = false): raise it on the projector before Build.
 local station = { name = "Sky Station", clear = false, blocks = {} }
@@ -14,13 +14,17 @@ local atan2 = math.atan2 or math.atan
 
 -- bottom to top: wall, the grooves between its panels, and either a red
 -- stripe round the outside or a band of windows
+local GAP = 18 -- blocks from one ring to the next
+local LOW = 21 -- the bottom ring's middle
 local RINGS = {
-  { y = 17, R = 14, r = 4.5, wall = "minecraft:white_concrete", rib = "minecraft:light_gray_concrete", stripe = "minecraft:red_concrete" },
-  { y = 30, R = 24, r = 4.5, wall = "minecraft:gray_concrete", rib = "minecraft:black_concrete", window = "minecraft:light_blue_stained_glass", spokes = 0 },
-  { y = 43, R = 27, r = 4.5, wall = "minecraft:white_concrete", rib = "minecraft:light_gray_concrete", stripe = "minecraft:red_concrete", spokes = 45 },
-  { y = 55, R = 21, r = 4, wall = "minecraft:gray_concrete", rib = "minecraft:black_concrete", window = "minecraft:light_blue_stained_glass", spokes = 0 },
+  { y = LOW, R = 14, r = 4.5, wall = "minecraft:white_concrete", rib = "minecraft:light_gray_concrete", stripe = "minecraft:red_concrete" },
+  { y = LOW + GAP, R = 24, r = 4.5, wall = "minecraft:gray_concrete", rib = "minecraft:black_concrete", window = "minecraft:light_blue_stained_glass", spokes = 0 },
+  { y = LOW + 2 * GAP, R = 27, r = 4.5, wall = "minecraft:white_concrete", rib = "minecraft:light_gray_concrete", stripe = "minecraft:red_concrete", spokes = 45 },
+  { y = LOW + 3 * GAP, R = 21, r = 4, wall = "minecraft:gray_concrete", rib = "minecraft:black_concrete", window = "minecraft:light_blue_stained_glass", spokes = 0 },
 }
-local SPOKE = 3 -- spokes are 7 blocks square (5 inside)
+local SPOKE = 3.5 -- spokes are round tubes 7 blocks across (5 inside)
+local TOP = LOW + 3 * GAP + 3 -- the top hub's middle, just above the top ring
+local DOME = TOP + 4 -- the dome's base, on the top hub
 
 -- Every cell inside the station, and which part it belongs to. Only the
 -- outside layer of it gets built (plus the floors), so the whole thing is
@@ -44,11 +48,11 @@ local function inRing(ring, x, y, z)
 end
 
 -- spike below, core, the hubs round the core's ends, the dome
-fill(3, 0, 9, "spike", function(x, y, z) return x * x + z * z <= (y * 0.28) ^ 2 end)
-fill(7, 10, 62, "core", function(x, y, z) return x * x + z * z <= 6.5 * 6.5 end)
-fill(11, 12, 22, "hub", function(x, y, z) return (x * x + z * z) / 121 + (y - 17) ^ 2 / 25 <= 1 end)
-fill(10, 54, 62, "hub", function(x, y, z) return (x * x + z * z) / 100 + (y - 58) ^ 2 / 16 <= 1 end)
-fill(8, 62, 70, "dome", function(x, y, z) return x * x + z * z + (y - 62) ^ 2 <= 7.5 * 7.5 end)
+fill(3, 0, LOW - 9, "spike", function(x, y, z) return x * x + z * z <= (y * 0.22) ^ 2 end)
+fill(7, LOW - 8, DOME, "core", function(x, y, z) return x * x + z * z <= 6.5 * 6.5 end)
+fill(11, LOW - 5, LOW + 5, "hub", function(x, y, z) return (x * x + z * z) / 121 + (y - LOW) ^ 2 / 25 <= 1 end)
+fill(10, TOP - 4, TOP + 4, "hub", function(x, y, z) return (x * x + z * z) / 100 + (y - TOP) ^ 2 / 16 <= 1 end)
+fill(8, DOME, DOME + 8, "dome", function(x, y, z) return x * x + z * z + (y - DOME) ^ 2 <= 7.5 * 7.5 end)
 for _, ring in ipairs(RINGS) do
   local r = math.ceil(ring.r)
   fill(math.ceil(ring.R + ring.r), ring.y - r, ring.y + r, ring, function(x, y, z) return inRing(ring, x, y, z) end)
@@ -58,10 +62,12 @@ for _, ring in ipairs(RINGS) do
       local a = math.rad(ring.spokes + 90 * k)
       axes[#axes + 1] = { math.cos(a), math.sin(a) }
     end
-    fill(ring.R, ring.y - SPOKE, ring.y + SPOKE, ring, function(x, y, z)
+    local r = math.ceil(SPOKE)
+    fill(ring.R, ring.y - r, ring.y + r, ring, function(x, y, z)
       for _, c in ipairs(axes) do
+        -- round: within SPOKE of the line from the core out to the ring
         local along, across = x * c[1] + z * c[2], z * c[1] - x * c[2]
-        if along >= 0 and along <= ring.R and math.abs(across) <= SPOKE then return true end
+        if along >= 0 and along <= ring.R and across * across + (y - ring.y) ^ 2 <= SPOKE * SPOKE then return true end
       end
       return false
     end)
@@ -110,6 +116,6 @@ end
 inside = nil
 
 -- the spire on the dome
-for y = 70, 76 do put(0, y, 0, y % 2 == 0 and "minecraft:iron_block" or "minecraft:iron_bars") end
-put(0, 77, 0, "minecraft:end_rod")
+for y = DOME + 8, DOME + 14 do put(0, y, 0, y % 2 == 0 and "minecraft:iron_block" or "minecraft:iron_bars") end
+put(0, DOME + 15, 0, "minecraft:end_rod")
 return station
