@@ -201,7 +201,9 @@ the crafting turtle can't make those. The result is one file,
 `pack_recipes.lua`, which the storage computer loads next to `recipes.lua`
 when it starts.
 
-For the TRekt Mons pack the file is already made (7,600 recipes, 620 KB).
+For the TRekt Mons pack the file is already made (8,400 recipes, 680 KB,
+Mystical Agriculture's essence recipes included, for the
+[essence computer](../essence-computer/README.md)).
 On the storage computer:
 
 ```

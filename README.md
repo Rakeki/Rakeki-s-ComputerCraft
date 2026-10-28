@@ -48,6 +48,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [fusion-control](computers/fusion-control/README.md): Mekanism fusion reactor panel: plasma and case temperature, fuel, water and steam, power made, injection-rate buttons and warnings
 - [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
 - [enricher-computer](computers/enricher-computer/README.md): feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore (4 per 3 raw), which the smelter turns into ingots
+- [essence-computer](computers/essence-computer/README.md): empties Botany Pots of Mystical Agriculture essence into the storage system, and looks up and orders what the essence crafts into
 
 ## How they connect
 

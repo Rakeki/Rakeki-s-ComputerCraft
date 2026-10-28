@@ -10,6 +10,7 @@
 --   crafting.plan(name, n, avail, reach)       crafts that make n, or nil; avail: item -> count usable
 --   crafting.craftable(name, avail, max, reach) how many could be made from avail
 --   crafting.names()                every item it has a recipe for
+--   crafting.using(pattern)         every recipe with an ingredient matching a Lua pattern (essence)
 --
 -- reach (from crafting.reachable) is optional: with thousands of modded
 -- recipes, plans only try making ingredients that can be made at all,
@@ -144,6 +145,22 @@ local function makeable(key)
     table.sort(list)
   end
   makeableCache[key] = list
+  return list
+end
+
+-- A key as plain item names, for a program on the other end of rednet:
+-- a #tag becomes the list of its items. Names with * stay as they are.
+local function expandKey(key)
+  if type(key) == "string" and key:sub(1, 1) ~= "#" then return key end
+  local list = {}
+  for _, k in ipairs(type(key) == "table" and key or { key }) do
+    if k:sub(1, 1) == "#" then
+      for item in pairs(tags[k:sub(2)] or {}) do list[#list + 1] = item end
+    else
+      list[#list + 1] = k
+    end
+  end
+  table.sort(list)
   return list
 end
 
@@ -358,6 +375,34 @@ function crafting.loadPack(pack)
   end
   makeableCache = {}
   return added
+end
+
+-- Every recipe with an ingredient whose name (or one of whose choices)
+-- matches pattern: { make, count, grid = { [cell] = item or list } }.
+-- The essence computer asks for "_essence$".
+function crafting.using(pattern)
+  local out = {}
+  local function hits(k)
+    for _, name in ipairs(type(k) == "table" and k or { k }) do
+      if name:find(pattern) then return true end
+    end
+    return false
+  end
+  for make, list in pairs(byMake) do
+    for _, r in ipairs(list) do
+      breathe()
+      local found = false
+      for _, k in pairs(r.grid) do
+        if hits(expandKey(k)) then found = true break end
+      end
+      if found then
+        local grid = {}
+        for cell, k in pairs(r.grid) do grid[cell] = expandKey(k) end
+        out[#out + 1] = { make = make, count = r.count, grid = grid }
+      end
+    end
+  end
+  return out
 end
 
 return crafting

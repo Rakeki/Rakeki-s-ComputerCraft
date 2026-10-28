@@ -742,6 +742,7 @@
         ["smelter-computer", "Loads ores, raw food and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
+        ["essence-computer", "Empties Botany Pots of Mystical Agriculture essence into the input chest, and orders what the essence crafts into."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
       ],
       "render": {
@@ -1248,6 +1249,120 @@
           ["> ", "enricher add enrichmentChamber_0 minecraft:hopper_5", "cmd"],
           ["Chamber 1 added: enrichmentChamber_0, fed by minecraft:hopper_5.", "", "white"],
           ["Put a storage input chest under it (add it in 'storage setup'): its dust comes out there.", "", "white"]
+        ]
+      }
+    },
+    {
+      "name": "essence-computer",
+      "title": "Essence Computer",
+      "command": "essence",
+      "device": "computer",
+      "deviceLabel": "Computer + wired modem",
+      "color": "purple",
+      "tagline": "Empties your Botany Pots of Mystical Agriculture essence into the storage system, and looks up what the essence crafts into so you can order it.",
+      "libs": [
+        "report",
+        "errlog",
+        "screen",
+        "net"
+      ],
+      "keep": [
+        "config.lua"
+      ],
+      "autostart": true,
+      "stats": [
+        [
+          "Pots",
+          "every Hopper Botany Pot"
+        ],
+        [
+          "Emptied",
+          "every 10 s"
+        ],
+        [
+          "Recipes",
+          "from the modpack"
+        ],
+        [
+          "8 iron essence",
+          "6 iron ingots"
+        ]
+      ],
+      "features": [
+        "Empties every Hopper Botany Pot on the storage network into the storage input chest, so no pot fills up and stops",
+        "Never touches the seed or soil: a pot shows a computer only its harvest",
+        "Recipes tab lists every recipe that uses essence: what it makes, what it takes, how many you can make, how many are stored",
+        "Type to search any recipe; with nothing typed it shows only what you have enough essence for",
+        "Pick a recipe, set how many and Order: the crafting turtle makes them into storage",
+        "Pots tab shows each pot's crop, what's left in it, and how much comes out an hour",
+        "essence find and essence make work from the command line too"
+      ],
+      "setup": [
+        "Set up the storage computer with a crafting turtle, and install update it.",
+        "Give the storage computer your modpack's recipes (pack_recipes.lua; get it again if it was made before the essence computer existed).",
+        "Stand each Hopper Botany Pot on a full-block wired modem joined to the storage network.",
+        "Put this computer on the same network with a wired modem, install and reboot."
+      ],
+      "commands": [
+        [
+          "essence",
+          "start (runs on boot)"
+        ],
+        [
+          "essence find iron",
+          "recipes for anything with iron in its name, and how many you can make"
+        ],
+        [
+          "essence make 64 iron ingot",
+          "order 64 iron ingots"
+        ]
+      ],
+      "integrates": [
+        [
+          "storage-computer",
+          "Holds the essence, knows the recipes (from pack_recipes.lua) and plans each order."
+        ],
+        [
+          "crafter-turtle",
+          "Crafts the essence into what you ordered."
+        ],
+        [
+          "craft-overseer",
+          "Shares big orders between several crafting turtles."
+        ],
+        [
+          "status-server",
+          "Shows how many pots it's emptying, and when one needs attention."
+        ]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "essence",
+        "caption": "The Recipes tab: what the stored essence makes, how many you can make, and an order of 4 crafts of iron ingots."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          [
+            "> ",
+            "essence find copper",
+            "cmd"
+          ],
+          [
+            "copper ingot       8 copper essence -> 6, can make 72",
+            "",
+            "white"
+          ],
+          [
+            "> ",
+            "essence make 48 copper ingot",
+            "cmd"
+          ],
+          [
+            "Crafting 48 copper ingot.",
+            "",
+            "lime"
+          ]
         ]
       }
     }

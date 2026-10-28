@@ -39,7 +39,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal and monitor, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
@@ -179,6 +179,7 @@ Existing computers:
 | `power-dashboard` | Mekanism Induction Matrix monitor: stored, in/out, full/empty forecast, graph, turbines and energy cubes, low-power redstone signal | screen, report, errlog (if present) |
 | `fusion-control` | Mekanism fusion reactor panel: temperatures, fuel, water/steam, injection-rate buttons, warnings | screen, report, errlog (if present) |
 | `digital-miner-manager` | Every Mekanism Digital Miner on the wired network from one monitor (start/stop/reset, radius, Y, silk, filters); auto eject into the storage input chest | screen, report, errlog (if present) |
+| `essence-computer` | Empties Hopper Botany Pots (Mystical Agriculture) into the storage input chest; Recipes tab looks up what the stored essence crafts into (recipes from the storage computer, `recipes` request) and orders it with `prepare` | screen, net, report, errlog (if present) |
 | `enricher-computer` | Feeds ores from storage into Mekanism Enrichment Chambers (or Enriching Factories) through a hopper on top of each (CC can't reach a Mekanism machine's slots); sets the bottom to Output with Auto-eject into a storage input chest; dust goes on to the smelter | screen, net, files, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
@@ -204,7 +205,7 @@ reply field.
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped). One key per strip |
 | `village_crew` | village-turtle (helper) ↔ village-turtle (lead) | `join` → theme, origin, radius, seed, map, `lane`; `plot` → `i`, `j` (or `none`, `more`); `done` (plot, built entry, paved segments, topY); `alive` every 5 min. GPS on both |
-| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer, cooker-computer, enricher-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), from the overseer `crafters` / `load` / `clear` / `jobdone` / `problem`, `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot, or a hopper: furnaces and hoppers only) |
+| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer, cooker-computer, enricher-computer, essence-computer → storage-computer | `count` (+ `need`), `prepare` (start crafting), `recipes` (every recipe using an item matching a pattern), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), from the overseer `crafters` / `load` / `clear` / `jobdone` / `problem`, `stock` (every count, the input and fuel chests), `send` (load a furnace's input or fuel slot, or a hopper: furnaces and hoppers only) |
 | `craft_overseer` | storage-computer → craft-overseer | `jobs` (each { id, plan, name, steps, count, grid, top }) → ack; the overseer then asks the storage computer (`storage` protocol) for `crafters`, `load`, `clear`, `stock`, and reports `jobdone` and `problem` |
 | `enricher` | smelter-computer → enricher-computer | `takes` → `takes` (Lua patterns of the item ids it puts in its chambers; empty while no chamber is ready), so the smelter leaves those ores alone. No enricher: the smelter smelts them |
 | `storage_crafter` | storage-computer or craft-overseer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |

@@ -947,6 +947,7 @@ end
 --   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
 --   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter, cooker)
+--   { type = "recipes", uses = pattern }            -> { re = "recipes", recipes = { { make, count, grid } } }  (essence computer)
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
@@ -1284,6 +1285,12 @@ local function handleRequest(from, msg)
     -- the overseer: why crafting is stuck (nil: it isn't), for turtles waiting on it
     craftProblem = type(msg.text) == "string" and msg.text or nil
     answer(from, msg, { re = "problem", ok = true })
+  elseif type(msg) == "table" and msg.type == "recipes" and type(msg.uses) == "string" then
+    -- the essence computer: every recipe that uses an item matching a pattern
+    local okR, list = false, nil
+    if crafting then okR, list = pcall(crafting.using, msg.uses) end
+    answer(from, msg, { re = "recipes", recipes = okR and list or {},
+      error = not crafting and "this storage computer can't craft (crafting.lua is missing)" or not okR and tostring(list) or nil })
   elseif type(msg) == "table" and msg.type == "stock" then
     local counts = countAll()
     answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })

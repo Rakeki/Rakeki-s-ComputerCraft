@@ -1,7 +1,8 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
-// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher.
+// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher,
+// and the essence computer.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1466,5 +1467,68 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher } };
+  //---------------------------------------------------------------- essence computer
+
+  // The essence computer's Recipes tab: same layout as
+  // computers/essence-computer/essence.lua. The pots keep adding essence, so
+  // the Can column creeps up; iron ingot is picked, with 4 crafts set.
+  function essence(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const ess = { iron: 212, copper: 96, dirt: 64, coal: 40, diamond: 9, honey: 6 };
+    const stored = { "coal": 88, "copper ingot": 31, "diamond": 4, "dirt": 1210, "honey bottle": 0, "iron ingot": 143 };
+    // item, what it takes, how many a craft makes, its essence, essence per craft
+    const rows = [
+      ["coal", "8 coal essence", 12, "coal", 8],
+      ["copper ingot", "8 copper essence", 6, "copper", 8],
+      ["diamond", "9 diamond essence", 1, "diamond", 9],
+      ["dirt", "8 dirt essence", 24, "dirt", 8],
+      ["honey bottle", "1 honey essence + 1 glass bottle", 1, "honey", 1],
+      ["iron ingot", "8 iron essence", 6, "iron", 8],
+    ];
+    const sel = 5;
+
+    function step() {
+      ess.iron += 3; ess.copper += 2; ess.dirt += 1; ess.coal += 1;
+      if (ess.iron > 400) Object.assign(ess, { iron: 212, copper: 96, dirt: 64, coal: 40 });
+    }
+
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      const total = Object.values(ess).reduce((a, b) => a + b, 0);
+      s.put(2, 1, fitT(`Essence ${total} (${Object.keys(ess).length} kinds)`, W - 20), "yellow", "gray");
+      s.put(W - 16, 1, " Recipes ", "black", "yellow");
+      s.put(W - 6, 1, " Pots ", "white", "gray");
+      s.put(1, 2, "Find: ", "yellow");
+      s.put(7, 2, fitT("", W - 7), "white", "gray");
+      [["Makes", 2], ["From", 21], ["  Can", W - 12], ["Stored", W - 6]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
+      rows.forEach(([name, from, count, e, per], i) => {
+        const y = 4 + i, bg = i === sel ? "gray" : "black";
+        const can = Math.floor(ess[e] / per) * count;
+        s.put(1, y, " ".repeat(W), "white", bg);
+        s.put(2, y, fitT(name, 18), "white", bg);
+        s.put(21, y, fitT(from, W - 34), "lightGray", bg);
+        s.put(W - 12, y, String(can).padStart(5), can > 0 ? "lime" : "gray", bg);
+        s.put(W - 6, y, String(stored[name]).padStart(6), "lightGray", bg);
+      });
+      const y = H - 2;
+      s.put(1, y, " - ", "black", "lightGray");
+      s.put(5, y, "4 x 6 = 24", "white");
+      s.put(16, y, " + ", "black", "lightGray");
+      s.put(20, y, " Max ", "black", "lightGray");
+      s.put(26, y, " Order ", "white", "green");
+      s.put(1, H - 1, fitT("Crafting 24 iron ingot.", W), "lime");
+      s.put(1, H, fitT("Type to find, arrows pick + amount, Enter orders", W), "gray");
+      s.render();
+    }
+
+    step();
+    setInterval(() => { step(); draw(); }, 1500);
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence } };
 })();

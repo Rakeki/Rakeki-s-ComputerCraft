@@ -53,6 +53,7 @@ supply:seen(r)
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
 | `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers, the enricher's chamber hoppers); no slot = any slot |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
+| `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the essence computer (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
 The craft overseer's own requests (same protocol; only it sends these):
@@ -80,7 +81,11 @@ Putting things away: drop them in the storage computer's **input chest**
 hoppers; farms use it as their chest).
 
 The smelter and cooker only ever `stock`, `send` and empty into the input
-chest. The smelter's orders (`ORDERS` in smelter.lua: charcoal from logs into
+chest. The essence computer empties Hopper Botany Pots into the input chest
+itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
+through its bottom face, and only a hopper pot lets them be taken, so each pot
+stands on a full-block wired modem), and orders crafts with `prepare` set to
+stored + already crafting + wanted (`prepare` tops up to a total). The smelter's orders (`ORDERS` in smelter.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order. The cooker can't see inside
 a pot: a comparator into a redstone relay says how full it is, and it sends

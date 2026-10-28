@@ -87,6 +87,9 @@ function passes(cond) {
     case "false": return false;
     case "item_exists": return namespaces.has(String(cond.item).split(":")[0]);
     case "tag_empty": return false; // can't tell; assume not empty
+    // Mystical Agriculture: crops are on unless the pack turned them off, and a
+    // crop that's off has no essence, so its recipe could never be used anyway
+    case "mysticalagriculture:crop_enabled": return true;
     default: return false; // a condition we don't understand: leave the recipe out
   }
 }
@@ -138,14 +141,25 @@ function key(ing) {
   return null;
 }
 
+// Cucumber's tag results (Mystical Agriculture's tin, silver, ...): one item
+// from the tag, vanilla's first, as Cucumber picks by default.
+function tagResult(tag) {
+  const items = [...tagItems(tag)];
+  return items.find((id) => id.startsWith("minecraft:")) || items[0];
+}
+// Recipe types that work like vanilla's, apart from where the result comes from.
+const aliases = { "cucumber:shaped_tag": "minecraft:crafting_shaped", "cucumber:shapeless_tag": "minecraft:crafting_shapeless" };
+
 const out = [];
 const skipped = { type: 0, ingredient: 0, result: 0, condition: 0 };
 for (const [, r] of recipes) {
-  const type = String(r.type || "");
+  let type = String(r.type || "");
+  if (!type.includes(":")) type = `minecraft:${type}`; // "crafting_shaped" means vanilla's too
+  type = aliases[type] || type;
   if (type !== "minecraft:crafting_shaped" && type !== "minecraft:crafting_shapeless") { skipped.type++; continue; }
   if (!conditionsOk(r)) { skipped.condition++; continue; }
   const result = r.result || {};
-  const make = result.id || result.item;
+  const make = result.id || result.item || (typeof result.tag === "string" ? tagResult(result.tag) : undefined);
   // items made with extra data (enchantments, custom names) aren't plain items
   if (typeof make !== "string" || (result.components && Object.keys(result.components).length)) { skipped.result++; continue; }
   const count = result.count || 1;
