@@ -27,6 +27,9 @@
 --   storage setup    choose the store and the input, output, shared delivery, crafter, fuel and transfer chests again
 --   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
 --   storage tidy     show the storage's slot sizes and sort bulk items into the roomiest now
+--   storage dump [chest]  move everything stored into an ender chest whose twin is another
+--                         storage system's input chest (no chest: pick one); runs until it's all gone
+--   storage dump stop     stop a dump
 --
 -- Connect the computer and every chest (and the bridge, if there is one)
 -- with networking cable and wired modems: a full-block wired modem touching
@@ -56,6 +59,7 @@ local chests = require("chests")
 local bridges = fs.exists("bridge.lua") and require("bridge")
 
 local SETUP_FILE = "/.storage_setup"
+local DUMP_FILE = "/.storage_dump" -- { chest, at, moved }: a 'storage dump' that's running
 
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
@@ -69,6 +73,7 @@ local VIEW_EVERY = 30 -- fewest seconds between recounts of what could be crafte
 local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept before working it out again
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
+local DUMP_WAIT = 2 -- seconds between looks at a full dump chest (and for a new dump job)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local MONITOR_AMOUNTS = { 1, 16, 64 } -- the monitor's buttons for how many of the picked item to send
 local MONITOR_COLUMN = 26 -- fewest characters per column of items on the monitor (wide monitors get more columns)
@@ -1033,6 +1038,9 @@ local function claimable(name)
     end
   end
   if not isInventory(name) then return false end
+  -- a probe item dropped in the dump chest would be gone to the other side
+  local dump = files.read(DUMP_FILE)
+  if type(dump) == "table" and dump.chest == name then return false end
   local t = peripheral.getType(name)
   for _, kind in ipairs(CLAIM_TYPES) do
     if t:find(kind, 1, true) then return true end
@@ -1676,6 +1684,94 @@ local function outputLoop()
   end
 end
 
+---------------------------------------------------------------- dumping into an ender chest
+
+-- 'storage dump <chest>' moves everything stored into an ender chest whose
+-- twin is another storage system's input chest, which empties it as fast
+-- as it fills. The job is a file, so the running program picks it up (the
+-- command may be typed in another tab) and carries on after a reboot.
+
+local function isEnder(name)
+  local t = peripheral.getType(name)
+  return t and t:find("ender", 1, true) ~= nil
+end
+
+-- Why this chest can't be dumped into, or nil if it can: only an ender
+-- chest that isn't already one of mine, a turtle's or a computer's.
+local function dumpProblem(chest)
+  if not peripheral.isPresent(chest) then return ("I can't see %s on my network"):format(chest) end
+  if not isEnder(chest) or not isInventory(chest) then
+    return "only an ender chest (EnderStorage or the like) can be dumped into: its twin is the other storage system's input chest"
+  end
+  for _, which in ipairs({ "input", "output", "delivery", "crafter", "fuel", "transfer" }) do
+    if setup[which] == chest then return ("it's my %s chest"):format(which) end
+  end
+  for _, list in ipairs({ setup.inputs, setup.deliveries, setup.crafters, setup.works }) do
+    for _, name in pairs(list) do
+      if name == chest then return "it's already in use (an input chest, a turtle's or a computer's)" end
+    end
+  end
+  return nil
+end
+
+local function chestFull(chest)
+  local okS, size = pcall(peripheral.call, chest, "size")
+  local okL, list = pcall(peripheral.call, chest, "list")
+  if not (okS and okL) then return true end
+  local used = 0
+  for _ in pairs(list) do used = used + 1 end
+  return used >= size
+end
+
+local function dumpLoop()
+  while true do
+    local job = files.read(DUMP_FILE)
+    if type(job) ~= "table" or not job.chest then
+      sleep(DUMP_WAIT)
+    else
+      local why = dumpProblem(job.chest)
+      local moved, left = 0, 0
+      local room = not why and not chestFull(job.chest)
+      if why then
+        message = { ("Dump paused: %s."):format(why), "orange" }
+      elseif room then
+        -- biggest piles first; stop as soon as the chest is full
+        local list = {}
+        for _, it in pairs(allItems()) do list[#list + 1] = it end
+        table.sort(list, function(a, b) return a.count > b.count end)
+        for _, it in ipairs(list) do
+          local n = fetch(it.key, it.count, job.chest)
+          moved = moved + n
+          if n < it.count then
+            left = left + it.count - n
+            if chestFull(job.chest) then break end
+          end
+        end
+      end
+      local cur = files.read(DUMP_FILE)
+      if type(cur) == "table" and cur.at == job.at then -- not stopped or replaced meanwhile
+        cur.moved = (cur.moved or 0) + moved
+        -- done when nothing's left, or when there was room and nothing more
+        -- would go (items the chest or the bridge won't move)
+        if not why and (not next(allItems()) or (room and moved == 0)) then
+          message = { ("Dump done: moved %d items into %s%s."):format(cur.moved, job.chest,
+            left > 0 and (", %d wouldn't go"):format(left) or ""), left > 0 and "orange" or "lime" }
+          if report then report.log(("dumped %d items"):format(cur.moved)) end
+          files.delete(DUMP_FILE)
+        else
+          files.write(DUMP_FILE, cur)
+          if not why then
+            message = { ("Dumping into %s: %d moved so far%s."):format(job.chest, cur.moved,
+              moved == 0 and ", waiting for the other side to empty it" or ""), "lightBlue" }
+          end
+        end
+      end
+      if moved > 0 or why then os.queueEvent("storage_changed") end
+      sleep(moved > 0 and 0 or DUMP_WAIT)
+    end
+  end
+end
+
 ---------------------------------------------------------------- setup
 
 local function chooseChests()
@@ -1815,6 +1911,46 @@ end
 -- work chests are kept even while missing: fill says so, and one that comes
 -- back with items still in it is still theirs (a claim needs an empty chest)
 setup.works = setup.works or {}
+
+-- 'storage dump [chest|stop]': save the job for the running program
+if args[1] == "dump" then
+  local cur = files.read(DUMP_FILE)
+  if args[2] == "stop" then
+    files.delete(DUMP_FILE)
+    print(type(cur) == "table" and ("Dump stopped (%d items moved)."):format(cur.moved or 0) or "No dump was running.")
+    return
+  end
+  if type(cur) == "table" then print(("A dump into %s is running: %d moved so far."):format(cur.chest, cur.moved or 0)) end
+  local chest = args[2]
+  if not chest then
+    local list = {}
+    for _, name in ipairs(peripheral.getNames()) do
+      if not dumpProblem(name) then list[#list + 1] = name end
+    end
+    table.sort(list)
+    if #list == 0 then
+      print("No free ender chest on my network. Put one on the cable with a wired modem")
+      print("(its twin is the other storage system's input chest) and right-click the modem.")
+      return
+    end
+    print("Ender chests on my network:")
+    for i, name in ipairs(list) do print(("%2d  %s"):format(i, name)) end
+    write("Dump everything into which one? (Enter to cancel) ")
+    local text = read()
+    if text == "" then return end
+    chest = list[tonumber(text)] or text
+  end
+  local why = dumpProblem(chest)
+  if why then
+    print(("Can't dump into %s: %s."):format(chest, why))
+    return
+  end
+  files.write(DUMP_FILE, { chest = chest, at = os.epoch("utc"), moved = 0 })
+  print(("Dump saved: everything stored goes into %s, as fast as the other side empties it."):format(chest))
+  print("The storage program starts on it within a few seconds (or when it's next started).")
+  print("'storage dump stop' stops it.")
+  return
+end
 
 if setup.backend == "bridge" then
   if not bridges then
@@ -1985,7 +2121,7 @@ if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store
 
 if report then report.init("storage") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
-  tidyLoop, craftViewLoop, outputLoop, report and report.loop or function() while true do sleep(3600) end end)
+  tidyLoop, craftViewLoop, outputLoop, dumpLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)
 term.clear()

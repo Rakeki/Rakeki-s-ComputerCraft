@@ -196,7 +196,7 @@ Existing computers:
 | `builder-turtle` | Builds the projector's plan where it's projected: clears the box, builds bottom-up from above, restocks from home chests or the storage system | nav, report, errlog, claim, inv, net, files |
 | `tree-farm-turtle` | Standalone turtle: plants, chops and replants a grid of trees | nav, report, errlog, inv, files |
 | `crop-farm-turtle` | Standalone turtle: harvests and replants a crop field | nav, report, errlog, inv, files |
-| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting | screen, files, net, report, errlog (if present) |
+| `storage-computer` | Wired chest network (or AE2 / RS via an Advanced Peripherals bridge) as one searchable store; serves item requests from turtles over rednet and plans crafting; `storage dump` empties it into an ender chest whose twin is another storage system's input chest | screen, files, net, report, errlog (if present) |
 | `remote-terminal` | Far-away storage terminal: searches the storage computer's items (`list`) and pulls them into a linked ender chest (its twin claimed as this computer's delivery chest through `lib/claim.lua`); items dropped in go home with the delivery sweep | screen, net, files, claim, report, errlog (if present) |
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, net, report, errlog (if present) |
 | `craft-overseer` | Takes the storage computer's crafting queue and shares it between every crafting turtle; monitor shows the queue and what's missing | screen, net, files, report, errlog (if present) |

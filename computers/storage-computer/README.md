@@ -271,6 +271,30 @@ the storing instead of chests ([layout](#ae2-with-advanced-peripherals)).
 It works with both versions of the bridges: the older ones (Minecraft 1.20
 and before) and the new ones in Minecraft 1.21.
 
+### Moving everything to another storage system
+
+`storage dump` empties this storage system into another one, anywhere, through
+a pair of ender chests shared by colour (EnderStorage or a mod like it):
+
+1. Put one ender chest on this storage system's cable, with a wired modem.
+   Don't pick it as any chest in `storage setup`.
+2. Put its twin (the same colours) by the other storage system and pick it
+   there as its **input chest**, or an extra input chest, in `storage setup`.
+3. Here, run `storage dump` and pick the ender chest (or `storage dump
+   enderstorage:ender_chest_0`).
+
+Everything stored goes into the ender chest, biggest piles first, and the
+other storage system puts it away as fast as it arrives (an ender chest
+holds 27 stacks, so it goes in waves). The footer shows how many have
+moved. It carries on after a reboot and stops by itself once storage is
+empty; `storage dump stop` stops it sooner. The fuel chest is emptied too.
+
+While a dump runs, anything dropped in the input chest goes the same way,
+and turtles asking for items will find less and less. Things the ender chest
+won't take (or the bridge won't send) stay, and the footer says how many.
+Use colours of their own for the dump chest, not ones a
+[remote terminal](../remote-terminal/README.md) uses.
+
 ## Example layouts
 
 The website shows each of these in 3D. Everything is joined by one run of
@@ -358,6 +382,8 @@ and answer yes when it finds the bridge. A Refined Storage system with an
    storage setup             -- choose the store and the chests again
    storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
    storage tidy              -- show slot sizes and sort bulk items into storage with stack upgrades now
+   storage dump              -- move everything into an ender chest, for another storage system
+   storage dump stop         -- stop a dump
    ```
 
    While `storage` is running, run these in a second tab (advanced

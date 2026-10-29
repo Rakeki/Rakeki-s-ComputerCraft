@@ -179,5 +179,12 @@ craftable item takes too long.
 - **Screens** draw through `lib/screen.lua` (`termScreen`, `monScreen`); the
   monitor skips unchanged frames with `same()` ([[lib-screen]]).
 - `storage test` / `storage tidy` are the diagnostics to point players at.
+- `storage dump [chest|stop]` saves `/.storage_dump` ({ chest, at, moved });
+  `dumpLoop` in the running program `fetch`es everything (biggest piles
+  first, fuel chest included) into that ender chest whenever it has room,
+  until storage is empty or a pass with room moves nothing. Only an ender
+  chest that isn't a setup, turtle or work chest can be one (`dumpProblem`);
+  its twin is another storage system's input chest. `claimable` skips it,
+  so probes never fall through to the other side.
 
 Related: [[new-computer]], [[lib-report]], [[lib-errlog]].
