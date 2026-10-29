@@ -179,18 +179,37 @@
   }
 
   // Draws world into canvas, scaled to fit. Returns a projector for overlays.
+  // opts.yaw turns the view by that many degrees (-45..45; quarter turns are
+  // World.rotated) about the middle of opts.bounds; opts.spin fits the picture
+  // to every angle, so it keeps its size while it turns.
   function render(canvas, world, opts = {}) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssW = opts.width || canvas.clientWidth || 800;
     const blocks = [...world.m.values()];
     if (!blocks.length) return null;
+    const fitIn = opts.bounds || blocks;
+
+    // the turn, about the middle of what's being fitted
+    let cx = 0, cz = 0;
+    if (opts.yaw || opts.spin) {
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const [x, , z] of fitIn) { x0 = Math.min(x0, x); x1 = Math.max(x1, x + 1); z0 = Math.min(z0, z); z1 = Math.max(z1, z + 1); }
+      cx = (x0 + x1) / 2; cz = (z0 + z1) / 2;
+    }
+    const turned = (a) => {
+      if (!a) return proj;
+      const c = Math.cos(a), s = Math.sin(a);
+      return (x, y, z) => proj(cx + (x - cx) * c - (z - cz) * s, y, cz + (x - cx) * s + (z - cz) * c);
+    };
+    const yaw = (opts.yaw || 0) * Math.PI / 180;
+    const pr = turned(yaw);
 
     // bounds in unit projection
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    const fitIn = opts.bounds || blocks;
-    for (const [x, y, z] of fitIn) {
-      for (const [dx, dy, dz] of [[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 0, 0], [1, 1, 0], [0, 1, 1]]) {
-        const [px, py] = proj(x + dx, y + dy, z + dz);
+    const fits = opts.spin ? Array.from({ length: 48 }, (_, i) => turned(i * Math.PI / 24)) : [pr];
+    for (const f of fits) for (const [x, y, z] of fitIn) {
+      for (const [dx, dy, dz] of [[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 0, 0], [1, 1, 0], [0, 1, 1], [0, 0, 0], [1, 1, 1]]) {
+        const [px, py] = f(x + dx, y + dy, z + dz);
         if (px < minX) minX = px; if (px > maxX) maxX = px;
         if (py < minY) minY = py; if (py > maxY) maxY = py;
       }
@@ -211,11 +230,13 @@
     ctx.clearRect(0, 0, cssW, cssH);
     const ox = cssW / 2 - ((minX + maxX) / 2) * T;
     const oy = cssH / 2 - ((minY + maxY) / 2) * T;
-    const P = (x, y, z) => { const [px, py] = proj(x, y, z); return [ox + px * T, oy + py * T]; };
+    const P = (x, y, z) => { const [px, py] = pr(x, y, z); return [ox + px * T, oy + py * T]; };
 
     const detail = opts.detail ?? (T >= 13 ? 4 : T >= 7 ? 2 : 1);
     const opaque = (x, y, z) => { const b = world.get(x, y, z); return b && !BLOCKS[b].clear; };
-    blocks.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]) || a[1] - b[1]);
+    // back to front: distance along the view, which turns with the yaw
+    const kx = Math.cos(yaw) + Math.sin(yaw), kz = Math.cos(yaw) - Math.sin(yaw);
+    blocks.sort((a, b) => (a[0] * kx + a[1] + a[2] * kz) - (b[0] * kx + b[1] + b[2] * kz) || a[1] - b[1]);
 
     if (opts.background) opts.background(ctx, P, T, cssW, cssH);
 

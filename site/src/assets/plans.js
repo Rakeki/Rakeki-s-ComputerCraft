@@ -193,19 +193,22 @@ return enc(raw)`;
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   const short = (b) => b.replace(/^minecraft:/, "").replace(/_/g, " ");
 
-  // Draws plan into holder: the picture, Rotate, the layer slider (up to a
-  // layer, or just that layer), and the blocks it needs.
+  // Draws plan into holder: the picture, the layer slider (up to a layer, or
+  // just that layer), the turn slider, and the blocks it needs.
   function mount(holder, plan, opts = {}) {
     holder.innerHTML = `
       <figure class="stage plan-stage" style="margin:0">
         <canvas aria-label="${esc(plan.name)}"></canvas>
-        <div class="tools">
-          <button class="mc-btn small" data-act="rotate">Rotate</button>
-        </div>
         <div class="plan-layers">
-          <label>Layer <b class="layer-n"></b> of ${plan.h}</label>
-          <input type="range" min="1" max="${plan.h}" value="${plan.h}" aria-label="Layer">
-          <label class="only"><input type="checkbox"> only this layer</label>
+          <div class="row">
+            <label>Layer <b class="layer-n"></b> of ${plan.h}</label>
+            <input type="range" class="layer" min="1" max="${plan.h}" value="${plan.h}" aria-label="Layer">
+            <label class="only"><input type="checkbox"> only this layer</label>
+          </div>
+          <div class="row">
+            <label>Turn <b class="turn-n"></b></label>
+            <input type="range" class="turn" min="0" max="359" step="1" value="0" aria-label="Turn">
+          </div>
         </div>
       </figure>
       <div class="plan-info">
@@ -217,10 +220,11 @@ return enc(raw)`;
         <table class="api plan-mats"></table>
       </div>`;
     const canvas = holder.querySelector("canvas");
-    const slider = holder.querySelector("input[type=range]");
+    const slider = holder.querySelector("input.layer");
+    const turn = holder.querySelector("input.turn");
     const only = holder.querySelector(".only input");
     const types = plan.mats.map((m) => blockType(m.block));
-    let rot = opts.rotation || 0;
+    turn.value = ((opts.rotation || 0) % 4) * 90;
     const big = plan.blocks.length > 6000;
 
     const mats = holder.querySelector(".plan-mats");
@@ -233,11 +237,15 @@ return enc(raw)`;
       pending = requestAnimationFrame(() => {
         const layer = +slider.value;
         holder.querySelector(".layer-n").textContent = layer;
+        // the slider's angle as quarter turns of the blocks plus a -45..45 degree turn of the view
+        const deg = +turn.value;
+        holder.querySelector(".turn-n").textContent = deg + "°";
+        const rot = Math.round(deg / 90) % 4, yaw = deg - Math.round(deg / 90) * 90;
         const w = new Voxel.World();
         for (const b of plan.blocks) {
           if (only.checked ? b.y === layer - 1 : b.y < layer) w.set(b.x, b.y, b.z, types[b.m]);
         }
-        // fit the whole building, so the picture doesn't jump as layers change
+        // fit the whole building at every angle, so the picture doesn't jump as layers change or it turns
         const bounds = [];
         for (const x of [0, plan.w - 1]) for (const y of [0, plan.h - 1]) for (const z of [0, plan.l - 1]) {
           let rx = x, rz = z;
@@ -246,10 +254,10 @@ return enc(raw)`;
         }
         const rw = w.rotated(rot);
         if (!rw.m.size) { const ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
-        Voxel.render(canvas, rw, { width: holder.clientWidth, maxH: opts.maxH || 620, bounds, detail: big ? 1 : undefined, pad: 0.05 });
+        Voxel.render(canvas, rw, { width: holder.clientWidth, maxH: opts.maxH || 620, bounds, yaw, spin: true, detail: big ? 1 : undefined, pad: 0.05 });
       });
     }
-    holder.querySelector("[data-act=rotate]").onclick = () => { rot = (rot + 1) % 4; draw(); };
+    turn.oninput = draw;
     slider.oninput = draw;
     only.onchange = draw;
     let resizeT;
