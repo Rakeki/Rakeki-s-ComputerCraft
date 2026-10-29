@@ -58,6 +58,10 @@
     mecontroller: { c: "#4c4366", tex: "me", amt: 0.05 },
     medrive: { c: "#34343c", tex: "drive", amt: 0.04 },
     mecable: { c: "#8f6fd9", tex: "flat", box: [0.34, 0.66, 0.28, 0.6, 0.34, 0.66], clear: true },
+    // the atrium (excavate atrium + plans/atrium.lua)
+    fence: { c: "#a6834d", tex: "flat", box: [0.38, 0.62, 0, 1, 0.38, 0.62], clear: true },
+    moss: { c: "#5b7a2e", top: "#6b8f34", tex: "noise", amt: 0.14 },
+    shroomlight: { c: "#f0a050", tex: "noise", amt: 0.16, glow: true },
     bridge: { c: "#8a97a8", tex: "bridge", amt: 0.04 },
     // cooking pots
     pot: { c: "#9aa0a8", top: "#b8bcc2", tex: "pot", amt: 0.05, box: [0.1, 0.9, 0, 0.82, 0.1, 0.9], clear: true }, // a campfire pot on its campfire
@@ -349,6 +353,66 @@
     [[3, 3], [17, 3], [3, 17], [17, 17]].forEach(([x, z]) => w.set(x, UPPER, z, "torch"));
     // the quarter nearest the viewer is cut away (see mount) so you can see in
     return { world: w, cut: Math.floor(W / 2) };
+  }
+
+  // Excavator's atrium mode: the empty 60x60x30 box it digs, filled by
+  // plans/atrium.lua (the same numbers): a 24-wide atrium with a gallery on
+  // pillars, split stairs and a garden pond, between two 17-wide wings with
+  // second floors, stone walls with doorways. One quarter, mirrored, as the
+  // plan does it. No ceiling, so you can see in.
+  function excavateAtrium() {
+    const N = 59, MID = 29, WALL = 17, EX = 21, EZ = 3, F2 = 14, TOP = 28, STEPS = 15;
+    const w = new World(), r = rand(60);
+    const sym = (x, y, z, b) => { w.set(x, y, z, b); w.set(N - x, y, z, b); w.set(x, y, N - z, b); w.set(N - x, y, N - z, b); };
+    // the dug box: rock floor and walls round it
+    w.box(-1, N + 1, -1, -1, -1, N + 1, () => rock(r, -1, false));
+    w.box(-1, -1, 0, TOP + 1, -1, N + 1, (x, y) => rock(r, y, false));
+    w.box(N + 1, N + 1, 0, TOP + 1, -1, N + 1, (x, y) => rock(r, y, false));
+    w.box(0, N, 0, TOP + 1, -1, -1, (x, y) => rock(r, y, false));
+    w.box(0, N, 0, TOP + 1, N + 1, N + 1, (x, y) => rock(r, y, false));
+    const door = { 9: true, 10: true, 29: true };
+    const pillars = new Set();
+    for (const z of [3, 11, 19, 27]) for (const [a, b] of [[EX, z], [N - EX, z], [EX, N - z], [N - EX, N - z]]) pillars.add(a + "," + b);
+    for (const x of [21, 29]) for (const [a, b] of [[x, EZ], [N - x, EZ], [x, N - EZ], [N - x, N - EZ]]) pillars.add(a + "," + b);
+    const isPillar = (x, z) => pillars.has(x + "," + z);
+    for (let z = 0; z <= MID; z++) {
+      // walls, with doorways on both floors
+      for (let y = 0; y <= TOP; y++) {
+        if (!(door[z] && (y < 4 || (y > F2 && y <= F2 + 4)))) sym(WALL, y, z, "bricks");
+      }
+      // wings: second floor on posts, shroomlights in it
+      for (let x = 0; x < WALL; x++) sym(x, F2, z, x === 8 && (z === 4 || z === 24) ? "shroomlight" : "planks");
+      if (z === 9 || z === 19 || z === 29) for (let y = 0; y < F2; y++) sym(8, y, z, "log");
+      // atrium: pillars, gallery
+      for (let x = WALL + 1; x <= MID; x++) {
+        if (isPillar(x, z)) for (let y = 0; y <= TOP; y++) sym(x, y, z, "log");
+        else if (x <= EX || z <= EZ) {
+          sym(x, F2, z, "planks");
+          // beams under the gallery's edge and under the ceiling, railing on it
+          if (x === EX || z === EZ) {
+            const lit = x === EX ? [7, 15, 23, 29].includes(z) : [25].includes(x);
+            sym(x, F2 - 1, z, lit ? "shroomlight" : "planks");
+            sym(x, TOP, z, lit ? "shroomlight" : "planks");
+            if (!(x === EX && (z === 14 || z === 15))) sym(x, F2 + 1, z, "fence");
+          }
+        }
+      }
+    }
+    // ceiling beams across the atrium
+    for (const z of [11, 19, 27]) for (let x = EX + 1; x <= MID; x++) sym(x, TOP, z, x === MID ? "shroomlight" : "planks");
+    // split stairs, 2 wide, from the middle landing up to the gallery
+    for (const x of [EX + 1, EX + 2]) for (let k = 1; k <= STEPS; k++) sym(x, k - 1, MID - k, "planks");
+    // garden round a pond
+    for (let z = 19; z <= MID; z++) for (let x = 26; x <= MID; x++) {
+      if (x === MID && z >= 26) sym(x, 0, z, "water");
+      else {
+        sym(x, 0, z, "moss");
+        if ((x + z) % 3 === 0) sym(x, 1, z, x === 27 && z % 4 === 1 ? "sapling" : "leaves");
+      }
+    }
+    // the builder turtle's home, and its chests
+    w.set(29, 0, 7, "turtle"); w.set(29, 0, 6, "chest"); w.set(30, 0, 7, "chest");
+    return { world: w, cut: MID };
   }
 
   // Strip miner, scaled down: main tunnel 40 long, branches 12 long, 3 apart.
@@ -722,7 +786,7 @@
     };
   }
 
-  const SCENES = { excavate, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder, crate: crateScene,
+  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder, crate: crateScene,
     storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting

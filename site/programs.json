@@ -16,7 +16,7 @@
       "device": "turtle",
       "deviceLabel": "Mining turtle",
       "color": "orange",
-      "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases.",
+      "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases, or an empty 60×60×30 box for the atrium plan.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Hall", "21 × 21 × 16"],
@@ -51,6 +51,10 @@
         ["builder-turtle", "After excavate atrium, a builder turtle sent the atrium plan from build control builds the atrium, its two wings, the walls, stairs and garden."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hall: rooms on two floors, the ledge and the stairs." },
+      "layouts": [
+        { "title": "Default hall", "scene": "excavate", "caption": "excavate: the 21×21×16 hall with 12 rooms on each floor, the ledge at the upper floor and split stairs on every wall." },
+        { "title": "Atrium", "scene": "excavateAtrium", "caption": "excavate atrium digs an empty 60×60×30 box; a builder turtle fills it with the atrium plan. A 24-wide atrium with a gallery on pillars, split stairs and a garden pond, between two wings with second floors. The builder lives on a clear spot at the north end with its two chests." }
+      ],
       "terminal": {
         "device": "turtle",
         "lines": [

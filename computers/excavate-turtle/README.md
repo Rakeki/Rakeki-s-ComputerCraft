@@ -163,6 +163,15 @@ Things to know:
 - The stairs float, as the excavator's do: there's nothing under the
   steps, so you can walk under the high end.
 
+## Example layouts
+
+- **Default hall** (`excavate`): the 21×21×16 hall with 12 rooms on each
+  floor, the ledge at the upper floor and split stairs on every wall.
+- **Atrium** (`excavate atrium`, then the atrium plan): the empty 60×60×30
+  box, filled with a 24-wide atrium between two 17-wide wings on two
+  floors (see [Atrium](#atrium)). The builder turtle sits on its clear spot
+  at the north end, with its two chests.
+
 ## Staying on track
 
 **With GPS** (a GPS constellation in range when the job starts, and a modem on
