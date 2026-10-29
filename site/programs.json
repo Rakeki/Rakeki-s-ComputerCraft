@@ -28,7 +28,7 @@
         "Seals every cave, ravine and lava gap it opens with cobblestone",
         "Asks what you want the ledge and stairs built from",
         "Deep mode digs a shaft down and builds the hall 10 above bedrock",
-        "Atrium mode digs a garden pit for builder turtles to fill with the atrium plan: pillars, arches, a gallery and a pond",
+        "Atrium mode digs an empty 60×60×30 box for builder turtles to fill with the atrium plan: an atrium between two wings, on two floors",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -40,7 +40,7 @@
         ["excavate", "21×21×16 hall, digging up from the turtle"],
         ["excavate 21 21 16 down", "dig downwards instead"],
         ["excavate deep", "shaft down, hall floor 10 above bedrock"],
-        ["excavate atrium", "default hall plus a garden pit, no ledge: the atrium plan builds the rest"],
+        ["excavate atrium", "an empty 60×60×30 box, no rooms: the atrium plan fills it"],
         ["excavate resume", "carry on after stopping it"],
         ["excavate here", "no GPS: you put it back on its start block"],
         ["excavate cancel", "forget the current job"]
@@ -48,7 +48,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "After excavate atrium, a builder turtle sent the atrium plan from build control builds the gallery, stairs, pillars, arches and garden."]
+        ["builder-turtle", "After excavate atrium, a builder turtle sent the atrium plan from build control builds the atrium, its two wings, the walls, stairs and garden."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hall: rooms on two floors, the ledge and the stairs." },
       "terminal": {
@@ -1853,9 +1853,9 @@
       "name": "atrium",
       "file": "atrium.lua",
       "title": "Atrium",
-      "tagline": "Fits the hall from excavate atrium: a spruce gallery on pillars and arches, split stairs, beams with shroomlights, and a sunken garden round a pond.",
-      "size": "21 × 21 × 18",
-      "blocks": 842
+      "tagline": "Fills the box from excavate atrium: a pillared atrium with a gallery, split stairs and a garden pond, between two wings on two floors.",
+      "size": "60 × 60 × 29",
+      "blocks": 7736
     },
     {
       "name": "factory",

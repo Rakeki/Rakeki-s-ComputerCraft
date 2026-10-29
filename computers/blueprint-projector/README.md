@@ -41,9 +41,9 @@ high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
 a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
 sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
-[Building in the sky](#building-in-the-sky)), an **atrium** (21×21, 18
-high, 842 blocks) that fits inside the hall
-[`excavate atrium`](../excavate-turtle/README.md#atrium) digs, and **Turtle Works**
+[Building in the sky](#building-in-the-sky)), an **atrium** (60×60, 29
+high, about 7,700 blocks): a pillared atrium between two wings, on two
+floors, for the box [`excavate atrium`](../excavate-turtle/README.md#atrium) digs, and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)). `install plans` lists the

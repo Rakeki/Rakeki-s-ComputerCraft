@@ -9,8 +9,8 @@
 
 Digs out an underground hall with two floors of rooms around it, then builds a
 walkway ledge at the upper floor with stairs up to it. It works on its own; no
-server needed. Or it digs the hall with a garden pit for the builder turtles
-to turn into a pillared [atrium](#atrium). GPS is optional but strongly recommended (see
+server needed. Or it digs one big empty box for the builder turtles to fill
+with a pillared [atrium](#atrium) between two wings. GPS is optional but strongly recommended (see
 [Staying on track](#staying-on-track)).
 
 Default layout (`excavate` with no arguments), the same on all four sides:
@@ -90,7 +90,7 @@ size you choose can't be.
    excavate                      -- 21x21x16, digging up from the turtle
    excavate 21 21 16 down        -- dig downwards instead (turtle at the top corner)
    excavate deep                 -- shaft down from the surface, hall floor 10 above bedrock
-   excavate atrium               -- default hall plus a garden pit, for the atrium plan (see Atrium)
+   excavate atrium               -- an empty 60x60x30 box for the atrium plan (see Atrium)
    excavate atrium deep          -- the same, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
    excavate here                 -- no GPS: "I've put you back on your start block", then carry on
@@ -109,50 +109,58 @@ half-built ledge.
 
 ## Atrium
 
-`excavate atrium` digs the default 21×21×16 hall with its rooms, plus a
-stepped pit in the middle of the floor: 7×7 and 3 deep, with a 3×3 pond one
-deeper in its centre. It leaves out the ledge and stairs. The
-[atrium plan](../../plans/atrium.lua) builds those instead, with the rest of
-the decoration, using [builder turtles](../builder-turtle/README.md) sent
-by [build control](../build-control/README.md):
+`excavate atrium` digs one empty box, 60 wide, 60 long and 30 high: no
+rooms, ledge or stairs, just the hall with its walls, floor and ceiling
+sealed. The [atrium plan](../../plans/atrium.lua) fills it, using a
+[builder turtle](../builder-turtle/README.md) sent by
+[build control](../build-control/README.md). It's three rooms side by side
+on two floors, mirror-symmetric both ways:
 
-- a spruce gallery at the upper floor, with split stairs (real stair blocks,
-  facing up each flight) on every side
-- 12 stripped spruce log pillars from the floor to the ceiling beams
-- arches between the pillars, under the gallery and under the beams
-- a grid of ceiling beams, lit with shroomlights
-- a fence railing with lanterns along the gallery
-- in the pit: moss beds with azaleas, bamboo and flowers, stepping down to a
-  pond with sugar cane round it
+- **The atrium** in the middle, 24 wide and open to the ceiling. A spruce
+  gallery runs round it at the second floor, on stripped spruce log
+  pillars. Arches span the pillars under the gallery and under the ceiling
+  beams, and shroomlights light the spans. A fence railing with lanterns
+  runs along the gallery. Split stairs on both long sides rise from a
+  landing in the middle to the gallery at each end. On the floor in the
+  middle there's a moss garden of azaleas, bamboo and flowers round a pond
+  with sugar cane.
+- **Two wings**, 17 wide, one on each side, each with a full second floor
+  on a row of log posts. Shroomlights are set into the floor, with lanterns
+  on them.
+- **Stone brick walls** between the wings and the atrium, with three
+  doorways on each floor. The second-floor doorways open onto the gallery.
 
-It needs 842 blocks: 404 spruce planks, 168 stripped spruce logs, 88 spruce
-stairs, 36 spruce fences, 40 moss blocks, 24 dirt, 18 water buckets, 16
-shroomlights, 8 lanterns and a few plants. `build check atrium` lists them.
-To light it with something other than shroomlights, change `LIGHT` at the
-top of `atrium.lua`.
+It needs 7,736 blocks: 3,384 stone bricks, 2,984 spruce planks, 748
+stripped spruce logs, 112 spruce stairs, 112 spruce fences, 160 moss
+blocks, 60 shroomlights, 28 lanterns, 16 water buckets and about 130
+plants. `build check atrium` lists them all. To light it with something
+other than shroomlights, change `LIGHT` at the top of `atrium.lua`.
 
-1. Run `excavate atrium` (or `excavate atrium deep`) and let it finish. With
-   GPS it prints where to put the builder and the exact `build` command.
-2. Put a builder turtle on the hall floor 5 blocks east and 5 south of the
-   hall's north-west corner, facing east. Its supply chest goes behind it
-   and its spoil chest to its left, both on the floor under the stairs.
-   Run `builder setup` on it. The plan never builds above that spot, so the
+1. Run `excavate atrium` (or `excavate atrium deep`) and let it finish.
+   It's a big dig: it prints the fuel it needs before it starts (around
+   65,000). With GPS it finishes by printing where to put the builder and
+   the exact `build` command.
+2. Put a builder turtle on the floor 29 blocks east and 7 south of the
+   box's north-west corner, facing south (into the atrium). Its supply
+   chest goes behind it and its spoil chest to its left. Run
+   `builder setup` on it. The plan never builds above that spot, so the
    turtle can always get home without digging through anything.
 3. On build control, run `build atrium <x> <y> <z>`. The coordinates are
-   the hall's north-west corner, 4 blocks **below** the floor (the bottom of
-   the pond).
+   the box's north-west corner, on its floor.
 
 Things to know:
 
 - Use **one** builder (build control shares a plan between every free
   builder in range). The plan leaves a clear spot for only one home, and
   a builder with its home anywhere else digs its way there through the
-  rock (or the gallery).
-- The plan only fits the default size, so `excavate atrium` doesn't take
+  rock or the building.
+- The plan only fits the 60×60×30 box, so `excavate atrium` doesn't take
   sizes.
+- The plan stops one block below the ceiling, because the builder stands
+  on top of what it places. The walls and pillars end there too.
 - Wheat needs farmland, which turtles can't place, so the garden has none.
-  Swap a moss bed for dirt and till it by hand if you want crops.
-- The builder floats the stairs as the excavator does: nothing under the
+  Swap some moss for dirt and till it by hand if you want crops.
+- The stairs float, as the excavator's do: there's nothing under the
   steps, so you can walk under the high end.
 
 ## Staying on track

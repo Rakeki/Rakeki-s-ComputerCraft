@@ -139,11 +139,12 @@ red) it says so and tries again 5 minutes later.
   before placing it, so stairs climb that way. Blocks without one face
   whichever way the turtle happens to face. Logs always stand upright, and
   beds and other two-block things may need placing by hand.
-- **Building underground** (the atrium in a hall from
-  [`excavate atrium`](../excavate-turtle/README.md#atrium)): the turtle
-  flies 2 blocks over the building's top, so keep that inside the dug space,
-  and give it a home inside the building whose column the plan leaves
-  empty, or it digs its way home through the rock.
+- **Building underground** (the atrium in the box from
+  [`excavate atrium`](../excavate-turtle/README.md#atrium)): give the turtle
+  a home inside the building, on a spot whose column the plan leaves empty.
+  It then stays inside, working a block above each layer, so the plan's top
+  must be at least a block below the ceiling. A home outside the building
+  has it fly over the top, 2 blocks up, digging through the rock.
 - A block it can't place (a protected block in the way, nothing under a
   torch) is skipped and counted; the projector says how many when it's done.
 - It builds one building at a time. Another projector asking while it's busy
