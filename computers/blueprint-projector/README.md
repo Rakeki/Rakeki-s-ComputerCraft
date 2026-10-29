@@ -35,13 +35,15 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-It comes with five plans, in the `/plans` folder: a **cottage** (7×7, 8
+It comes with six plans, in the `/plans` folder: a **cottage** (7×7, 8
 high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
 high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
 a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
 sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
-[Building in the sky](#building-in-the-sky)), and **Turtle Works**
+[Building in the sky](#building-in-the-sky)), an **atrium** (21×21, 18
+high, 842 blocks) that fits inside the hall
+[`excavate atrium`](../excavate-turtle/README.md#atrium) digs, and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)). `install plans` lists the
@@ -54,7 +56,7 @@ builder turtles without a projector.
 
 - `projector.lua`: the program: loads plans, works out the shapes and draws them. Tunables are at the top.
 - `ui.lua`: the monitor control panel
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`); `install plan <name>` adds more
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `atrium.lua`, `factory.lua`); `install plan <name>` adds more
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.

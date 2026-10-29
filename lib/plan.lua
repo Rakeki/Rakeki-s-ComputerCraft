@@ -16,8 +16,30 @@
 -- "blocks": [ [x, y, z, "minecraft:stone"], ... ] in place of legend and
 -- layers. "clear": false says it's built in the air, so builders don't dig
 -- out its box first. A colour (a number, or "#rrggbb") is only for the
--- projection.
+-- projection. A block may carry a state, as setblock takes it:
+-- "minecraft:spruce_stairs[facing=east]". Builder turtles face that way to
+-- place it (stairs climb towards it), and turning the plan turns it.
 local plan = {}
+
+local FACINGS = { "north", "east", "south", "west" }
+
+-- A block name without its [state].
+function plan.base(block) return (block:gsub("%[.*$", "")) end
+
+-- The facing in a block's state (0 north .. 3 west, as nav headings), or nil.
+function plan.facing(block)
+  local f = block:match("[%[,]facing=(%a+)")
+  for i, name in ipairs(FACINGS) do
+    if name == f then return i - 1 end
+  end
+end
+
+-- The block with its facing turned turn quarter turns clockwise.
+local function turned(block, turn)
+  local f = plan.facing(block)
+  if not f or (turn or 0) % 4 == 0 then return block end
+  return (block:gsub("([%[,]facing=)%a+", "%1" .. FACINGS[(f + turn) % 4 + 1]))
+end
 
 plan.DIR = "/plans"
 
@@ -226,11 +248,12 @@ function plan.corner(p, turn, x, y, z)
   return at
 end
 
--- Every block in world coordinates: the block names (mats[m]), and
--- { x, y, z, m } per block, as builder turtles take them.
+-- Every block in world coordinates: the block names (mats[m], facings
+-- turned with the plan), and { x, y, z, m } per block, as builder turtles
+-- take them.
 function plan.world(p, at)
   local mats, blocks = {}, {}
-  for i, m in ipairs(p.mats) do mats[i] = m.block end
+  for i, m in ipairs(p.mats) do mats[i] = turned(m.block, at.turn) end
   for i, b in ipairs(p.blocks) do
     local dx, dz = plan.offset(p, at.turn, b.x, b.z)
     blocks[i] = { at.x + dx, at.y + b.y, at.z + dz, b.m }

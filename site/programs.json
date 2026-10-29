@@ -28,6 +28,7 @@
         "Seals every cave, ravine and lava gap it opens with cobblestone",
         "Asks what you want the ledge and stairs built from",
         "Deep mode digs a shaft down and builds the hall 10 above bedrock",
+        "Atrium mode digs a garden pit for builder turtles to fill with the atrium plan: pillars, arches, a gallery and a pond",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -39,13 +40,15 @@
         ["excavate", "21×21×16 hall, digging up from the turtle"],
         ["excavate 21 21 16 down", "dig downwards instead"],
         ["excavate deep", "shaft down, hall floor 10 above bedrock"],
+        ["excavate atrium", "default hall plus a garden pit, no ledge: the atrium plan builds the rest"],
         ["excavate resume", "carry on after stopping it"],
         ["excavate here", "no GPS: you put it back on its start block"],
         ["excavate cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
-        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."]
+        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
+        ["builder-turtle", "After excavate atrium, a builder turtle sent the atrium plan from build control builds the gallery, stairs, pillars, arches and garden."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hall: rooms on two floors, the ledge and the stairs." },
       "terminal": {
@@ -608,12 +611,12 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Plans", "5, plus install plan"],
+        ["Plans", "6, plus install plan"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
@@ -728,7 +731,7 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -779,7 +782,7 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, no turtles or materials, and undoes it again.",
       "libs": ["plan", "files", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1790,11 +1793,12 @@
         ["plan.copy(id, to)", "Copy the plan's file to to plus its extension and return the new path: build from the copy so an update to /plans can't change a building half way."],
         ["plan.fromTable(raw, id)", "A plan from a table already in memory (legend + layers, or a block list)."],
         ["plan.corner(p, turn, x, y, z)", "Where it goes (\"at\") so its north-west bottom corner is x y z, turned turn quarter turns clockwise."],
-        ["plan.world(p, at)", "Block names, and every block as { x, y, z, m } in world coordinates."],
+        ["plan.world(p, at)", "Block names (facing states turned with the plan), and every block as { x, y, z, m } in world coordinates."],
+        ["plan.base(block) / plan.facing(block)", "A block name without its [state], and its facing as a heading (0 north .. 3 west) or nil."],
         ["plan.area(p, at), plan.footprint(p, at)", "The box it fills, and the ground it covers."],
         ["plan.offset(p, turn, x, z)", "A plan block's offset from at, turned."]
       ],
-      "notes": "A plan file is JSON (legend + layers, each layer rows of letters seen from above with the first row north; or blocks: [[x, y, z, \"minecraft:stone\"], ...]) or a Lua file returning the same table, for plans made by code. \"clear\": false marks one built in the air, so builders don't dig out its box first."
+      "notes": "A plan file is JSON (legend + layers, each layer rows of letters seen from above with the first row north; or blocks: [[x, y, z, \"minecraft:stone\"], ...]) or a Lua file returning the same table, for plans made by code. \"clear\": false marks one built in the air, so builders don't dig out its box first. A block can carry a state, \"minecraft:spruce_stairs[facing=east]\": builders face that way to place it, and turning the plan turns it."
     },
     {
       "name": "crew",
@@ -1844,6 +1848,14 @@
       "tagline": "Four hollow rings round a core with a glass dome, spire and spike, floors inside; built in the air.",
       "size": "63 × 63 × 98",
       "blocks": 21166
+    },
+    {
+      "name": "atrium",
+      "file": "atrium.lua",
+      "title": "Atrium",
+      "tagline": "Fits the hall from excavate atrium: a spruce gallery on pillars and arches, split stairs, beams with shroomlights, and a sunken garden round a pond.",
+      "size": "21 × 21 × 18",
+      "blocks": 842
     },
     {
       "name": "factory",

@@ -134,9 +134,16 @@ red) it says so and tries again 5 minutes later.
   a few blocks below the build limit (Y 319): 2 blocks, plus 1 for each
   extra builder sharing it. One that's too high is refused, saying how far
   to lower it.
-- Plans say which block goes where but not which way it faces, so stairs,
-  logs and the like face whichever way the turtle happens to be facing.
-  Beds and other two-block things may need placing by hand.
+- A block in a plan can say which way it faces (`[facing=east]`, as in the
+  [atrium](../../plans/atrium.lua) plan's stairs): the turtle turns that way
+  before placing it, so stairs climb that way. Blocks without one face
+  whichever way the turtle happens to face. Logs always stand upright, and
+  beds and other two-block things may need placing by hand.
+- **Building underground** (the atrium in a hall from
+  [`excavate atrium`](../excavate-turtle/README.md#atrium)): the turtle
+  flies 2 blocks over the building's top, so keep that inside the dug space,
+  and give it a home inside the building whose column the plan leaves
+  empty, or it digs its way home through the rock.
 - A block it can't place (a protected block in the way, nothing under a
   torch) is skipped and counted; the projector says how many when it's done.
 - It builds one building at a time. Another projector asking while it's busy

@@ -413,6 +413,7 @@
         let m;
         if ((m = abs.match(/^computers\/([^/]+)\/(README\.md)?$/))) a.href = progUrl(m[1]) + (hash ? `#${hash}` : "#guide");
         else if ((m = abs.match(/^lib\/(\w+)\.lua$/))) a.href = libUrl(m[1]);
+        else if ((m = abs.match(/^plans\/([\w-]+)\.(lua|json)$/)) && (SITE.plans || []).some((pl) => pl.name === m[1])) a.href = planUrl(m[1]);
         else { a.href = ROOT + abs; a.target = "_blank"; }
       });
       div.querySelectorAll("pre code").forEach((c) => { if (!c.className) c.className = /^\s*(local|--|report\.|nav\.)/.test(c.textContent) ? "language-lua" : "language-plaintext"; });

@@ -9,7 +9,8 @@
 
 Digs out an underground hall with two floors of rooms around it, then builds a
 walkway ledge at the upper floor with stairs up to it. It works on its own; no
-server needed. GPS is optional but strongly recommended (see
+server needed. Or it digs the hall with a garden pit for the builder turtles
+to turn into a pillared [atrium](#atrium). GPS is optional but strongly recommended (see
 [Staying on track](#staying-on-track)).
 
 Default layout (`excavate` with no arguments), the same on all four sides:
@@ -89,6 +90,8 @@ size you choose can't be.
    excavate                      -- 21x21x16, digging up from the turtle
    excavate 21 21 16 down        -- dig downwards instead (turtle at the top corner)
    excavate deep                 -- shaft down from the surface, hall floor 10 above bedrock
+   excavate atrium               -- default hall plus a garden pit, for the atrium plan (see Atrium)
+   excavate atrium deep          -- the same, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
    excavate here                 -- no GPS: "I've put you back on your start block", then carry on
    excavate cancel               -- forget the current job
@@ -103,6 +106,54 @@ If the chest fills up, or it runs out of fuel or cobblestone, it waits at the
 start until you fix it. Before building it also makes sure it has enough fuel
 for the whole ledge and stairs, so it never has to fly home across a
 half-built ledge.
+
+## Atrium
+
+`excavate atrium` digs the default 21×21×16 hall with its rooms, plus a
+stepped pit in the middle of the floor: 7×7 and 3 deep, with a 3×3 pond one
+deeper in its centre. It leaves out the ledge and stairs. The
+[atrium plan](../../plans/atrium.lua) builds those instead, with the rest of
+the decoration, using [builder turtles](../builder-turtle/README.md) sent
+by [build control](../build-control/README.md):
+
+- a spruce gallery at the upper floor, with split stairs (real stair blocks,
+  facing up each flight) on every side
+- 12 stripped spruce log pillars from the floor to the ceiling beams
+- arches between the pillars, under the gallery and under the beams
+- a grid of ceiling beams, lit with shroomlights
+- a fence railing with lanterns along the gallery
+- in the pit: moss beds with azaleas, bamboo and flowers, stepping down to a
+  pond with sugar cane round it
+
+It needs 842 blocks: 404 spruce planks, 168 stripped spruce logs, 88 spruce
+stairs, 36 spruce fences, 40 moss blocks, 24 dirt, 18 water buckets, 16
+shroomlights, 8 lanterns and a few plants. `build check atrium` lists them.
+To light it with something other than shroomlights, change `LIGHT` at the
+top of `atrium.lua`.
+
+1. Run `excavate atrium` (or `excavate atrium deep`) and let it finish. With
+   GPS it prints where to put the builder and the exact `build` command.
+2. Put a builder turtle on the hall floor 5 blocks east and 5 south of the
+   hall's north-west corner, facing east. Its supply chest goes behind it
+   and its spoil chest to its left, both on the floor under the stairs.
+   Run `builder setup` on it. The plan never builds above that spot, so the
+   turtle can always get home without digging through anything.
+3. On build control, run `build atrium <x> <y> <z>`. The coordinates are
+   the hall's north-west corner, 4 blocks **below** the floor (the bottom of
+   the pond).
+
+Things to know:
+
+- Use **one** builder (build control shares a plan between every free
+  builder in range). The plan leaves a clear spot for only one home, and
+  a builder with its home anywhere else digs its way there through the
+  rock (or the gallery).
+- The plan only fits the default size, so `excavate atrium` doesn't take
+  sizes.
+- Wheat needs farmland, which turtles can't place, so the garden has none.
+  Swap a moss bed for dirt and till it by hand if you want crops.
+- The builder floats the stairs as the excavator does: nothing under the
+  steps, so you can walk under the high end.
 
 ## Staying on track
 

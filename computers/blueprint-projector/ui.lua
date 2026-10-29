@@ -65,7 +65,7 @@ function ui:drawCounts(m, x0, y0, width, rows)
   put(self.win, x0, y0, fit(m.countTitle, width), colors.yellow, colors.black)
   for i, c in ipairs(m.counts) do
     if i >= rows then break end
-    local name = c.mat.block:gsub("^.-:", "")
+    local name = c.mat.block:gsub("^.-:", ""):gsub("%[.*$", "")
     local n = tostring(c.n)
     put(self.win, x0, y0 + i, c.mat.char, c.mat.light and colors.black or colors.white, c.mat.term)
     put(self.win, x0 + 2, y0 + i, fit(name, width - #n - 3), colors.white, colors.black)

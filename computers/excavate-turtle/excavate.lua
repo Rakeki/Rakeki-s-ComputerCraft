@@ -3,6 +3,7 @@
 -- stairs up to it.
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
+--   excavate atrium [up|down|deep]   21x21x16 with a sunken garden pit, for plans/atrium.lua
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel
@@ -17,6 +18,11 @@
 --
 -- The layout is mirror-symmetric when the width and length are odd (rooms
 -- line up evenly and every wall has a centre block for its middle door).
+--
+-- "atrium" digs the default hall plus a stepped pit in the middle of its
+-- floor and leaves out the ledge and stairs: the atrium plan builds those,
+-- with the pillars, arches, railing and garden, through build-control and
+-- builder turtles. It prints the build command when it's done.
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
@@ -45,6 +51,15 @@ local SEAL_SPARE = 192 -- cobblestone carried while digging, for patching (3 slo
 -- BEDROCK_TOP is -60 in Minecraft 1.18+ (use 4 for 1.17 and older).
 local BEDROCK_TOP = -60
 local ABOVE_BEDROCK = 10
+
+-- "atrium": the pit dug into the middle of the hall floor, for the garden
+-- and pond in plans/atrium.lua. Change these and that plan together.
+local ATRIUM_SIZE = { 21, 21, 16 } -- width, length, height the plan fits
+local PIT_RADIUS = 3 -- 7x7 garden beds...
+local PIT_DEPTH = 3 -- ...3 deep
+local POND_RADIUS = 1 -- 3x3 pond in the middle...
+local POND_DEPTH = 1 -- ...1 deeper still
+local BUILDER_HOME = { x = 5, z = 5 } -- a spot on the floor the plan leaves clear above, for the builder turtle
 
 -- Kept while digging for patching walls (only SEAL_SPARE of them).
 local PATCH_BLOCKS = { ["minecraft:cobblestone"] = true, ["minecraft:cobbled_deepslate"] = true }
@@ -228,6 +243,18 @@ local function buildPlan()
       end
     end
   end
+  -- atrium: the plan builds the gallery and stairs, so they're left out here,
+  -- and a stepped pit goes into the middle of the floor
+  plan.pits = {}
+  if job.atrium then
+    plan.builds = {}
+    local cx, cz = math.floor(W / 2), math.floor(L / 2)
+    local function pit(r, top, depth)
+      table.insert(plan.pits, { x0 = cx - r, x1 = cx + r, y0 = top - depth + 1, y1 = top, z0 = cz - r, z1 = cz + r })
+    end
+    pit(PIT_RADIUS, F - 1, PIT_DEPTH)
+    pit(POND_RADIUS, F - 1 - PIT_DEPTH, POND_DEPTH)
+  end
   plan.need = { ledge = 0, stairs = 0 }
   for _, b in ipairs(plan.builds) do plan.need[b.mat] = plan.need[b.mat] + 1 end
 
@@ -241,6 +268,9 @@ local function buildPlan()
     end
     local function inside(x, y, z)
       if inBox(hall, x, y, z) then return true end
+      for _, p in ipairs(plan.pits) do
+        if inBox(p, x, y, z) then return true end
+      end
       if plan.shaftBottom and x == plan.start.x and z == plan.start.z and y > hall.y1 then return true end
       for _, r in ipairs(plan.rooms) do
         if inBox(r.box, x, y, z) then return true end
@@ -279,6 +309,7 @@ local function buildPlan()
       end
     end
     sealBox(hall)
+    for _, p in ipairs(plan.pits) do sealBox(p) end
     for _, r in ipairs(plan.rooms) do
       for _, d in ipairs(r.door) do
         for y = r.box.y0, r.box.y0 + DOOR_HEIGHT - 1 do check(d.x, y, d.z) end
@@ -287,9 +318,16 @@ local function buildPlan()
     end
   end
 
-  -- phase 0 is the hall, phases 1..#rooms are rooms, then sealing, then building
-  plan.sealPhase = #plan.rooms + 1
-  plan.buildPhase = #plan.rooms + 2
+  -- phase 0 is the hall, phases 1..#rooms are rooms, then the pits (atrium
+  -- only), then sealing, then building
+  plan.pitPhase = #plan.rooms + 1
+  plan.sealPhase = plan.pitPhase + #plan.pits
+  plan.buildPhase = plan.sealPhase + 1
+end
+
+-- The pit dug in this phase, if it's a pit phase.
+local function phasePit(phase)
+  if phase >= plan.pitPhase and phase < plan.sealPhase then return plan.pits[phase - plan.pitPhase + 1] end
 end
 
 local function boxCells(b)
@@ -313,6 +351,7 @@ local function phaseSize(phase)
   if phase == 0 then return boxCells(plan.hall) end
   if phase == plan.sealPhase then return #plan.seals end
   if phase == plan.buildPhase then return #plan.builds end
+  if phasePit(phase) then return boxCells(phasePit(phase)) end
   return boxCells(plan.rooms[phase].box) + 1 -- +1 for the doorway
 end
 
@@ -389,6 +428,9 @@ local gpsPos = nav.locate
 -- Somewhere the turtle is meant to be: inside the dig, in the shaft, or on its start block.
 local function onPlan(p)
   local s = plan.start
+  for _, pit in ipairs(plan.pits) do
+    if inBox(pit, p) then return true end
+  end
   return inBox(plan.hall, p) or roomContaining(p) ~= nil or inShaft(p)
     or (p.x == s.x and p.y == s.y and p.z == s.z)
 end
@@ -671,6 +713,7 @@ local function progressText()
   local name = job.phase == 0 and "hall"
     or job.phase == plan.sealPhase and "sealing walls"
     or job.phase == plan.buildPhase and "ledge and stairs"
+    or phasePit(job.phase) and "garden pit"
     or ("room %d/%d"):format(job.phase, #plan.rooms)
   return ("%s, %d%% overall"):format(name, math.floor(done / total * 100))
 end
@@ -735,11 +778,13 @@ end
 local function run()
   rejoin()
   while job.phase <= plan.buildPhase do
-    if job.phase == plan.buildPhase and job.cell == 0 then prepareBuild() end
+    if job.phase == plan.buildPhase and job.cell == 0 and #plan.builds > 0 then prepareBuild() end
     local size = phaseSize(job.phase)
     while job.cell < size do
       if job.phase == 0 then
         digCell(plan.hall, boxCell(plan.hall, job.cell))
+      elseif phasePit(job.phase) then
+        digCell(phasePit(job.phase), boxCell(phasePit(job.phase), job.cell))
       elseif job.phase == plan.sealPhase then
         sealCell(plan.seals[job.cell + 1])
       elseif job.phase == plan.buildPhase then
@@ -800,6 +845,23 @@ local function run()
   nav.deleteFile(JOB_FILE)
   print("Excavation complete!")
   report.set("done", "excavation complete")
+  if job.atrium then
+    -- the plan's north-west bottom corner is the hall's, at the bottom of the pond
+    local ax, _, az = toWorld({ x = 0, y = 0, z = 0 })
+    local bx, _, bz = toWorld({ x = job.width - 1, y = 0, z = job.length - 1 })
+    local x0, z0 = math.min(ax, bx), math.min(az, bz)
+    local y0 = job.origin.y + plan.hall.y0 - PIT_DEPTH - POND_DEPTH
+    print("Now for the atrium plan. Put a builder turtle")
+    if job.gps then
+      print(("at %d %d %d facing east, its chests behind"):format(x0 + BUILDER_HOME.x, y0 + PIT_DEPTH + POND_DEPTH, z0 + BUILDER_HOME.z))
+      print("and to its left, and run 'builder setup'. Then:")
+      print(("  build atrium %d %d %d"):format(x0, y0, z0))
+    else
+      print(("%d east and %d south of the hall's north-west"):format(BUILDER_HOME.x, BUILDER_HOME.z))
+      print("corner, facing east, chests behind and left.")
+      print(("Then 'build atrium <x> <y> <z>': that corner, %d below the floor."):format(PIT_DEPTH + POND_DEPTH))
+    end
+  end
 end
 
 local args = { ... }
@@ -848,13 +910,18 @@ elseif job then
   return
 else
   -- numbers are width, length, height in that order; the mode word can go anywhere
-  local nums, dir = {}, "up"
+  local nums, dir, atrium = {}, "up", false
   for _, a in ipairs(args) do
-    if tonumber(a) then nums[#nums + 1] = tonumber(a) else dir = a end
+    if tonumber(a) then nums[#nums + 1] = tonumber(a) elseif a == "atrium" then atrium = true else dir = a end
   end
   local w, l, h = nums[1] or 21, nums[2] or 21, nums[3] or 16
   if dir ~= "up" and dir ~= "down" and dir ~= "deep" then
     print("Usage: excavate [width] [length] [height] [up|down|deep]")
+    print("       excavate atrium [up|down|deep]")
+    return
+  end
+  if atrium and (w ~= ATRIUM_SIZE[1] or l ~= ATRIUM_SIZE[2] or h < ATRIUM_SIZE[3]) then
+    print(("The atrium plan fits a %dx%dx%d hall: leave the sizes out."):format(ATRIUM_SIZE[1], ATRIUM_SIZE[2], ATRIUM_SIZE[3]))
     return
   end
   if h < UPPER_FLOOR + ROOM_HEIGHT then
@@ -868,7 +935,7 @@ else
   local start = { x = 0, y = 0, z = 0 }
   if dir == "deep" then start = { x = math.floor(w / 2), y = 0, z = math.floor(l / 2) } end
   local f, r = DIRS[heading], DIRS[(heading + 1) % 4]
-  job = { width = w, length = l, height = h, dir = dir, phase = 0, cell = 0, start = start, gps = hasGps,
+  job = { width = w, length = l, height = h, dir = dir, atrium = atrium or nil, phase = 0, cell = 0, start = start, gps = hasGps,
     origin = { x = p.x - start.x * r.x - start.z * f.x, y = p.y, z = p.z - start.x * r.z - start.z * f.z, heading = heading } }
   print(hasGps and "GPS found: I'll check my position as I go."
     or "No GPS: working from my own position count only.")
@@ -895,15 +962,24 @@ else
   for phase = 0, plan.buildPhase do total = total + phaseSize(phase) end
   -- each trip to the chest goes up and down the shaft
   local fuel = math.floor(total * 1.3 + (total / 300) * 2 * depth + 2 * depth)
-  print(("Hall %dx%dx%d (%s), %d rooms on 2 floors, ledge%s."):format(w, l, h, dir, #plan.rooms,
-    plan.hasStairs and " and stairs" or " (no room for stairs)"))
+  if atrium then
+    print(("Hall %dx%dx%d (%s), %d rooms on 2 floors, garden pit."):format(w, l, h, dir, #plan.rooms))
+  else
+    print(("Hall %dx%dx%d (%s), %d rooms on 2 floors, ledge%s."):format(w, l, h, dir, #plan.rooms,
+      plan.hasStairs and " and stairs" or " (no room for stairs)"))
+  end
   if not plan.symmetric then
     print("Note: rooms can't be spaced evenly at this size, so the layout won't be")
     print("perfectly symmetric. Odd sizes like 21 work best.")
   end
   print(("Needs about %d fuel (have %s). I refuel from the chest"):format(fuel, tostring(turtle.getFuelLevel())))
   print("behind me, so put coal in it. Mined coal goes there too.")
-  print(("When it's time to build I'll ask for %d ledge blocks (slots %d-%d)"):format(plan.need.ledge, LEDGE_SLOTS[1], LEDGE_SLOTS[2]))
+  if atrium then
+    print("The ledge, stairs and the rest come from the")
+    print("atrium plan afterwards (build-control).")
+  else
+    print(("When it's time to build I'll ask for %d ledge blocks (slots %d-%d)"):format(plan.need.ledge, LEDGE_SLOTS[1], LEDGE_SLOTS[2]))
+  end
   if plan.need.stairs > 0 then
     print(("and %d stair blocks (slots %d-%d)."):format(plan.need.stairs, STAIR_SLOTS[1], STAIR_SLOTS[2]))
   end

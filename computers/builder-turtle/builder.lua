@@ -71,8 +71,16 @@ local stopRequested = false
 
 ---------------------------------------------------------------- helpers
 
-local function shortName(name) return (name:gsub("^minecraft:", ""):gsub("_", " ")) end
-local function itemFor(block) return ITEM_FOR[block] or block end
+-- Plan blocks may carry a state, "minecraft:oak_stairs[facing=east]": the
+-- block itself is the name without it.
+local function baseName(block) return (block:gsub("%[.*$", "")) end
+local function shortName(name) return (baseName(name):gsub("^minecraft:", ""):gsub("_", " ")) end
+local function itemFor(block)
+  local base = baseName(block)
+  return ITEM_FOR[base] or base
+end
+-- The heading a block's facing state asks for (stairs climb towards it), or nil.
+local function facingOf(block) return nav.HEADINGS[block:match("[%[,]facing=(%a+)") or ""] end
 local function save() nav.writeFile(PROGRESS_FILE, prog) end
 
 local fuelLevel = inv.fuelLevel
@@ -615,7 +623,7 @@ end
 
 local function sameAt(inspect, name)
   local ok, data = inspect()
-  return ok and data.name == name
+  return ok and data.name == baseName(name)
 end
 
 -- A door: from the cell beside it that the plan leaves empty, facing it, so
@@ -658,6 +666,8 @@ local function placeBlock(b)
   if not reach(stand) then return "skip" end
   if sameAt(turtle.inspectDown, name) then return "ok" end
   if turtle.detectDown() and not nav.digDown() then return "skip" end
+  -- placed from above, a block faces the way the turtle does
+  if facingOf(name) then nav.face(facingOf(name)) end
   selectName(item)
   for _ = 1, PLACE_TRIES do
     if turtle.placeDown() then

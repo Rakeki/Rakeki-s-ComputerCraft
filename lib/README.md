@@ -75,7 +75,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `gps-deployer` and `builder-turtle`.
 - `plan.lua`: building plans: loads a `.json` or `.lua` plan from `/plans`
   (legend + layers, or a block list) and places it in the world, turned to
-  face any way, and copies a plan so a building keeps the plan it started with. Used by `blueprint-projector`, `build-control` and `instabuild`.
+  face any way (blocks with a `[facing=...]` state turn with it), and copies a plan so a building keeps the plan it started with. Used by `blueprint-projector`, `build-control` and `instabuild`.
 - `crew.lua`: hands a building to the [builder
   turtles](../computers/builder-turtle/README.md) in strips (one per builder in range, up to 4), follows
   their progress, gives waiting strips to the next free one, and stops them.

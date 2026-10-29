@@ -77,7 +77,7 @@ local COLOR_WORDS = {
 local FALLBACK_COLORS = { 0xff6b6b, 0xffd166, 0x06d6a0, 0x4cc9f0, 0xb388eb, 0xf78c6b, 0x83e377, 0xf15bb5 }
 
 local function colorFor(block)
-  local words = "_" .. block:gsub("^.-:", "") .. "_"
+  local words = "_" .. block:gsub("^.-:", ""):gsub("%[.*$", "") .. "_"
   for _, entry in ipairs(COLOR_WORDS) do
     if words:find("_" .. entry[1] .. "_", 1, true) then return entry[2] end
   end
