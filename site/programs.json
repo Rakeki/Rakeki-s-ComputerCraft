@@ -608,12 +608,12 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Plans", "4, plus install plan"],
+        ["Plans", "5, plus install plan"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
@@ -623,7 +623,8 @@
         "Top-down map of the layer and the blocks it needs",
         "Follows a village turtle and projects the building it's working on",
         "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them",
-        "Comes with a sky station: 63 wide, 98 high, raised into the sky and built in the air"
+        "Comes with a sky station: 63 wide, 98 high, raised into the sky and built in the air",
+        "And Turtle Works: a factory hall wired up under the floor, with docks for the turtles"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
@@ -727,7 +728,7 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -778,7 +779,7 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, no turtles or materials, and undoes it again.",
       "libs": ["plan", "files", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1843,6 +1844,14 @@
       "tagline": "Four hollow rings round a core with a glass dome, spire and spike, floors inside; built in the air.",
       "size": "63 × 63 × 98",
       "blocks": 21166
+    },
+    {
+      "name": "factory",
+      "file": "factory.lua",
+      "title": "Turtle Works",
+      "tagline": "A sawtooth-roofed factory hall wired under the floor: 12 turtle docks, sky docks, storage racks, furnaces, crafting cells and a control room.",
+      "size": "61 × 50 × 23",
+      "blocks": 15312
     }
   ]
 }

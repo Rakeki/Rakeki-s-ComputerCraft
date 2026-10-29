@@ -29,15 +29,15 @@ you to say yes, because builders dig out everything in that box first
 (unless the plan is built in the air, like the sky station).
 
 Plans are files in `/plans`: the [same plans](../blueprint-projector/README.md#plans)
-the projector uses. It comes with the cottage, watchtower, pagoda and sky
-station; `install plans` lists the rest on the website, `install plan <name>`
+the projector uses. It comes with the cottage, watchtower, pagoda, sky
+station and factory; `install plans` lists the rest on the website, `install plan <name>`
 adds one, and your own JSON or Lua plans go in `/plans` too.
 
 ## Files
 
 - `build.lua`: the program
 - `startup.lua`: after a reboot, carries on following a building that's still going up, so waiting strips still get handed out (first it fetches any newer version from the website)
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`)
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`)
 - [`lib/plan.lua`](../../lib/plan.lua): loads plans and places them in the world (copy to `/lib/plan.lua`). Needed.
 - [`lib/crew.lua`](../../lib/crew.lua): hands the building to the builder turtles and follows them (copy to `/lib/crew.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.

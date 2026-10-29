@@ -31,7 +31,7 @@ same block along a row goes in with one `fill`.
 
 - `instabuild.lua`: the program
 - `startup.lua`: fetches any newer version from the website on boot
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`)
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`)
 - [`lib/plan.lua`](../../lib/plan.lua): loads plans and places them in the world (copy to `/lib/plan.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files, for the undo copy (copy to `/lib/files.lua`). Needed.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -41,8 +41,8 @@ same block along a row goes in with one `fill`.
 1. In a creative world, get a command computer:
    `/give @s computercraft:computer_command`. Place it anywhere: it can
    build anywhere that's loaded.
-2. Install this on it. It comes with the cottage, watchtower, pagoda and
-   sky station; `install plan <name>` adds more.
+2. Install this on it. It comes with the cottage, watchtower, pagoda,
+   sky station and factory; `install plan <name>` adds more.
 3. Pick the spot: the coordinates are the building's **north-west bottom
    corner** (its smallest X and Z, and the Y of its bottom layer). Press F3
    and look at the block to read them.

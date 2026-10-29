@@ -35,13 +35,16 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-It comes with four plans, in the `/plans` folder: a **cottage** (7×7, 8
+It comes with five plans, in the `/plans` folder: a **cottage** (7×7, 8
 high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
 high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
-and a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
+a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
 sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
-[Building in the sky](#building-in-the-sky)). `install plans` lists the
+[Building in the sky](#building-in-the-sky)), and **Turtle Works**
+(61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
+base, wired up under the floor, with docks for turtles (see
+[The factory](#the-factory)). `install plans` lists the
 plans on the website and `install plan <name>` adds one; your own go in
 `/plans` too (see [Plans](#plans)). The same plans work with
 [build control](../build-control/README.md), which sends a plan to the
@@ -51,7 +54,7 @@ builder turtles without a projector.
 
 - `projector.lua`: the program: loads plans, works out the shapes and draws them. Tunables are at the top.
 - `ui.lua`: the monitor control panel
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`); `install plan <name>` adds more
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`); `install plan <name>` adds more
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -153,6 +156,64 @@ build limit is Y 319).
   shows it in one colour or only part of it; Layer view shows each layer in
   full.
 - Turtles stop when their chunk unloads, so stay nearby while they work.
+
+## The factory
+
+**Turtle Works** (`projector factory`) is a brick factory hall with a
+sawtooth roof, 57 by 45 inside its walls, laid out for the programs here.
+Its front, with the docks and the main doors, faces the way the plan
+faces (north unless you turn it).
+
+- **Wired from the start.** Cable runs in a trench under the floor, and
+  every spot meant for a chest, furnace or computer sits on a *port*: a
+  full wired modem set into the floor, joined to that cable. The main cable
+  runs under a strip of glass down the middle aisle, so you can see it.
+  Everything on a port is on one network with the control room. Right-click
+  each port (and each modem in the racks) once to connect what stands on
+  it, as with any wired modem.
+- **Turtle docks.** Twelve turtle-sized holes along the front wall, each
+  with a green lane across the apron outside and a green home block just
+  inside, the turtle facing out. Behind the home block is a supply barrel
+  and to its left a spoil barrel, both on ports: the layout the
+  [builder turtle](../builder-turtle/README.md) wants, and a chest behind
+  the start for miners. Pick the spoil barrels as extra input chests in
+  `storage setup`, so what the builders dig up goes into storage (left as
+  plain storage chests, the storage computer could fill them up).
+- **Sky docks.** Two holes in the roof, ringed in yellow, over a green
+  landing pad on the floor, for turtles that cruise high (builders do).
+- **By the doors**, four barrels on ports, marked on the floor: blue for
+  input chests, orange for the fuel chest, cyan for a shared delivery
+  chest. Pick them in `storage setup`.
+- **Storage racks.** Four racks of barrels, 3 high, 336 in all, round a
+  column of full modems each: the [storage computer](../storage-computer/README.md)'s
+  store.
+- **Furnaces.** Two lines of 16 furnaces on ports under a brick hood on the
+  west side, with two chimneys outside (campfires on top, for the smoke),
+  and a computer and a barrel on ports for the
+  [smelter](../smelter-computer/README.md) and its work chest.
+- **Crafting cells.** Four cells on the east side, each a barrel on a port
+  (the crafter chest) with a green spot beside it for a
+  [crafting turtle](../crafter-turtle/README.md), and a computer on a port
+  for the [craft overseer](../craft-overseer/README.md).
+- **Machine bay.** Twelve spare ports in the south-east corner, inside a
+  striped line, for Mekanism machines or anything else; four more under the
+  control room.
+- **Control room.** Up on posts at the south end, glass to the hall, up a
+  half-block staircase along the south wall. Its desk has four computers
+  and a disk drive on ports (storage computer, status server, whatever you
+  like), and a row of ports along the black panel on the back wall for a
+  monitor wall: stand the monitors on them. A gallery with railings runs
+  from it along the south wall and up the east wall.
+
+Put its north-west bottom corner **one block below the ground**: the
+bottom layer is the cable trench, and the floor above it is then level
+with the ground. It's built on the ground, so the builders clear its box
+first. It needs no modems in it for wireless: add a wireless or ender modem
+to each computer yourself. Monitors aren't in the plan either (a turtle
+can't place one facing the right way). About 15,300 blocks: mostly
+cobblestone, deepslate tiles, polished andesite, bricks, glass and polished
+deepslate, plus 369 barrels, 371 cable, 266 full wired modems, 32
+furnaces and 6 advanced computers. `projector check factory` lists them.
 
 ## Following a village turtle
 
