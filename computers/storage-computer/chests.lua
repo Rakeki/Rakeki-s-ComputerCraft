@@ -63,13 +63,17 @@ function M.new(setup)
     for _, which in ipairs({ "input", "output", "delivery", "crafter", "fuel", "transfer" }) do
       if name == setup[which] then return false end
     end
-    -- extra input chests, and turtles' own delivery and crafter chests (lib/claim.lua)
-    for _, list in ipairs({ setup.inputs or {}, setup.deliveries or {}, setup.crafters or {} }) do
+    -- extra input chests, turtles' own delivery and crafter chests (lib/claim.lua)
+    -- and computers' work chests (lib/workchest.lua)
+    for _, list in ipairs({ setup.inputs or {}, setup.deliveries or {}, setup.crafters or {}, setup.works or {} }) do
       for _, chest in pairs(list) do
         if name == chest then return false end
       end
     end
     local t = peripheral.getType(name)
+    -- an ender chest (EnderStorage and the like) shares its inventory with
+    -- one somewhere else: items stored in it would turn up there
+    if t and t:find("ender", 1, true) then return false end
     for _, s in ipairs(STORAGE_TYPES) do
       if t and t:find(s, 1, true) then return true end
     end

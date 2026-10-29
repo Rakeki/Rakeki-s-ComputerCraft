@@ -15,6 +15,16 @@
 --   smelter glass <n> [red]        make n glass from sand (red: from red sand only;
 --                                  otherwise whichever sand there's most of)
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
+--   smelter chest [name|none]      use an empty chest on the network as the work chest
+--                                  (no name: pick from a list; none: stop using one)
+--   smelter chest remote           far from the storage system: a supply and a return ender chest
+--
+-- With a work chest, the storage computer fills it once a round with
+-- everything the furnaces need, and the smelter loads them from it
+-- (lib/workchest.lua); without one, it asks for each furnace's load in turn.
+-- Far away (an ender modem, and two EnderStorage-style ender chest pairs),
+-- the work chest is an ender chest, and smelted items go home through the
+-- other one, whose twin is a storage input chest.
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -24,6 +34,7 @@
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -38,6 +49,8 @@ local LOAD_MIN = 8 -- fewest items put in an empty furnace at once (what one coa
 local STUCK_AFTER = 120 -- seconds a fuelled furnace may sit on an item without smelting it before it's taken back out
 -- Items one of each fuel smelts, for counting what's in a fuel slot.
 local FUEL_SMELTS = { ["minecraft:charcoal"] = 8, ["minecraft:coal"] = 8, ["minecraft:coal_block"] = 80 }
+-- Fuel loaded from the work chest, in the order the storage computer gives it.
+local FUEL_ORDER = { "minecraft:charcoal", "minecraft:coal", "minecraft:coal_block" }
 
 -- Used if config.lua is missing; see config.lua for what they mean.
 local SMELT = config.smelt or { ":raw_", "_ore$", ":ancient_debris$", ":crushed_raw_" }
@@ -207,6 +220,8 @@ local function ask(msg)
   return nil, why == "no answer" and "the storage computer didn't answer" or "no storage computer answered"
 end
 
+local work = workchest.new("smelter", ask)
+
 local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
 
 -- The ores the enricher is putting into its chambers (patterns on item
@@ -256,7 +271,9 @@ local function round()
     return
   end
   stock = reply
-  local counts, input = reply.counts, reply.input
+  -- far away, everything goes home through the return ender chest
+  local useWork = work:check(stock) or work.remote
+  local counts, input = reply.counts, work:input(reply.input)
   local orders = jobs
 
   -- what's smelted goes back through the input chest (charcoal is put in
@@ -349,10 +366,21 @@ local function round()
     return true
   end
   local loaded, into = 0, 0
+  -- with a work chest, each load is only noted down and taken as done, so
+  -- the furnaces are shared out as usual; it's all fetched at once after
+  -- the fuel, and what didn't come is taken back off then (far away
+  -- nothing can come any other way, so a work chest not in use loads nothing)
+  local plan = useWork and {} or nil
   local function load(f, name, n)
-    local r = ask({ type = "send", to = f.name, slot = 1, items = { [name] = n } })
-    local got = r and r.sent and r.sent[name] or 0
-    if r and r.error then problem = r.error end
+    local got
+    if plan then
+      plan[#plan + 1] = { f = f, name = name, n = n }
+      got = n
+    else
+      local r = ask({ type = "send", to = f.name, slot = 1, items = { [name] = n } })
+      got = r and r.sent and r.sent[name] or 0
+      if r and r.error then problem = r.error end
+    end
     if got > 0 then
       want[name] = want[name] - got
       if f.input then f.input.count = f.input.count + got else f.input = { name = name, count = got } end
@@ -400,18 +428,69 @@ local function round()
 
   -- fuel: enough for everything waiting in each furnace
   local unfuelled = false
+  local function fuelShort(f)
+    local have = f.fuel and f.fuel.count * (FUEL_SMELTS[f.fuel.name] or 8) or 0
+    if f.input and have < f.input.count and not (f.fuel and f.fuel.count >= 64) then return f.input.count - have end
+    return 0
+  end
+  local fuelWanted = 0
   for _, f in ipairs(furnaces) do
-    if f.input then
-      local have = f.fuel and f.fuel.count * (FUEL_SMELTS[f.fuel.name] or 8) or 0
-      if have < f.input.count and not (f.fuel and f.fuel.count >= 64) then
-        local r = ask({ type = "send", to = f.name, slot = 2, fuel = f.input.count - have, item = f.fuel and f.fuel.name })
-        if r then stock.fuel = r.fuel or stock.fuel end
-        for name, n in pairs(r and r.sent or {}) do
-          f.fuel = { name = name, count = (f.fuel and f.fuel.count or 0) + n }
+    local short = fuelShort(f)
+    if short > 0 and plan then
+      fuelWanted = fuelWanted + short
+    elseif short > 0 then
+      local r = ask({ type = "send", to = f.name, slot = 2, fuel = short, item = f.fuel and f.fuel.name })
+      if r then stock.fuel = r.fuel or stock.fuel end
+      for name, n in pairs(r and r.sent or {}) do
+        f.fuel = { name = name, count = (f.fuel and f.fuel.count or 0) + n }
+      end
+      if not f.fuel then unfuelled = true end
+    end
+  end
+
+  -- the work chest: one fill for every load and all the fuel, then each
+  -- furnace is loaded from it, and what's left goes back to storage
+  if plan then
+    local items = {}
+    for _, p in ipairs(plan) do items[p.name] = (items[p.name] or 0) + p.n end
+    local r, why = work:fill(items, fuelWanted)
+    if r then
+      stock.fuel = r.fuel or stock.fuel
+      if r.error and not r.nochest then problem = r.error end
+    elseif next(items) or fuelWanted > 0 then
+      problem = why
+    end
+    for _, p in ipairs(plan) do
+      local moved = work:move(p.name, p.f.name, 1, p.n)
+      local short = p.n - moved
+      if short > 0 then
+        local f = p.f
+        f.input.count = f.input.count - short
+        if f.input.count <= 0 then f.input = nil end
+        if moved == 0 then into = into - 1 end
+        want[p.name] = want[p.name] + short
+        if byItem[p.name] then byItem[p.name].loaded = byItem[p.name].loaded - short end
+        loaded = loaded - short
+      end
+    end
+    for _, f in ipairs(furnaces) do
+      local short = fuelShort(f)
+      if short > 0 then
+        -- a fuel slot holds one kind: more of what's in it, else the first there is
+        for _, fuel in ipairs(FUEL_ORDER) do
+          if short > 0 and (not f.fuel or f.fuel.name == fuel) then
+            local n = math.min(64 - (f.fuel and f.fuel.count or 0), math.ceil(short / FUEL_SMELTS[fuel]))
+            local moved = work:move(fuel, f.name, 2, n)
+            if moved > 0 then
+              f.fuel = { name = fuel, count = (f.fuel and f.fuel.count or 0) + moved }
+              short = 0
+            end
+          end
         end
         if not f.fuel then unfuelled = true end
       end
     end
+    work:empty(input)
   end
 
   for _, o in ipairs(ORDERS) do
@@ -434,6 +513,8 @@ local function round()
     say(news[1], news[2])
   elseif blocked then
     say("The storage input chest is full: smelted items are waiting in the furnaces.", "orange")
+  elseif work.problem then
+    say(("Not using the work chest: %s."):format(work.problem), "orange")
   elseif unfuelled then
     say("Out of fuel: put coal or charcoal in the fuel chest.", "orange")
   elseif loaded > 0 then
@@ -672,10 +753,17 @@ elseif args[1] == "cancel" then
     end
   end
   return
+elseif args[1] == "chest" then
+  if not net.open("any") then
+    print("I need a wired modem on the storage computer's network first (far away: an ender modem too).")
+    return
+  end
+  work:command(args[2])
+  return
 end
 
 if not net.open("any") then
-  print("I need a wired modem on the storage computer's network.")
+  print("I need a wired modem on the storage computer's network (far away: on my own, plus an ender modem).")
   print("Put one on me, join it to the network with cable and right-click it so it turns red.")
   return
 end

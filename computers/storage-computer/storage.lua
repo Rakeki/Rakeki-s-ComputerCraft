@@ -19,6 +19,9 @@
 -- Turtles find their own chest: a village builder, builder or crafting turtle
 -- placed against a chest on this network tells me which one it is
 -- (lib/claim.lua), and its items go there. No need to pick it in setup.
+-- The smelter and enricher can each have a work chest ('smelter chest',
+-- 'enricher chest'; lib/workchest.lua): I fill it in one go each round and
+-- they share it out into their furnaces and hoppers themselves.
 --
 --   storage          start (asks how it's set up the first time)
 --   storage setup    choose the store and the input, output, shared delivery, crafter, fuel and transfer chests again
@@ -87,10 +90,12 @@ local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
 local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
 
 -- { backend = "chests" or "bridge", input, output = name, delivery, crafter, fuel, transfer = name or nil,
---   inputs = { extra input chest names }, deliveries = { [turtle id] = name } }
+--   inputs = { extra input chest names }, deliveries = { [turtle id] = name }, works = { [computer id] = name } }
 -- deliveries are the turtles' own chests, and crafter can be, too: each
 -- turtle finds its chest on the network itself (lib/claim.lua, the "claim"
 -- request). delivery is the shared one for turtles without their own.
+-- works are the smelter's and enricher's work chests (lib/workchest.lua, the
+-- "work" request), filled in one go with "fill".
 local setup
 local store -- the backend: chests.lua or bridge.lua
 local fuelList = {} -- the fuel chest's list()
@@ -952,6 +957,10 @@ end
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
+--   { type = "list" }                               -> { re = "list", items = { { name, label, count } } }  (remote terminal)
+--   { type = "work", chest }                        -> { re = "work", ok, chest, error }  (a computer's work chest; no chest: stop)
+--   { type = "work", items } / { type = "work", seen } -> found through an ender chest, like "claim"
+--   { type = "fill", items = { [name] = n }, fuel = n } -> { re = "fill", sent, ready, fuel, error, nochest }  (top it up)
 -- From the crafting overseer, which runs the crafting queue when there is one:
 --   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
 --   { type = "load", crafter, grid, steps }         -> { re, steps (0: not loaded), error, missing = { [item] = n } }
@@ -1018,8 +1027,10 @@ local function claimable(name)
   for _, which in ipairs({ "input", "output", "fuel", "transfer" }) do
     if name == setup[which] then return false end
   end
-  for _, chest in ipairs(setup.inputs) do
-    if name == chest then return false end
+  for _, list in ipairs({ setup.inputs, setup.works }) do
+    for _, chest in pairs(list) do
+      if name == chest then return false end
+    end
   end
   if not isInventory(name) then return false end
   local t = peripheral.getType(name)
@@ -1083,8 +1094,20 @@ local function nextProbe(from, c)
   return { re = "claim", ok = false, error = "your chest isn't on its network: put a wired modem on it, on the storage cable, and right-click the modem so it turns red" }
 end
 
+local releaseWork, recordWork -- below, with the work chests
+
 -- The chest is the turtle's: record it (in the setup file too).
 local function assign(from, role, chest)
+  if role == "work" then
+    -- a far-away computer's work chest, found through an ender chest
+    for id, name in pairs(setup.deliveries) do
+      if name == chest then return { re = "claim", ok = false, error = ("that chest is turtle #%d's"):format(id) } end
+    end
+    for _, c in ipairs(crafterChests()) do
+      if c == chest then return { re = "claim", ok = false, error = "that chest is a crafting turtle's" } end
+    end
+    return recordWork(from, chest)
+  end
   if role == "delivery" then
     for _, c in ipairs(crafterChests()) do
       if c == chest then return { re = "claim", ok = false, error = "that chest is a crafting turtle's" } end
@@ -1118,8 +1141,8 @@ local function assign(from, role, chest)
   return { re = "claim", ok = true, chest = chest }
 end
 
-local function claimChest(from, msg)
-  local role = msg.role == "crafter" and "crafter" or "delivery"
+local function claimChest(from, msg, role)
+  role = role or (msg.role == "crafter" and "crafter" or "delivery")
   local c = claims[from]
   if msg.seen ~= nil then
     if not c then return { re = "claim", ok = false, error = "I lost track of where I was: try again" } end
@@ -1133,6 +1156,7 @@ local function claimChest(from, msg)
   if c then takeMarker(c) end
   -- the chest we already have for it, if it still holds what the turtle sees
   local mine = role == "crafter" and setup.crafters[from] or role == "delivery" and setup.deliveries[from]
+    or role == "work" and setup.works[from]
   if mine then
     local ok, list = pcall(peripheral.call, mine, "list")
     if ok and sameItems(list, msg.items) then
@@ -1173,6 +1197,115 @@ local function claimChest(from, msg)
   c = { role = role, candidates = candidates, i = 0 }
   claims[from] = c
   return nextProbe(from, c)
+end
+
+---------------------------------------------------------------- computers' work chests
+
+-- A computer on my cable (smelter, enricher) names its work chest itself
+-- (lib/workchest.lua); one far away finds it through an ender chest, the
+-- way turtles find theirs (an item dropped into each chest it could be):
+--   { type = "work", chest = name }  -> { re = "work", ok = true, chest } or { ok = false, error }
+--   { type = "work", items = list() } / { type = "work", seen } -> as claimChest, role "work"
+--   { type = "work" }                -> stop using one: what's in it is put away
+-- A chest named outright must be empty, so a storage chest full of items
+-- never is taken.
+
+-- Put away what's in a work chest and stop treating it as one (in chests
+-- mode it's storage again).
+releaseWork = function(id)
+  local chest = setup.works[id]
+  if not chest then return end
+  local ok, list = pcall(peripheral.call, chest, "list")
+  for slot, item in pairs(ok and list or {}) do putAway(chest, slot, item, item.count) end
+  local s = loadSetup() or setup
+  s.works = s.works or {}
+  setup.works[id], s.works[id] = nil, nil
+  saveSetup(s)
+  store.scan()
+end
+
+-- The chest is now this computer's work chest (in the setup file too).
+recordWork = function(from, chest)
+  if setup.works[from] ~= chest then releaseWork(from) end
+  local s = loadSetup() or setup
+  s.works = s.works or {}
+  setup.works[from], s.works[from] = chest, chest
+  saveSetup(s)
+  store.scan() -- it may have been storage until now
+  message = { ("Computer #%d's work chest is %s."):format(from, chest), "lime" }
+  if report then report.log(("computer #%d's work chest is %s"):format(from, chest)) end
+  os.queueEvent("storage_changed")
+  return { re = "work", ok = true, chest = chest }
+end
+
+local function workChest(from, msg)
+  if msg.items ~= nil or msg.seen ~= nil then return claimChest(from, msg, "work") end
+  local chest = msg.chest
+  if chest == nil then
+    releaseWork(from)
+    return { re = "work", ok = true }
+  end
+  if setup.works[from] == chest then return { re = "work", ok = true, chest = chest } end
+  local function no(why) return { re = "work", ok = false, error = why } end
+  if type(chest) ~= "string" or not peripheral.isPresent(chest) then
+    return no(("I can't see %s: put a wired modem on it, on my cable, and right-click it"):format(tostring(chest)))
+  end
+  for id, name in pairs(setup.works) do
+    if name == chest then return no(("it's computer #%d's work chest"):format(id)) end
+  end
+  for _, list in ipairs({ setup.deliveries, setup.crafters }) do
+    for id, name in pairs(list) do
+      if name == chest then return no(("it's turtle #%d's chest"):format(id)) end
+    end
+  end
+  if chest == setup.delivery or chest == setup.crafter then return no("it's one of my own chests") end
+  if not claimable(chest) then return no("it isn't a chest or barrel I can use (not the input, output, fuel or transfer chest)") end
+  local ok, list = pcall(peripheral.call, chest, "list")
+  if not ok then return no(tostring(list)) end
+  if next(list) then return no("it has items in it: empty it first, or use an empty chest") end
+  return recordWork(from, chest)
+end
+
+-- Top a work chest up to n of each item and to fuel for msg.fuel smelts
+-- (what's in it already counts), all in one request.
+local function fillWork(from, msg)
+  local to = setup.works[from]
+  if not to or not peripheral.isPresent(to) then
+    return { re = "fill", nochest = true, error = "you have no work chest here" }
+  end
+  local present = {}
+  local okL, list = pcall(peripheral.call, to, "list")
+  for _, item in pairs(okL and list or {}) do
+    if not item.nbt then present[item.name] = (present[item.name] or 0) + item.count end
+  end
+  local sent, ready, failed = {}, {}, nil
+  for name, n in pairs(msg.items) do
+    if type(name) == "string" and type(n) == "number" and n > 0 then
+      n = math.floor(n)
+      local have = math.min(present[name] or 0, n)
+      sent[name] = 0
+      if have < n then
+        local err
+        sent[name], err = fetch(name, n - have, to)
+        failed = failed or err
+      end
+      ready[name] = have + sent[name]
+    end
+  end
+  -- fuel, from the fuel chest first, in FUEL's order
+  local want = tonumber(msg.fuel) or 0
+  for _, f in ipairs(FUEL) do want = want - (present[f[1]] or 0) * f[2] end
+  for _, f in ipairs(FUEL) do
+    if want > 0 then
+      local got, err = fetch(f[1], math.ceil(want / f[2]), to, nil, true)
+      failed = failed or err
+      if got > 0 then
+        sent[f[1]] = (sent[f[1]] or 0) + got
+        want = want - got * f[2]
+      end
+    end
+  end
+  return { re = "fill", sent = sent, ready = ready, fuel = fuelValue(countAll()), error = failed }
 end
 
 -- A request is handled start to finish before the next, and handling one
@@ -1293,7 +1426,22 @@ local function handleRequest(from, msg)
       error = not crafting and "this storage computer can't craft (crafting.lua is missing)" or not okR and tostring(list) or nil })
   elseif type(msg) == "table" and msg.type == "stock" then
     local counts = countAll()
-    answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts) })
+    answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts),
+      work = setup.works[from] })
+  elseif type(msg) == "table" and msg.type == "list" then
+    -- every plain item with the name the game shows, for the remote terminal
+    local items = {}
+    for _, it in pairs(allItems()) do
+      if not it.nbt then items[#items + 1] = { name = it.name, label = it.displayName, count = it.count } end
+    end
+    answer(from, msg, { re = "list", items = items })
+  elseif type(msg) == "table" and msg.type == "work" then
+    answer(from, msg, workChest(from, msg))
+  elseif type(msg) == "table" and msg.type == "fill" and type(msg.items) == "table" then
+    local reply = fillWork(from, msg)
+    answer(from, msg, reply)
+    if reply.error and not reply.nochest then message = { "Couldn't fill a work chest: " .. reply.error, "red" } end
+    os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "send" then
     local sent, failed = {}, nil
     local furnace = isFurnace(msg.to)
@@ -1606,10 +1754,10 @@ local function chooseChests()
     print("chest. Leave blank if you use neither.")
     s.transfer = ask("Which is the transfer chest? [none] ", true)
   end
-  -- the turtles' own chests stay theirs, unless picked for something else
+  -- the turtles' own chests and computers' work chests stay theirs, unless picked for something else
   local old = loadSetup()
-  s.deliveries, s.crafters = {}, {}
-  for _, which in ipairs({ "deliveries", "crafters" }) do
+  s.deliveries, s.crafters, s.works = {}, {}, {}
+  for _, which in ipairs({ "deliveries", "crafters", "works" }) do
     for id, name in pairs(old and old[which] or {}) do
       if not taken[name] then s[which][id] = name end
     end
@@ -1664,6 +1812,9 @@ for _, list in ipairs({ setup.deliveries, setup.crafters }) do
     end
   end
 end
+-- work chests are kept even while missing: fill says so, and one that comes
+-- back with items still in it is still theirs (a claim needs an empty chest)
+setup.works = setup.works or {}
 
 if setup.backend == "bridge" then
   if not bridges then
@@ -1725,6 +1876,10 @@ if args[1] == "test" then
     turtles = turtles + 1
   end
   if turtles == 0 then print("No turtle has found its own chest yet (they do when they first ask for items).") end
+  for id, name in pairs(setup.works) do
+    print(("Computer #%s's work chest: %s%s."):format(tostring(id), name,
+      peripheral.isPresent(name) and "" or " (not on the network)"))
+  end
   local to = setup.delivery or setup.output
   print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "shared delivery" or "output", to))
   local pick

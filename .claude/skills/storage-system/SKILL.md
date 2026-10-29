@@ -49,7 +49,11 @@ supply:seen(r)
 | `{ type = "count", items = { name, ... }, need = { [name] = n } }` | `counts`, `craftable` (how many more could be crafted, up to `need`) | before starting: is there enough? Add `craftable` to `counts`. |
 | `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `crafting`, `cantCraft` (name → why), `craftProblem`, `to` (`"own"`, `"delivery"` or `"output"`), `error` | tops the turtle's chest **up to** n of each (what's already there counts) and **starts crafting** what's missing. Ask again every ~10 s while waiting. |
 | `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft`, `craftProblem` | start crafting what a coming job lacks, before it's needed |
-| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts) | the smelter, cooker and enricher |
+| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts), `work` (the asker's work chest, if any) | the smelter, cooker and enricher |
+| `{ type = "list" }` | `items` (each `{ name, label, count }`, plain items) | the remote terminal's search |
+| `{ type = "work", chest = name }` / `{ type = "work" }` | `ok`, `chest`, `error` | name this computer's work chest (empty chests only), or stop using it (its contents are put away); use `lib/workchest.lua` |
+| `{ type = "work", items = list() }`, then `{ type = "work", seen }` | as `claim` | a far-away work chest's twin, found by probe (`claim.chest(ask, "work", side)`) |
+| `{ type = "fill", items = { [name] = n }, fuel = n }` | `sent`, `ready`, `fuel`, `error`, `nochest` | top the asker's work chest up to n of each and fuel for n smelts (what's in it counts), in one go; no crafting |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
 | `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers, the enricher's chamber hoppers); no slot = any slot |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
@@ -90,6 +94,26 @@ the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order. The cooker can't see inside
 a pot: a comparator into a redstone relay says how full it is, and it sends
 the feed hopper only what still fits.
+**Work chests** (`lib/workchest.lua`): the smelter and enricher can each name
+an empty chest on the cable (`smelter chest`, `enricher chest` → `work`,
+recorded in `setup.works[id]` and left out of storage). Each round they plan
+every load as before but only note it down, ask for the lot with one
+`fill`, `work:move` it into each furnace slot or hopper, undo what didn't
+arrive, and `work:empty(input)` the rest back. `work:check(stock)` (after
+each `stock`) says whether to use it, re-claims a forgotten one once a
+minute, and leaves `work.problem` for the footer; without one they fall
+back to `send`. Work chests are kept in setup even while missing (a claim
+needs an empty chest, and one coming back may still hold items).
+Far away (`work:setRemote(supply, back)`, `<program> chest remote`) the work
+chest is an ender chest: `claim.chest(ask, "work", supply)` sends `work`
+with `items` / `seen`, the storage computer probes like `claim` and
+`recordWork`s the twin, `stock.work` is compared with the saved `home`,
+`work:input()` is the return ender chest (twin = an extra input chest) for
+furnace output, put-backs and leftovers, and there's no `send` fallback.
+Ender chests (type contains `ender`) are never storage in `chests.lua`.
+The remote terminal (`computers/remote-terminal`) claims an ender chest as
+its delivery chest before each `deliver` and reads `list` (`{ name, label,
+count }` for every plain item); items dropped in go home with the sweep.
 The enricher fills a hopper on top of each Mekanism Enrichment Chamber (CC
 can't reach a Mekanism machine's slots: its own peripheral hides them), and
 the chamber auto-ejects dust into an extra input chest under it. The smelter
@@ -143,7 +167,7 @@ craftable item takes too long.
   first on `putAway`, `fetch(..., fuelFirst)` takes from it first, and its
   contents count as stock.
 - **Special chests** (`setup`): input, output, delivery (shared), crafter,
-  fuel, transfer, `inputs` (extra input chests, emptied like `input`;
+  fuel, transfer, `works` (computer id → its work chest), `inputs` (extra input chests, emptied like `input`;
   `stock` only ever reports `input`, so returns go there), and `deliveries` (turtle id → its own chest, from
   `claim`; `claimChest` probes, `assign` records it in the setup file too,
   `storage setup` keeps them). `reserved` is per chest. Only input and output are required; a missing optional one

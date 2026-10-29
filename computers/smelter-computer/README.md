@@ -25,6 +25,12 @@ storage network and:
   blocks; when the fuel chest is empty it uses coal kept anywhere else in
   storage.
 
+With a [work chest](#work-chest), the storage computer fills that chest once
+a round with everything the furnaces need, ores and fuel together, and the
+smelter loads each furnace from it. Without one, it asks the storage
+computer for each furnace's load in turn, which is slower with a lot of
+furnaces.
+
 Ores that drop more when mined with Fortune (coal, diamond, emerald, lapis,
 redstone, quartz) are left alone, and so are blocks of raw metal. 64
 potatoes are always kept back for planting. Change what gets smelted and
@@ -81,6 +87,8 @@ wireless modem it also reports to the [status server](../status-server/README.md
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
+- [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
 
 ## Setup
 
@@ -97,10 +105,18 @@ wireless modem it also reports to the [status server](../status-server/README.md
    `storage setup` on the storage computer and pick it as the **fuel chest**.
    Put some coal or charcoal in it, or in the input chest. Without a fuel
    chest, furnaces burn coal and charcoal from anywhere in storage.
-5. Install this program and reboot.
+5. Optional, but worth it with more than a few furnaces: put an **empty
+   chest** next to the furnaces with a wired modem on it, on the same
+   network, as the [work chest](#work-chest).
+6. Install this program, run `smelter chest` to pick the work chest (if
+   you placed one), and reboot.
 
    ```
    smelter                        -- start (startup.lua does this on boot)
+   smelter chest                  -- pick the work chest from the empty chests on the network
+   smelter chest minecraft:chest_7  -- or name it straight away
+   smelter chest none             -- stop using one (what's in it goes back into storage)
+   smelter chest remote           -- far from home: work through two ender chest pairs (see below)
    smelter charcoal 256 spruce    -- make 256 charcoal from spruce logs
    smelter charcoal 64            -- make 64 from the logs there are most of
    smelter stone 512              -- make 512 stone from cobblestone
@@ -117,6 +133,51 @@ commands do the same from another tab (or
 after stopping it with Ctrl+T); the running smelter picks them up within
 10 seconds.
 
+## Work chest
+
+A chest on the storage network that the storage computer fills for the
+smelter in one go: each round the smelter works out what every furnace
+needs, asks for all of it at once, and loads the furnaces from the chest
+itself. That's one request a round instead of two for every furnace, so
+the storage computer has more time for turtles, and with an ME or RS system
+the items don't go through the transfer chest.
+
+- It has to be **empty** when you pick it, and it can't be the input,
+  output, fuel or transfer chest, a turtle's chest or the
+  [enricher's](../enricher-computer/README.md#work-chest) work chest. With
+  chests as storage, an empty storage chest works: it stops being storage.
+- Anything left in it at the end of a round goes back through the input
+  chest, so nothing waits there unseen. Don't put things in it by hand.
+- If the chest goes missing or the storage computer won't take it, the
+  footer says why and the smelter loads each furnace the old way until it's
+  back. It asks again once a minute.
+- The storage computer needs to be updated too (`install update`); an older
+  one doesn't know work chests, and the smelter carries on without.
+
+### Far from the storage system
+
+With ender chests that are shared by colour (EnderStorage or a mod like
+it), the furnaces can be at another base. You need two ender chest pairs:
+
+- **Supply:** one ender chest on the storage cable at home (wired modem,
+  not picked as any chest in `storage setup`) and its twin on the smelter's
+  own wired network. The storage computer fills it each round.
+- **Return:** one ender chest at home picked as an **extra input chest** in
+  `storage setup`, and its twin on the smelter's network. Smelted items,
+  leftovers and anything put back go home through it.
+
+Put an **ender modem** on the smelter and one on the storage computer, then
+run `smelter chest remote` and pick the two chests. The storage computer
+finds the supply chest's twin at home by dropping an item into each chest
+it could be until it turns up at your end, so it needs something stored.
+Far away the smelter can only load furnaces through the work chest: while
+it's not in use (storage not answering, a chest gone), nothing is loaded
+and the footer says why. Both bases need to be loaded.
+
+```
+smelter chest remote           -- pick the supply and return ender chests
+```
+
 ## Things to know
 
 - Furnaces must be on the network through a modem, not just touching this
@@ -124,8 +185,8 @@ after stopping it with Ctrl+T); the running smelter picks them up within
   what's on the cable.
 - It works the same whether the storage computer keeps things in chests or
   in an [ME or RS system](../storage-computer/README.md#me-and-rs-systems).
-  With an ME or RS system, the storage computer needs a **transfer chest**
-  (chosen in `storage setup`) to load the furnaces' slots.
+  With an ME or RS system and no work chest, the storage computer needs a
+  **transfer chest** (chosen in `storage setup`) to load the furnaces' slots.
 - It asks the storage computer for everything over the cable, so both must
   be on the same wired network. If the storage computer doesn't answer, the
   footer says so and it tries again every 10 seconds.

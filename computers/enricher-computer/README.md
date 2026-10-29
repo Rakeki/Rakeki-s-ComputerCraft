@@ -32,6 +32,10 @@ storage, and its hopper is kept topped up to a stack. Raw ores always go in
 threes, so none are left over in the chamber. An Enriching Factory works
 too and takes a different ore in each of its slots.
 
+With a [work chest](#work-chest), the storage computer fills that chest once
+a round with the ores for every hopper, and the enricher fills the hoppers
+from it, instead of asking for each hopper in turn.
+
 While the enricher has a chamber with power, the smelter leaves those ores
 alone and smelts the dust instead. When the enricher stops, the smelter
 goes back to smelting the ores itself.
@@ -52,6 +56,8 @@ With a wireless modem it also reports to the
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): remembers which hopper feeds which chamber (copy to `/lib/files.lua`). Needed.
+- [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
+- [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
@@ -70,17 +76,52 @@ With a wireless modem it also reports to the
    `storage setup` on the storage computer to add it as an **extra input
    chest**. Several chambers can share one through a pipe.
 5. Place this computer with a wired modem on it, joined to the same network.
-6. Install and reboot. To add the chambers, hold **Ctrl+T** to stop the
+6. Optional: put an **empty chest** with a wired modem on it on the same
+   network as the [work chest](#work-chest).
+7. Install and reboot. To add the chambers, hold **Ctrl+T** to stop the
    program, and hold it again during the 5-second wait to get the prompt.
-   Add each chamber, then `reboot`:
+   Add each chamber (and pick the work chest), then `reboot`:
 
    ```
    enricher add                     -- pick a chamber and the hopper on top of it
    enricher add enrichmentChamber_0 minecraft:hopper_3   -- or name them straight away
    enricher remove                  -- list the chambers
    enricher remove 2                -- forget chamber 2
+   enricher chest                   -- pick the work chest from the empty chests on the network
+   enricher chest none              -- stop using one (what's in it goes back into storage)
+   enricher chest remote            -- far from home: two ender chest pairs (see below)
    edit config.lua                  -- which ores, how many to keep, names
    ```
+
+## Work chest
+
+A chest on the storage network that the storage computer fills for the
+enricher in one go: each round the enricher works out what every hopper
+needs, asks for all of it at once, and fills the hoppers from the chest
+itself. That's one request a round instead of one per hopper.
+
+- It has to be **empty** when you pick it, and it can't be the input,
+  output, fuel or transfer chest, a turtle's chest or the
+  [smelter's](../smelter-computer/README.md#work-chest) work chest. It's
+  not the chest under a chamber either: that one is an input chest.
+- Anything left in it at the end of a round goes back through the input
+  chest. Don't put things in it by hand.
+- If the chest goes missing or the storage computer won't take it, the
+  footer says why and the enricher fills each hopper the old way until it's
+  back. Update the storage computer too (`install update`).
+
+### Far from the storage system
+
+The chambers can be at another base, fed through two pairs of ender chests
+shared by colour (EnderStorage or a mod like it), just like the
+[smelter far away](../smelter-computer/README.md#far-from-the-storage-system):
+a **supply** pair (home end on the storage cable, not picked in `storage
+setup`) and a **return** pair (home end an **extra input chest**). Put the
+return chest's far end under the chambers instead of a storage input chest,
+or pipe the chests under them into it, so the dust goes home. Put an
+**ender modem** on the enricher and the storage computer and run `enricher
+chest remote`. Far away nothing is loaded while the work chest isn't in
+use, and the footer says why.
 
 ## Things to know
 

@@ -9,18 +9,25 @@
 --   enricher                        start (startup.lua runs this)
 --   enricher add [chamber hopper]   add a chamber and the hopper on top of it (asks for what's not given)
 --   enricher remove <n>             forget chamber n (no number: list them)
+--   enricher chest [name|none]      use an empty chest on the network as the work chest
+--                                   (no name: pick from a list; none: stop using one)
+--   enricher chest remote           far from the storage system: a supply and a return ender chest
+--                                   (the chests under the chambers then empty into the return one)
 --
 -- CC can't put items into a Mekanism machine (its computer port hides the
 -- slots), so each chamber has a hopper on top, which the storage computer
--- fills. The chamber ejects its dust out of its bottom into a storage input
--- chest under it; this program sets that side to Output and turns Auto-eject
--- on when the chamber's security is Public.
+-- fills. With a work chest, the storage computer fills that once a round
+-- instead and the enricher fills the hoppers from it (lib/workchest.lua).
+-- The chamber ejects its dust out of its bottom into a storage input chest
+-- under it; this program sets that side to Output and turns Auto-eject on
+-- when the chamber's security is Public.
 --
 -- While it's running, the smelter leaves the ores it enriches alone (it asks
 -- on the 'enricher' protocol), and smelts the dust instead.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -141,6 +148,8 @@ local function ask(msg)
   if reply then return reply end
   return nil, why == "no answer" and "the storage computer didn't answer" or "no storage computer answered"
 end
+
+local work = workchest.new("enricher", ask)
 
 ---------------------------------------------------------------- reading a chamber
 
@@ -272,7 +281,10 @@ local function round()
     status("waiting", ("storage computer: %s"):format(err or "too old to answer"))
     return
   end
-  local input, avail = reply.input, {}
+  -- far away, put-backs go home through the return ender chest, and nothing
+  -- is loaded without the work chest
+  local useWork = work:check(reply) or work.remote
+  local input, avail = work:input(reply.input), {}
   for name, n in pairs(reply.counts) do
     if takes(name) and n > (KEEP[name] or 0) then avail[name] = n - (KEEP[name] or 0) end
   end
@@ -302,8 +314,10 @@ local function round()
     end
   end
 
-  -- fill the hoppers, chamber by chamber (they share what there is)
+  -- fill the hoppers, chamber by chamber (they share what there is); with a
+  -- work chest each load is noted down and fetched for all at once below
   local sent = 0
+  local plan = useWork and {} or nil
   for _, m in ipairs(machines) do
     m.item = nil
     if m.present and m.hopperOk and (m.energy or 0) > 0 then
@@ -313,7 +327,10 @@ local function round()
         local n = math.min(roomFor(m, name), avail[name], SEND_MAX, HOPPER_SLOTS * STACK - m.hopperTotal)
         local per = perOp(name)
         if per > 1 then n = n - (inputOf(m, name) + (m.hopper[name] or 0) + n) % per end
-        if n > 0 then
+        if n > 0 and plan then
+          plan[#plan + 1] = { m = m, name = name, n = n }
+          avail[name] = avail[name] - n
+        elseif n > 0 then
           local r = ask({ type = "send", to = m.entry.hopper, items = { [name] = n } })
           local got = r and type(r.sent) == "table" and r.sent[name] or 0
           if r and r.error then problem = r.error end
@@ -325,6 +342,21 @@ local function round()
         end
       end
     end
+  end
+  if plan then
+    local items = {}
+    for _, p in ipairs(plan) do items[p.name] = (items[p.name] or 0) + p.n end
+    local r, why = work:fill(items, 0)
+    if r and r.error and not r.nochest then problem = r.error end
+    if not r and next(items) then problem = why end
+    for _, p in ipairs(plan) do
+      local got = work:move(p.name, p.m.entry.hopper, nil, p.n)
+      p.m.hopper[p.name] = (p.m.hopper[p.name] or 0) + got
+      p.m.hopperTotal = p.m.hopperTotal + got
+      avail[p.name] = avail[p.name] + p.n - got
+      sent = sent + got
+    end
+    work:empty(input)
   end
 
   -- how each chamber is doing, for the screen
@@ -362,6 +394,8 @@ local function round()
     message = { news[1], news[2] }
   elseif problem then
     say("Couldn't fill a hopper: " .. problem, "red")
+  elseif work.problem then
+    say(("Not using the work chest: %s."):format(work.problem), "orange")
   elseif broken > 0 then
     local m
     for _, x in ipairs(machines) do
@@ -436,7 +470,7 @@ local function draw()
   put(2, h - 2, fitText(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", w - 2),
     total > 0 and "white" or "gray")
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("Ctrl+T twice, then enricher add / remove", w), "gray")
+  put(1, h, fitText("Ctrl+T twice, then enricher add / remove / chest", w), "gray")
   display:show()
 end
 
@@ -559,13 +593,20 @@ elseif args[1] == "remove" then
   writeMachines(list)
   print(("Forgot %s. Empty its hopper by hand."):format(entry.chamber))
   return
+elseif args[1] == "chest" then
+  if not net.open("any") then
+    print("I need a wired modem on the storage computer's network first (far away: an ender modem too).")
+    return
+  end
+  work:command(args[2])
+  return
 elseif args[1] then
-  print("Usage: enricher [add [chamber hopper] | remove <n>]")
+  print("Usage: enricher [add [chamber hopper] | remove <n> | chest [name|none]]")
   return
 end
 
 if not net.open("any") then
-  print("I need a wired modem on the storage computer's network.")
+  print("I need a wired modem on the storage computer's network (far away: on my own, plus an ender modem).")
   print("Put one on me, join it to the network with cable and right-click it so it turns red.")
   return
 end

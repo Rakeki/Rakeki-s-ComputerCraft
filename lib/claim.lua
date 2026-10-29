@@ -12,7 +12,8 @@
 -- askStorage(msg) is the program's own request function: it sends msg on
 -- the "storage" protocol with an id and returns the matching reply, or nil
 -- (see the storage-system skill). role is "delivery" (the storage computer
--- sends this turtle's orders there) or "crafter" (the crafting turtle's chest).
+-- sends this turtle's orders there), "crafter" (the crafting turtle's chest) or
+-- "work" (a far-away computer's work chest, through an ender chest: lib/workchest.lua).
 --
 -- How it finds the chest: the turtle sends what its chest holds. If that's
 -- the chest the storage computer already has for it, that's that. Otherwise
@@ -40,7 +41,8 @@ function claim.chest(ask, role, side)
   if not (chest and chest.list) then return false, noChest end
   local ok, list = pcall(chest.list)
   if not ok then return false, noChest end
-  local r = ask({ type = "claim", role = role, items = list })
+  local kind = role == "work" and "work" or "claim" -- a work chest has a request of its own
+  local r = ask({ type = kind, role = role, items = list })
   for _ = 1, MAX_PROBES do
     if type(r) ~= "table" then return nil end
     if r.ok then return true, r.chest end
@@ -48,7 +50,7 @@ function claim.chest(ask, role, side)
     -- it has just put one r.probe in one of its chests: did it land in mine?
     local okNow, now = pcall(chest.list)
     if not okNow then return false, noChest end
-    r = ask({ type = "claim", role = role, seen = count(now, r.probe) > count(list, r.probe) })
+    r = ask({ type = kind, role = role, seen = count(now, r.probe) > count(list, r.probe) })
     list = now
   end
   return false, "tried too many chests"

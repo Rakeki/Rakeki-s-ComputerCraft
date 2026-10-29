@@ -1,7 +1,7 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
-// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher,
+// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher, the remote terminal,
 // the essence computer, build control on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
@@ -1457,12 +1457,57 @@
       const total = list.reduce((n, [, c]) => n + c, 0);
       s.put(2, H - 2, fitT(`To enrich: ${total} (${list.map(([n, c]) => `${n} ${c}`).join(", ")})`, W - 2), "white");
       s.put(1, H - 1, fitT("Chamber 4: it has no power", W), "red");
-      s.put(1, H, fitT("Ctrl+T twice, then enricher add / remove", W), "gray");
+      s.put(1, H, fitT("Ctrl+T twice, then enricher add / remove / chest", W), "gray");
       s.render();
     }
 
     step();
     setInterval(() => { step(); draw(); }, 1000);
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- remote terminal
+
+  // The remote terminal: same layout as computers/remote-terminal/remote.lua.
+  // "iron" is typed into the search, the iron ingots are picked and a stack
+  // is pulled through the ender chest, then the search clears again.
+  function remote(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const items = [
+      ["Cobblestone", 18342], ["Iron Ingot", 1210], ["Oak Log", 864], ["Raw Iron", 512], ["Torch", 448],
+      ["Glass", 320], ["Iron Block", 96], ["Redstone Dust", 754], ["Coal", 233], ["Iron Pickaxe", 3],
+      ["Bread", 61], ["Diamond", 42], ["Spruce Planks", 380], ["Iron Bars", 27],
+    ].sort((a, b) => b[1] - a[1]);
+    const script = ["", "i", "ir", "iro", "iron", "iron", "iron", "iron", "iron", "iron", "", ""];
+    let t = 0, message = ["Asking the storage computer...", "lightGray"], ingots = 1210;
+
+    function draw() {
+      const query = script[t % script.length];
+      const list = items.filter(([n]) => n.toLowerCase().includes(query));
+      const sel = query === "iron" && t % script.length >= 6 ? list.findIndex(([n]) => n === "Iron Ingot") : 0;
+      if (t % script.length === 7) { ingots -= 64; message = ["Sent 64 Iron Ingot: it's in the ender chest.", "lime"]; }
+      if (t % script.length === 0) { ingots = 1210; message = ["", "lightGray"]; }
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Remote storage", "yellow", "gray");
+      s.put(W - 13, 1, "ender_chest_2", "lightGray", "gray");
+      s.put(1, 2, "Search: ", "lightGray");
+      s.put(9, 2, query, "white");
+      list.slice(0, H - 4).forEach(([n, c], i) => {
+        const count = String(n === "Iron Ingot" ? ingots : c);
+        const bg = i === sel ? "blue" : "black";
+        s.put(1, 3 + i, fitT(" " + n, W - count.length - 1), "white", bg);
+        s.put(W - count.length, 3 + i, count + " ", i === sel ? "white" : "lightGray", bg);
+      });
+      s.put(1, H - 1, fitT(message[0], W), message[1]);
+      s.put(1, H, fitT("Enter: a stack  Right: one  Drop items in the chest to send them home", W), "gray");
+      s.render();
+    }
+
+    setInterval(() => { t++; draw(); }, 700);
     draw();
     return s;
   }
@@ -1605,5 +1650,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, remote, essence, buildControl, instabuild } };
 })();

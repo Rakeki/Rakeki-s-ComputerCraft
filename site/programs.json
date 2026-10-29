@@ -885,6 +885,60 @@
       "terminal": null
     },
     {
+      "name": "remote-terminal",
+      "group": "storage",
+      "title": "Remote Terminal",
+      "command": "remote",
+      "device": "computer",
+      "deviceLabel": "Computer + ender modem + ender chest",
+      "color": "magenta",
+      "tagline": "The storage system from anywhere, through a linked ender chest: search what's stored and pull it, or drop items in to send them home.",
+      "libs": ["report", "errlog", "screen", "net", "files", "claim"],
+      "autostart": true,
+      "stats": [
+        ["Range", "any, any dimension"],
+        ["Needs", "EnderStorage-style chests"],
+        ["Sends home", "within 5 s"],
+        ["Pulled items wait", "10 minutes"]
+      ],
+      "features": [
+        "Type to search everything stored; Enter pulls a stack, Right pulls one",
+        "Items arrive in the ender chest next to it, from its twin on the storage cable at home",
+        "Drop anything in the ender chest to send it home into storage",
+        "Asks for anything that isn't stored but can be crafted, like a turtle's order",
+        "Finds its chest's twin at home by itself: nothing to pick in storage setup",
+        "remote get 64 iron ingot pulls from the command line"
+      ],
+      "setup": [
+        "Update the storage computer and give it an ender modem.",
+        "Put an ender chest on the storage cable at home with a wired modem, and its twin (same colours) next to this computer.",
+        "Put an ender modem on this computer, install and reboot."
+      ],
+      "commands": [
+        ["remote", "start (runs on boot)"],
+        ["remote get 64 iron ingot", "pull 64 of the first stored item matching the text"],
+        ["remote chest", "pick the ender chest when it can see more than one"]
+      ],
+      "integrates": [
+        ["storage-computer", "Lists what's stored, sends what's asked for into the home ender chest and puts away whatever else turns up in it."],
+        ["claim", "Tells the storage computer which chest at home is the twin of this one."],
+        ["crafter-turtle", "Crafts what's asked for but not stored."],
+        ["status-server", "Shows how many kinds of item are stored and each pull."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "remote",
+        "caption": "The remote terminal: search what's stored at home and pull it through the ender chest."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "remote get 64 iron ingot", "cmd"],
+          ["Sent 64 Iron Ingot: it's in the ender chest.", "", "white"]
+        ]
+      }
+    },
+    {
       "name": "crafter-turtle",
       "group": "storage",
       "title": "Crafter",
@@ -988,7 +1042,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal, cobblestone into stone or sand into glass on request.",
-      "libs": ["report", "errlog", "screen", "net", "files"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1003,6 +1057,7 @@
         "Cooks raw meat, fish, potatoes and kelp too, in smokers first (keeps 64 potatoes for planting)",
         "Shares the work out between furnaces, blast furnaces and smokers first",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
+        "Optional work chest: the storage computer fills it once a round with everything the furnaces need, and the smelter loads them from it",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
         "Press S to smelt cobblestone into stone, G to smelt sand into glass; the orders can run at once",
         "Smelted goods go back into storage through the input chest"
@@ -1010,17 +1065,21 @@
       "setup": [
         "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
         "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
+        "Optional: put an empty chest with a wired modem on the network as the work chest, and run smelter chest to pick it.",
         "Install and reboot. Change what gets smelted and cooked in config.lua."
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
+        ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
+        ["smelter chest remote", "furnaces at another base: fed through two ender chest pairs"],
         ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
         ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
         ["smelter glass 256", "make 256 glass from sand or red sand (or press G)"],
         ["smelter cancel stone", "stop an order; no name stops both (or press X)"]
       ],
       "integrates": [
-        ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks."],
+        ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks, or fills its work chest in one go."],
+        ["workchest", "One request a round fills the work chest with every furnace's load and fuel."],
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
         ["enricher-computer", "Enriches ores into dust first, for up to twice the ingots; the smelter smelts the dust."],
@@ -1338,7 +1397,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "lightGray",
       "tagline": "Feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore and 4 per 3 raw ores, which the smelter turns into ingots: up to twice the metal.",
-      "libs": ["report", "errlog", "screen", "net", "files"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1352,6 +1411,7 @@
         "Iron, gold, copper, osmium, tin, lead and uranium: ores, raw ores and raw ore blocks, deepslate and nether ores too",
         "Gem ores too: 2 diamonds, emeralds, coal or quartz, 12 redstone or lapis, 6 fluorite (configurable)",
         "Raw ores always go in threes, so none are left over in a chamber",
+        "Optional work chest: the storage computer fills it once a round with the ores for every hopper",
         "Sets each chamber's bottom to Output with Auto-eject, so the dust drops into a storage input chest",
         "The smelter leaves those ores alone while the enricher runs, and smelts the dust into ingots instead",
         "Puts back anything that doesn't go into a chamber, and says when a chamber has no power or nowhere to put its dust"
@@ -1359,15 +1419,19 @@
       "setup": [
         "Set up the storage computer and the smelter, and install update both.",
         "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a hopper on top pointing down and a chest under it, each with a wired modem, all on the storage network. Add the chest as an extra input chest in storage setup.",
-        "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot."
+        "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot.",
+        "Optional: put an empty chest with a wired modem on the network and run enricher chest to make it the work chest."
       ],
       "commands": [
         ["enricher", "start (runs on boot)"],
         ["enricher add", "add a chamber and the hopper on top of it"],
-        ["enricher remove 2", "forget chamber 2 (no number: list them)"]
+        ["enricher remove 2", "forget chamber 2 (no number: list them)"],
+        ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
+        ["enricher chest remote", "chambers at another base: fed through two ender chest pairs"]
       ],
       "integrates": [
-        ["storage-computer", "Holds the ores, fills each chamber's hopper when the enricher asks, and takes the dust back through an input chest."],
+        ["storage-computer", "Holds the ores, fills each chamber's hopper (or the enricher's work chest, in one go) when the enricher asks, and takes the dust back through an input chest."],
+        ["workchest", "One request a round fills the work chest with the ores for every hopper."],
         ["smelter-computer", "Asks the enricher which ores to leave alone, and smelts the dust into ingots."],
         ["digital-miner-manager", "Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the enricher."],
         ["status-server", "Shows how many chambers are enriching, and when one needs attention."]
@@ -1621,6 +1685,26 @@
         ["claim.chest(ask, role, side)", "Tell the storage computer the chest on that side is mine. role is \"delivery\" (my orders go there) or \"crafter\". Returns true and the chest's network name, false and why not, or nil if nothing answered."]
       ],
       "notes": "The turtle sends what's in its chest. If that's the chest the storage computer already has for it, it answers at once; otherwise it drops one item into each chest that could be it until the turtle sees it arrive, and takes it back each time. The storage system needs at least one item in it. The chest needs a wired modem on the storage cable."
+    },
+    {
+      "name": "workchest",
+      "title": "lib/workchest",
+      "file": "lib/workchest.lua",
+      "color": "orange",
+      "tagline": "A computer's work chest: the storage computer fills it in one request a round, and the program loads its own furnaces or hoppers from it, on the storage cable or far away through ender chests.",
+      "usage": "local workchest = require(\"lib.workchest\")\n\n-- ask(msg): your request function on the \"storage\" protocol\nlocal work = workchest.new(\"smelter\", ask)\n\n-- each round, after asking for 'stock':\nlocal input = work:input(stock.input) -- the return ender chest far away\nif work:check(stock) or work.remote then\n  work:fill({ [\"minecraft:raw_iron\"] = 64 }, 64) -- items, and fuel for 64 smelts\n  work:move(\"minecraft:raw_iron\", \"minecraft:furnace_2\", 1, 64)\n  work:move(\"minecraft:coal\", \"minecraft:furnace_2\", 2, 8)\n  work:empty(input) -- the rest back into storage\nelse\n  -- no work chest (work.problem says why): 'send' to each furnace\nend",
+      "api": [
+        ["workchest.new(name, ask)", "A work chest for this program; the chest's name is saved in /.<name>_chest."],
+        ["work:setRemote(chest, back)", "Far away: chest is the supply ender chest here, back the return one (its twin is a storage input chest). The storage computer finds the supply chest's twin by probe. Same answers as set."],
+        ["work:input(stockInput)", "Where finished items go back: the return chest far away, else the storage input chest."],
+        ["work:set(chest)", "Make this empty chest the work chest (nil: stop using one; its contents go back). True, false and why, or nil if nothing answered."],
+        ["work:check(stock)", "After each 'stock' reply: true while the work chest is in use. Claims the saved one again if the storage computer forgot it (once a minute); work.problem says why not."],
+        ["work:fill(items, fuel)", "Top it up to items (name -> n) and fuel for that many smelts, in one request. The reply, or nil and why."],
+        ["work:move(name, to, slot, n)", "Move up to n of an item from it into a furnace or hopper (slot optional). How many went."],
+        ["work:empty(input)", "Send everything left back through the storage input chest."],
+        ["work:command(arg)", "The '<program> chest [name|none|remote]' command: pick, name, set up far away or drop the work chest, printing how it went."]
+      ],
+      "notes": "Only an empty chest can become a work chest, so a storage chest full of items is never taken, and it stops being storage. The storage computer keeps it across 'storage setup' and while it's missing. Whatever is left at the end of a round goes back through the input chest, so items never sit there unseen. A storage computer too old to know work chests never answers 'work', and the program carries on with 'send'. Far away (two EnderStorage-style ender chest pairs and an ender modem) there is no 'send' to fall back on: nothing is loaded until the work chest is back in use (check with work.remote)."
     },
     {
       "name": "net",

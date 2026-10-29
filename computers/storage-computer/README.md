@@ -263,7 +263,8 @@ the storing instead of chests ([layout](#ae2-with-advanced-peripherals)).
   furnaces and the crafting turtle's grid need. So those items pass through
   a **transfer chest**: any spare chest on the network, chosen in
   `storage setup`. Without one, the smelter and the crafting turtle can't be
-  loaded.
+  loaded. A smelter with a [work chest](../smelter-computer/README.md#work-chest)
+  doesn't need it: the bridge sends its items straight into that chest.
 - The top line shows how full the system is: by bytes for AE2, by items for
   RS.
 
@@ -379,8 +380,21 @@ the turtles and the smelter carry on without being changed.
   starts (a modem not red, say), it carries on without that feature and the
   footer says which chest is missing. A missing turtle's chest is forgotten,
   and the turtle finds it again the next time it asks for items.
-- `storage setup` keeps the chests turtles have found, unless you pick one
-  of them for something else.
+- `storage setup` keeps the chests turtles have found, and the
+  [smelter's](../smelter-computer/README.md#work-chest) and
+  [enricher's](../enricher-computer/README.md#work-chest) work chests,
+  unless you pick one of them for something else.
+- A **work chest** is a chest the smelter or enricher picks with `smelter
+  chest` / `enricher chest`: each round it fills that chest in one go and
+  they load their furnaces or hoppers from it, instead of asking for each
+  one in turn. It takes only an empty chest, and stops using it as storage.
+  `storage test` lists them. A smelter or enricher far away uses an ender
+  chest pair instead, found the way turtles find their chest.
+- **Ender chests** (EnderStorage and the like) on the network are never
+  used as storage: they share their items with a chest somewhere else. A
+  [remote terminal](../remote-terminal/README.md) at the other end of one
+  pulls items through it and sends items home, from any distance. Give the
+  storage computer an ender modem for that.
 - A turtle's chest can't be the input, output, fuel or transfer chest, and
   only chests, barrels, shulker boxes and crates count (never furnaces). A missing input or output chest, or a
   missing bridge in ME or RS mode, stops it.
