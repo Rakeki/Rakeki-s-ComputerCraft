@@ -17,7 +17,7 @@
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
 --   smelter setup                  the setup screen, on the monitor and the terminal: Mekanism smelters,
 --                                  the work chest and the monitor (in the running smelter if there is one;
---                                  or tap Setup on its monitor, or U on its screen)
+--                                  or Setup on its monitor or screen, or F1)
 --   smelter add [machine feeder [output]]  add a Mekanism Energized Smelter (or Smelting Factory), what
 --                                  feeds it (the hopper on top, or a barrel a pipe pulls from) and its
 --                                  output chest under it (asks for what's not given)
@@ -45,7 +45,8 @@
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
 -- (computers/storage-computer) running. It asks the storage computer for
--- everything over rednet on the cable, so it needs no wireless modem. Which
+-- everything over rednet on the cable, so it needs no wireless modem (far
+-- away it needs an ender modem). Which
 -- items get smelted and cooked is set in config.lua.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
@@ -577,17 +578,25 @@ local function round()
   for _, m in ipairs(meks) do
     if (m.usage or 0) > 0 then busy = busy + 1 end
   end
-  -- far away without 'smelter chest remote', the storage computer can't see
+  -- far away without a far-away work chest, the storage computer can't see
   -- the furnaces: say what to do
   if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
-    problem = problem .. ". Far from the storage system? Run 'smelter chest remote'"
+    problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
+  end
+  -- orders only burn in plain furnaces: blast furnaces, smokers and Mekanism smelters never take them
+  local plain = false
+  for _, f in ipairs(furnaces) do
+    if not f.blast and not f.smoker then plain = true end
   end
   if problem then
     say("Couldn't move items: " .. problem, "red")
   elseif news and os.clock() < news[3] then
     say(news[1], news[2])
   elseif blocked then
-    say("The storage input chest is full: smelted items are waiting in the furnaces.", "orange")
+    say(work.remote and "The ender chest is full: smelted items are waiting in the furnaces."
+      or "The storage input chest is full: smelted items are waiting in the furnaces.", "orange")
+  elseif #orderItems > 0 and not plain then
+    say("Orders need a plain furnace (not a blast furnace or smoker): put one on the network.", "orange")
   elseif work.problem then
     say(("Not using the work chest: %s."):format(work.problem), "orange")
   elseif unfuelled then
@@ -661,7 +670,8 @@ local function draw()
   win, w, h = display:frame()
   put(1, 1, (" "):rep(w), "white", "gray")
   put(2, 1, "Smelter", "yellow", "gray")
-  put(w - #stat, 1, stat, "lightGray", "gray")
+  put(w - 6, 1, " Setup ", "black", "lightGray")
+  if #stat + 18 <= w then put(w - #stat - 8, 1, stat, "lightGray", "gray") end
   local fuelX = w - 12
   put(2, 3, "Furnace", "yellow")
   put(20, 3, "Smelting", "yellow")
@@ -683,7 +693,7 @@ local function draw()
     put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
   end
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("C: charcoal  S: stone  G: glass  X: cancel  U: setup", w), "gray")
+  put(1, h, fitText("C:charcoal  S:stone  G:glass  X:cancel  F1:setup", w), "gray")
   display:show()
 end
 
@@ -860,9 +870,11 @@ local function uiLoop()
     local ev = { os.pullEvent() }
     local event, a = ev[1], ev[2]
     if event == "peripheral" or event == "peripheral_detach" or event == "smelter_monitor" then board:refresh() end
+    -- the Setup button on the board or the screen, F1, or 'smelter setup' in another tab
     local bx, by = board:clicked(ev)
+    local tx, ty = display:clicked(ev)
     if setupui.wanted("smelter", ev) or (bx and by == 1 and bx >= board:size() - 6)
-      or (event == "char" and a:lower() == "u") then
+      or (tx and ty == 1 and tx >= display:size() - 6) or (event == "key" and a == keys.f1) then
       prompts = prompts + 1
       setupScreen({ display, board })
     end

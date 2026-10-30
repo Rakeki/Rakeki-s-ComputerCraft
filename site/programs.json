@@ -861,7 +861,7 @@
       ],
       "commands": [
         ["storage", "start (opens the setup screen the first time)"],
-        ["storage setup", "the setup screen, on the monitor and the computer (in the running storage program, if there is one); or tap Setup on the monitor"],
+        ["storage setup", "the setup screen, on the monitor and the computer (in the running storage program, if there is one); or tap Setup at the top right of the monitor or screen, or press F1"],
         ["storage config fuel [chest|none]", "change one setting by typing: input, inputs, output, delivery, crafter, fuel, transfer, remote (no setting: the setup screen)"],
         ["storage test", "list the turtles' chests, check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
         ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"],
@@ -1077,13 +1077,13 @@
       "setup": [
         "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
         "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
-        "Optional: put an empty chest with a wired modem on the network as the work chest, and run smelter chest to pick it.",
-        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an empty output chest under it, all on the network, and run smelter add.",
-        "Install and reboot. Change what gets smelted and cooked in config.lua."
+        "Optional: put an empty chest with a wired modem on the network as the work chest.",
+        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an empty output chest under it, all on the network.",
+        "Install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or smelter setup) to pick the work chest and add the Mekanism smelters. Change what gets smelted and cooked in config.lua."
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
-        ["smelter setup", "the setup screen on the monitor and the computer: Mekanism smelters, the work chest (here, far away or none) and the monitor; or tap Setup on the monitor, or U on its screen"],
+        ["smelter setup", "the setup screen on the monitor and the computer: Mekanism smelters, the work chest (here, far away or none) and the monitor; or tap Setup on the monitor or screen, or press F1"],
         ["smelter add", "add a Mekanism Energized Smelter, its feeder (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["smelter remove 1", "forget Mekanism smelter 1 (no number: list them)"],
         ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
@@ -1441,16 +1441,17 @@
       "setup": [
         "Set up the storage computer and the smelter, and install update both.",
         "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a feeder (a hopper on top pointing down, or an empty barrel with a transporter set to pull into the chamber) and an empty output chest under it, each with a wired modem, all on the storage network. The enricher empties the output chest into storage.",
-        "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot.",
-        "Optional: put an empty chest with a wired modem on the network and run enricher chest to make it the work chest."
+        "Optional: put an empty chest with a wired modem on the network as the work chest.",
+        "Put this computer on the same network with a wired modem, install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or enricher setup): add each chamber with its feeder and output chest, and pick the work chest."
       ],
       "commands": [
         ["enricher", "start (runs on boot)"],
-        ["enricher setup", "the setup screen on the monitor and the computer: chambers (add, change, remove), the work chest (here, far away or none) and the monitor; or tap Setup on the monitor"],
+        ["enricher setup", "the setup screen on the monitor and the computer: chambers (add, change, remove), the work chest (here, far away or none) and the monitor; or tap Setup on the monitor or screen, or press F1"],
         ["enricher add", "add a chamber, its input (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["enricher remove 2", "forget chamber 2 (no number: list them)"],
         ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
-        ["enricher chest remote", "chambers at another base: one ender chest both ways (or a return one too)"]
+        ["enricher chest remote", "chambers at another base: one ender chest both ways (or a return one too)"],
+        ["enricher monitor", "pick the status board's monitor from every one on the network (or name it, or none); a running enricher moves to it at once"]
       ],
       "integrates": [
         ["storage-computer", "Holds the ores, fills each chamber's hopper or barrel (or the enricher's work chest, in one go) when the enricher asks, leaves barrel feeders out of storage, and takes the dust back through an input chest."],

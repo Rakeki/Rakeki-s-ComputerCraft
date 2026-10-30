@@ -417,9 +417,14 @@ logs), a page at a time:
 **Save** keeps it, **Cancel** leaves everything as it was. Nothing changes
 until you Save.
 
-Open it with **Setup** on the monitor, or `storage setup` (or `storage
-config`) in a second tab (`bg storage setup` on an advanced computer): it
-opens in the running storage program, on its monitor and in its tab. What
+Open it with **Setup** at the top right of the monitor or the computer's
+screen, **F1** on the computer, or `storage setup` (or `storage config`) in
+a second tab (`bg storage setup` on an advanced computer): it opens in the
+running storage program, on its monitor and in its tab. The
+[smelter](../smelter-computer/README.md#the-setup-screen) and
+[enricher](../enricher-computer/README.md#the-setup-screen) open theirs the
+same ways and use the same keys; theirs save each change as you make it, so
+they have **Done** instead of Save and Cancel. What
 you save is used straight away, with no restart (except switching between
 chests and an ME or RS system: then reboot). With no storage program running
 (stopped with Ctrl+T) it opens where you typed it.
@@ -434,16 +439,44 @@ without the screen: `storage config fuel minecraft:chest_9`.
 [smelter](../smelter-computer/README.md#far-from-the-storage-system) at another
 base works through an ender chest whose twin is on this cable. This looks
 for enrichers and smelters over the wireless or ender modem, shows which
-ender chest each one has here, and lets you pick it (or `none`). Then run
-`enricher chest remote` (or `smelter chest remote`) at that base and pick its
-ender chest: it takes the one you picked here, with no search. A far
-computer that already works through an ender chest switches on its next
+ender chest each one has here, and lets you pick it (or `none`). Then, at
+that base, open the enricher's or smelter's setup screen and pick **Work
+chest**, **Far away**: it takes the one you picked here, with no search. A
+far computer that already works through an ender chest switches on its next
 round.
 
 To move from chests to
 an ME or RS system later, add the bridge, run `storage setup`, tap **Store
 items in** to switch to it, Save and reboot:
 the turtles and the smelter carry on without being changed.
+
+### Smelter and enricher
+
+Ores are handled by two optional computers on the storage system: the
+[smelter](../smelter-computer/README.md) (furnaces, and Mekanism Energized
+Smelters) and the [enricher](../enricher-computer/README.md) (Mekanism
+Enrichment Chambers: ore into dust, more ingots per ore).
+
+| You have | What happens to ore in storage |
+|---|---|
+| Neither | It stays in storage. |
+| Smelter with furnaces | Smelted in the furnaces (blast furnaces first), fuelled from the fuel chest; raw food is cooked (smokers first). Charcoal, stone and glass orders. |
+| Smelter with Mekanism smelters only | Smelted in them, no fuel needed. No charcoal, stone or glass orders: those need a plain furnace. |
+| Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders only in plain furnaces. |
+| Enricher, no smelter | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's a smelter. |
+| Enricher and smelter | While the enricher has a chamber with power that it can load, the smelter leaves those ores to it and smelts the dust instead (more ingots). If the enricher stops, or can't load its chambers, the smelter smelts the ores itself. |
+
+Each round the smelter asks the enricher which ores to leave, over rednet.
+On one cable that just works. If either one is far away, put an **ender
+modem** on both (or wireless modems in range), or they can't hear each
+other and the smelter smelts the ores itself.
+
+Either can be [far away](#far-away-workers), through an ender chest pair
+of its own: what it makes goes home through its ender chest. An enricher's
+dust then goes on to the smelter like any other dust, through the smelter's
+ender chest if it's far away too. Both at the same far base can share a
+cable there, with a different ender chest pair each (pick each one's on its
+setup screen and under Far-away workers here).
 
 ## Things to know
 

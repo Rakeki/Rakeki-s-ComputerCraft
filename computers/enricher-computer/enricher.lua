@@ -9,7 +9,7 @@
 --   enricher                        start (startup.lua runs this)
 --   enricher setup                  the setup screen, on the monitor and the terminal: chambers, the work
 --                                   chest and the monitor (in the running enricher if there is one;
---                                   or tap Setup on its monitor)
+--                                   or Setup on its monitor or screen, or F1)
 --   enricher add [chamber feeder [output]]  add a chamber, what feeds it (the hopper on top, or a barrel
 --                                   or chest a pipe pulls from into it) and its output chest under it
 --                                   (asks for what's not given)
@@ -18,6 +18,7 @@
 --                                   (no name: pick from a list; none: stop using one)
 --   enricher chest remote           far from the storage system: one ender chest both ways, or a return
 --                                   one too (the chests under the chambers then empty into it)
+--   enricher monitor [name|none]    pick the monitor for the status board (no name: from a list)
 --
 -- CC can't put items into a Mekanism machine (its computer port hides the
 -- slots), so each chamber has a feeder (lib/mekfeed.lua): a hopper on top,
@@ -173,7 +174,9 @@ local function round()
   local unsure, problem = chambers:register(work.remote)
   -- the dust in the output chests goes home first, so they never fill up
   local _, outStuck = chambers:collect(machines, input)
-  if outStuck then problem = problem or "the storage input chest is full: dust is waiting in the output chests" end
+  if outStuck then
+    problem = problem or ("the %s is full: dust is waiting in the output chests"):format(work.remote and "ender chest" or "storage input chest")
+  end
   chambers:unstick(machines, input, function(m, item)
     noEnrich[item.name] = true
     tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
@@ -252,10 +255,10 @@ local function round()
     if m.colour == "red" then broken = broken + 1 elseif m.state == "enriching" then working = working + 1 end
   end
 
-  -- far away without 'enricher chest remote', the storage computer can't see
+  -- far away without a far-away work chest, the storage computer can't see
   -- the feeders: say what to do
   if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
-    problem = problem .. ". Far from the storage system? Run 'enricher chest remote'"
+    problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
   -- leave the ores to the smelter while they can't be loaded here, so they
   -- don't sit in storage
@@ -329,7 +332,8 @@ local function draw()
   local doingX = wide and 40 or w - 11
   local oreW = (wide and 29 or doingX) - 16
   put(1, 1, (" "):rep(w), "white", "gray")
-  put(2, 1, fitText("Enrichment chambers", w - 2), "yellow", "gray")
+  put(2, 1, fitText("Enrichment chambers", w - 9), "yellow", "gray")
+  put(w - 6, 1, " Setup ", "black", "lightGray")
   put(2, 3, "Chamber", "yellow")
   put(14, 3, "Ore", "yellow")
   if wide then
@@ -341,7 +345,7 @@ local function draw()
   local function add(text, colour) footer[#footer + 1] = { text, colour } end
   add(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", total > 0 and "white" or "gray")
   for _, line in ipairs(screen.wrap(message[1], w, wide and 1 or 3)) do add(line, message[2]) end
-  add(wide and "Setup: 'enricher setup' in another tab" or "Setup: 'enricher setup'", "gray")
+  add(wide and "F1 or Setup: the setup screen" or "F1: setup", "gray")
   local rows = h - 4 - #footer
   for i = 1, math.min(rows, #machines) do
     local m, y = machines[i], 3 + i
@@ -416,9 +420,13 @@ local function uiLoop()
     -- every event: the screens skip frames that haven't changed
     local ev = { os.pullEvent() }
     if ev[1] == "peripheral" or ev[1] == "peripheral_detach" or ev[1] == "enricher_monitor" then board:refresh() end
+    -- the Setup button on the board or the screen, F1, or 'enricher setup' in another tab
     local x, y = board:clicked(ev)
     local w = board.target and board:size()
-    if setupui.wanted("enricher", ev) or (x and y == 1 and x >= w - 6) then
+    local tx, ty = display:clicked(ev)
+    local tw = display:size()
+    if setupui.wanted("enricher", ev) or (x and y == 1 and x >= w - 6) or (tx and ty == 1 and tx >= tw - 6)
+      or (ev[1] == "key" and ev[2] == keys.f1) then
       setupScreen({ display, board })
     end
   end
@@ -461,6 +469,14 @@ elseif args[1] == "chest" then
   end
   work:command(args[2])
   return
+elseif args[1] == "monitor" then
+  local pick = screen.choose("enricher.monitor", args[2])
+  if pick then
+    -- an enricher running in another tab moves to it now
+    os.queueEvent("enricher_monitor")
+    print(pick == "none" and "No status board from now on." or ("The status board goes on %s."):format(pick))
+  end
+  return
 elseif args[1] == "setup" then
   if setupui.openInRunning("enricher") then
     print("The setup screen is open in the enricher (its tab) and on its monitor.")
@@ -478,7 +494,7 @@ elseif args[1] == "setup" then
   print("Setup saved. The enricher uses it on its next round.")
   return
 elseif args[1] then
-  print("Usage: enricher [setup | add [chamber feeder [output]] | remove <n> | chest [name|none]]")
+  print("Usage: enricher [setup | add [chamber feeder [output]] | remove <n> | chest [name|none|remote] | monitor [name|none]]")
   return
 end
 

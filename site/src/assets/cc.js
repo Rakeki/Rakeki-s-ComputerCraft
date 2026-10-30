@@ -569,7 +569,8 @@
       s.fill(1, "gray");
       s.put(2, 1, "Storage", "yellow", "gray");
       const stat = `12 chests, ${used}/${SLOTS} slots`;
-      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
+      s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
       // tabs: what's stored, and (light blue) what could be crafted
       let tx = 1;
       for (const [t, label, on] of [["stored", `Stored ${stored().length}`, "white"], ["craft", `Craftable ${crafts.filter(fits).length}`, "lightBlue"]]) {
@@ -596,7 +597,9 @@
       }
       if (!list.length) s.put(2, 5, "No matches.", "lightGray");
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT((st.tab === "craft" ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one") + (st.query ? "  Del: clear" : st.tab === "craft" ? "  Tab: stored" : "  Tab: craftable"), W), "gray");
+      let keysText = (st.tab === "craft" ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one") + (st.query ? "  Del: clear" : st.tab === "craft" ? "  Tab: stored" : "  Tab: craftable");
+      if (keysText.length + 11 <= W) keysText += "  F1: setup";
+      s.put(1, H, fitT(keysText, W), "gray");
       s.render({ x: 9 + st.query.length, y: 3 });
     }
 
@@ -836,7 +839,8 @@
       s.fill(1, "gray");
       s.put(2, 1, "Smelter", "yellow", "gray");
       const stat = `fuel for ${st.fuel} items`;
-      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
+      s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
       const fuelX = W - 12;
       s.put(2, 3, "Furnace", "yellow"); s.put(20, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
       furnaces.forEach((f, i) => {
@@ -849,7 +853,7 @@
       if (!lines.length) s.put(1, H - 2, fitT(" No orders. Board on monitor_3", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("C: charcoal  S: stone  G: glass  X: cancel  U: setup", W), "gray");
+      s.put(1, H, fitT("C:charcoal  S:stone  G:glass  X:cancel  F1:setup", W), "gray");
       const order = () => {
         if (!st.orders.length) {
           st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });
@@ -1462,6 +1466,7 @@
       s.clear();
       s.fill(1, "gray");
       s.put(2, 1, "Enrichment chambers", "yellow", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       [["Chamber", 2], ["Ore", 15], ["Queue", 29], ["Pwr", 35], ["Doing", 40]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
       rows.forEach((r, i) => {
         const y = 4 + i, pct = Math.round(r.power * 100);
@@ -1475,7 +1480,7 @@
       const total = list.reduce((n, [, c]) => n + c, 0);
       s.put(2, H - 2, fitT(`To enrich: ${total} (${list.map(([n, c]) => `${n} ${c}`).join(", ")})`, W - 2), "white");
       s.put(1, H - 1, fitT("Chamber 4: it has no power", W), "red");
-      s.put(1, H, fitT("Ctrl+T twice, then enricher add / remove / chest", W), "gray");
+      s.put(1, H, fitT("F1 or Setup: the setup screen", W), "gray");
       s.render();
     }
 

@@ -41,7 +41,9 @@ With Mekanism, it also smelts **dust** (iron, gold, copper, osmium, tin,
 lead, uranium) into ingots. While the [enricher](../enricher-computer/README.md)
 is running, the ores it puts into its Enrichment Chambers are left to it, so
 they come back as dust and give more ingots. Without it, the smelter smelts
-those ores itself, as before.
+those ores itself, as before. Every combination (furnaces only, Mekanism
+smelters, with or without the enricher, near or far away) is in
+[Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 
 ### Mekanism smelters
 
@@ -52,13 +54,17 @@ top pointing down, or a barrel a pipe pulls from into the machine (see
 [Barrel feeders](../enricher-computer/README.md#barrel-feeders)). The
 smelter fills the feeders, and the machine pushes what it makes out of its
 bottom into its **output chest** under it, which the smelter empties into
-storage each round (or into a storage input chest under it, if you skip the
-output chest in `smelter add`).
+storage each round (or into a storage input chest under it, if you pick no
+output chest).
 
 - They get first pick of what there is to smelt or cook (they're faster and
   need no fuel); the furnaces take what's left.
 - They don't work on charcoal, stone or glass orders: what they make goes
-  straight into storage, so the smelter can't count it.
+  straight into storage, so the smelter can't count it. Orders need at
+  least one plain furnace (blast furnaces and smokers can't take them
+  either); without one the footer says so.
+- With only Mekanism smelters and no furnaces, it works the same, minus the
+  orders and the fuel.
 - The smelter sets each one's bottom to **Output** with **Auto-eject** on,
   when its security is **Public**. Otherwise do it by hand, or set
   `setSides = false` in `config.lua`.
@@ -136,13 +142,13 @@ wireless modem it also reports to the [status server](../status-server/README.md
    Factory), set its security to **Public**, put a wired modem on it, a
    **feeder** with a wired modem (a hopper on top, or an empty barrel a pipe
    pulls from into it) and an empty **output chest** under it, all on the
-   network, then `smelter add` each one. See
+   network, then add each one on the setup screen (step 7). See
    [Mekanism smelters](#mekanism-smelters).
 6. Optional, but worth it with more than a few furnaces: put an **empty
    chest** next to the furnaces with a wired modem on it, on the same
    network, as the [work chest](#work-chest).
-7. Install this program and reboot. Then tap **Setup** on its monitor, press
-   **U** on its screen, or run `smelter setup` in a second tab: the
+7. Install this program and reboot. Then tap **Setup** at the top right of
+   its monitor or screen, press **F1**, or run `smelter setup` in a second tab: the
    [setup screen](#the-setup-screen). Pick the work chest (if you placed one)
    and add any Mekanism smelters there. Everything is saved as you go.
 
@@ -168,8 +174,8 @@ wireless modem it also reports to the [status server](../status-server/README.md
    ```
 
 On the running smelter, **C** starts a charcoal order, **S** a stone order,
-**G** a glass order, and **X** cancels one (it asks which when more than one
-is running). The `smelter charcoal`, `smelter stone` and `smelter glass`
+**G** a glass order, **X** cancels one (it asks which when more than one
+is running), and **F1** opens the setup screen. The `smelter charcoal`, `smelter stone` and `smelter glass`
 commands do the same from another tab (or
 after stopping it with Ctrl+T); the running smelter picks them up within
 10 seconds.
@@ -217,7 +223,10 @@ search.
 Far away the smelter can only load furnaces through the work chest: while
 it's not in use (storage not answering, a chest gone), nothing is loaded
 and the footer says why. Both bases need to be loaded. Update the
-storage computer too (`install update`).
+storage computer too (`install update`). With an
+[enricher](../enricher-computer/README.md), the smelter asks it which ores to
+leave over rednet: with either of them far away, both need an ender modem,
+or the smelter smelts those ores itself.
 
 If you'd rather send things home separately, `smelter chest remote` also
 lets you pick a second, **return** ender chest, whose twin at home is an
@@ -229,9 +238,12 @@ smelter chest remote           -- pick the ender chest (and, if you like, a retu
 
 ## The setup screen
 
-`smelter setup` (or **Setup** on the monitor, or **U** on the smelter's
-screen) opens it on the monitor and the computer at once, in the running
-smelter if there is one:
+**Setup** at the top right of the monitor or the computer's screen, **F1**
+on the computer, or `smelter setup` (in a second tab, or after Ctrl+T)
+opens it on the monitor and the computer at once, in the running smelter
+if there is one. It works like the
+[storage computer's](../storage-computer/README.md#the-setup-screen) and the
+[enricher's](../enricher-computer/README.md#the-setup-screen):
 
 - **Furnaces**: how many it found on the network (nothing to pick: every
   furnace, blast furnace and smoker on the cable is used).
@@ -252,9 +264,11 @@ smelter if there is one:
 
 Chest lists show what's in each chest and go a page at a time (**<** **>**);
 **Empty** shows only the empty ones, and on the computer you can type to
-narrow the list. On the computer the arrow keys and Enter pick, Backspace
-goes back, and a button's first letter presses it. Each change is saved as
-you make it.
+narrow the list. On the computer the arrow keys and Enter pick, Page Up and
+Page Down turn the page, Backspace goes back, and a button's first letter
+presses it (D for **Done**, B for **Back**; not on chest lists, where
+typing narrows the list). Each change is saved as you make it, and the
+smelter uses it straight away.
 
 ## Things to know
 
@@ -266,8 +280,10 @@ you make it.
   With an ME or RS system and no work chest, the storage computer needs a
   **transfer chest** (chosen in `storage setup`) to load the furnaces' slots.
 - It asks the storage computer for everything over the cable, so both must
-  be on the same wired network. If the storage computer doesn't answer, the
-  footer says so and it tries again every 10 seconds.
+  be on the same wired network (far away: over ender modems, see
+  [Far from the storage system](#far-from-the-storage-system)). If the
+  storage computer doesn't answer, the footer says so and it tries again
+  every 10 seconds.
 - Making charcoal needs some fuel to start with: one coal or charcoal
   burns 8 logs into 8 charcoal.
 - A stone order only makes plain stone from cobblestone, not smooth stone
@@ -276,10 +292,10 @@ you make it.
   item that doesn't smelt there, like a modded ore in a blast furnace), the
   item goes back into storage and isn't put in that kind of furnace again
   until the smelter restarts.
-- If the storage input chest is full, smelted items wait in the furnaces
-  and the footer says so.
+- If the storage input chest (far away, the ender chest) is full, smelted
+  items wait in the furnaces and the footer says so.
 - Furnaces and smokers you load by hand get fuelled and emptied too.
 - After `install update`, an older `config.lua` (kept as it was) has no
   cook list: the smelter then cooks the food listed above and keeps 64
   potatoes. Copy the `cook` and `keep` lists from the new one to change them.
-- **A status board.** A monitor is the smelter's status board straight away: one touching it first, else the first one on the cable (put a wired modem on it and join it to the network). If it picks the wrong one (another program's on the same cable), `smelter monitor` lists every monitor it can see (right-click a monitor's modem to see its name) and the running smelter moves to the one you pick at once, no reboot (`smelter monitor none` for no board). The board has a tile per furnace and Mekanism smelter: **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). The full table, the orders and the C, S, G and X keys stay on the computer's screen.
+- **A status board.** A monitor is the smelter's status board straight away: one touching it first, else the first one on the cable (put a wired modem on it and join it to the network). If it picks the wrong one (another program's on the same cable), `smelter monitor` (or **Monitor** on the setup screen) lists every monitor it can see (right-click a monitor's modem to see its name) and the running smelter moves to the one you pick at once, no reboot (`smelter monitor none` for no board). The board has a tile per furnace and Mekanism smelter: **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). The full table, the orders and the C, S, G, X and F1 keys stay on the computer's screen.

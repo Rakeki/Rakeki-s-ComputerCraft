@@ -345,7 +345,9 @@ local function drawTerminal()
   put(t, 1, 1, (" "):rep(w), "white", "gray")
   put(t, 2, 1, "Storage", "yellow", "gray")
   local _, _, stat = store.space()
-  put(t, w - #stat, 1, stat, "lightGray", "gray")
+  -- the setup screen, like the monitor's button (or F1)
+  put(t, w - 6, 1, " Setup ", "black", "lightGray")
+  if #stat + 18 <= w then put(t, w - #stat - 8, 1, stat, "lightGray", "gray") end
 
   -- tabs: what's stored, and (light blue) what could be crafted
   tabZones = {}
@@ -389,8 +391,9 @@ local function drawTerminal()
   -- while searching, how to clear it matters more than the Tab hint (both don't fit)
   local other = query ~= "" and "  Del: clear"
     or canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
-  put(t, 1, h, fitText((tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one")
-    .. other, w), "gray")
+  local keysText = (tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one") .. other
+  if #keysText + 11 <= w then keysText = keysText .. "  F1: setup" end
+  put(t, 1, h, fitText(keysText, w), "gray")
   t.setCursorPos(9 + #query, 3)
   t.setTextColor(colors.white)
   t.setCursorBlink(true)
@@ -660,7 +663,9 @@ local function uiLoop()
     elseif event == "char" then
       query, selected, scroll = query .. a, 1, 0
     elseif event == "key" then
-      if a == keys.tab and canCraftAny() then
+      if a == keys.f1 then
+        mon.setup = true
+      elseif a == keys.tab and canCraftAny() then
         tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
       elseif a == keys.delete then
         query, selected, scroll = "", 1, 0
@@ -682,8 +687,10 @@ local function uiLoop()
     elseif event == "mouse_scroll" then
       selected = selected + a
     elseif event == "mouse_click" then
-      local _, h = term.getSize()
-      if y == 2 then
+      local w, h = term.getSize()
+      if y == 1 and x >= w - 6 then
+        mon.setup = true
+      elseif y == 2 then
         for name, z in pairs(tabZones) do
           if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
         end
@@ -2004,7 +2011,7 @@ end
 
 -- Far-away enrichers and smelters: found by wireless (they host their
 -- protocol); pick which ender chest on my cable is each one's work chest,
--- so its own end needs no probing ('<program> chest remote' takes it).
+-- so its own end needs no probing (Work chest, Far away on its setup screen takes it).
 local function configRemote(s)
   s.works = s.works or {}
   print("Looking for enrichers and smelters...")
@@ -2046,7 +2053,7 @@ local function configRemote(s)
   end
   if not isEnder(name) then print(name .. " isn't an ender chest on my network.") return false end
   s.works[w.id] = name
-  print(("Done. On %s #%d, run '%s chest remote' and pick its ender chest (or reboot it, if it"):format(w.kind, w.id,
+  print(("Done. On %s #%d, run '%s setup' and pick Work chest, Far away (nothing to do if it"):format(w.kind, w.id,
     w.kind == "computer" and "<program>" or w.kind))
   print("already works far away): it takes this one without a search.")
   return true

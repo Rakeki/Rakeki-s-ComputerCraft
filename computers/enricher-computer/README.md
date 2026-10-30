@@ -40,7 +40,10 @@ from it, instead of asking for each feeder in turn.
 While the enricher has a chamber with power, the smelter leaves those ores
 alone and smelts the dust instead. When the enricher stops, or can't load
 its chambers (its screen says why in red), the smelter goes back to
-smelting the ores itself, so they never just sit in storage.
+smelting the ores itself, so they never just sit in storage. Without a
+smelter the dust stays in storage. Every combination (furnaces only,
+Mekanism smelters, near or far away) is in
+[Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 
 The computer's screen lists each chamber with the ore it's on, how many are queued in
 it and its feeder, its power and what it's doing: **enriching**,
@@ -91,17 +94,17 @@ With a wireless modem it also reports to the
    chamber, like a Mekanism logistical transporter whose barrel end is set
    to **pull** with the Configurator. See [Barrel feeders](#barrel-feeders).
 4. Put an **empty chest** (or barrel) **under** the chamber with a wired
-   modem on it, on the same network: its **output chest**. Pick it in
-   `enricher add`, and the enricher empties it into storage each round.
+   modem on it, on the same network: its **output chest**. Pick it on the
+   setup screen, and the enricher empties it into storage each round.
    (Or make the chest under it an **extra input chest** in `storage setup`
-   and skip it in `enricher add`: then the dust goes straight in, and
+   and pick no output chest: then the dust goes straight in, and
    several chambers can share one through a pipe.)
 5. Place this computer with a wired modem on it, joined to the same network.
 6. Optional: put an **empty chest** with a wired modem on it on the same
    network as the [work chest](#work-chest).
-7. Install and reboot. Then tap **Setup** on its monitor, or run
-   `enricher setup` in a second tab (`bg enricher setup` on an advanced
-   computer): the [setup screen](#the-setup-screen). Under **Chambers**, add
+7. Install and reboot. Then tap **Setup** at the top right of its monitor
+   or screen, press **F1**, or run `enricher setup` in a second tab: the
+   [setup screen](#the-setup-screen). Under **Chambers**, add
    each chamber: tap it, then its feeder, then its output chest. Pick the
    work chest under **Work chest**. Everything is saved as you go.
 
@@ -116,6 +119,7 @@ With a wireless modem it also reports to the
    enricher chest                   -- pick the work chest from the empty chests on the network
    enricher chest none              -- stop using one (what's in it goes back into storage)
    enricher chest remote            -- far from home: one ender chest both ways (see below)
+   enricher monitor                 -- pick the monitor for the status board ('none': no board)
    edit config.lua                  -- which ores, how many to keep, names
    ```
 
@@ -174,15 +178,21 @@ dropping an item into each chest it could be, or pick it there first with
 [Far-away workers](../storage-computer/README.md#far-away-workers) on its
 setup screen and there's no search. Far away nothing is loaded while the work
 chest isn't in use, and the footer says why. Update the storage computer
-too (`install update`).
+too (`install update`). The [smelter](../smelter-computer/README.md) asks
+the enricher which ores to leave over rednet, so with the enricher far away
+it needs an ender modem too (or it smelts those ores itself).
 
 The command also lets you pick a second, **return** ender chest (home end
 an **extra input chest**) if you'd rather the dust went home through that.
 
 ## The setup screen
 
-`enricher setup` (or **Setup** on the monitor) opens it on the monitor and the
-computer at once, in the running enricher if there is one:
+**Setup** at the top right of the monitor or the computer's screen, **F1**
+on the computer, or `enricher setup` (in a second tab, or after Ctrl+T)
+opens it on the monitor and the computer at once, in the running enricher
+if there is one. It works like the
+[storage computer's](../storage-computer/README.md#the-setup-screen) and the
+[smelter's](../smelter-computer/README.md#the-setup-screen):
 
 - **Chambers**: every chamber with its feeder and output chest. Tap one to
   change its feeder or output chest, or remove it; **+ Add a chamber** picks
@@ -201,9 +211,11 @@ computer at once, in the running enricher if there is one:
 
 Chest lists show what's in each chest and go a page at a time (**<** **>**);
 **Empty** shows only the empty ones, and on the computer you can type to
-narrow the list. On the computer the arrow keys and Enter pick, Backspace
-goes back, and a button's first letter presses it. Each change is saved as
-you make it, and the enricher uses it on its next round.
+narrow the list. On the computer the arrow keys and Enter pick, Page Up and
+Page Down turn the page, Backspace goes back, and a button's first letter
+presses it (D for **Done**, B for **Back**; not on chest lists, where
+typing narrows the list). Each change is saved as you
+make it, and the enricher uses it straight away.
 
 ## Things to know
 
@@ -228,4 +240,4 @@ you make it, and the enricher uses it on its next round.
 - Without a monitor it draws on the computer's own screen.
 - The status board takes the largest text that fits. A monitor 2 blocks wide
   shows a column of tiles; wider ones fit two or more side by side.
-- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set enricher.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set enricher.monitor none` keeps it off monitors.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `enricher monitor` (or **Monitor** on the setup screen), which lists every monitor it can see (the name shows when you right-click the monitor's modem); the running enricher moves to it at once. `enricher monitor none` keeps it off monitors.
