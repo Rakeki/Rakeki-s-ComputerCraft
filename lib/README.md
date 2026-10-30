@@ -39,8 +39,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   (role `work`: a far-away work chest, through an ender chest).
 - `mekfeed.lua`: Mekanism machines fed through a hopper or barrel (CC can't
   reach their slots): reads them and their feeders at once, sets their bottom
-  to Output with Auto-eject, tells the storage computer which barrels are
-  feeders, puts back what doesn't go in, and the `add` / `remove` commands.
+  to Output with Auto-eject, empties their output chests into storage, tells
+  the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
   Used by `enricher-computer` and `smelter-computer`.
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage

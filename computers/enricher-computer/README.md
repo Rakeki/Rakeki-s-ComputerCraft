@@ -4,15 +4,16 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, a feeder (a hopper on top, or a barrel a pipe pulls from into it) and an input chest under it, all on that network; optional monitor
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, an input (a hopper on top, or a barrel a pipe pulls from into it) and an output chest under it, all on that network; optional monitor
 
 ## What it does
 
 Gets more ingots out of your ores with [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism)
 Enrichment Chambers. Every 5 seconds it fills each chamber's feeder with
 ores from the [storage system](../storage-computer/README.md). The chamber
-turns them into dust and pushes the dust out of its bottom into a storage
-input chest. The [smelter](../smelter-computer/README.md) then smelts the
+turns them into dust and pushes the dust out of its bottom into its
+**output chest**, which the enricher empties into storage each round (or
+straight into a storage input chest under it). The [smelter](../smelter-computer/README.md) then smelts the
 dust into ingots, like any other ore.
 
 | Goes in | Comes out | Smelted straight away, you'd get |
@@ -43,7 +44,8 @@ goes back to smelting the ores itself.
 The screen lists each chamber with the ore it's on, how many are queued in
 it and its feeder, its power and what it's doing: **enriching**,
 **starting**, **idle**, **needs N more** (raw ores waiting for a third),
-or in red **no power**, **output full** (the dust has nowhere to go) or
+or in red **no power**, **output full** (the dust has nowhere to go),
+**no output chest** or
 **no feeder**. Under the list it shows how much ore is waiting in storage.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -76,9 +78,12 @@ With a wireless modem it also reports to the
    **empty barrel** (or chest) with something that moves its items into the
    chamber, like a Mekanism logistical transporter whose barrel end is set
    to **pull** with the Configurator. See [Barrel feeders](#barrel-feeders).
-4. Put a **chest under** the chamber with a wired modem on it, and run
-   `storage setup` on the storage computer to add it as an **extra input
-   chest**. Several chambers can share one through a pipe.
+4. Put an **empty chest** (or barrel) **under** the chamber with a wired
+   modem on it, on the same network: its **output chest**. Pick it in
+   `enricher add`, and the enricher empties it into storage each round.
+   (Or make the chest under it an **extra input chest** in `storage setup`
+   and skip it in `enricher add`: then the dust goes straight in, and
+   several chambers can share one through a pipe.)
 5. Place this computer with a wired modem on it, joined to the same network.
 6. Optional: put an **empty chest** with a wired modem on it on the same
    network as the [work chest](#work-chest).
@@ -87,8 +92,9 @@ With a wireless modem it also reports to the
    Add each chamber (and pick the work chest), then `reboot`:
 
    ```
-   enricher add                     -- pick a chamber and its feeder (hopper or barrel)
-   enricher add enrichmentChamber_0 minecraft:hopper_3   -- or name them straight away
+   enricher add                     -- pick a chamber, its feeder (hopper or barrel) and its output chest
+   enricher add enrichmentChamber_0 minecraft:barrel_1 minecraft:chest_4   -- or name them: chamber, input, output
+   enricher add enrichmentChamber_0 minecraft:hopper_3   -- no output chest: the chest under it is a storage input chest
    enricher add enrichmentChamber_1 minecraft:barrel_2   -- a barrel a pipe empties into the chamber
    enricher remove                  -- list the chambers
    enricher remove 2                -- forget chamber 2
@@ -171,4 +177,6 @@ an **extra input chest**) if you'd rather the dust went home through that.
   III pickaxe. Take them out of `gems` in `config.lua` to keep those ores
   for that.
 - Without a monitor it draws on the computer's own screen.
+- On a monitor narrower than 48 characters (2 blocks wide at the smallest text) the Queue and
+  Power columns are left out and long messages wrap over a few lines. 3 blocks wide shows everything.
 - **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set enricher.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set enricher.monitor none` keeps it off monitors.

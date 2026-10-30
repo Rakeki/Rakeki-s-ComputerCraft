@@ -1076,12 +1076,12 @@
         "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
         "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
         "Optional: put an empty chest with a wired modem on the network as the work chest, and run smelter chest to pick it.",
-        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an input chest under it, all on the network, and run smelter add.",
+        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an empty output chest under it, all on the network, and run smelter add.",
         "Install and reboot. Change what gets smelted and cooked in config.lua."
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
-        ["smelter add", "add a Mekanism Energized Smelter and its feeder: the hopper on top, or a barrel a pipe pulls from"],
+        ["smelter add", "add a Mekanism Energized Smelter, its feeder (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["smelter remove 1", "forget Mekanism smelter 1 (no number: list them)"],
         ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
         ["smelter chest remote", "furnaces at another base: one ender chest both ways (or a return one too)"],
@@ -1419,7 +1419,7 @@
         ["Ore block", "2 ingots"],
         ["3 raw ores", "4 ingots"],
         ["Raw ore block", "12 ingots"],
-        ["Per chamber", "a hopper or barrel, and a chest"]
+        ["Per chamber", "an input and an output chest"]
       ],
       "features": [
         "Keeps every Enrichment Chamber (and Enriching Factory) on the storage network fed with ores from storage",
@@ -1434,13 +1434,13 @@
       ],
       "setup": [
         "Set up the storage computer and the smelter, and install update both.",
-        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a feeder (a hopper on top pointing down, or an empty barrel with a transporter set to pull into the chamber) and a chest under it, each with a wired modem, all on the storage network. Add the chest as an extra input chest in storage setup.",
+        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a feeder (a hopper on top pointing down, or an empty barrel with a transporter set to pull into the chamber) and an empty output chest under it, each with a wired modem, all on the storage network. The enricher empties the output chest into storage.",
         "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot.",
         "Optional: put an empty chest with a wired modem on the network and run enricher chest to make it the work chest."
       ],
       "commands": [
         ["enricher", "start (runs on boot)"],
-        ["enricher add", "add a chamber and its feeder: the hopper on top, or a barrel a pipe pulls from"],
+        ["enricher add", "add a chamber, its input (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["enricher remove 2", "forget chamber 2 (no number: list them)"],
         ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
         ["enricher chest remote", "chambers at another base: one ender chest both ways (or a return one too)"]
@@ -1461,9 +1461,11 @@
       "terminal": {
         "device": "computer",
         "lines": [
-          ["> ", "enricher add enrichmentChamber_0 minecraft:hopper_5", "cmd"],
-          ["Chamber 1 added: enrichmentChamber_0, fed by minecraft:hopper_5.", "", "white"],
-          ["Put a storage input chest under it (add it in 'storage setup'): its dust comes out there.", "", "white"]
+          ["> ", "enricher add enrichmentChamber_0 minecraft:barrel_1 minecraft:chest_4", "cmd"],
+          ["Chamber 1 added: enrichmentChamber_0, fed by minecraft:barrel_1.", "", "white"],
+          ["Something has to move its items into the machine: a logistical transporter set to pull, or a funnel.", "", "white"],
+          ["The storage computer stops using it as storage once the program is running.", "", "white"],
+          ["What it makes goes into minecraft:chest_4 (put it under the machine), and from there into storage.", "", "white"]
         ]
       }
     },
@@ -1715,13 +1717,14 @@
         ["set:read()", "Every saved machine and its feeder, read side by side (each Mekanism call takes a tick), sides set once. Each: entry { machine, feeder }, title, slots, factory, present, inputs, outputs, energy, usage, feedOk, feedSize, feedList, feed, feedTotal."],
         ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
         ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
+        ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, and true if some didn't fit."],
         ["mekfeed.ready(m)", "Present, powered and its feeder answers."],
         ["mekfeed.space(m, name)", "The most of an item its feeder may be sent: room in the machine's input slots less what's waiting, and room in the feeder."],
         ["mekfeed.current(m)", "What's in its feeder, or in a single machine's slot: keep sending that. nil when it's free."],
         ["mekfeed.added(m, name, n)", "Note the feeder was sent n."],
-        ["set:command(args)", "'<program> add [machine feeder]' and 'remove <n>'; false if args is neither."]
+        ["set:command(args)", "'<program> add [machine feeder [output]]' and 'remove <n>'; false if args is neither."]
       ],
-      "notes": "The machine ejects what it makes out of its bottom into a storage input chest: read sets that side to Output with Auto-eject when the machine is Public. A barrel feeder needs something moving its items into the machine (a logistical transporter set to pull, a funnel), has to be empty when added, and isn't filled until the storage computer has taken it as a feeder (it stops being storage). Far away (remote) nothing is registered."
+      "notes": "The machine ejects what it makes out of its bottom into its output chest (emptied by collect, registered like a barrel feeder) or a storage input chest: read sets that side to Output with Auto-eject when the machine is Public. A barrel feeder needs something moving its items into the machine (a logistical transporter set to pull, a funnel), has to be empty when added, and isn't filled until the storage computer has taken it as a feeder (it stops being storage). Far away (remote) nothing is registered."
     },
     {
       "name": "workchest",

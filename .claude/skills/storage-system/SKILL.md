@@ -123,7 +123,8 @@ The enricher fills a feeder for each Mekanism Enrichment Chamber (CC
 can't reach a Mekanism machine's slots: its own peripheral hides them): a
 hopper on top, or a barrel a pipe pulls from into the chamber, which it
 registers with `feeders` so it isn't storage; and
-the chamber auto-ejects dust into an extra input chest under it. The smelter
+the chamber auto-ejects dust into its output chest under it, which the enricher
+empties into storage each round (`set:collect`), or an extra input chest. The smelter
 asks the enricher (`enricher` protocol, `takes` → Lua patterns) which ores to
 leave alone, and smelts the dust.
 

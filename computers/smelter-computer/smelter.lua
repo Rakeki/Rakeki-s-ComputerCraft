@@ -15,8 +15,9 @@
 --   smelter glass <n> [red]        make n glass from sand (red: from red sand only;
 --                                  otherwise whichever sand there's most of)
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
---   smelter add [machine feeder]   add a Mekanism Energized Smelter (or Smelting Factory) and what feeds
---                                  it: the hopper on top, or a barrel a pipe pulls from (asks for what's not given)
+--   smelter add [machine feeder [output]]  add a Mekanism Energized Smelter (or Smelting Factory), what
+--                                  feeds it (the hopper on top, or a barrel a pipe pulls from) and its
+--                                  output chest under it (asks for what's not given)
 --   smelter remove <n>             forget Mekanism smelter n (no number: list them)
 --   smelter chest [name|none]      use an empty chest on the network as the work chest
 --                                  (no name: pick from a list; none: stop using one)
@@ -33,7 +34,8 @@
 -- Mekanism Energized Smelters and Smelting Factories work too, fed through a
 -- hopper or barrel like the enricher's chambers (lib/mekfeed.lua), and get
 -- first pick of what there is to smelt. They need no fuel, eject what they
--- make into a storage input chest under them, and take no part in orders
+-- make into the chest under them (an output chest the smelter empties into
+-- storage, or a storage input chest), and take no part in orders
 -- (what they make isn't counted).
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
@@ -410,6 +412,9 @@ local function round()
   -- for orders, since what they make goes into storage uncounted
   local unsure, feedProblem = smelters:register(work.remote)
   problem = problem or feedProblem
+  -- their output chests go home first, like the furnaces' output above
+  local _, outStuck = smelters:collect(meks, input)
+  if outStuck then blocked = true end
   smelters:unstick(meks, input, function(m, item)
     noSmelt["mek:" .. item.name] = true
     tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
@@ -625,6 +630,8 @@ local function draw()
       doing, colour = "not on network", "red"
     elseif not m.feedOk then
       doing, colour = "no feeder", "red"
+    elseif not m.outOk then
+      doing, colour = "no output chest", "red"
     elseif (m.energy or 0) <= 0 then
       doing, colour = "no power", "red"
     elseif mekfeed.full(m) then

@@ -43,6 +43,7 @@
 --   s:size()                         the screen's size now
 --   screen.put(t, x, y, text, fg, bg) write text; colours are names ("lime") or numbers (colors.lime), bg black if left out
 --   screen.fit(text, w)              cut or pad text to exactly w characters
+--   screen.wrap(text, w, most)       text in lines of up to w characters, broken at spaces (most: line limit)
 local screen = {}
 screen.__index = screen
 
@@ -189,6 +190,21 @@ function screen.fit(text, w)
   if w <= 0 then return "" end
   if #text > w then return text:sub(1, w) end
   return text .. (" "):rep(w - #text)
+end
+
+-- text in lines of at most w characters, broken at spaces where it can,
+-- and at most most lines (the last one is cut by fit when drawn)
+function screen.wrap(text, w, most)
+  text, most = tostring(text or ""), most or math.huge
+  local lines = {}
+  while #text > w and #lines < most - 1 do
+    local cut = text:sub(1, w + 1):match("^.*() ")
+    if not cut or cut <= 1 then cut = w + 1 end
+    lines[#lines + 1] = text:sub(1, cut - 1)
+    text = text:sub(cut):gsub("^ +", "")
+  end
+  lines[#lines + 1] = text
+  return lines
 end
 
 return screen

@@ -7,8 +7,9 @@
 -- gems (2 diamonds, 12 redstone, ...).
 --
 --   enricher                        start (startup.lua runs this)
---   enricher add [chamber feeder]   add a chamber and what feeds it: the hopper on top, or a barrel or
---                                   chest a pipe pulls from into it (asks for what's not given)
+--   enricher add [chamber feeder [output]]  add a chamber, what feeds it (the hopper on top, or a barrel
+--                                   or chest a pipe pulls from into it) and its output chest under it
+--                                   (asks for what's not given)
 --   enricher remove <n>             forget chamber n (no number: list them)
 --   enricher chest [name|none]      use an empty chest on the network as the work chest
 --                                   (no name: pick from a list; none: stop using one)
@@ -23,9 +24,10 @@
 -- it asks the storage computer to fill each feeder. Barrel and chest
 -- feeders on the storage cable are registered with the storage computer
 -- ('feeders'), so it doesn't take them for storage.
--- The chamber ejects its dust out of its bottom into a storage input chest
--- under it; this program sets that side to Output and turns Auto-eject on
--- when the chamber's security is Public.
+-- The chamber ejects its dust out of its bottom into the chest under it:
+-- its output chest, which the enricher empties into storage each round, or
+-- a storage input chest. This program sets that side to Output and turns
+-- Auto-eject on when the chamber's security is Public.
 --
 -- While it's running, the smelter leaves the ores it enriches alone (it asks
 -- on the 'enricher' protocol), and smelts the dust instead.
@@ -43,6 +45,7 @@ local EVERY = 5 -- seconds between rounds of filling the feeders
 local REPLY_WAIT = 30 -- seconds to wait for the storage computer to answer (a busy one answers late)
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
 local MONITOR_SCALE = 0.5 -- text size on the monitor (0.5 fits the most)
+local WIDE = 48 -- characters across from which the queue and power columns are shown
 
 -- Used if config.lua has none; see config.lua for what they mean.
 local METALS = config.metals or { "iron", "gold", "copper", "osmium", "tin", "lead", "uranium" }
@@ -163,6 +166,9 @@ local function round()
   for name, n in pairs(avail) do waiting[name] = n end
 
   local unsure, problem = chambers:register(work.remote)
+  -- the dust in the output chests goes home first, so they never fill up
+  local _, outStuck = chambers:collect(machines, input)
+  if outStuck then problem = problem or "the storage input chest is full: dust is waiting in the output chests" end
   chambers:unstick(machines, input, function(m, item)
     noEnrich[item.name] = true
     tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
@@ -221,6 +227,8 @@ local function round()
       m.state, m.colour = "not on network", "red"
     elseif not m.feedOk then
       m.state, m.colour = "no feeder", "red"
+    elseif not m.outOk then
+      m.state, m.colour = "no output chest", "red"
     elseif (m.energy or 0) <= 0 then
       m.state, m.colour = "no power", "red"
     elseif mekfeed.full(m) then
@@ -252,6 +260,7 @@ local function round()
     end
     local why = {
       ["no feeder"] = "its hopper or barrel isn't on the network",
+      ["no output chest"] = "its output chest isn't on the network",
       ["no power"] = "it has no power",
       ["output full"] = "its dust isn't going anywhere: chest under it, Auto-eject on?",
       ["not on network"] = "it isn't on the network",
@@ -297,29 +306,41 @@ local function draw()
 
   local win, w, h = display:frame()
   local function put(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
+  -- a narrow monitor drops the queue and power columns, and wraps the message
+  local wide = w >= WIDE
+  local doingX = wide and 40 or w - 11
+  local oreW = (wide and 29 or doingX) - 16
   put(1, 1, (" "):rep(w), "white", "gray")
-  put(2, 1, "Enrichment chambers", "yellow", "gray")
+  put(2, 1, fitText("Enrichment chambers", w - 2), "yellow", "gray")
   put(2, 3, "Chamber", "yellow")
-  put(15, 3, "Ore", "yellow")
-  put(29, 3, "Queue", "yellow")
-  put(35, 3, "Pwr", "yellow")
-  put(40, 3, "Doing", "yellow")
-  local rows = h - 7
+  put(14, 3, "Ore", "yellow")
+  if wide then
+    put(29, 3, "Queue", "yellow")
+    put(35, 3, "Pwr", "yellow")
+  end
+  put(doingX, 3, "Doing", "yellow")
+  local footer = {}
+  local function add(text, colour) footer[#footer + 1] = { text, colour } end
+  add(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", total > 0 and "white" or "gray")
+  for _, line in ipairs(screen.wrap(message[1], w, wide and 1 or 3)) do add(line, message[2]) end
+  add(wide and "Ctrl+T twice, then enricher add / remove / chest" or "Ctrl+T twice: enricher add", "gray")
+  local rows = h - 4 - #footer
   for i = 1, math.min(rows, #machines) do
     local m, y = machines[i], 3 + i
-    put(2, y, fitText(m.title, 12), "white")
-    put(15, y, fitText(m.item and nice(m.item) or "-", 13), "lightGray")
-    put(29, y, fitText(tostring(m.queued or 0), 5), "white")
-    local pct = math.floor((m.energy or 0) * 100 + 0.5)
-    put(35, y, fitText(pct .. "%", 4), pct < 10 and "red" or pct < 50 and "orange" or "lime")
-    put(40, y, fitText(m.state or "...", w - 40), m.colour or "gray")
+    put(2, y, fitText(m.title, 11), "white")
+    put(14, y, fitText(m.item and nice(m.item) or "-", oreW), "lightGray")
+    if wide then
+      put(29, y, fitText(tostring(m.queued or 0), 5), "white")
+      local pct = math.floor((m.energy or 0) * 100 + 0.5)
+      put(35, y, fitText(pct .. "%", 4), pct < 10 and "red" or pct < 50 and "orange" or "lime")
+    end
+    put(doingX, y, fitText(m.state or "...", w - doingX + 1), m.colour or "gray")
   end
-  if #machines > rows then put(2, h - 3, ("...and %d more"):format(#machines - rows), "gray") end
+  if #machines > rows then put(2, 4 + rows, ("...and %d more"):format(#machines - rows), "gray") end
   if #machines == 0 then put(2, 4, "No chambers yet.", "gray") end
-  put(2, h - 2, fitText(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", w - 2),
-    total > 0 and "white" or "gray")
-  put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("Ctrl+T twice, then enricher add / remove / chest", w), "gray")
+  for i, line in ipairs(footer) do
+    put(i == 1 and 2 or 1, h - #footer + i, fitText(line[1], i == 1 and w - 2 or w), line[2])
+  end
   display:show()
 end
 
@@ -372,7 +393,7 @@ elseif args[1] == "chest" then
   work:command(args[2])
   return
 elseif args[1] then
-  print("Usage: enricher [add [chamber feeder] | remove <n> | chest [name|none]]")
+  print("Usage: enricher [add [chamber feeder [output]] | remove <n> | chest [name|none]]")
   return
 end
 

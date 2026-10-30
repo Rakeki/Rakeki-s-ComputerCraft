@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an input chest under it; optional monitor (named with `set smelter.monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an output chest under it; optional monitor (named with `set smelter.monitor`)
 
 ## What it does
 
@@ -51,7 +51,9 @@ like the [enricher's chambers](../enricher-computer/README.md): a hopper on
 top pointing down, or a barrel a pipe pulls from into the machine (see
 [Barrel feeders](../enricher-computer/README.md#barrel-feeders)). The
 smelter fills the feeders, and the machine pushes what it makes out of its
-bottom into a storage input chest under it.
+bottom into its **output chest** under it, which the smelter empties into
+storage each round (or into a storage input chest under it, if you skip the
+output chest in `smelter add`).
 
 - They get first pick of what there is to smelt or cook (they're faster and
   need no fuel); the furnaces take what's left.
@@ -132,9 +134,9 @@ wireless modem it also reports to the [status server](../status-server/README.md
 5. Optional: for each Mekanism **Energized Smelter** (or Smelting
    Factory), set its security to **Public**, put a wired modem on it, a
    **feeder** with a wired modem (a hopper on top, or an empty barrel a pipe
-   pulls from into it) and a chest under it, all on the network. Add that
-   chest as an **extra input chest** in `storage setup`, then
-   `smelter add` each one. See [Mekanism smelters](#mekanism-smelters).
+   pulls from into it) and an empty **output chest** under it, all on the
+   network, then `smelter add` each one. See
+   [Mekanism smelters](#mekanism-smelters).
 6. Optional, but worth it with more than a few furnaces: put an **empty
    chest** next to the furnaces with a wired modem on it, on the same
    network, as the [work chest](#work-chest).
@@ -143,8 +145,8 @@ wireless modem it also reports to the [status server](../status-server/README.md
 
    ```
    smelter                        -- start (startup.lua does this on boot)
-   smelter add                    -- add a Mekanism smelter and its feeder (hopper or barrel)
-   smelter add energizedSmelter_0 minecraft:hopper_4   -- or name them straight away
+   smelter add                    -- add a Mekanism smelter, its feeder (hopper or barrel) and output chest
+   smelter add energizedSmelter_0 minecraft:hopper_4 minecraft:chest_9   -- or name them: smelter, input, output
    smelter remove 1               -- forget Mekanism smelter 1 (no number: list them)
    smelter chest                  -- pick the work chest from the empty chests on the network
    smelter chest minecraft:chest_7  -- or name it straight away

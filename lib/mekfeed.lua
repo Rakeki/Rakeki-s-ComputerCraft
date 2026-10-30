@@ -3,9 +3,10 @@
 -- a feeder: a hopper on top, or a barrel or chest that a pipe (a logistical
 -- transporter set to pull, a Create funnel) empties into it. The program
 -- fills the feeder; the machine ejects what it makes out of its bottom
--- (set to Output with Auto-eject here when its security is Public) into a
--- storage input chest under it. Used by the enricher (Enrichment Chambers)
--- and the smelter (Energized Smelters).
+-- (set to Output with Auto-eject here when its security is Public) into the
+-- chest under it: its own output chest, which the program empties into
+-- storage each round (collect), or a storage input chest. Used by the
+-- enricher (Enrichment Chambers) and the smelter (Energized Smelters).
 --
 --   local mekfeed = require("lib.mekfeed")
 --   local set = mekfeed.new({ name = "smelter",           -- machines saved in /.smelter_machines
@@ -15,13 +16,15 @@
 --   local machines = set:read()                           -- every machine and its feeder, read at once
 --   local unsure, problem = set:register(work.remote)     -- tell the storage computer which barrels are feeders
 --   set:unstick(machines, input, function(m, item) ... end) -- put back what doesn't go in
+--   local moved, stuck = set:collect(machines, input)    -- output chests into storage
 --   local n = set.roomFor(m, name)                        -- how many more of an item it can take
 --   set:command(args)                                     -- '<program> add ...' / 'remove ...'; false if neither
 --
--- Each machine: { n, entry = { machine, feeder }, title, slots, factory,
--- present, inputs[i], outputs[i] (each { name, count } or nil), energy (0-1),
--- usage, feedOk, feedSize, feedList (list()), feed (name -> count),
--- feedTotal }. Mekanism runs each method on the game's main thread, one
+-- Each machine: { n, entry = { machine, feeder, output (nil: none) }, title,
+-- slots, factory, present, inputs[i], outputs[i] (each { name, count } or
+-- nil), energy (0-1), usage, feedOk, feedSize, feedList (list()), feed
+-- (name -> count), feedTotal, outOk (true without an output chest),
+-- outList }. Mekanism runs each method on the game's main thread, one
 -- tick per call, so every call runs side by side.
 local files = require("lib.files") -- crash-safe save files
 
@@ -82,7 +85,7 @@ function Set:isMachine(t)
   return t == self.opts.single or t:find(self.opts.factory .. "$") ~= nil
 end
 
--- The saved machines: { machine, feeder } each.
+-- The saved machines: { machine, feeder, output } each.
 function Set:entries()
   local t = files.read(self.file)
   t = type(t) == "table" and t or {}
@@ -139,6 +142,13 @@ local function readOne(m)
       m.feedTotal = m.feedTotal + item.count
     end
   end
+  if m.entry.output then
+    jobs[#jobs + 1] = function()
+      local ok, list = pcall(peripheral.call, m.entry.output, "list")
+      m.outOk = ok and type(list) == "table"
+      m.outList = m.outOk and list or {}
+    end
+  end
   parallel.waitForAll(table.unpack(jobs))
 end
 
@@ -167,7 +177,7 @@ function Set:read()
     list[i] = { n = i, entry = entry, title = self.names[entry.machine] or ("%s %d"):format(self.opts.title, i),
       slots = tier and (FACTORY_SLOTS[tier] or 3) or 1, factory = tier ~= nil,
       present = peripheral.isPresent(entry.machine), inputs = {}, outputs = {}, feed = {}, feedList = {},
-      feedTotal = 0, feedSize = 0 }
+      feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {} }
   end
   local reads = {}
   for _, m in ipairs(list) do
@@ -246,8 +256,10 @@ function Set:register(remote)
   local list = {}
   for _, entry in ipairs(self:entries()) do
     -- whether or not its machine is there: a missing machine's barrel isn't storage either
-    local t = peripheral.isPresent(entry.feeder) and peripheral.getType(entry.feeder)
-    if t and not isHopper(t) then list[#list + 1] = entry.feeder end
+    for _, name in ipairs({ entry.feeder, entry.output or nil }) do
+      local t = peripheral.isPresent(name) and peripheral.getType(name)
+      if t and not isHopper(t) then list[#list + 1] = name end
+    end
   end
   table.sort(list)
   local key, now = table.concat(list, ","), os.clock()
@@ -293,6 +305,24 @@ function Set:unstick(machines, input, putBack)
   end
 end
 
+-- Empty each machine's output chest into input (the storage input chest,
+-- or far away the ender chest). How many moved, and true if some didn't fit.
+function Set:collect(machines, input)
+  local moved, stuck = 0, false
+  if not input then return 0, false end
+  for _, m in ipairs(machines) do
+    if m.entry.output and m.outOk then
+      for slot, item in pairs(m.outList) do
+        local ok, n = pcall(peripheral.call, m.entry.output, "pushItems", input, slot)
+        n = ok and n or 0
+        moved = moved + n
+        if n < item.count then stuck = true end
+      end
+    end
+  end
+  return moved, stuck
+end
+
 ---------------------------------------------------------------- commands
 
 -- Pick from a numbered list (or type a name); nil if cancelled.
@@ -313,15 +343,20 @@ function Set:list()
   local list = self:entries()
   if #list == 0 then print(("No %ss yet. Add one with '%s add'."):format(self.opts.what, self.opts.name)) end
   for i, entry in ipairs(list) do
-    print(("%d  %s: %s, fed by %s"):format(i, self.names[entry.machine] or ("%s %d"):format(self.opts.title, i),
-      entry.machine, entry.feeder))
+    print(("%d  %s: %s, fed by %s, out to %s"):format(i,
+      self.names[entry.machine] or ("%s %d"):format(self.opts.title, i), entry.machine, entry.feeder,
+      entry.output or "the chest under it"))
   end
 end
 
-function Set:add(machine, feeder)
+function Set:add(machine, feeder, output)
   local list = self:entries()
   local used = {}
-  for _, entry in ipairs(list) do used[entry.machine], used[entry.feeder] = true, true end
+  for _, entry in ipairs(list) do
+    used[entry.machine], used[entry.feeder] = true, true
+    if entry.output then used[entry.output] = true end
+  end
+  local asking = not feeder -- an output chest is only asked for along with the feeder
   if not machine or not feeder then print("Right-click a modem to see its block's name.") end
   if not machine then
     local machines = self:free()
@@ -350,8 +385,22 @@ function Set:add(machine, feeder)
     feeder = choose("Which? (Enter to cancel)", feeders)
     if not feeder then return end
   end
-  if used[machine] or used[feeder] then print("That one is already added.") return end
-  for _, name in ipairs({ machine, feeder }) do
+  if asking then
+    local outs = {}
+    for _, name in ipairs(findOnNetwork(isFeeder)) do
+      if not used[name] and name ~= feeder and not isHopper(peripheral.getType(name)) and isEmpty(name) then
+        outs[#outs + 1] = name
+      end
+    end
+    if #outs > 0 then
+      print("Its OUTPUT chest, under it, where what it makes goes (emptied into storage each round).")
+      print("Enter: none, the chest under it is a storage input chest.")
+      output = choose("Which?", outs)
+    end
+  end
+  if used[machine] or used[feeder] or (output and used[output]) then print("That one is already added.") return end
+  if output == feeder then print("The feeder and the output chest have to be different chests.") return end
+  for _, name in ipairs({ machine, feeder, output }) do
     if not peripheral.isPresent(name) then print(name .. " isn't on the network.") return end
   end
   if not self:isMachine(peripheral.getType(machine) or "") then
@@ -364,22 +413,31 @@ function Set:add(machine, feeder)
     print(feeder .. " has items in it: empty it first (it might be a storage chest).")
     return
   end
+  if output then
+    local outType = peripheral.getType(output) or ""
+    if not isFeeder(outType) or isHopper(outType) then print(output .. " isn't a barrel or chest.") return end
+    if not isEmpty(output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
+  end
 
-  list[#list + 1] = { machine = machine, feeder = feeder }
+  list[#list + 1] = { machine = machine, feeder = feeder, output = output }
   self:save(list)
   print(("%s %d added: %s, fed by %s."):format(self.opts.title, #list, machine, feeder))
   if not isHopper(feederType) then
     print("Something has to move its items into the machine: a logistical transporter set to pull, or a funnel.")
     print("The storage computer stops using it as storage once the program is running.")
   end
-  print("Put a storage input chest under it (add it in 'storage setup'): what it makes comes out there.")
+  if output then
+    print(("What it makes goes into %s (put it under the machine), and from there into storage."):format(output))
+  else
+    print("Put a storage input chest under it (add it in 'storage setup'): what it makes comes out there.")
+  end
 end
 
--- '<program> add [machine feeder]' and '<program> remove <n>': true if
+-- '<program> add [machine feeder [output]]' and '<program> remove <n>': true if
 -- args was one of them (and it's been done).
 function Set:command(args)
   if args[1] == "add" then
-    self:add(args[2], args[3])
+    self:add(args[2], args[3], args[4])
     return true
   elseif args[1] == "remove" then
     local list = self:entries()
@@ -391,7 +449,7 @@ function Set:command(args)
     end
     local entry = table.remove(list, n)
     self:save(list)
-    print(("Forgot %s. Empty its feeder by hand."):format(entry.machine))
+    print(("Forgot %s. Empty its feeder%s by hand."):format(entry.machine, entry.output and " and output chest" or ""))
     return true
   end
   return false
