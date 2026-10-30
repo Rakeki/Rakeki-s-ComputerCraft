@@ -70,7 +70,7 @@ function M.new(setup)
         if name == chest then return false end
       end
     end
-    -- the barrels and chests feeding the enricher's chambers ("feeders")
+    -- the barrels and chests feeding the enricher's and smelter's Mekanism machines ("feeders")
     for _, list in pairs(setup.feeders or {}) do
       for _, chest in ipairs(list) do
         if name == chest then return false end

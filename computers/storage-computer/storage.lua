@@ -102,7 +102,7 @@ local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraf
 -- request). delivery is the shared one for turtles without their own.
 -- works are the smelter's and enricher's work chests (lib/workchest.lua, the
 -- "work" request), filled in one go with "fill". feeders are the barrels and
--- chests the enricher feeds its chambers from (the "feeders" request).
+-- chests the enricher and smelter feed their Mekanism machines from (the "feeders" request).
 local setup
 local store -- the backend: chests.lua or bridge.lua
 local fuelList = {} -- the fuel chest's list()
@@ -964,7 +964,7 @@ end
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
 --                                                     or one of the asker's feeders
---   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (the enricher's barrels: not storage)
+--   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (Mekanism machines' barrels: not storage)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
 --   { type = "list" }                               -> { re = "list", items = { { name, label, count } } }  (remote terminal)
 --   { type = "work", chest }                        -> { re = "work", ok, chest, error }  (a computer's work chest; no chest: stop)
@@ -1353,8 +1353,8 @@ end
 
 ---------------------------------------------------------------- computers' feeders
 
--- The enricher feeds each chamber from a hopper, or from a barrel or chest a
--- pipe empties into the chamber. A barrel or chest on my cable would be
+-- The enricher and smelter feed each Mekanism machine from a hopper, or from
+-- a barrel or chest a pipe empties into it (lib/mekfeed.lua). A barrel or chest on my cable would be
 -- storage, so it names them (all of them, every time they change):
 --   { type = "feeders", chests = { name, ... } } -> { re = "feeders", ok = true } or { ok = false, error }
 -- They're kept out of storage, and "send" may fill them. One it didn't

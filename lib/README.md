@@ -37,6 +37,11 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   chest), so nothing has to be picked in `storage setup`. Used by
   `village-turtle`, `builder-turtle`, `crafter-turtle`, `remote-terminal` and `workchest.lua`
   (role `work`: a far-away work chest, through an ender chest).
+- `mekfeed.lua`: Mekanism machines fed through a hopper or barrel (CC can't
+  reach their slots): reads them and their feeders at once, sets their bottom
+  to Output with Auto-eject, tells the storage computer which barrels are
+  feeders, puts back what doesn't go in, and the `add` / `remove` commands.
+  Used by `enricher-computer` and `smelter-computer`.
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage
   computer](../computers/storage-computer/README.md), has it filled in one

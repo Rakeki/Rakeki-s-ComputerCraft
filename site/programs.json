@@ -1051,7 +1051,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal, cobblestone into stone or sand into glass on request.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1065,6 +1065,7 @@
         "Smelts Mekanism dust into ingots, and leaves the ores the enricher takes to it while it runs",
         "Cooks raw meat, fish, potatoes and kelp too, in smokers first (keeps 64 potatoes for planting)",
         "Shares the work out between furnaces, blast furnaces and smokers first",
+        "Mekanism Energized Smelters too: fed through a hopper or barrel, no fuel, first pick of what there is",
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
         "Optional work chest: the storage computer fills it once a round with everything the furnaces need, and the smelter loads them from it",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
@@ -1075,10 +1076,13 @@
         "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
         "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
         "Optional: put an empty chest with a wired modem on the network as the work chest, and run smelter chest to pick it.",
+        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an input chest under it, all on the network, and run smelter add.",
         "Install and reboot. Change what gets smelted and cooked in config.lua."
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
+        ["smelter add", "add a Mekanism Energized Smelter and its feeder: the hopper on top, or a barrel a pipe pulls from"],
+        ["smelter remove 1", "forget Mekanism smelter 1 (no number: list them)"],
         ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
         ["smelter chest remote", "furnaces at another base: one ender chest both ways (or a return one too)"],
         ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
@@ -1089,6 +1093,7 @@
       "integrates": [
         ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks, or fills its work chest in one go."],
         ["workchest", "One request a round fills the work chest with every furnace's load and fuel."],
+        ["mekfeed", "Reads the Mekanism smelters and their feeders, sets their sides and tells the storage computer which barrels are feeders."],
         ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
         ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
         ["enricher-computer", "Enriches ores into dust first, for up to twice the ingots; the smelter smelts the dust."],
@@ -1406,7 +1411,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "lightGray",
       "tagline": "Feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore and 4 per 3 raw ores, which the smelter turns into ingots: up to twice the metal.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1442,6 +1447,7 @@
       "integrates": [
         ["storage-computer", "Holds the ores, fills each chamber's hopper or barrel (or the enricher's work chest, in one go) when the enricher asks, leaves barrel feeders out of storage, and takes the dust back through an input chest."],
         ["workchest", "One request a round fills the work chest with the ores for every feeder."],
+        ["mekfeed", "Reads the chambers and their feeders, sets their sides and tells the storage computer which barrels are feeders."],
         ["smelter-computer", "Asks the enricher which ores to leave alone, and smelts the dust into ingots."],
         ["digital-miner-manager", "Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the enricher."],
         ["status-server", "Shows how many chambers are enriching, and when one needs attention."]
@@ -1695,6 +1701,26 @@
         ["claim.chest(ask, role, side)", "Tell the storage computer the chest on that side is mine. role is \"delivery\" (my orders go there) or \"crafter\". Returns true and the chest's network name, false and why not, or nil if nothing answered."]
       ],
       "notes": "The turtle sends what's in its chest. If that's the chest the storage computer already has for it, it answers at once; otherwise it drops one item into each chest that could be it until the turtle sees it arrive, and takes it back each time. The storage system needs at least one item in it. The chest needs a wired modem on the storage cable."
+    },
+    {
+      "name": "mekfeed",
+      "title": "lib/mekfeed",
+      "file": "lib/mekfeed.lua",
+      "color": "lightBlue",
+      "tagline": "Mekanism machines fed through a hopper or barrel (CC can't reach their slots): reads them and their feeders at once, sets their output side, registers barrel feeders with the storage computer and handles the add / remove commands.",
+      "usage": "local mekfeed = require(\"lib.mekfeed\")\n\nlocal set = mekfeed.new({ name = \"smelter\", single = \"energizedSmelter\",\n  factory = \"SmeltingFactory\", what = \"energized smelter\", title = \"Smelter\",\n  ask = ask, tell = tell })\n\n-- each round:\nlocal machines = set:read()\nlocal unsure = set:register(work.remote)\nset:unstick(machines, input, function(m, item) end)\nfor _, m in ipairs(machines) do\n  if mekfeed.ready(m) and not unsure[m.entry.feeder] then\n    local n = mekfeed.space(m, \"minecraft:raw_iron\")\n    -- send n into m.entry.feeder, then mekfeed.added(m, name, sent)\n  end\nend",
+      "api": [
+        ["mekfeed.new(opts)", "A set of machines saved in /.<name>_machines: single and factory are the peripheral types (factory a suffix after the tier), what / title for messages, names, setSides, ask, tell."],
+        ["set:read()", "Every saved machine and its feeder, read side by side (each Mekanism call takes a tick), sides set once. Each: entry { machine, feeder }, title, slots, factory, present, inputs, outputs, energy, usage, feedOk, feedSize, feedList, feed, feedTotal."],
+        ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
+        ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
+        ["mekfeed.ready(m)", "Present, powered and its feeder answers."],
+        ["mekfeed.space(m, name)", "The most of an item its feeder may be sent: room in the machine's input slots less what's waiting, and room in the feeder."],
+        ["mekfeed.current(m)", "What's in its feeder, or in a single machine's slot: keep sending that. nil when it's free."],
+        ["mekfeed.added(m, name, n)", "Note the feeder was sent n."],
+        ["set:command(args)", "'<program> add [machine feeder]' and 'remove <n>'; false if args is neither."]
+      ],
+      "notes": "The machine ejects what it makes out of its bottom into a storage input chest: read sets that side to Output with Auto-eject when the machine is Public. A barrel feeder needs something moving its items into the machine (a logistical transporter set to pull, a funnel), has to be empty when added, and isn't filled until the storage computer has taken it as a feeder (it stops being storage). Far away (remote) nothing is registered."
     },
     {
       "name": "workchest",

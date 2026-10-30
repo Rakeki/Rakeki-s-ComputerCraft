@@ -16,9 +16,9 @@
 --                                   one too (the chests under the chambers then empty into it)
 --
 -- CC can't put items into a Mekanism machine (its computer port hides the
--- slots), so each chamber has a feeder: a hopper on top, or a barrel or
--- chest that a pipe (e.g. a logistical transporter set to pull) empties into
--- it. With a work chest, the storage computer fills that once a round and
+-- slots), so each chamber has a feeder (lib/mekfeed.lua): a hopper on top,
+-- or a barrel or chest that a pipe (e.g. a logistical transporter set to
+-- pull) empties into it. With a work chest, the storage computer fills that once a round and
 -- the enricher fills the feeders from it (lib/workchest.lua); without one,
 -- it asks the storage computer to fill each feeder. Barrel and chest
 -- feeders on the storage cable are registered with the storage computer
@@ -31,7 +31,7 @@
 -- on the 'enricher' protocol), and smelts the dust instead.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
-local files = require("lib.files") -- crash-safe save files
+local mekfeed = require("lib.mekfeed") -- Mekanism machines fed through a hopper or barrel
 local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
@@ -39,17 +39,10 @@ local config = fs.exists("config.lua") and require("config") or {}
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
 local ENRICHER_PROTOCOL = "enricher" -- the smelter asks which ores to leave alone on this
-local MACHINES_FILE = "/.enricher_machines" -- { chamber, feeder } per chamber, changed by 'enricher add' etc.
 local EVERY = 5 -- seconds between rounds of filling the feeders
 local REPLY_WAIT = 30 -- seconds to wait for the storage computer to answer (a busy one answers late)
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
-local STACK = 64 -- items to a slot in a chamber's input
-local FEEDERS_WAIT = 5 -- seconds to wait for the storage computer to take the barrel feeders
-local FEEDERS_RETRY = 60 -- seconds before asking again after it didn't
-local STUCK_AFTER = 60 -- seconds an item may sit in a feeder over an empty chamber before it's put back
 local MONITOR_SCALE = 0.5 -- text size on the monitor (0.5 fits the most)
--- Process slots in each tier of Enriching Factory.
-local FACTORY_SLOTS = { basic = 3, advanced = 5, elite = 7, ultimate = 9 }
 
 -- Used if config.lua has none; see config.lua for what they mean.
 local METALS = config.metals or { "iron", "gold", "copper", "osmium", "tin", "lead", "uranium" }
@@ -73,12 +66,7 @@ local message = { "Looking for the storage computer...", "lightGray" }
 local news -- { text, colour, untilTime }: a put-back item, shown for a minute
 local waiting = {} -- item -> how many in storage to enrich, for the screen
 local taking = false -- a chamber is ready, so the smelter should leave the ores alone
-local configured = {} -- chamber -> true once its sides have been set (or tried)
-local stuckSince = {} -- feeder -> { name, count, since }: an item not going into an empty chamber
 local noEnrich = {} -- item -> true: found not to go into a chamber (until restart)
-local feedersKey -- the barrel and chest feeders the storage computer last took, joined with ","
-local feedersRetry -- os.clock() before which they aren't sent again
-local feedersProblem -- why it didn't take them
 
 ---------------------------------------------------------------- helpers
 
@@ -110,50 +98,6 @@ local function perOp(name)
   return (name:find("^[%w_]+:raw_") and not name:find("_block$")) and 3 or 1
 end
 
-local function readMachines()
-  local t = files.read(MACHINES_FILE)
-  t = type(t) == "table" and t or {}
-  -- saved before a feeder could be a barrel
-  for _, entry in ipairs(t) do entry.feeder = entry.feeder or entry.hopper end
-  return t
-end
-
-local function writeMachines(t)
-  files.write(MACHINES_FILE, t)
-  os.queueEvent("enricher_added") -- the running program, if this is another tab
-end
-
--- Peripherals on the wired network (not ones touching this computer: the
--- storage computer can't reach those) that pass test(type).
-local function findOnNetwork(test)
-  local sides, list = {}, {}
-  for _, s in ipairs(rs.getSides()) do sides[s] = true end
-  for _, name in ipairs(peripheral.getNames()) do
-    local t = peripheral.getType(name)
-    if not sides[name] and t and test(t) then list[#list + 1] = name end
-  end
-  table.sort(list)
-  return list
-end
-
-local function isChamber(t) return t == "enrichmentChamber" or t:find("EnrichingFactory$") ~= nil end
-local function isHopper(t) return t:find("hopper", 1, true) ~= nil end
--- What can feed a chamber: a hopper, or a barrel or chest a pipe pulls
--- from (never an ender chest: its items are shared with one elsewhere).
-local function isFeeder(t)
-  if isHopper(t) then return true end
-  return (t:find("barrel", 1, true) or t:find("chest", 1, true)) ~= nil and not t:find("ender", 1, true)
-end
-
--- Process slots: 1 for a chamber, 3 to 9 for a factory (by its tier).
-local function slotsOf(name)
-  local t = peripheral.getType(name) or ""
-  local tier = t:match("^(%l+)EnrichingFactory$")
-  return tier and (FACTORY_SLOTS[tier] or 3) or 1, tier ~= nil
-end
-
-local function titleOf(entry, n) return NAMES[entry.chamber] or ("Chamber " .. n) end
-
 ---------------------------------------------------------------- talking to storage
 
 -- over the cable (or wireless, if that's all there is)
@@ -168,93 +112,16 @@ local function ask(msg, wait)
 end
 
 local work = workchest.new("enricher", ask)
+local chambers = mekfeed.new({ name = "enricher", single = "enrichmentChamber", factory = "EnrichingFactory",
+  what = "enrichment chamber", title = "Chamber", names = NAMES, setSides = SET_SIDES, ask = ask, tell = tell })
 
----------------------------------------------------------------- reading a chamber
+---------------------------------------------------------------- choosing
 
--- Mekanism hands over an empty slot as air with count 0.
-local function stackOf(s)
-  if type(s) == "table" and type(s.name) == "string" and (s.count or 0) > 0 and s.name ~= "minecraft:air" then
-    return { name = s.name, count = s.count }
-  end
-  return nil
-end
-
--- Everything about one chamber and its feeder. Mekanism runs each method on
--- the game's main thread, one tick per call, so the calls run side by side.
-local function readMachine(m)
-  local jobs = {}
-  m.inputs, m.outputs, m.feed, m.feedTotal = {}, {}, {}, 0
-  local function call(method, ...)
-    local ok, v = pcall(peripheral.call, m.entry.chamber, method, ...)
-    return ok and v or nil
-  end
-  for i = 1, m.slots do
-    jobs[#jobs + 1] = function()
-      if m.factory then
-        m.inputs[i], m.outputs[i] = stackOf(call("getInput", i - 1)), stackOf(call("getOutput", i - 1))
-      else
-        m.inputs[i], m.outputs[i] = stackOf(call("getInput")), stackOf(call("getOutput"))
-      end
-    end
-  end
-  jobs[#jobs + 1] = function() m.energy = call("getEnergyFilledPercentage") end
-  jobs[#jobs + 1] = function() m.usage = call("getEnergyUsage") end
-  jobs[#jobs + 1] = function()
-    local ok, list = pcall(peripheral.call, m.entry.feeder, "list")
-    local okS, size = pcall(peripheral.call, m.entry.feeder, "size")
-    m.feedOk = ok and type(list) == "table"
-    m.feedSize = okS and size or 0
-    m.feedList = m.feedOk and list or {}
-    for _, item in pairs(m.feedList) do
-      m.feed[item.name] = (m.feed[item.name] or 0) + item.count
-      m.feedTotal = m.feedTotal + item.count
-    end
-  end
-  parallel.waitForAll(table.unpack(jobs))
-end
-
--- Set the chamber's bottom to Output and turn Auto-eject on, once. Only
--- works when its security is Public; false if it couldn't.
-local function configure(m)
-  if configured[m.entry.chamber] ~= nil or not SET_SIDES then return end
-  local name = m.entry.chamber
-  local okM, mode = pcall(peripheral.call, name, "getMode", "ITEM", "BOTTOM")
-  if okM and mode ~= "OUTPUT" then okM = pcall(peripheral.call, name, "setMode", "ITEM", "BOTTOM", "OUTPUT") end
-  local okE, ejecting = pcall(peripheral.call, name, "isEjecting", "ITEM")
-  if okE and not ejecting then okE = pcall(peripheral.call, name, "setEjecting", "ITEM", true) end
-  configured[name] = okM and okE
-  if not configured[name] then
-    tell(("Couldn't set %s's sides: make it Public, or set Bottom to Output and Auto-eject on by hand.")
-      :format(m.title), "orange")
-  end
-end
-
--- How much more of an item the chamber's input slots can take: an empty
--- slot takes a stack, one holding the item the rest of its stack.
-local function roomFor(m, name)
-  local room = 0
-  for i = 1, m.slots do
-    local s = m.inputs[i]
-    if not s then room = room + STACK elseif s.name == name then room = room + STACK - s.count end
-  end
-  return room - (m.feed[name] or 0)
-end
-
-local function inputOf(m, name)
-  local n = 0
-  for i = 1, m.slots do
-    local s = m.inputs[i]
-    if s and (not name or s.name == name) then n = n + s.count end
-  end
-  return n
-end
-
--- The item to send next: what's already in the feeder, else (a chamber
--- has one slot) what's in the chamber, else whatever there's most of.
+-- The item to send next: what's already in the feeder or (a chamber has
+-- one slot) the chamber, else whatever there's most of.
 local function pickItem(m, avail)
-  local _, inFeed = next(m.feedList)
-  if inFeed then return inFeed.name end
-  if not m.factory and m.inputs[1] then return m.inputs[1].name end
+  local current = mekfeed.current(m)
+  if current then return current end
   local best, most = nil, 0
   for name, n in pairs(avail) do
     if n >= perOp(name) and n > most and not noEnrich[name] then best, most = name, n end
@@ -265,30 +132,14 @@ end
 ---------------------------------------------------------------- a round
 
 local function round()
-  local list = readMachines()
-  local nowMachines = {}
-  for i, entry in ipairs(list) do
-    local slots, factory = slotsOf(entry.chamber)
-    nowMachines[i] = { n = i, entry = entry, title = titleOf(entry, i), slots = slots, factory = factory,
-      present = peripheral.isPresent(entry.chamber), inputs = {}, outputs = {}, feed = {}, feedList = {},
-      feedTotal = 0 }
-  end
-  local reads = {}
-  for _, m in ipairs(nowMachines) do
-    if m.present then reads[#reads + 1] = function() readMachine(m) end end
-  end
-  if #reads > 0 then parallel.waitForAll(table.unpack(reads)) end
-  machines = nowMachines
-  for _, m in ipairs(machines) do
-    if m.present then configure(m) end
-  end
+  machines = chambers:read()
   local ready = 0
   for _, m in ipairs(machines) do
-    if m.present and m.feedOk and (m.energy or 0) > 0 then ready = ready + 1 end
+    if mekfeed.ready(m) then ready = ready + 1 end
   end
   taking = ready > 0
   if #machines == 0 then
-    local free = #findOnNetwork(isChamber)
+    local free = #chambers:free()
     say(free > 0 and ("%d chamber(s) on the network: hold Ctrl+T twice, then 'enricher add'."):format(free)
       or "No chambers yet: put a wired modem on one, then hold Ctrl+T twice and 'enricher add'.", "orange")
     status("waiting", "no chambers")
@@ -311,60 +162,12 @@ local function round()
   waiting = {}
   for name, n in pairs(avail) do waiting[name] = n end
 
-  -- a barrel or chest on the storage cable would be storage to the storage
-  -- computer (it'd put things in it and count the ore in it): tell it which
-  -- are feeders, and fill none of them until it has said yes. Far away the
-  -- feeders aren't on its cable.
-  local now, problem = os.clock(), nil
-  local unsure = {} -- feeder -> true: not taken by the storage computer (yet)
-  if not work.remote then
-    local list = {}
-    for _, m in ipairs(machines) do
-      -- whether or not its chamber is there: a missing chamber's barrel isn't storage either
-      local t = peripheral.isPresent(m.entry.feeder) and peripheral.getType(m.entry.feeder)
-      if t and not isHopper(t) then list[#list + 1] = m.entry.feeder end
-    end
-    table.sort(list)
-    local key = table.concat(list, ",")
-    if key ~= feedersKey and now >= (feedersRetry or 0) then
-      -- an old storage computer doesn't answer at all: don't wait long, nor every round
-      local r, why = ask({ type = "feeders", chests = list }, FEEDERS_WAIT)
-      -- hoppers only: nothing to hold back, even if it didn't take the empty list
-      if r and r.ok or #list == 0 then
-        feedersKey = key
-      else
-        feedersRetry = now + FEEDERS_RETRY
-        feedersProblem = r and r.error or why == "the storage computer didn't answer"
-          and "the storage computer doesn't know about barrel feeders: 'install update' it" or why
-      end
-    end
-    if key ~= feedersKey then
-      for _, name in ipairs(list) do unsure[name] = true end
-      problem = feedersProblem
-    end
-  end
-
-  -- an item sitting in a feeder over an empty chamber doesn't go in (it
-  -- isn't one Mekanism enriches, or nothing moves it in): put it back
-  for _, m in ipairs(machines) do
-    local _, item = next(m.feedList)
-    local s = stuckSince[m.entry.feeder]
-    if item and inputOf(m) == 0 and (m.energy or 0) > 0 then
-      if s and s.name == item.name and m.feed[item.name] >= s.count then
-        if now - s.since > STUCK_AFTER then
-          for slot in pairs(m.feedList) do pcall(peripheral.call, m.entry.feeder, "pushItems", input, slot) end
-          noEnrich[item.name] = true
-          tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
-            :format(nice(item.name), m.title), "orange")
-          m.feedList, m.feed, m.feedTotal, stuckSince[m.entry.feeder] = {}, {}, 0, nil
-        end
-      else
-        stuckSince[m.entry.feeder] = { name = item.name, count = m.feed[item.name], since = now }
-      end
-    else
-      stuckSince[m.entry.feeder] = nil
-    end
-  end
+  local unsure, problem = chambers:register(work.remote)
+  chambers:unstick(machines, input, function(m, item)
+    noEnrich[item.name] = true
+    tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
+      :format(nice(item.name), m.title), "orange")
+  end)
 
   -- fill the feeders, chamber by chamber (they share what there is); with a
   -- work chest each load is noted down and fetched for all at once below
@@ -372,13 +175,13 @@ local function round()
   local plan = useWork and {} or nil
   for _, m in ipairs(machines) do
     m.item = nil
-    if m.present and m.feedOk and (m.energy or 0) > 0 and not unsure[m.entry.feeder] then
+    if mekfeed.ready(m) and not unsure[m.entry.feeder] then
       local name = pickItem(m, avail)
       m.item = name
       if name and (avail[name] or 0) > 0 then
-        local n = math.min(roomFor(m, name), avail[name], SEND_MAX, m.feedSize * STACK - m.feedTotal)
+        local n = math.min(mekfeed.space(m, name), avail[name], SEND_MAX)
         local per = perOp(name)
-        if per > 1 then n = n - (inputOf(m, name) + (m.feed[name] or 0) + n) % per end
+        if per > 1 then n = n - (mekfeed.inputOf(m, name) + (m.feed[name] or 0) + n) % per end
         if n > 0 and plan then
           plan[#plan + 1] = { m = m, name = name, n = n }
           avail[name] = avail[name] - n
@@ -387,8 +190,7 @@ local function round()
           local got = r and type(r.sent) == "table" and r.sent[name] or 0
           if r and r.error then problem = r.error end
           if not r then problem = "the storage computer didn't answer while loading " .. m.title end
-          m.feed[name] = (m.feed[name] or 0) + got
-          m.feedTotal = m.feedTotal + got
+          mekfeed.added(m, name, got)
           avail[name] = avail[name] - got
           sent = sent + got
         end
@@ -403,8 +205,7 @@ local function round()
     if not r and next(items) then problem = why end
     for _, p in ipairs(plan) do
       local got = work:move(p.name, p.m.entry.feeder, nil, p.n)
-      p.m.feed[p.name] = (p.m.feed[p.name] or 0) + got
-      p.m.feedTotal = p.m.feedTotal + got
+      mekfeed.added(p.m, p.name, got)
       avail[p.name] = avail[p.name] + p.n - got
       sent = sent + got
     end
@@ -414,11 +215,7 @@ local function round()
   -- how each chamber is doing, for the screen
   local working, broken = 0, 0
   for _, m in ipairs(machines) do
-    local queued = inputOf(m) + (m.feedTotal or 0)
-    local full = false
-    for i = 1, m.slots do
-      if m.outputs[i] and m.outputs[i].count >= STACK then full = true end
-    end
+    local queued = mekfeed.inputOf(m) + (m.feedTotal or 0)
     m.queued = queued
     if not m.present then
       m.state, m.colour = "not on network", "red"
@@ -426,7 +223,7 @@ local function round()
       m.state, m.colour = "no feeder", "red"
     elseif (m.energy or 0) <= 0 then
       m.state, m.colour = "no power", "red"
-    elseif full then
+    elseif mekfeed.full(m) then
       m.state, m.colour = "output full", "red"
     elseif (m.usage or 0) > 0 then
       m.state, m.colour = "enriching", "lime"
@@ -562,106 +359,10 @@ local function netLoop()
   end
 end
 
----------------------------------------------------------------- commands
-
--- Pick from a numbered list (or type a name); nil if cancelled.
-local function choose(question, options)
-  for i, o in ipairs(options) do print(("%2d  %s"):format(i, o)) end
-  write(question .. " ")
-  local text = read()
-  if text == "" then return nil end
-  return options[tonumber(text)] or text
-end
-
-local function printMachines(list)
-  if #list == 0 then print("No chambers yet. Add one with 'enricher add'.") end
-  for i, entry in ipairs(list) do
-    print(("%d  %s: %s, fed by %s"):format(i, titleOf(entry, i), entry.chamber, entry.feeder))
-  end
-end
-
-local function addMachine(args)
-  local list = readMachines()
-  local used = {}
-  for _, entry in ipairs(list) do used[entry.chamber], used[entry.feeder] = true, true end
-  local function free(test)
-    local out = {}
-    for _, name in ipairs(findOnNetwork(test)) do
-      if not used[name] then out[#out + 1] = name end
-    end
-    return out
-  end
-
-  local chamber, feeder = args[2], args[3]
-  if not chamber or not feeder then print("Right-click a modem to see its block's name.") end
-  if not chamber then
-    local chambers = free(isChamber)
-    if #chambers == 0 then
-      print("No chamber on the network that isn't added already. Put a wired modem on it, join it to the cable and right-click it.")
-      return
-    end
-    print("The ENRICHMENT CHAMBER (or factory):")
-    chamber = #chambers == 1 and chambers[1] or choose("Which? (Enter to cancel)", chambers)
-    if not chamber then return end
-    if #chambers == 1 then print(chamber) end
-  end
-  -- every storage chest is a barrel or chest too: only empty ones are offered
-  local function isEmpty(name)
-    local ok, items = pcall(peripheral.call, name, "list")
-    return ok and type(items) == "table" and next(items) == nil
-  end
-  if not feeder then
-    local feeders = {}
-    for _, name in ipairs(free(isFeeder)) do
-      if isHopper(peripheral.getType(name)) or isEmpty(name) then feeders[#feeders + 1] = name end
-    end
-    if #feeders == 0 then
-      print("Nothing free to feed it. Put a hopper on top of the chamber, pointing down, or an empty barrel a pipe pulls from into the chamber, with a wired modem on it joined to the cable.")
-      return
-    end
-    print("What FEEDS it: the hopper on top of it, pointing down, or the barrel a pipe pulls from into it:")
-    feeder = choose("Which? (Enter to cancel)", feeders)
-    if not feeder then return end
-  end
-  if used[chamber] or used[feeder] then print("That one is already added.") return end
-  for _, name in ipairs({ chamber, feeder }) do
-    if not peripheral.isPresent(name) then print(name .. " isn't on the network.") return end
-  end
-  if not isChamber(peripheral.getType(chamber) or "") then print(chamber .. " isn't an enrichment chamber.") return end
-  local feederType = peripheral.getType(feeder) or ""
-  if not isFeeder(feederType) then print(feeder .. " isn't a hopper, barrel or chest.") return end
-  if not isHopper(feederType) and not isEmpty(feeder) then
-    print(feeder .. " has items in it: empty it first (it might be a storage chest).")
-    return
-  end
-
-  list[#list + 1] = { chamber = chamber, feeder = feeder }
-  writeMachines(list)
-  print(("Chamber %d added: %s, fed by %s."):format(#list, chamber, feeder))
-  if not isHopper(feederType) then
-    print("Something has to move its items into the chamber: a logistical transporter set to pull, or a funnel.")
-    print("The storage computer stops using it as storage once the enricher is running.")
-  end
-  print("Put a storage input chest under it (add it in 'storage setup'): its dust comes out there.")
-end
-
 ---------------------------------------------------------------- start
 
 local args = { ... }
-if args[1] == "add" then
-  addMachine(args)
-  return
-elseif args[1] == "remove" then
-  local list = readMachines()
-  local n = tonumber(args[2] or "")
-  if not n or not list[n] then
-    printMachines(list)
-    print("Usage: enricher remove <chamber number>")
-    return
-  end
-  local entry = table.remove(list, n)
-  writeMachines(list)
-  print(("Forgot %s. Empty its feeder by hand."):format(entry.chamber))
+if chambers:command(args) then
   return
 elseif args[1] == "chest" then
   if not net.open("any") then

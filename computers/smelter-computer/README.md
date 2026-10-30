@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an input chest under it
 
 ## What it does
 
@@ -42,6 +42,29 @@ lead, uranium) into ingots. While the [enricher](../enricher-computer/README.md)
 is running, the ores it puts into its Enrichment Chambers are left to it, so
 they come back as dust and give more ingots. Without it, the smelter smelts
 those ores itself, as before.
+
+### Mekanism smelters
+
+Mekanism **Energized Smelters** and **Smelting Factories** work too. CC
+can't put items into a Mekanism machine, so each one has a **feeder**, just
+like the [enricher's chambers](../enricher-computer/README.md): a hopper on
+top pointing down, or a barrel a pipe pulls from into the machine (see
+[Barrel feeders](../enricher-computer/README.md#barrel-feeders)). The
+smelter fills the feeders, and the machine pushes what it makes out of its
+bottom into a storage input chest under it.
+
+- They get first pick of what there is to smelt or cook (they're faster and
+  need no fuel); the furnaces take what's left.
+- They don't work on charcoal, stone or glass orders: what they make goes
+  straight into storage, so the smelter can't count it.
+- The smelter sets each one's bottom to **Output** with **Auto-eject** on,
+  when its security is **Public**. Otherwise do it by hand, or set
+  `setSides = false` in `config.lua`.
+- On the screen they're listed under the furnaces in light blue, with their
+  power instead of fuel, and in red when they have no power, no feeder, or
+  nowhere to put what they make.
+- Something that doesn't go in within a minute is put back into storage and
+  not tried in them again until the smelter restarts.
 
 ### Making charcoal
 
@@ -89,6 +112,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
+- [`lib/mekfeed.lua`](../../lib/mekfeed.lua): Mekanism smelters and their feeders (copy to `/lib/mekfeed.lua`). Needed.
 
 ## Setup
 
@@ -105,14 +129,23 @@ wireless modem it also reports to the [status server](../status-server/README.md
    `storage setup` on the storage computer and pick it as the **fuel chest**.
    Put some coal or charcoal in it, or in the input chest. Without a fuel
    chest, furnaces burn coal and charcoal from anywhere in storage.
-5. Optional, but worth it with more than a few furnaces: put an **empty
+5. Optional: for each Mekanism **Energized Smelter** (or Smelting
+   Factory), set its security to **Public**, put a wired modem on it, a
+   **feeder** with a wired modem (a hopper on top, or an empty barrel a pipe
+   pulls from into it) and a chest under it, all on the network. Add that
+   chest as an **extra input chest** in `storage setup`, then
+   `smelter add` each one. See [Mekanism smelters](#mekanism-smelters).
+6. Optional, but worth it with more than a few furnaces: put an **empty
    chest** next to the furnaces with a wired modem on it, on the same
    network, as the [work chest](#work-chest).
-6. Install this program, run `smelter chest` to pick the work chest (if
+7. Install this program, run `smelter chest` to pick the work chest (if
    you placed one), and reboot.
 
    ```
    smelter                        -- start (startup.lua does this on boot)
+   smelter add                    -- add a Mekanism smelter and its feeder (hopper or barrel)
+   smelter add energizedSmelter_0 minecraft:hopper_4   -- or name them straight away
+   smelter remove 1               -- forget Mekanism smelter 1 (no number: list them)
    smelter chest                  -- pick the work chest from the empty chests on the network
    smelter chest minecraft:chest_7  -- or name it straight away
    smelter chest none             -- stop using one (what's in it goes back into storage)

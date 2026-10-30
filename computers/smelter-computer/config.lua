@@ -35,4 +35,11 @@ return {
     -- ores that give more mined with Fortune than smelted: keep them for that
     "coal_ore$", "diamond_ore$", "emerald_ore$", "lapis_ore$", "redstone_ore$", "quartz_ore$",
   },
+  -- Mekanism smelters ('smelter add'): set each one's bottom to Output and
+  -- turn Auto-eject on (needs its security set to Public). false: you set
+  -- the sides yourself.
+  setSides = true,
+  -- Names on the screen instead of "Smelter 1", by peripheral name,
+  -- e.g. ["energizedSmelter_0"] = "Left".
+  names = {},
 }

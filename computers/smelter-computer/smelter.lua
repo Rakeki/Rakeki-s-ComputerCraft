@@ -15,6 +15,9 @@
 --   smelter glass <n> [red]        make n glass from sand (red: from red sand only;
 --                                  otherwise whichever sand there's most of)
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
+--   smelter add [machine feeder]   add a Mekanism Energized Smelter (or Smelting Factory) and what feeds
+--                                  it: the hopper on top, or a barrel a pipe pulls from (asks for what's not given)
+--   smelter remove <n>             forget Mekanism smelter n (no number: list them)
 --   smelter chest [name|none]      use an empty chest on the network as the work chest
 --                                  (no name: pick from a list; none: stop using one)
 --   smelter chest remote           far from the storage system: one ender chest both ways (or a return one too)
@@ -27,6 +30,12 @@
 -- too (the storage computer takes back what it didn't send), or through a
 -- second pair whose twin is a storage input chest.
 --
+-- Mekanism Energized Smelters and Smelting Factories work too, fed through a
+-- hopper or barrel like the enricher's chambers (lib/mekfeed.lua), and get
+-- first pick of what there is to smelt. They need no fuel, eject what they
+-- make into a storage input chest under them, and take no part in orders
+-- (what they make isn't counted).
+--
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
 -- (computers/storage-computer) running. It asks the storage computer for
@@ -35,6 +44,7 @@
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local mekfeed = require("lib.mekfeed") -- Mekanism machines fed through a hopper or barrel
 local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
@@ -66,6 +76,7 @@ local DUSTS = config.dusts or { "^mekanism:dust_iron$", "^mekanism:dust_gold$", 
   "^mekanism:dust_osmium$", "^mekanism:dust_tin$", "^mekanism:dust_lead$", "^mekanism:dust_uranium$" }
 
 local furnaces = {} -- what the screen shows: { name, blast, input, fuel, output } per furnace
+local meks = {} -- the Mekanism smelters (lib/mekfeed.lua), for the screen too
 local stock -- the storage computer's last answer to 'stock'
 local jobs = {} -- kind -> the order: { at, item, count, loaded, made }
 local message = { "Looking for the storage computer...", "lightGray" }
@@ -215,13 +226,16 @@ local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = REPLY_WAIT })
 
 -- Ask the storage computer something and wait for its answer: nil and why
 -- if there's none.
-local function ask(msg)
-  local reply, why = storage:ask(msg)
+local function ask(msg, wait)
+  local reply, why = storage:ask(msg, wait)
   if reply then return reply end
   return nil, why == "no answer" and "the storage computer didn't answer" or "no storage computer answered"
 end
 
 local work = workchest.new("smelter", ask)
+local smelters = mekfeed.new({ name = "smelter", single = "energizedSmelter", factory = "SmeltingFactory",
+  what = "energized smelter", title = "Smelter", names = config.names, setSides = config.setSides ~= false,
+  ask = ask, tell = tell })
 
 local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
 
@@ -245,9 +259,10 @@ local function round()
   -- the furnaces first, so the screen shows them even while the storage
   -- computer isn't answering
   local list = findFurnaces()
-  if #list == 0 then
+  meks = smelters:read()
+  if #list == 0 and #meks == 0 then
     furnaces = list
-    say("No furnaces on the network: join them to it with wired modems.", "orange")
+    say("No furnaces on the network: join them to it with wired modems, or 'smelter add' a Mekanism smelter.", "orange")
     status("waiting", "no furnaces")
     return
   end
@@ -391,6 +406,40 @@ local function round()
   end
   local haveFuel = (stock.fuel or 0) > 0
 
+  -- Mekanism smelters first (faster, no fuel), through their feeders; never
+  -- for orders, since what they make goes into storage uncounted
+  local unsure, feedProblem = smelters:register(work.remote)
+  problem = problem or feedProblem
+  smelters:unstick(meks, input, function(m, item)
+    noSmelt["mek:" .. item.name] = true
+    tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
+      :format(nice(item.name), m.title), "orange")
+  end)
+  local mekPlan = {}
+  for _, m in ipairs(meks) do
+    if mekfeed.ready(m) and not unsure[m.entry.feeder] then
+      local pick = mekfeed.current(m)
+      if not pick then
+        local most = 0
+        for name, n in pairs(want) do
+          if not byItem[name] and n > most and not noSmelt["mek:" .. name] then pick, most = name, n end
+        end
+      end
+      local n = pick and math.min(mekfeed.space(m, pick), want[pick] or 0, 64) or 0
+      if n > 0 and plan then
+        mekPlan[#mekPlan + 1] = { m = m, name = pick, n = n }
+        want[pick] = want[pick] - n
+      elseif n > 0 then
+        local r = ask({ type = "send", to = m.entry.feeder, items = { [pick] = n } })
+        local got = r and r.sent and r.sent[pick] or 0
+        if r and r.error then problem = r.error end
+        mekfeed.added(m, pick, got)
+        want[pick] = want[pick] - got
+        if got > 0 then loaded, into = loaded + got, into + 1 end
+      end
+    end
+  end
+
   -- top up what's already smelting
   for _, f in ipairs(furnaces) do
     if f.input and f.input.count < 64 and canTake(f, f.input.name) then
@@ -454,6 +503,7 @@ local function round()
   if plan then
     local items = {}
     for _, p in ipairs(plan) do items[p.name] = (items[p.name] or 0) + p.n end
+    for _, p in ipairs(mekPlan) do items[p.name] = (items[p.name] or 0) + p.n end
     local r, why = work:fill(items, fuelWanted)
     if r then
       stock.fuel = r.fuel or stock.fuel
@@ -491,6 +541,11 @@ local function round()
         if not f.fuel then unfuelled = true end
       end
     end
+    for _, p in ipairs(mekPlan) do
+      local got = work:move(p.name, p.m.entry.feeder, nil, p.n)
+      mekfeed.added(p.m, p.name, got)
+      if got > 0 then loaded, into = loaded + got, into + 1 end
+    end
     work:empty(input)
   end
 
@@ -507,6 +562,9 @@ local function round()
       local s = stuckSince[f.name]
       if s and s.name == f.input.name then s.count = f.input.count end
     end
+  end
+  for _, m in ipairs(meks) do
+    if (m.usage or 0) > 0 then busy = busy + 1 end
   end
   if problem then
     say("Couldn't move items: " .. problem, "red")
@@ -525,7 +583,7 @@ local function round()
   else
     say(("Smelting in %d furnaces."):format(busy))
   end
-  status(busy > 0 and "running" or "idle", ("%d of %d furnaces smelting"):format(busy, #furnaces))
+  status(busy > 0 and "running" or "idle", ("%d of %d furnaces smelting"):format(busy, #furnaces + #meks))
 end
 
 ---------------------------------------------------------------- screen
@@ -557,16 +615,37 @@ local function draw()
         t.count, t.item and nice(t.item) or o.from)
     end
   end
-  local rows = h - 6 - math.max(#lines, 1)
-  for i = 1, math.min(rows, #furnaces) do
-    local f, y = furnaces[i], 3 + i
-    put(2, y, fitText(nice(f.name), 17), f.blast and "orange" or f.smoker and "pink" or "white")
-    put(20, y, fitText(f.input and ("%d %s"):format(f.input.count, nice(f.input.name)) or "idle", fuelX - 21),
-      f.input and "white" or "gray")
-    put(fuelX, y, fitText(f.fuel and ("%d %s"):format(f.fuel.count, nice(f.fuel.name)) or "-", 12), "lightGray")
+  -- each row: name, its colour, what it's smelting, that colour, fuel (power for a Mekanism smelter)
+  local list = {}
+  for _, f in ipairs(furnaces) do
+    list[#list + 1] = { nice(f.name), f.blast and "orange" or f.smoker and "pink" or "white",
+      f.input and ("%d %s"):format(f.input.count, nice(f.input.name)) or "idle", f.input and "white" or "gray",
+      f.fuel and ("%d %s"):format(f.fuel.count, nice(f.fuel.name)) or "-" }
   end
-  if #furnaces > rows then put(2, 4 + rows, ("...and %d more"):format(#furnaces - rows), "gray") end
-  if #furnaces == 0 then put(2, 4, "No furnaces yet.", "gray") end
+  for _, m in ipairs(meks) do
+    local queued, item = mekfeed.inputOf(m) + m.feedTotal, mekfeed.current(m)
+    local doing, colour = item and ("%d %s"):format(queued, nice(item)) or "idle", item and "white" or "gray"
+    if not m.present then
+      doing, colour = "not on network", "red"
+    elseif not m.feedOk then
+      doing, colour = "no feeder", "red"
+    elseif (m.energy or 0) <= 0 then
+      doing, colour = "no power", "red"
+    elseif mekfeed.full(m) then
+      doing, colour = "output full: chest under it?", "red"
+    end
+    list[#list + 1] = { m.title, "lightBlue", doing, colour,
+      m.present and ("%d%% power"):format(math.floor((m.energy or 0) * 100 + 0.5)) or "-" }
+  end
+  local rows = h - 6 - math.max(#lines, 1)
+  for i = 1, math.min(rows, #list) do
+    local row, y = list[i], 3 + i
+    put(2, y, fitText(row[1], 17), row[2])
+    put(20, y, fitText(row[3], fuelX - 21), row[4])
+    put(fuelX, y, fitText(row[5], 12), "lightGray")
+  end
+  if #list > rows then put(2, 4 + rows, ("...and %d more"):format(#list - rows), "gray") end
+  if #list == 0 then put(2, 4, "No furnaces yet.", "gray") end
   if #lines == 0 then put(1, h - 2, fitText(" No orders.", w), "gray") end
   for i, line in ipairs(lines) do
     put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
@@ -703,7 +782,7 @@ local function workLoop()
     local timer = os.startTimer(EVERY)
     repeat
       local event, value = os.pullEvent()
-    until (event == "timer" and value == timer) or event == "smelter_order"
+    until (event == "timer" and value == timer) or event == "smelter_order" or event == "smelter_added"
   end
 end
 
@@ -753,6 +832,8 @@ elseif args[1] == "cancel" then
       print(cancelled(o.kind))
     end
   end
+  return
+elseif smelters:command(args) then
   return
 elseif args[1] == "chest" then
   if not net.open("any") then
