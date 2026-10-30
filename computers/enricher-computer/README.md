@@ -184,8 +184,13 @@ computer at once, in the running enricher if there is one:
   change its feeder or output chest, or remove it; **+ Add a chamber** picks
   a chamber, then its feeder (a hopper, or an empty barrel), then its output
   chest (or none, when a storage input chest is under it).
-- **Work chest**: a chest on this cable, **Far away** through an ender chest
-  (and, if you like, a return one), or **None**.
+- **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
+  there's nothing to pick: work comes in through the ender chest on its
+  network and what it makes goes home through the same chest (it only asks
+  which when there are several). Its twin at home is the one picked under
+  Far-away workers on the storage computer, or found by itself. An ender
+  chest is always far away, however it's picked. A separate return chest:
+  `enricher chest remote`.
 - **Monitor**: which monitor shows the status board.
 
 Chest lists show what's in each chest and go a page at a time (**<** **>**);

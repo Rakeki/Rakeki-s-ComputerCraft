@@ -241,7 +241,9 @@ function UI:run(page)
     if self.opts.name then setupui.wanted(self.opts.name, ev) end
     local tapped
     for i, scr in ipairs(self.screens) do
-      local x, y = scr.target and scr:clicked(ev)
+      -- not 'scr.target and scr:clicked(ev)': that keeps only x
+      local x, y
+      if scr.target then x, y = scr:clicked(ev) end
       if x and self.zones[i] then
         for _, z in ipairs(self.zones[i]) do
           if y == z[3] and x >= z[1] and x <= z[2] then tapped = z[4] end

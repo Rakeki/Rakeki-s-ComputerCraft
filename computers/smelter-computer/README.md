@@ -239,8 +239,13 @@ smelter if there is one:
   change them or remove it; **+ Add an energized smelter** picks the
   smelter, then its feeder (a hopper, or an empty barrel), then its output
   chest (or none).
-- **Work chest**: a chest on this cable, **Far away** through an ender chest
-  (and, if you like, a return one), or **None**.
+- **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
+  there's nothing to pick: work comes in through the ender chest on its
+  network and what it makes goes home through the same chest (it only asks
+  which when there are several). Its twin at home is the one picked under
+  Far-away workers on the storage computer, or found by itself. An ender
+  chest is always far away, however it's picked. A separate return chest:
+  `smelter chest remote`.
 - **Monitor**: which monitor shows the status board.
 
 Chest lists show what's in each chest and go a page at a time (**<** **>**);

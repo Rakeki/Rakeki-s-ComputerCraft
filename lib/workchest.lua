@@ -48,10 +48,19 @@ Work.__index = Work
 -- away (chest: the supply ender chest here, back: the return one, or nil
 -- when chest goes both ways, home: the supply chest's twin on the storage
 -- computer's network)
+-- An ender chest (any type with "ender" in it): its twin is elsewhere, so
+-- it's always a far-away work chest, never one the storage computer can see.
+local function isEnder(name)
+  local t = name and peripheral.isPresent(name) and peripheral.getType(name)
+  return t and t:find("ender", 1, true) ~= nil or false
+end
+
 local function readSaved(self)
   local saved = files.read(self.file)
   saved = type(saved) == "table" and saved or {}
   self.chest, self.back, self.home, self.remote = saved.chest, saved.back, saved.home, saved.remote == true
+  -- picked as a chest on the cable before ender chests counted as far away
+  if self.chest and not self.remote and isEnder(self.chest) then self.remote = true end
 end
 
 function workchest.new(name, ask)
@@ -63,6 +72,7 @@ end
 -- Name the chest (nil: stop using one, and the storage computer puts back
 -- what's in it). true, or false and why; nil and why if nobody answered.
 function Work:set(chest)
+  if chest and isEnder(chest) then return self:setRemote(chest) end
   local r, why = self.ask({ type = "work", chest = chest })
   if not r then return nil, why end
   if chest and not r.ok then return false, r.error or "the storage computer said no" end
@@ -220,31 +230,31 @@ function Work:setupPage(ui)
     table.sort(out)
     return out
   end
+  -- Far away: work comes in through the ender chest on this network and
+  -- what's made goes home through it, so there's nothing to pick unless
+  -- there are several. (A separate return chest: '<program> chest remote'.)
   local function far()
     local list = enders()
-    ui:pickChest({ title = "Pick its ender chest", hint = "Its twin goes on the storage cable (not an input chest).",
-      names = list, current = self.remote and self.chest or nil,
-      nothing = "No ender chest here: put one on my cable with a wired modem.",
-      pick = function(chest)
-        ui:back()
-        local rest = {}
-        for _, n in ipairs(list) do
-          if n ~= chest then rest[#rest + 1] = n end
-        end
-        local function go(back)
+    local function use(chest)
+      ui:say("Finding its twin on the storage network...", "lightBlue")
+      ui:draw()
+      local ok, why = self:setRemote(chest, nil)
+      ui:say(ok and ("Far away: work comes in and goes home through %s."):format(chest)
+        or ("Couldn't use %s: %s."):format(chest, why or "no answer"), ok and "lime" or "red")
+    end
+    if #list == 0 then
+      ui:say("No ender chest here: put one on my cable with a wired modem and right-click it.", "orange")
+    elseif #list == 1 then
+      use(list[1])
+    else
+      ui:pickChest({ title = "Which ender chest?", hint = "Its twin is on the storage cable (not an input chest).",
+        names = list, current = self.remote and self.chest or nil,
+        pick = function(chest)
           ui:back()
-          ui:say("Finding its twin on the storage network...", "lightBlue")
-          ui:draw()
-          local ok, why = self:setRemote(chest, back)
-          ui:say(ok and ("Work chest: %s, filled through %s; things go home through %s."):format(chest, self.home,
-            back or "the same chest") or ("Couldn't use %s: %s."):format(chest, why or "no answer"), ok and "lime" or "red")
-        end
-        ui:pickChest({ title = "Return chest?", hint = "Things go home through the same chest, or a return ender chest.",
-          names = rest, current = self.back, none = "(none: one chest both ways)", nothing = "No other ender chest.",
-          pick = go })
-        ui:say("Tap (none), or a second ender chest whose twin is a storage input chest.")
-      end })
-    ui:say("Tap the ender chest.")
+          use(chest)
+        end })
+      ui:say("There are several ender chests: tap the one for work.")
+    end
   end
   return {
     title = "Work chest",
@@ -271,7 +281,7 @@ function Work:setupPage(ui)
             end })
           ui:say("Tap an empty chest.")
         end },
-        { label = "Far away: through an ender chest", value = "another base", colour = "gray", act = far },
+        { label = "Far away: through the ender chest", value = "another base", colour = "gray", act = far },
         { label = "None", value = "load each machine in turn", colour = "gray", act = function()
           ui:say("Asking the storage computer...", "lightBlue")
           ui:draw()
