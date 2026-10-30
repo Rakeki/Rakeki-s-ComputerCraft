@@ -231,7 +231,7 @@ reply field.
 
 | Protocol | From → to | Messages |
 |---|---|---|
-| `cc_status` | everything → status-server | `lib/report.lua` broadcasts state, detail, position, fuel |
+| `cc_status` | everything → status-server, storage-computer | `lib/report.lua` broadcasts state, detail, position, fuel; the storage computer shows the services working with it (anyone that sent a `storage` request, or a service role) on its monitor |
 | `automine` | mine-turtle ↔ mine-server | jobs, progress; `hello` and `status` carry the miner's `home` (where it was placed, its own chest behind it: it unloads, refuels and idles there; the server never mines a home chunk); the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector or build-control (both through `lib/crew.lua`) ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height; `clear = false` for a plan built in the air: don't dig out the box) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped, `need` = items it's waiting for or fetching while restocking/waiting; the projector's Now tab). One key per strip |

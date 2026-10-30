@@ -844,6 +844,7 @@
         "Type to search every chest at once (Delete clears it)",
         "Enter sends a stack to the output chest, Right arrow just one",
         "A touch monitor: sort, search on an on-screen keyboard, tap an item and send 1, 16 or 64 to the output chest",
+        "The monitor shows the smelter, enricher, crafters and every other service working with it, coloured by state, near or far away",
         "Puts new items next to the same item when it can",
         "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
         "Turtles can ask for items over rednet; the village builder and builder stock themselves from it",

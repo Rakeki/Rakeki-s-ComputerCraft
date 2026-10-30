@@ -70,6 +70,20 @@ it can be tapped. It shows:
   on the terminal), **_** for a space, **<** to rub out, **Clear** to start
   again. Tap the search box again to close the keyboard; the search stays
   until you clear it.
+- the **services** working with the storage system, as a row of tiles over
+  the footer: the [smelter](../smelter-computer/README.md),
+  [enricher](../enricher-computer/README.md), crafting turtles, the cooker
+  and anything else that has asked it for items, near or far away. **Lime**
+  working, **light grey** idle, **orange** waiting, **red** error, **grey**
+  offline (no word from it for 30 seconds). Tap one to read what it's doing
+  on the message line. Two of a kind show their computer IDs. One that's
+  been silent for 15 minutes drops off.
+
+A service's state comes from its status reports (the ones the
+[status server](../status-server/README.md) shows), which reach the storage
+computer over the cable, or over an ender or wireless modem when it's far
+away. A service without `lib/report.lua`, or with no modem that reaches the
+storage computer, shows as **no status**.
 
 Tap an item to pick it (tap again to drop it). The bottom line then shows
 it with **1**, **16** and **64** buttons: tap one and that many go to the

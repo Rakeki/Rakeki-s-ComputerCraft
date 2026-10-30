@@ -88,6 +88,12 @@ local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle 
 local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
 local WORKER_PROTOCOLS = { enricher = "enricher", smelter = "smelter" } -- far-away computers with a work chest host these
+local STATUS_PROTOCOL = "cc_status" -- lib/report.lua's broadcasts: the services' states for the monitor
+-- report roles shown on the monitor even before they've asked for anything
+local SERVICE_ROLES = { smelter = true, enricher = true, cooker = true, crafter = true, ["craft overseer"] = true,
+  essence = true, crate = true, remote = true, ["digital miners"] = true }
+local SERVICE_QUIET = 30 -- seconds without a status before a service shows as offline
+local SERVICE_FORGET = 900 -- seconds without a status or a request before it's dropped from the monitor
 local OVERSEER_PROTOCOL = "craft_overseer" -- a crafting overseer (computers/craft-overseer) takes the queue on this
 local OVERSEER_EVERY = 30 -- seconds between looks for a crafting overseer while there isn't one
 local OVERSEER_WAIT = 5 -- seconds to wait for the overseer to take the jobs
@@ -414,6 +420,55 @@ local mon = {
 local KEY_ROWS = { "abcdefghij", "klmnopqrst", "uvwxyz" } -- the third row ends in space, backspace and clear
 local takeItem -- in the loops section below
 
+-- The programs working with this storage system (smelter, enricher, crafters,
+-- ...): every computer that has asked for something, or reports a service's
+-- role. Their states come from lib/report.lua's broadcasts, which reach us
+-- over the cable or an ender / wireless modem. id -> { role, label, state,
+-- detail, heard (os.clock of the last status), asked (of the last request) }
+local services = {}
+
+local function noteService(id, status)
+  local s = services[id] or { asked = -math.huge, heard = -math.huge }
+  services[id] = s
+  if status then
+    s.role, s.label, s.state, s.detail, s.heard = status.role, status.label, status.state, status.detail, os.clock()
+  else
+    s.asked = os.clock()
+  end
+end
+
+-- What the monitor shows: { id, name, state, detail, colour } for each one,
+-- by name. Offline: no status for a while (or none at all: no report lib or
+-- no modem it can reach us on).
+local function serviceList()
+  local now, list = os.clock(), {}
+  for id, s in pairs(services) do
+    local last = math.max(s.heard, s.asked)
+    if now - last > SERVICE_FORGET then
+      services[id] = nil
+    elseif s.asked > -math.huge or SERVICE_ROLES[s.role or ""] then
+      local role = s.role and (s.role:sub(1, 1):upper() .. s.role:sub(2)) or "Computer"
+      local quiet = now - s.heard > SERVICE_QUIET
+      local state = quiet and (s.heard > -math.huge and "offline" or "no status") or s.state or "?"
+      local colour = quiet and "gray"
+        or (state == "error" or state == "alert") and "red"
+        or (state == "waiting" or state == "stuck") and "orange"
+        or state == "idle" and "lightGray"
+        or "lime"
+      list[#list + 1] = { id = id, name = role, label = s.label, state = state, detail = not quiet and s.detail or nil,
+        colour = colour }
+    end
+  end
+  table.sort(list, function(a, b) if a.name ~= b.name then return a.name < b.name end return a.id < b.id end)
+  -- two of one kind: tell them apart by id
+  for i, sv in ipairs(list) do
+    if (list[i - 1] and list[i - 1].name == sv.name) or (list[i + 1] and list[i + 1].name == sv.name) then
+      sv.short = ("%s %d"):format(sv.name, sv.id)
+    end
+  end
+  return list
+end
+
 -- 1234, 12.3k, 4.5M: fits next to a name in a narrow column.
 local function shortCount(n)
   if n < 10000 then return tostring(n) end
@@ -464,8 +519,28 @@ local function drawMonitor()
     text(filled + 1, 2, bar:sub(filled + 1), "white", "gray")
   end
 
+  -- the services (smelter, enricher, ...): a row of tiles over the footer,
+  -- coloured by state; tap one to read what it's doing
+  local svc = not mon.typing and serviceList() or {}
+  if #svc > 0 then
+    local x, y = 1, h - 2
+    for i, sv in ipairs(svc) do
+      local label = " " .. (sv.short or sv.name) .. " "
+      local more = #svc - i
+      if x + #label - 1 > w - (more > 0 and 4 or 0) then
+        text(x, y, fitText(("+%d"):format(more + 1), w - x + 1), "lightGray")
+        break
+      end
+      button(x, y, label, sv.colour == "red" and "white" or "black", sv.colour, function()
+        message = { ("%s (#%d%s): %s%s"):format(sv.name, sv.id, sv.label and (", " .. sv.label) or "", sv.state,
+          sv.detail and (", " .. sv.detail) or ""), sv.colour == "gray" and "lightGray" or sv.colour }
+      end)
+      x = x + #label + 1
+    end
+  end
+
   -- the item area: columns of rows, filled down then across
-  local top, bottom = 4, mon.typing and h - 5 or h - 2
+  local top, bottom = 4, mon.typing and h - 5 or #svc > 0 and h - 3 or h - 2
   local rows = math.max(0, bottom - top + 1)
   local cols = math.max(1, math.floor(w / MONITOR_COLUMN))
   local colW = math.floor(w / cols)
@@ -1456,10 +1531,16 @@ local function netReceive()
   end
   rednet.host(NET_PROTOCOL, os.getComputerLabel() or ("storage-" .. os.getComputerID()))
   while true do
-    local from, msg = rednet.receive(NET_PROTOCOL)
-    if type(msg) == "table" then
+    -- requests, and the services' status broadcasts for the monitor
+    local from, msg, protocol = rednet.receive()
+    if type(msg) == "table" and protocol == NET_PROTOCOL then
       inbox[#inbox + 1] = { from = from, msg = msg }
+      noteService(from)
       os.queueEvent("storage_inbox")
+    elseif type(msg) == "table" and protocol == STATUS_PROTOCOL and msg.type == "status" then
+      local before = services[from] and services[from].state
+      noteService(from, msg)
+      if before ~= msg.state then os.queueEvent("storage_changed") end
     end
   end
 end

@@ -683,7 +683,19 @@
       s.put(1, 2, bar.slice(0, filled), "white", frac > 0.9 ? "red" : frac > 0.7 ? "orange" : "green");
       s.put(filled + 1, 2, bar.slice(filled), "white", "gray");
 
-      const top = 4, rows = (st.typing ? H - 5 : H - 2) - top + 1;
+      // the services working with the storage system, coloured by state; tap one for what it is doing
+      const SERVICES = [["Crafter", "lime", "running", "crafted 64 iron bars"], ["Enricher", "lime", "running", "3 of 3 chambers enriching"],
+        ["Smelter", "lightGray", "idle", "0 of 6 furnaces smelting"], ["Cooker", "orange", "waiting", "a pot is out of sugar"]];
+      if (!st.typing) {
+        let x = 1;
+        SERVICES.forEach(([name, colour, state, detail]) => {
+          const label = ` ${name} `;
+          if (x + label.length - 1 > W) return;
+          btn(x, H - 2, label, "black", colour, () => { st.msg = [`${name}: ${state}, ${detail}`, colour]; });
+          x += label.length + 1;
+        });
+      }
+      const top = 4, rows = (st.typing ? H - 5 : H - 3) - top + 1;
       const cols = Math.max(1, Math.floor(W / COLUMN)), colW = Math.floor(W / cols);
       const per = rows * cols, pages = Math.max(1, Math.ceil(list.length / per));
       st.page = Math.max(1, Math.min(st.page, pages));
