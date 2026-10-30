@@ -407,7 +407,9 @@ logs), a page at a time:
 - **Empty** shows only the empty chests, the ones you usually want for an
   input, output or fuel chest.
 - On the computer, type part of a chest's name or of what's in it to narrow
-  the list (Backspace to undo).
+  the list (Backspace to undo). With nothing typed, Backspace goes back a
+  page, and a button's first letter presses it (S Save, C Cancel), so a
+  computer without a mouse can do it all.
 - Chests already used for something else are grey and say what for. A
   turtle's or a work chest can be picked anyway: the turtle or computer finds
   another.

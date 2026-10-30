@@ -99,12 +99,15 @@ With a wireless modem it also reports to the
 5. Place this computer with a wired modem on it, joined to the same network.
 6. Optional: put an **empty chest** with a wired modem on it on the same
    network as the [work chest](#work-chest).
-7. Install and reboot. To add the chambers, hold **Ctrl+T** to stop the
-   program, and hold it again during the 5-second wait to get the prompt.
-   Add each chamber (and pick the work chest), then `reboot`:
+7. Install and reboot. Then tap **Setup** on its monitor, or run
+   `enricher setup` in a second tab (`bg enricher setup` on an advanced
+   computer): the [setup screen](#the-setup-screen). Under **Chambers**, add
+   each chamber: tap it, then its feeder, then its output chest. Pick the
+   work chest under **Work chest**. Everything is saved as you go.
 
    ```
-   enricher add                     -- pick a chamber, its feeder (hopper or barrel) and its output chest
+   enricher setup                   -- the setup screen (in the running enricher, on its monitor)
+   enricher add                     -- or by typing: pick a chamber, its feeder (hopper or barrel) and its output chest
    enricher add enrichmentChamber_0 minecraft:barrel_1 minecraft:chest_4   -- or name them: chamber, input, output
    enricher add enrichmentChamber_0 minecraft:hopper_3   -- no output chest: the chest under it is a storage input chest
    enricher add enrichmentChamber_1 minecraft:barrel_2   -- a barrel a pipe empties into the chamber
@@ -161,15 +164,35 @@ round, and takes out everything it didn't just send: the dust, and ores put
 back. So put the ender chest under a chamber instead of a storage input
 chest, or pipe the chests under the chambers into it, so the dust goes
 home. Put an **ender modem** on the enricher and the storage computer and
-run `enricher chest remote`. The storage computer finds the twin by
+pick **Work chest**, **Far away** on the [setup screen](#the-setup-screen)
+(or run `enricher chest remote`). The storage computer finds the twin by
 dropping an item into each chest it could be, or pick it there first with
-[`storage config remote`](../storage-computer/README.md#far-away-workers)
-and there's no search. Far away nothing is loaded while the work
+[Far-away workers](../storage-computer/README.md#far-away-workers) on its
+setup screen and there's no search. Far away nothing is loaded while the work
 chest isn't in use, and the footer says why. Update the storage computer
 too (`install update`).
 
 The command also lets you pick a second, **return** ender chest (home end
 an **extra input chest**) if you'd rather the dust went home through that.
+
+## The setup screen
+
+`enricher setup` (or **Setup** on the monitor) opens it on the monitor and the
+computer at once, in the running enricher if there is one:
+
+- **Chambers**: every chamber with its feeder and output chest. Tap one to
+  change its feeder or output chest, or remove it; **+ Add a chamber** picks
+  a chamber, then its feeder (a hopper, or an empty barrel), then its output
+  chest (or none, when a storage input chest is under it).
+- **Work chest**: a chest on this cable, **Far away** through an ender chest
+  (and, if you like, a return one), or **None**.
+- **Monitor**: which monitor shows the status board.
+
+Chest lists show what's in each chest and go a page at a time (**<** **>**);
+**Empty** shows only the empty ones, and on the computer you can type to
+narrow the list. On the computer the arrow keys and Enter pick, Backspace
+goes back, and a button's first letter presses it. Each change is saved as
+you make it, and the enricher uses it on its next round.
 
 ## Things to know
 

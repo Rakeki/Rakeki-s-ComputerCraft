@@ -1053,7 +1053,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "red",
       "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust) and cooks raw food as they come in, fuels them from the fuel chest, and burns spare logs into charcoal, cobblestone into stone or sand into glass on request.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1083,6 +1083,7 @@
       ],
       "commands": [
         ["smelter", "start (runs on boot)"],
+        ["smelter setup", "the setup screen on the monitor and the computer: Mekanism smelters, the work chest (here, far away or none) and the monitor; or tap Setup on the monitor, or U on its screen"],
         ["smelter add", "add a Mekanism Energized Smelter, its feeder (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["smelter remove 1", "forget Mekanism smelter 1 (no number: list them)"],
         ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
@@ -1417,7 +1418,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "lightGray",
       "tagline": "Feeds the storage system's ores into Mekanism Enrichment Chambers for 2 dust per ore and 4 per 3 raw ores, which the smelter turns into ingots: up to twice the metal.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1445,6 +1446,7 @@
       ],
       "commands": [
         ["enricher", "start (runs on boot)"],
+        ["enricher setup", "the setup screen on the monitor and the computer: chambers (add, change, remove), the work chest (here, far away or none) and the monitor; or tap Setup on the monitor"],
         ["enricher add", "add a chamber, its input (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
         ["enricher remove 2", "forget chamber 2 (no number: list them)"],
         ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
@@ -1740,7 +1742,7 @@
       "title": "lib/setupui",
       "file": "lib/setupui.lua",
       "color": "yellow",
-      "tagline": "Setup screens on the monitor and the terminal at once: pages of settings, and chest lists a page at a time with what's in each chest, an Empty filter and typed search. The storage computer's setup is built on it.",
+      "tagline": "Setup screens on the monitor and the terminal at once: pages of settings, and chest lists a page at a time with what's in each chest, an Empty filter and typed search. The storage computer's, the enricher's and the smelter's setup screens are built on it.",
       "usage": "local setupui = require(\"lib.setupui\")\n\nlocal ui = setupui.new({ screens = { termScreen, monScreen } })\nlocal saved = ui:run({\n  title = \"Storage settings\",\n  rows = function(ui) return { { label = \"Fuel chest\", value = fuel or \"none\",\n    act = function() ui:pickChest({ title = \"Pick: Fuel chest\", names = names, none = \"(none)\",\n      pick = function(name) fuel = name; ui:back() end }) end } } end,\n  buttons = function(ui) return { { \" Save \", \"black\", \"lime\", function() ui:finish(true) end } } end,\n})",
       "api": [
         [

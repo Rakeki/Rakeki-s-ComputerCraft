@@ -584,7 +584,7 @@ function Set:setupPage(ui)
           value = here and e.machine or (e.machine .. " (missing)"), colour = here and "lightGray" or "red",
           act = function() ui:open(machinePage(i)) end }
       end
-      out[#out + 1] = { label = ("+ Add a %s"):format(opts.what), colour = "lime", act = add }
+      out[#out + 1] = { label = ("+ Add %s %s"):format(opts.what:find("^[aeiou]") and "an" or "a", opts.what), colour = "lime", act = add }
       return out
     end,
   }

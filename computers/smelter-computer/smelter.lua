@@ -15,6 +15,9 @@
 --   smelter glass <n> [red]        make n glass from sand (red: from red sand only;
 --                                  otherwise whichever sand there's most of)
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
+--   smelter setup                  the setup screen, on the monitor and the terminal: Mekanism smelters,
+--                                  the work chest and the monitor (in the running smelter if there is one;
+--                                  or tap Setup on its monitor, or U on its screen)
 --   smelter add [machine feeder [output]]  add a Mekanism Energized Smelter (or Smelting Factory), what
 --                                  feeds it (the hopper on top, or a barrel a pipe pulls from) and its
 --                                  output chest under it (asks for what's not given)
@@ -49,6 +52,7 @@ local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local mekfeed = require("lib.mekfeed") -- Mekanism machines fed through a hopper or barrel
 local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
+local setupui = require("lib.setupui") -- the setup screen
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -266,7 +270,7 @@ local function round()
   meks = smelters:read()
   if #list == 0 and #meks == 0 then
     furnaces = list
-    say("No furnaces on the network: join them to it with wired modems, or 'smelter add' a Mekanism smelter.", "orange")
+    say("No furnaces on the network: join them to it with wired modems, or add a Mekanism smelter in 'smelter setup'.", "orange")
     status("waiting", "no furnaces")
     return
   end
@@ -679,7 +683,7 @@ local function draw()
     put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
   end
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("C: charcoal  S: stone  G: glass  X: cancel an order", w), "gray")
+  put(1, h, fitText("C: charcoal  S: stone  G: glass  X: cancel  U: setup", w), "gray")
   display:show()
 end
 
@@ -816,8 +820,9 @@ local function drawBoard()
   local bwin, w, h = board:frame()
   screen.put(bwin, 1, 1, (" "):rep(w), "white", "gray")
   screen.put(bwin, 2, 1, "Smelter", "yellow", "gray")
+  screen.put(bwin, w - 6, 1, " Setup ", "black", "lightGray")
   local count = ("%d of %d smelting"):format(working, #tiles)
-  if #count + 11 <= w then screen.put(bwin, w - #count, 1, count, "lightGray", "gray") end
+  if #count + 19 <= w then screen.put(bwin, w - #count - 8, 1, count, "lightGray", "gray") end
   local left = screen.tiles(bwin, w, 3, h - 3, tiles)
   if left > 0 then screen.put(bwin, 2, h - 2, ("...and %d more"):format(left), "gray") end
   if #tiles == 0 then screen.put(bwin, 2, 3, fitText("No furnaces yet.", w - 2), "gray") end
@@ -826,12 +831,41 @@ local function drawBoard()
   board:show()
 end
 
+-- Mekanism smelters, the work chest and the monitor on one screen
+-- (lib/setupui.lua), on screens (the terminal first). Each change is saved
+-- as it's made.
+local function setupScreen(screens)
+  local ui = setupui.new({ screens = screens, name = "smelter" })
+  ui:say("Tap a setting to change it.")
+  ui:run({
+    title = "Smelter setup",
+    rows = function()
+      return {
+        { label = "Furnaces", value = ("%d on the network"):format(#findFurnaces()), colour = "gray" },
+        { label = "Mekanism smelters", value = ("%d added"):format(#smelters:entries()),
+          act = function() ui:open(smelters:setupPage(ui)) end },
+        { label = "Work chest", value = work:describe(), act = function() ui:open(work:setupPage(ui)) end },
+        { label = "Monitor", value = setupui.monitorText("smelter.monitor"),
+          act = function() ui:monitorPage("smelter.monitor", "smelter_monitor") end },
+      }
+    end,
+  })
+  os.queueEvent("smelter_added") -- a round straight away, with the changes
+end
+
 local function uiLoop()
   while true do
     draw()
     drawBoard()
-    local event, a = os.pullEvent()
+    local ev = { os.pullEvent() }
+    local event, a = ev[1], ev[2]
     if event == "peripheral" or event == "peripheral_detach" or event == "smelter_monitor" then board:refresh() end
+    local bx, by = board:clicked(ev)
+    if setupui.wanted("smelter", ev) or (bx and by == 1 and bx >= board:size() - 6)
+      or (event == "char" and a:lower() == "u") then
+      prompts = prompts + 1
+      setupScreen({ display, board })
+    end
     -- char, not key: read() in the prompt would otherwise get the "c" too
     a = event == "char" and a:lower()
     if a == "c" or a == "s" or a == "g" or a == "x" then prompts = prompts + 1 end
@@ -922,6 +956,21 @@ elseif args[1] == "chest" then
     return
   end
   work:command(args[2])
+  return
+elseif args[1] == "setup" then
+  if setupui.openInRunning("smelter") then
+    print("The setup screen is open in the smelter (its tab) and on its monitor.")
+    return
+  end
+  if not net.open("any") then
+    print("I need a wired modem on the storage computer's network first (far away: an ender modem too).")
+    return
+  end
+  setupScreen({ display, board })
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Setup saved. The smelter uses it on its next round.")
   return
 end
 

@@ -17,6 +17,8 @@
 --   empty = function(row) end }        -- optional: an Empty button shows only the rows this passes
 --
 --   ui:open(page) / ui:back()          -- go to a page, and back to the one before
+--                                       -- (on the terminal, Backspace goes back and a button's first
+--                                       -- letter presses it: there may be no mouse)
 --   ui:say(text, colour)               -- the message line
 --   ui:draw()                          -- draw now (before a slow call, after ui:say)
 --   ui:finish(result)                  -- close; run returns result
@@ -25,6 +27,12 @@
 --   ui:monitorPage(setting, event)     -- pick the monitor for a lib/screen.lua setting (queues event)
 --   setupui.contents(names)            -- name -> { stacks, top }: every chest's contents, read at once
 --   setupui.onNetwork(test)            -- names on the wired network (not touching this computer) whose type passes
+--
+-- '<program> setup' typed in another tab opens the screen in the running
+-- program (it has the monitor) when there is one:
+--   if setupui.openInRunning("enricher") then return end   -- in the command: true when one answered
+--   if setupui.wanted("enricher", ev) then ... end          -- in the running program's event loop
+-- With opts.name, a screen that's open already answers for itself.
 local screen = require("lib.screen")
 
 local setupui = {}
@@ -69,6 +77,26 @@ function setupui.onNetwork(test)
   return list
 end
 
+-- Ask a running copy of the program in another tab to open its setup
+-- screen; true when one answered.
+function setupui.openInRunning(name)
+  os.queueEvent(name .. "_open_setup")
+  local timer = os.startTimer(0.5)
+  while true do
+    local e, p = os.pullEvent()
+    if e == name .. "_setup_opened" then return true end
+    if e == "timer" and p == timer then return false end
+  end
+end
+
+-- In the running program: true when ev asks it to open its setup screen
+-- (and it says it will).
+function setupui.wanted(name, ev)
+  if ev[1] ~= name .. "_open_setup" then return false end
+  os.queueEvent(name .. "_setup_opened")
+  return true
+end
+
 function setupui.new(opts)
   return setmetatable({ opts = opts, screens = opts.screens, stack = {}, msg = { "", "lightGray" } }, UI)
 end
@@ -98,6 +126,14 @@ function UI:rows()
     if keep then out[#out + 1] = row end
   end
   return out
+end
+
+-- The page's buttons: its own, else Done on the first page and Back on the others.
+function UI:buttons()
+  local buttons = self.page.buttons and self.page.buttons(self)
+  if buttons then return buttons end
+  return #self.stack == 0 and { { " Done ", "black", "lime", function() self:finish() end } }
+    or { { " Back ", "black", "lightGray", function() self:back(); self:say("") end } }
 end
 
 -- Draw one screen; returns its tap zones.
@@ -144,11 +180,7 @@ function UI:drawOne(i, scr, list)
 
   text(1, h - 1, fit(" " .. self.msg[1], w), self.msg[2])
   local x = 1
-  local buttons = page.buttons and page.buttons(self)
-  if not buttons then
-    buttons = #self.stack == 0 and { { " Done ", "black", "lime", function() self:finish() end } }
-      or { { " Back ", "black", "lightGray", function() self:back(); self:say("") end } }
-  end
+  local buttons = self:buttons()
   for _, b in ipairs(buttons) do x = button(x, h, b[1], b[2], b[3], b[4]) end
   if pages > 1 then
     x = button(x, h, " < ", "white", pg > 1 and "gray" or "black", function()
@@ -159,9 +191,17 @@ function UI:drawOne(i, scr, list)
     end)
   end
   if page.empty and x + 7 <= w then
-    button(x, h, " Empty ", self.empty and "black" or "white", self.empty and "yellow" or "gray", function()
+    x = button(x, h, " Empty ", self.empty and "black" or "white", self.empty and "yellow" or "gray", function()
       self.empty, self.sel, self.pages = not self.empty, 1, {}
     end)
+  end
+  -- the terminal's keys for the buttons (a basic computer has no mouse)
+  if i == 1 then
+    local letters = {}
+    for _, b in ipairs(buttons) do letters[#letters + 1] = b[1]:match("%a") end
+    local keyText = page.filter and "Bksp: back" or ("keys: " .. table.concat(letters, " "))
+    if #self.stack == 0 and page.filter then keyText = "" end
+    if x + #keyText <= w then text(x, h, keyText, "gray") end
   end
 
   local parts = {}
@@ -198,6 +238,7 @@ function UI:run(page)
     local ev = { os.pullEvent() }
     local e, a = ev[1], ev[2]
     if self.opts.onEvent then self.opts.onEvent(ev) end
+    if self.opts.name then setupui.wanted(self.opts.name, ev) end
     local tapped
     for i, scr in ipairs(self.screens) do
       local x, y = scr.target and scr:clicked(ev)
@@ -222,10 +263,23 @@ function UI:run(page)
         local row = list[self.sel]
         if row and row.act then row.act(self) end
       elseif a == keys.backspace then
-        if self.filter ~= "" then self.filter, self.sel = self.filter:sub(1, -2), 1 end
+        if self.filter ~= "" then
+          self.filter, self.sel = self.filter:sub(1, -2), 1
+        elseif #self.stack > 0 then
+          self:back()
+          self:say("")
+        end
       end
     elseif e == "char" and self.page.filter then
       self.filter, self.sel = self.filter .. a, 1
+    elseif e == "char" then
+      -- a button by its first letter: S for Save, B for Back, ...
+      for _, b in ipairs(self:buttons()) do
+        if (b[1]:match("%a") or ""):lower() == a:lower() then
+          b[4]()
+          break
+        end
+      end
     elseif e == "mouse_scroll" then
       self.sel = self.sel + a * per
     end

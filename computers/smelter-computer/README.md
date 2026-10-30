@@ -141,12 +141,15 @@ wireless modem it also reports to the [status server](../status-server/README.md
 6. Optional, but worth it with more than a few furnaces: put an **empty
    chest** next to the furnaces with a wired modem on it, on the same
    network, as the [work chest](#work-chest).
-7. Install this program, run `smelter chest` to pick the work chest (if
-   you placed one), and reboot.
+7. Install this program and reboot. Then tap **Setup** on its monitor, press
+   **U** on its screen, or run `smelter setup` in a second tab: the
+   [setup screen](#the-setup-screen). Pick the work chest (if you placed one)
+   and add any Mekanism smelters there. Everything is saved as you go.
 
    ```
    smelter                        -- start (startup.lua does this on boot)
-   smelter add                    -- add a Mekanism smelter, its feeder (hopper or barrel) and output chest
+   smelter setup                  -- the setup screen (in the running smelter, on its monitor)
+   smelter add                    -- or by typing: add a Mekanism smelter, its feeder (hopper or barrel) and output chest
    smelter add energizedSmelter_0 minecraft:hopper_4 minecraft:chest_9   -- or name them: smelter, input, output
    smelter remove 1               -- forget Mekanism smelter 1 (no number: list them)
    smelter chest                  -- pick the work chest from the empty chests on the network
@@ -203,11 +206,12 @@ leftovers and anything put back go home through it too: each round the
 storage computer takes out everything it didn't just send.
 
 Put an **ender modem** on the smelter and one on the storage computer, then
-run `smelter chest remote` and pick the chest. The storage computer
+pick **Work chest**, **Far away** on the [setup screen](#the-setup-screen)
+(or run `smelter chest remote`) and pick the chest. The storage computer
 finds its twin at home by dropping an item into each chest
 it could be until it turns up at your end, so it needs something stored.
-Or pick the twin on the storage computer first with
-[`storage config remote`](../storage-computer/README.md#far-away-workers)
+Or pick the twin on the storage computer first under
+[Far-away workers](../storage-computer/README.md#far-away-workers) on its setup screen
 (it finds the smelter over the wireless or ender modem): then there's no
 search.
 Far away the smelter can only load furnaces through the work chest: while
@@ -222,6 +226,28 @@ lets you pick a second, **return** ender chest, whose twin at home is an
 ```
 smelter chest remote           -- pick the ender chest (and, if you like, a return one)
 ```
+
+## The setup screen
+
+`smelter setup` (or **Setup** on the monitor, or **U** on the smelter's
+screen) opens it on the monitor and the computer at once, in the running
+smelter if there is one:
+
+- **Furnaces**: how many it found on the network (nothing to pick: every
+  furnace, blast furnace and smoker on the cable is used).
+- **Mekanism smelters**: each with its feeder and output chest. Tap one to
+  change them or remove it; **+ Add an energized smelter** picks the
+  smelter, then its feeder (a hopper, or an empty barrel), then its output
+  chest (or none).
+- **Work chest**: a chest on this cable, **Far away** through an ender chest
+  (and, if you like, a return one), or **None**.
+- **Monitor**: which monitor shows the status board.
+
+Chest lists show what's in each chest and go a page at a time (**<** **>**);
+**Empty** shows only the empty ones, and on the computer you can type to
+narrow the list. On the computer the arrow keys and Enter pick, Backspace
+goes back, and a button's first letter presses it. Each change is saved as
+you make it.
 
 ## Things to know
 

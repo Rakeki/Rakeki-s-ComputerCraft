@@ -7,6 +7,9 @@
 -- gems (2 diamonds, 12 redstone, ...).
 --
 --   enricher                        start (startup.lua runs this)
+--   enricher setup                  the setup screen, on the monitor and the terminal: chambers, the work
+--                                   chest and the monitor (in the running enricher if there is one;
+--                                   or tap Setup on its monitor)
 --   enricher add [chamber feeder [output]]  add a chamber, what feeds it (the hopper on top, or a barrel
 --                                   or chest a pipe pulls from into it) and its output chest under it
 --                                   (asks for what's not given)
@@ -35,6 +38,7 @@ local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local mekfeed = require("lib.mekfeed") -- Mekanism machines fed through a hopper or barrel
 local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
+local setupui = require("lib.setupui") -- the setup screen
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -143,8 +147,8 @@ local function round()
   taking = false
   if #machines == 0 then
     local free = #chambers:free()
-    say(free > 0 and ("%d chamber(s) on the network: hold Ctrl+T twice, then 'enricher add'."):format(free)
-      or "No chambers yet: put a wired modem on one, then hold Ctrl+T twice and 'enricher add'.", "orange")
+    say(free > 0 and ("%d chamber(s) on the network: tap Setup on the monitor, or 'enricher setup'."):format(free)
+      or "No chambers yet: put a wired modem on one, then 'enricher setup'.", "orange")
     status("waiting", "no chambers")
     return
   end
@@ -336,7 +340,7 @@ local function draw()
   local function add(text, colour) footer[#footer + 1] = { text, colour } end
   add(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", total > 0 and "white" or "gray")
   for _, line in ipairs(screen.wrap(message[1], w, wide and 1 or 3)) do add(line, message[2]) end
-  add(wide and "Ctrl+T twice, then enricher add / remove / chest" or "Ctrl+T twice: enricher add", "gray")
+  add(wide and "Setup: 'enricher setup' in another tab" or "Setup: 'enricher setup'", "gray")
   local rows = h - 4 - #footer
   for i = 1, math.min(rows, #machines) do
     local m, y = machines[i], 3 + i
@@ -373,8 +377,9 @@ local function drawBoard()
   local win, w, h = board:frame()
   screen.put(win, 1, 1, (" "):rep(w), "white", "gray")
   screen.put(win, 2, 1, fitText("Enricher", w - 2), "yellow", "gray")
+  screen.put(win, w - 6, 1, " Setup ", "black", "lightGray")
   local count = ("%d of %d working"):format(working, #machines)
-  if #count + 12 <= w then screen.put(win, w - #count, 1, count, "lightGray", "gray") end
+  if #count + 20 <= w then screen.put(win, w - #count - 8, 1, count, "lightGray", "gray") end
   local left = screen.tiles(win, w, 3, h - 3, tiles)
   if left > 0 then screen.put(win, 2, h - 2, ("...and %d more"):format(left), "gray") end
   if #machines == 0 then screen.put(win, 2, 3, fitText("No chambers yet.", w - 2), "gray") end
@@ -383,15 +388,38 @@ local function drawBoard()
   board:show()
 end
 
+-- Chambers, the work chest and the monitor on one screen (lib/setupui.lua),
+-- on screens (the terminal first). Each change is saved as it's made.
+local function setupScreen(screens)
+  local ui = setupui.new({ screens = screens, name = "enricher" })
+  ui:say("Tap a setting to change it.")
+  ui:run({
+    title = "Enricher setup",
+    rows = function()
+      return {
+        { label = "Chambers", value = ("%d added"):format(#chambers:entries()),
+          act = function() ui:open(chambers:setupPage(ui)) end },
+        { label = "Work chest", value = work:describe(), act = function() ui:open(work:setupPage(ui)) end },
+        { label = "Monitor", value = setupui.monitorText("enricher.monitor"),
+          act = function() ui:monitorPage("enricher.monitor", "enricher_monitor") end },
+      }
+    end,
+  })
+  os.queueEvent("enricher_added") -- a round straight away, with the changes
+end
+
 local function uiLoop()
   while true do
     draw()
     drawBoard()
-    repeat
-      local event = os.pullEvent()
-      if event == "peripheral" or event == "peripheral_detach" then board:refresh() end
-    until event == "enricher_changed" or event == "peripheral" or event == "peripheral_detach"
-      or event == "monitor_resize" or event == "term_resize"
+    -- every event: the screens skip frames that haven't changed
+    local ev = { os.pullEvent() }
+    if ev[1] == "peripheral" or ev[1] == "peripheral_detach" or ev[1] == "enricher_monitor" then board:refresh() end
+    local x, y = board:clicked(ev)
+    local w = board.target and board:size()
+    if setupui.wanted("enricher", ev) or (x and y == 1 and x >= w - 6) then
+      setupScreen({ display, board })
+    end
   end
 end
 
@@ -432,8 +460,24 @@ elseif args[1] == "chest" then
   end
   work:command(args[2])
   return
+elseif args[1] == "setup" then
+  if setupui.openInRunning("enricher") then
+    print("The setup screen is open in the enricher (its tab) and on its monitor.")
+    return
+  end
+  if not net.open("any") then
+    print("I need a wired modem on the storage computer's network first (far away: an ender modem too).")
+    return
+  end
+  setupScreen({ screen.new(term.current()),
+    screen.find({ setting = "enricher.monitor", scales = BOARD_SCALES, minW = 15, minH = 8 }) })
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Setup saved. The enricher uses it on its next round.")
+  return
 elseif args[1] then
-  print("Usage: enricher [add [chamber feeder [output]] | remove <n> | chest [name|none]]")
+  print("Usage: enricher [setup | add [chamber feeder [output]] | remove <n> | chest [name|none]]")
   return
 end
 

@@ -849,7 +849,7 @@
       if (!lines.length) s.put(1, H - 2, fitT(" No orders. Board on monitor_3", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("C: charcoal  S: stone  G: glass  X: cancel an order", W), "gray");
+      s.put(1, H, fitT("C: charcoal  S: stone  G: glass  X: cancel  U: setup", W), "gray");
       const order = () => {
         if (!st.orders.length) {
           st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });
@@ -1499,8 +1499,9 @@
       s.fill(1, "gray");
       s.put(2, 1, title, "yellow", "gray");
       const working = tiles.filter((t) => t[2] === "yellow" || t[2] === "orange").length;
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       const count = `${working} of ${tiles.length} ${verb}`;
-      s.put(W - count.length, 1, count, "lightGray", "gray");
+      s.put(W - count.length - 8, 1, count, "lightGray", "gray");
       const cols = Math.max(1, Math.floor((W + 1) / 13)), tileW = Math.floor((W + 1) / cols) - 1;
       tiles.forEach(([name, text, bg], i) => {
         const x = 1 + (i % cols) * (tileW + 1), y = 3 + Math.floor(i / cols) * 4, fg = bg === "red" ? "white" : "black";
