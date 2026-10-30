@@ -162,7 +162,7 @@ chest, or pipe the chests under the chambers into it, so the dust goes
 home. Put an **ender modem** on the enricher and the storage computer and
 run `enricher chest remote`. The storage computer finds the twin by
 dropping an item into each chest it could be, or pick it there first with
-[`storage config remote`](../storage-computer/README.md#changing-one-setting)
+[`storage config remote`](../storage-computer/README.md#far-away-workers)
 and there's no search. Far away nothing is loaded while the work
 chest isn't in use, and the footer says why. Update the storage computer
 too (`install update`).

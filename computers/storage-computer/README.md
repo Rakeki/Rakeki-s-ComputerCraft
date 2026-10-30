@@ -22,8 +22,8 @@ storage, except the ones you choose for:
 
 - **Input chest:** anything you drop in here is put away within a couple of
   seconds, into a chest that already holds that item if there is one.
-  You can have more than one: after the input chest, `storage setup` asks
-  for extra input chests (say one by each farm or at the miners' eject
+  You can have more than one: the setup screen's **Extra input chests**
+  adds more (say one by each farm or at the miners' eject
   port), emptied the same way. The smelter and cooker send their goods back
   through the first one.
 - **Output chest:** search on the computer, press Enter, and a stack of that
@@ -250,7 +250,7 @@ system: the fuel chest is a real chest beside it.
 With the Advanced Peripherals mod, an **ME Bridge** (Applied Energistics 2)
 or **RS Bridge** (Refined Storage) on the wired network lets the system do
 the storing instead of chests ([layout](#ae2-with-advanced-peripherals)).
-`storage setup` asks whether to use it when it finds one. Then:
+The setup screen offers it (**Store items in**) when it finds one. Then:
 
 - The input chest is emptied into the system, searches and turtle requests
   are answered from it, and stacks are sent out of it to the output and
@@ -335,12 +335,13 @@ as usual. Put an **ME Bridge** against the ME cable, with a wired modem on
 the bridge, and run networking cable from it to the storage computer. The
 input, output, fuel and **transfer** chests are ordinary chests on that
 networking cable, and so are the smelter's furnaces. Run `storage setup`
-and answer yes when it finds the bridge. A Refined Storage system with an
+and set **Store items in** to the ME system. A Refined Storage system with an
 **RS Bridge** is laid out the same way.
 
 ## Files
 
 - `storage.lua`: the program. Check intervals are at the top.
+- `setupui.lua`: the setup screen, on the monitor and the computer
 - `chests.lua`: storing in the chests on the network: which blocks count as storage, and what counts as bulk for stack upgrades
 - `bridge.lua`: storing in an ME or RS system through its bridge
 - `crafting.lua`: works out what to craft, ingredients first
@@ -371,17 +372,16 @@ and answer yes when it finds the bridge. A Refined Storage system with an
    turns red. Chat shows the name of each chest it connects.
 5. Optional: put a monitor (advanced, to tap it) next to the computer (or on the network), and a
    wireless modem on it for turtles and the status server.
-6. Run `storage`. The first time it asks whether to use the ME or RS system
-   (if it found a bridge), then lists the chests it can see by name and asks
-   which is the input, which is the output, and which (if any) are the
-   shared delivery, crafter, fuel and transfer chests. Turtles' chests and
-   the crafter chest can be left blank: the turtles find their own.
+6. Run `storage`. The first time it opens the **setup screen**, on the
+   monitor and on the computer at once (see [The setup screen](#the-setup-screen)):
+   pick the input and the output chest, and any of the others you want, then
+   Save. Turtles' chests and the crafter chest can be left as they are: the
+   turtles find their own.
 
    ```
    storage                   -- start
-   storage setup             -- choose the store and the chests again
-   storage config            -- change one setting (a chest, the extra input chests, a far-away worker's ender chest)
-   storage config fuel       -- straight to one: input, inputs, output, delivery, crafter, fuel, transfer, remote
+   storage setup             -- the setup screen again (or tap Setup on the monitor)
+   storage config fuel       -- change one setting by typing: input, inputs, output, delivery, crafter, fuel, transfer, remote
    storage config fuel minecraft:chest_9   -- or name the chest ('none' clears an optional one)
    storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
    storage tidy              -- show slot sizes and sort bulk items into storage with stack upgrades now
@@ -394,16 +394,40 @@ and answer yes when it finds the bridge. A Refined Storage system with an
 
 Then reboot, and it starts on its own from then on.
 
-### Changing one setting
+### The setup screen
 
-`storage config` lists the setup (input, extra input chests, output, shared
-delivery, crafter, fuel and transfer chests) and changes just the one you
-pick, without going through `storage setup` again. Run it in a second tab
-(`bg storage config` on an advanced computer, then switch to that tab) and
-the running storage program uses the change straight away; or stop it with
-Ctrl+T, change it and reboot.
+Every setting on one page: the store (when there's an ME or RS bridge), the
+input chest, extra input chests, output, shared delivery, crafter, fuel and
+transfer chests, and far-away workers. Tap one on the monitor (or click it,
+or pick it with the arrow keys and Enter on the computer) and it lists every
+chest on the network with what's in it ("12: oak log": 12 stacks, mostly oak
+logs), a page at a time:
 
-**Far-away workers** (`storage config remote`): an
+- **<** and **>** (or Page Up / Page Down, or the mouse wheel) turn the page.
+- **Empty** shows only the empty chests, the ones you usually want for an
+  input, output or fuel chest.
+- On the computer, type part of a chest's name or of what's in it to narrow
+  the list (Backspace to undo).
+- Chests already used for something else are grey and say what for. A
+  turtle's or a work chest can be picked anyway: the turtle or computer finds
+  another.
+
+**Save** keeps it, **Cancel** leaves everything as it was. Nothing changes
+until you Save.
+
+Open it with **Setup** on the monitor, or `storage setup` (or `storage
+config`) in a second tab (`bg storage setup` on an advanced computer): it
+opens in the running storage program, on its monitor and in its tab. What
+you save is used straight away, with no restart (except switching between
+chests and an ME or RS system: then reboot). With no storage program running
+(stopped with Ctrl+T) it opens where you typed it.
+
+`storage config <setting> [chest|none]` changes one setting by typing,
+without the screen: `storage config fuel minecraft:chest_9`.
+
+### Far-away workers
+
+**Far-away workers** (`storage config remote`, or on the setup screen): an
 [enricher](../enricher-computer/README.md#far-from-the-storage-system) or
 [smelter](../smelter-computer/README.md#far-from-the-storage-system) at another
 base works through an ender chest whose twin is on this cable. This looks
@@ -415,7 +439,8 @@ computer that already works through an ender chest switches on its next
 round.
 
 To move from chests to
-an ME or RS system later, add the bridge, run `storage setup` and answer yes:
+an ME or RS system later, add the bridge, run `storage setup`, tap **Store
+items in** to switch to it, Save and reboot:
 the turtles and the smelter carry on without being changed.
 
 ## Things to know

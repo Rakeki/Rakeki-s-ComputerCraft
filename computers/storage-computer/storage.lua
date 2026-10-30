@@ -23,10 +23,11 @@
 -- 'enricher chest'; lib/workchest.lua): I fill it in one go each round and
 -- they share it out into their furnaces and hoppers themselves.
 --
---   storage          start (asks how it's set up the first time)
---   storage setup    choose the store and the input, output, shared delivery, crafter, fuel and transfer chests again
---   storage config   change one of them (or the extra input chests, or a far-away enricher's or
---                    smelter's ender chest) without the full setup: 'storage config fuel' etc.
+--   storage          start (opens the setup screen the first time)
+--   storage setup    the setup screen: the store and the input, output, shared delivery, crafter, fuel and
+--                    transfer chests, the extra input chests and far-away enrichers' and smelters' ender chests
+--                    (on the monitor and the terminal; in a running storage program if there is one)
+--   storage config   the same; 'storage config fuel [chest|none]' changes one setting by typing
 --   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
 --   storage tidy     show the storage's slot sizes and sort bulk items into the roomiest now
 --   storage dump [chest]  move everything stored into an ender chest whose twin is another
@@ -58,6 +59,7 @@ if crafting and fs.exists("pack_recipes.lua") then
   end
 end
 local chests = require("chests")
+local setupui = require("setupui") -- the setup screen
 local bridges = fs.exists("bridge.lua") and require("bridge")
 
 local SETUP_FILE = "/.storage_setup"
@@ -449,7 +451,8 @@ local function drawMonitor()
   local used, total, stat = store.space()
   text(1, 1, (" "):rep(w), "white", "gray")
   text(2, 1, "Storage", "yellow", "gray")
-  if #stat + 11 <= w then text(w - #stat, 1, stat, "lightGray", "gray") end
+  button(w - 6, 1, " Setup ", "black", "lightGray", function() mon.setup = true end)
+  if #stat + 19 <= w then text(w - #stat - 8, 1, stat, "lightGray", "gray") end
   if used and total and total > 0 then
     local frac = math.min(1, used / total)
     local filled = math.floor(frac * w + 0.5)
@@ -585,6 +588,7 @@ end
 ---------------------------------------------------------------- loops
 
 local orderCraft -- in the crafting section below
+local editSetup -- in the setup section below
 
 -- Send amount of an item from the list to the output chest, or have it
 -- crafted if it isn't stored (from the terminal or a monitor button).
@@ -616,10 +620,34 @@ local function take(amount)
   if it then takeItem(it, amount) end
 end
 
+-- The setup screen inside the running program (the monitor's Setup button,
+-- or 'storage setup' / 'storage config' in another tab): what's saved is
+-- used straight away (setupLoop).
+local function setupScreen()
+  local s = loadSetup() or setup
+  local kind = setup.backend == "bridge" and store.kind or bridges and select(2, bridges.find())
+  if editSetup(s, kind, false) then
+    saveSetup(s)
+    os.queueEvent("storage_setup")
+  else
+    message = { "Setup closed: nothing changed.", "lightGray" }
+  end
+end
+
 local function uiLoop()
   while true do
     redraw()
+    if mon.setup then
+      mon.setup = false
+      setupScreen()
+      redraw()
+    end
     local ev = { os.pullEvent() }
+    -- 'storage setup' in another tab: open it here, where the monitor is
+    if ev[1] == "storage_open_setup" then
+      os.queueEvent("storage_setup_opened")
+      mon.setup = true
+    end
     local event, a, x, y = ev[1], ev[2], ev[3], ev[4]
     local mx, my = monScreen:clicked(ev)
     if mx then
@@ -1865,99 +1893,6 @@ local function dumpLoop()
   end
 end
 
----------------------------------------------------------------- setup
-
-local function chooseChests()
-  local s = {}
-  local bridgeName, kind = nil, nil
-  if bridges then bridgeName, kind = bridges.find() end
-  if bridgeName then
-    print(("Found an %s Bridge (%s)."):format(kind, bridgeName))
-    print(("Store items in the %s system, instead of in chests"):format(kind))
-    write("on the network? [Y/n] ")
-    local a = read():lower()
-    s.backend = (a == "" or a:sub(1, 1) == "y") and "bridge" or "chests"
-  else
-    s.backend = "chests"
-  end
-  local need = s.backend == "bridge" and 2 or 3
-  local invs = {}
-  for _, name in ipairs(peripheral.getNames()) do
-    if isInventory(name) then invs[#invs + 1] = name end
-  end
-  table.sort(invs)
-  if #invs < need then
-    print(("I can only see %d chests. I need at least %d on the"):format(#invs, need))
-    print(s.backend == "bridge" and "network: an input and an output."
-      or "network: an input, an output, and one or more for storage.")
-    print("Put a full-block wired modem against each chest, connect")
-    print("them with cable, and right-click each modem so it turns red.")
-    return nil
-  end
-  print("Chests on the network:")
-  for i, name in ipairs(invs) do
-    local ok, list = pcall(peripheral.call, name, "list")
-    local n = 0
-    for _ in pairs(ok and list or {}) do n = n + 1 end
-    print(("%2d  %s%s"):format(i, name, n > 0 and (" (" .. n .. " stacks)") or ""))
-  end
-  print("Tip: right-clicking a modem shows its chest's name in chat.")
-  local taken = {}
-  local function ask(prompt, optional)
-    while true do
-      write(prompt)
-      local text = read()
-      if optional and text == "" then return nil end
-      local n = tonumber(text)
-      if n and invs[n] and not taken[invs[n]] then
-        taken[invs[n]] = true
-        return invs[n]
-      end
-      print("Type one of the numbers above" .. (optional and ", or just Enter." or "."))
-    end
-  end
-  s.input = ask("Which is the input chest? ")
-  print("More input chests are emptied the same way. Type each")
-  print("one's number, then just Enter when there are no more.")
-  s.inputs = {}
-  while true do
-    local more = ask("Another input chest? [done] ", true)
-    if not more then break end
-    s.inputs[#s.inputs + 1] = more
-  end
-  s.output = ask("Which is the output chest? ")
-  print("Turtles (village builder, builder, crafter) find their own")
-  print("chest on the network when they start: no need to pick those.")
-  print("A shared delivery chest is for turtles that can't: leave it")
-  print("blank to send their items to the output chest.")
-  s.delivery = ask("Which is the shared delivery chest? [none] ", true)
-  print("The crafting turtle's chest sits in front of it. Leave blank")
-  print("to let the turtle find it.")
-  s.crafter = ask("Which is the crafter chest? [none] ", true)
-  print("A fuel chest keeps the coal and charcoal for the smelter's")
-  print("furnaces and for turtles. Leave blank if there isn't one.")
-  s.fuel = ask("Which is the fuel chest? [none] ", true)
-  if s.backend == "bridge" then
-    print("The bridge can't put items in a chosen slot, so items for")
-    print("furnaces and the crafting turtle pass through a transfer")
-    print("chest. Leave blank if you use neither.")
-    s.transfer = ask("Which is the transfer chest? [none] ", true)
-  end
-  -- the turtles' own chests, computers' work chests and Mekanism feeders stay theirs, unless picked for something else
-  local old = loadSetup()
-  s.deliveries, s.crafters, s.works, s.feeders = {}, {}, {}, {}
-  for _, which in ipairs({ "deliveries", "crafters", "works", "feeders" }) do
-    for id, name in pairs(old and old[which] or {}) do
-      if not taken[name] then s[which][id] = name end
-    end
-  end
-  if not s.crafter and old and old.crafter and not taken[old.crafter] then s.crafter = old.crafter end
-  saveSetup(s)
-  print(s.backend == "bridge" and ("Saved. Items are stored in the %s system."):format(kind)
-    or "Saved. Every other chest is storage.")
-  return s
-end
-
 ---------------------------------------------------------------- changing one setting
 
 -- 'storage config [what [chest|none]]': change one chest of the setup, the
@@ -2055,18 +1990,26 @@ local function configInputs(s, name)
   return true
 end
 
--- Far-away enrichers and smelters: found by wireless (they host their
--- protocol); pick which ender chest on my cable is each one's work chest,
--- so its own end needs no probing ('<program> chest remote' takes it).
-local function configRemote(s)
-  s.works = s.works or {}
-  if not net.open("any") then print("I need a modem to find them: a wireless or ender modem.") return false end
-  print("Looking for enrichers and smelters...")
+-- Every far-away enricher and smelter (they host their protocol), as
+-- { { id, kind } }, or nil and why.
+local function findWorkers()
+  if not net.open("any") then return nil, "I need a wireless or ender modem to find them." end
   local found = {}
   for kind, protocol in pairs(WORKER_PROTOCOLS) do
     for _, id in ipairs({ rednet.lookup(protocol) }) do found[#found + 1] = { id = id, kind = kind } end
   end
   table.sort(found, function(a, b) return a.id < b.id end)
+  return found
+end
+
+-- Far-away enrichers and smelters: found by wireless (they host their
+-- protocol); pick which ender chest on my cable is each one's work chest,
+-- so its own end needs no probing ('<program> chest remote' takes it).
+local function configRemote(s)
+  s.works = s.works or {}
+  print("Looking for enrichers and smelters...")
+  local found, why = findWorkers()
+  if not found then print(why) return false end
   if #found == 0 then
     print("None answered. Are they running, with an ender or wireless modem (and updated)?")
     write("Type a computer's ID to set it anyway (Enter to leave): ")
@@ -2109,6 +2052,79 @@ local function configRemote(s)
   return true
 end
 
+---------------------------------------------------------------- setup
+
+-- The setup screen (setupui.lua) on this computer's terminal and the
+-- monitor. s is edited in place; true when the player saved it.
+editSetup = function(s, kind, first)
+  for _, which in ipairs({ "inputs", "deliveries", "crafters", "works", "feeders" }) do s[which] = s[which] or {} end
+  -- the store: chests, unless there's a bridge to use
+  if not kind then s.backend = "chests" elseif not s.backend then s.backend = "bridge" end
+  return setupui.run({ setup = s, screens = { termScreen, monScreen }, bridge = kind, first = first,
+    isInventory = isInventory, isEnder = isEnder, usedIn = usedIn, workers = findWorkers,
+    -- a second 'storage setup' meanwhile: this one is open already
+    onEvent = function(ev) if ev[1] == "storage_open_setup" then os.queueEvent("storage_setup_opened") end end })
+end
+
+-- A storage program running in another tab opens the setup screen itself
+-- (it has the monitor): true when one answered.
+local function openInRunning()
+  os.queueEvent("storage_open_setup")
+  local timer = os.startTimer(0.5)
+  while true do
+    local e, p = os.pullEvent()
+    if e == "storage_setup_opened" then return true end
+    if e == "timer" and p == timer then return false end
+  end
+end
+
+local function clearTerminal()
+  term.setBackgroundColor(colors.black)
+  term.setTextColor(colors.white)
+  term.clear()
+  term.setCursorPos(1, 1)
+end
+
+-- The first setup, or 'storage setup' with no storage program running.
+-- Returns the saved setup, or nil.
+local function chooseChests()
+  local kind
+  if bridges then kind = select(2, bridges.find()) end
+  local invs = 0
+  for _, name in ipairs(peripheral.getNames()) do
+    if isInventory(name) then invs = invs + 1 end
+  end
+  if invs < 2 then
+    print(("I can only see %d chests. I need at least an input and an output"):format(invs))
+    print("chest on the network, and chests to store in (or an ME or RS bridge).")
+    print("Put a full-block wired modem against each chest, connect")
+    print("them with cable, and right-click each modem so it turns red.")
+    return nil
+  end
+  local old = loadSetup()
+  local s = old or {}
+  local saved = editSetup(s, kind, old == nil)
+  clearTerminal()
+  if not saved then
+    print("Setup closed: nothing saved.")
+    return nil
+  end
+  saveSetup(s)
+  print(s.backend == "bridge" and ("Saved. Items are stored in the %s system."):format(kind)
+    or "Saved. Every other chest is storage.")
+  return s
+end
+
+-- 'storage setup' / 'storage config' with no setting: the setup screen, in
+-- the running storage program if there is one (it has the monitor), else here.
+local function setupCommand()
+  if openInRunning() then
+    print("The setup screen is open in the storage program (its tab) and on its monitor.")
+    return
+  end
+  chooseChests()
+end
+
 local function configCommand(what, value)
   local s = loadSetup()
   if not s then print("Not set up yet: run 'storage' first.") return end
@@ -2117,22 +2133,13 @@ local function configCommand(what, value)
     if x.key == what then c = x end
   end
   if not c then
-    if what then print(("No setting called %s."):format(what)) end
-    for i, x in ipairs(CONFIG) do
-      local now = x.key == "inputs" and (#(s.inputs or {}) > 0 and table.concat(s.inputs, ", ") or "none")
-        or x.key == "remote" and "pick to see"
-        or s[x.key] or "none"
-      print(("%d  %-9s %s: %s"):format(i, x.key, x.what, now))
+    if what then
+      local names = {}
+      for _, x in ipairs(CONFIG) do names[#names + 1] = x.key end
+      print(("No setting called %s. They are: %s."):format(what, table.concat(names, ", ")))
+      return
     end
-    write("Change which? (Enter to leave) ")
-    local text = read()
-    c = CONFIG[tonumber(text)]
-    if not c then
-      for _, x in ipairs(CONFIG) do
-        if x.key == text then c = x end
-      end
-    end
-    if not c then return end
+    return setupCommand()
   end
   if c.key == "transfer" and s.backend ~= "bridge" then
     print("Only an ME or RS system needs a transfer chest.")
@@ -2157,10 +2164,13 @@ if args[1] == "config" then
   configCommand(args[2], args[3])
   return
 end
-if args[1] == "setup" or not loadSetup() then
+if args[1] == "setup" then
+  setupCommand()
+  return
+end
+if not loadSetup() then
   setup = chooseChests()
   if not setup then return end
-  if args[1] == "setup" then return end
 else
   setup = loadSetup()
 end

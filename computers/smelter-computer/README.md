@@ -207,7 +207,7 @@ run `smelter chest remote` and pick the chest. The storage computer
 finds its twin at home by dropping an item into each chest
 it could be until it turns up at your end, so it needs something stored.
 Or pick the twin on the storage computer first with
-[`storage config remote`](../storage-computer/README.md#changing-one-setting)
+[`storage config remote`](../storage-computer/README.md#far-away-workers)
 (it finds the smelter over the wireless or ender modem): then there's no
 search.
 Far away the smelter can only load furnaces through the work chest: while

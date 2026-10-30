@@ -673,7 +673,8 @@
       s.fill(1, "gray");
       s.put(2, 1, "Storage", "yellow", "gray");
       const stat = `80 chests, ${used}/${SLOTS} slots`;
-      s.put(W - stat.length, 1, stat, "lightGray", "gray");
+      btn(W - 6, 1, " Setup ", "black", "lightGray", () => {});
+      s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
       const frac = Math.min(1, used / SLOTS), filled = Math.round(frac * W);
       const bar = fitT(` ${Math.round(frac * 100)}% full`, W);
       s.put(1, 2, bar.slice(0, filled), "white", frac > 0.9 ? "red" : frac > 0.7 ? "orange" : "green");
@@ -1723,5 +1724,116 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, enricherBoard, smelterBoard, remote, essence, buildControl, instabuild } };
+  // The setup screen (setupui.lua) on the monitor: every setting on one
+  // page; tap one for a list of chests with what's in each, a page at a time.
+  function storageSetup(el) {
+    const W = 57, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (w <= 0 ? "" : t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const tops = ["cobblestone", "oak log", "iron ingot", "wheat", "dirt", "redstone dust", "andesite", "copper ingot", "sand", "coal"];
+    const chests = [];
+    for (let i = 0; i < 64; i++) {
+      const empty = i % 7 === 2 || i === 0 || i === 1 || i === 5;
+      chests.push({ name: `minecraft:chest_${i}`, stacks: empty ? 0 : 3 + ((i * 13) % 50), top: tops[i % tops.length] });
+    }
+    chests.push({ name: "minecraft:barrel_0", stacks: 0 }, { name: "minecraft:barrel_1", stacks: 4, top: "coal" });
+    const SETTINGS = [
+      ["input", "Input chest", true, "Items dropped in here get put away."],
+      ["inputs", "Extra input chests", false, "Emptied like the input chest."],
+      ["output", "Output chest", true, "What you take from storage is sent here."],
+      ["delivery", "Shared delivery chest", false, "For turtles that can't find a chest of their own."],
+      ["crafter", "Crafter chest", false, "In front of the crafting turtle (or let it find its own)."],
+      ["fuel", "Fuel chest", false, "Coal and charcoal for the smelter and the turtles."],
+      ["remote", "Far-away workers", false, "Enrichers and smelters at another base, through an ender chest."],
+    ];
+    const setup = { input: "minecraft:chest_0", output: "minecraft:chest_1", fuel: "minecraft:barrel_1", inputs: [] };
+    const st = { view: "main", c: null, page: 1, empty: false, msg: ["Tap a setting to change it.", "lightGray"], auto: true };
+    const roleOf = (n) => {
+      for (const [k, what] of SETTINGS) if (setup[k] === n) return what.toLowerCase();
+      return setup.inputs.includes(n) ? "an extra input chest" : null;
+    };
+
+    function rows() {
+      if (st.view === "main") {
+        return SETTINGS.map(([k, what, need]) => {
+          let value = setup[k], colour = "lightGray";
+          if (k === "inputs") value = setup.inputs.length ? setup.inputs.join(", ") : "none";
+          else if (k === "remote") value = "find them";
+          else if (!value) { value = need ? "not set" : "none"; colour = need ? "orange" : "gray"; }
+          return { label: what, value, colour, act: () => { if (k !== "inputs" && k !== "remote") { st.view = "pick"; st.c = SETTINGS.find((x) => x[0] === k); st.page = 1; st.msg = ["Tap a chest.", "lightGray"]; } } };
+        });
+      }
+      const [k, what, need] = st.c, cur = setup[k];
+      const out = need ? [] : [{ label: "(none)", colour: cur ? "white" : "yellow", act: () => choose(null) }];
+      for (const c of chests) {
+        if (st.empty && c.stacks > 0) continue;
+        const role = c.name !== cur && roleOf(c.name);
+        const value = role || (c.stacks ? `${c.stacks}: ${c.top}` : "empty");
+        out.push({ label: c.name, value: c.name === cur ? "now  " + value : value, colour: c.name === cur ? "yellow" : role ? "gray" : "lightGray",
+          labelColour: role ? "gray" : "white",
+          act: () => (role ? (st.msg = [`${c.name} is already the ${role}.`, "orange"]) : choose(c.name)) });
+      }
+      return out;
+    }
+    function choose(name) {
+      setup[st.c[0]] = name;
+      st.msg = [`${st.c[1]}: ${name || "none"}.`, "lime"];
+      st.view = "main";
+    }
+
+    function draw() {
+      s.clear();
+      const btn = (x, y, label, fg, bg, action) => { s.put(x, y, label, fg, bg); s.zones.push({ x1: x, x2: x + label.length - 1, y1: y, y2: y, action }); return x + label.length + 1; };
+      const list = rows(), per = H - 4, pages = Math.max(1, Math.ceil(list.length / per));
+      st.page = Math.max(1, Math.min(st.page, pages));
+      s.fill(1, "gray");
+      const head = st.view === "main" ? "Storage settings" : "Pick: " + st.c[1];
+      s.put(2, 1, head, "yellow", "gray");
+      if (pages > 1) { const t = `${st.page}/${pages}`; s.put(W - t.length, 1, t, "lightGray", "gray"); }
+      if (st.view !== "main") s.put(2, 2, fitT(st.c[3], W - 2), "lightGray");
+      list.slice((st.page - 1) * per, st.page * per).forEach((row, r) => {
+        const y = 3 + r, value = row.value || "", vw = Math.min(value.length, Math.floor((W - 3) * 0.5));
+        s.put(2, y, fitT(row.label, W - 3 - (vw ? vw + 1 : 0)), row.labelColour || (row.value ? "white" : row.colour));
+        if (vw) s.put(W - vw, y, fitT(value, vw), row.colour);
+        s.zones.push({ x1: 1, x2: W, y1: y, y2: y, action: row.act });
+      });
+      s.put(1, H - 1, fitT(" " + st.msg[0], W), st.msg[1]);
+      let x = 1;
+      if (st.view === "main") {
+        x = btn(x, H, " Save ", "black", "lime", () => { st.msg = ["Saved: the storage program uses it now.", "lime"]; });
+        x = btn(x, H, " Cancel ", "white", "red", () => {});
+      } else {
+        x = btn(x, H, " Back ", "black", "lightGray", () => { st.view = "main"; st.msg = ["Tap a setting to change it.", "lightGray"]; });
+        if (pages > 1) {
+          x = btn(x, H, " < ", "white", st.page > 1 ? "gray" : "black", () => { st.page--; });
+          x = btn(x, H, " > ", "white", st.page < pages ? "gray" : "black", () => { st.page++; });
+        }
+        btn(x, H, " Empty ", st.empty ? "black" : "white", st.empty ? "yellow" : "gray", () => { st.empty = !st.empty; st.page = 1; });
+      }
+      s.render();
+    }
+
+    // the demo: open the fuel chest's list, page through, show only empty ones, pick barrel_0
+    const script = [() => {}, () => { st.view = "pick"; st.c = SETTINGS[5]; st.page = 1; st.msg = ["Tap a chest, or (none).", "lightGray"]; },
+      () => { st.page = 2; }, () => { st.page = 3; }, () => { st.empty = true; st.page = 1; }, () => {},
+      () => { st.empty = false; choose("minecraft:barrel_0"); }, () => {},
+      () => { setup.fuel = "minecraft:barrel_1"; st.msg = ["Tap a setting to change it.", "lightGray"]; }];
+    let step = 0;
+    setInterval(() => {
+      if (!st.auto) return;
+      script[step % script.length]();
+      step++;
+      draw();
+    }, 1200);
+    el.addEventListener("click", (ev) => {
+      st.auto = false;
+      const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y);
+      if (z) z.action();
+      draw();
+    });
+    draw();
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, enricherBoard, smelterBoard, remote, essence, buildControl, instabuild } };
 })();

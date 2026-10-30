@@ -857,12 +857,12 @@
       "setup": [
         "Put a full-block wired modem against each chest (or small modems on barrels), a wired modem on the computer, and join them with cable. Right-click each modem.",
         "For AE2 or Refined Storage: put an ME Bridge or RS Bridge against the system, with a wired modem on the same cable.",
-        "Run storage and answer its questions: the store, then the input (and any extra input chests), output and (optional) shared delivery, crafter, fuel and transfer chests. Turtles' chests need no picking: they find their own. Reboot."
+        "Run storage: the setup screen opens on the monitor and the computer. Tap (or click) the input and output chests, and any extra input, shared delivery, crafter, fuel and transfer chests, from lists that show what's in each chest; Save. Turtles' chests need no picking: they find their own. Reboot."
       ],
       "commands": [
-        ["storage", "start (asks how it's set up the first time)"],
-        ["storage setup", "choose the store and the chests again"],
-        ["storage config", "change one setting without the full setup: a chest, the extra input chests, or a far-away enricher's or smelter's ender chest (remote)"],
+        ["storage", "start (opens the setup screen the first time)"],
+        ["storage setup", "the setup screen, on the monitor and the computer (in the running storage program, if there is one); or tap Setup on the monitor"],
+        ["storage config fuel [chest|none]", "change one setting by typing: input, inputs, output, delivery, crafter, fuel, transfer, remote (no setting: the setup screen)"],
         ["storage test", "list the turtles' chests, check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
         ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"],
         ["storage dump", "move everything stored into an ender chest whose twin is another storage system's input chest (stop: stop it)"]
@@ -883,7 +883,8 @@
         "scene": "storage",
         "caption": "The storage terminal: type to search, Enter for a stack. Shown with the optional Craftable tab turned on: it lists what isn't stored but can be made. Click a tab or a row, and the row again to take (or craft) a stack.",
         "more": [
-          { "scene": "storageMonitor", "caption": "The monitor (an advanced one, for touch): Most / A-Z sorts, Find opens the on-screen keyboard, the arrows turn the page. Tap an item, then how many to send to the output chest. Click to try it." }
+          { "scene": "storageMonitor", "caption": "The monitor (an advanced one, for touch): Most / A-Z sorts, Find opens the on-screen keyboard, the arrows turn the page. Tap an item, then how many to send to the output chest. Click to try it." },
+          { "scene": "storageSetup", "caption": "Setup opens the setup screen on the monitor (and on the computer): every setting on one page; tap one for every chest on the network with what's in it, a page at a time, Empty for empty ones only. Click to try it." }
         ]
       },
       "layouts": [
