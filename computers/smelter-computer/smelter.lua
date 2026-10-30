@@ -597,12 +597,11 @@ end
 
 -- Drawn through lib/screen.lua (a hidden window shown in one go), so it
 -- doesn't flash. The computer's screen has the full table and the keys; the
--- monitor picked with 'smelter monitor' (a monitor on the cable only then:
--- the storage computer and others there have their own; until then one
--- touching the computer) is a status board: a tile per furnace, lime idle, yellow smelting, orange a
+-- monitor picked with 'smelter monitor' (until then one touching the
+-- computer, else the first on the cable) is a status board: a tile per furnace, lime idle, yellow smelting, orange a
 -- full stack in, red needs you (no fuel or power, output stuck).
 local display = screen.new(term.current())
-local board = screen.find({ setting = "smelter.monitor", named = true, scales = { 1, 0.5 }, minW = 15, minH = 8 })
+local board = screen.find({ setting = "smelter.monitor", scales = { 1, 0.5 }, minW = 15, minH = 8 })
 local LEGEND = { { "lime", "idle" }, { "yellow", "smelting" }, { "orange", "full" }, { "red", "help" } }
 local prompts = 0 -- prompts shown on the terminal, so it's drawn again after one
 local win

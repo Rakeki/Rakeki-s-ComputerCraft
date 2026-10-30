@@ -1106,7 +1106,7 @@
         "scene": "smelter",
         "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.",
         "more": [
-          { "scene": "smelterBoard", "caption": "A monitor touching the smelter, or one on the cable picked with smelter monitor, is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
+          { "scene": "smelterBoard", "caption": "A monitor (touching the smelter, else the first on the cable, or the one picked with smelter monitor) is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
         ]
       },
       "terminal": {
@@ -1811,7 +1811,7 @@
       "api": [
         ["screen.tiles(t, w, top, bottom, tiles, minW)", "A status board: a coloured tile per { title, text, bg, fg } (3 rows high, at least minW wide, stretched to fill) between rows top and bottom. How many didn't fit."],
         ["screen.legend(t, x, y, w, keys)", "What the tile colours mean on one row, { colour, word } pairs; stops before one that doesn't fit."],
-        ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'), named (while that setting is unset, only a monitor touching the computer, never one on the cable)."],
+        ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'); unset, a monitor touching the computer first, else the first on the cable."],
         ["screen.choose(setting, arg)", "For a '<program> monitor' command: lists every monitor the computer sees (touching it or on the cable), saves the player's pick (or 'none', or arg given on the command line) in setting and returns it; nil when left as it was. Queue an event the running program calls refresh() on, so it moves straight away."],
         ["s:refresh()", "Call on peripheral / peripheral_detach: keeps a monitor that's still there, else moves to another or the fallback. True when it moved."],
         ["s:clicked(ev)", "x, y (and true for a drag) when the event is a tap on its monitor, or a click while it's on the terminal."],

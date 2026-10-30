@@ -72,10 +72,8 @@ every program handles monitors coming and going the same way.
 Monitors on the wired network count too, so every computer on the storage
 cable sees every monitor on it. Always pass `setting = "<command>.monitor"`:
 the player names the monitor with `set <command>.monitor <name>` (`none` for
-no monitor), read again on every `refresh()`. Unset, the first free monitor
-is taken, or with `named = true` only one touching the computer (for a program
-that gained a monitor later, so it doesn't take another program's on the cable
-in an existing world). Give such a program a `<command> monitor [name|none]`
+no monitor), read again on every `refresh()`. Unset, a monitor touching the
+computer is taken first, else the first one on the cable. Give a program a `<command> monitor [name|none]`
 command: `screen.choose(setting, args[2])` lists every monitor, saves the pick
 and returns it; then `os.queueEvent("<command>_monitor")` and call
 `refresh()` on that event so a running copy in another tab moves at once
@@ -87,7 +85,6 @@ local display = screen.find({
   minW = 53, minH = 12,       -- optional
   filter = function(name, m) return m.isColor() end, -- optional: which monitors will do
   setting = "smelter.monitor", -- the player's pick: 'set smelter.monitor monitor_3', or none
-  named = true,               -- optional: unset, only a monitor touching the computer
   name = config.monitor,      -- optional: only this one (then filter is ignored)
   fallback = term.current(),  -- optional: drawn on while there's no monitor
 })

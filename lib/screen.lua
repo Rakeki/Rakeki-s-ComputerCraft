@@ -28,16 +28,14 @@
 --   screen.find(opts)                opts: name (only this monitor), filter(name, monitor), scales (tried
 --                                    largest first; default { 1 }), minW / minH (size the scale must fit),
 --                                    fallback (drawn on when there's no monitor, e.g. term.current()),
---                                    setting (a settings key the player sets to a monitor's name, below),
---                                    named (while that setting is unset, only a monitor touching this computer,
---                                    never one on the cable)
+--                                    setting (a settings key the player sets to a monitor's name, below)
 --
 -- Every computer on a wired network sees every monitor on it, so programs
 -- sharing the storage cable could take each other's. With setting (e.g.
 -- "smelter.monitor"), the player picks one: 'set smelter.monitor monitor_3'
 -- (the name shows when its modem is right-clicked), or 'none' for no
--- monitor; unset, any free one is taken (with named, only one touching the
--- computer). It's read on every refresh, so a change takes effect on the
+-- monitor; unset, a monitor touching the computer is taken first (it's
+-- most likely this program's), else the first one on the cable. It's read on every refresh, so a change takes effect on the
 -- next peripheral event or restart. screen.choose(setting) asks the player
 -- to pick one from a list (a '<program> monitor' command).
 --   s.target, s.name                 what it draws on now (nil without a monitor or fallback), and the monitor's name
@@ -146,8 +144,6 @@ function screen:fits(name)
   if not (name and peripheral.isPresent(name) and peripheral.getType(name) == "monitor") then return false end
   local want = self:wanted()
   if want ~= nil then return name == want end
-  -- not named yet: a monitor on the cable may be another program's
-  if o.named and o.setting and not onSide(name) then return false end
   return not o.filter or o.filter(name, peripheral.wrap(name)) and true or false
 end
 
@@ -163,8 +159,12 @@ function screen:refresh()
   if want then
     if self:fits(want) then name = want end
   elseif want == nil then
-    local mon = peripheral.find("monitor", function(n) return self:fits(n) end)
-    name = mon and peripheral.getName(mon)
+    -- one touching this computer first: one on the cable may be another program's
+    for _, side in ipairs(rs.getSides()) do
+      if not name and self:fits(side) then name = side end
+    end
+    local mon = not name and peripheral.find("monitor", function(n) return self:fits(n) end)
+    name = name or mon and peripheral.getName(mon)
   end
   if name == nil and self.name == nil and self.target == o.fallback then return false end
   local target = name and peripheral.wrap(name) or o.fallback
