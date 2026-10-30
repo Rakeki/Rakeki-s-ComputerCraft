@@ -220,6 +220,10 @@ Or pick the twin on the storage computer first under
 [Far-away workers](../storage-computer/README.md#far-away-workers) on its setup screen
 (it finds the smelter over the wireless or ender modem): then there's no
 search.
+The ender chest needs a **wired modem on it**, joined to the smelter's cable
+(one only touching the computer can't be reached from the furnaces). If the
+twin isn't found yet, Far away still sticks: smelted items go into the ender
+chest anyway, the footer says so, and it looks again every minute.
 Far away the smelter can only load furnaces through the work chest: while
 it's not in use (storage not answering, a chest gone), nothing is loaded
 and the footer says why. Both bases need to be loaded. Update the

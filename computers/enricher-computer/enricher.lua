@@ -173,8 +173,10 @@ local function round()
 
   local unsure, problem = chambers:register(work.remote)
   -- the dust in the output chests goes home first, so they never fill up
-  local _, outStuck = chambers:collect(machines, input)
-  if outStuck then
+  local _, outStuck, outWhy = chambers:collect(machines, input)
+  if outWhy then
+    problem = problem or outWhy
+  elseif outStuck then
     problem = problem or ("the %s is full: dust is waiting in the output chests"):format(work.remote and "ender chest" or "storage input chest")
   end
   chambers:unstick(machines, input, function(m, item)
@@ -257,17 +259,21 @@ local function round()
 
   -- far away without a far-away work chest, the storage computer can't see
   -- the feeders: say what to do
-  if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
+  if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
     problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
   -- leave the ores to the smelter while they can't be loaded here, so they
   -- don't sit in storage
   taking = ready > 0 and not problem and not (work.remote and not work.active)
+  local noOutput
+  for _, m in ipairs(machines) do
+    if not m.entry.output then noOutput = noOutput or m end
+  end
 
   if news and os.clock() < news[3] then
     message = { news[1], news[2] }
   elseif problem then
-    say("Couldn't fill a feeder: " .. problem, "red")
+    say("Couldn't move items: " .. problem, "red")
   elseif work.problem then
     say(("Not using the work chest: %s."):format(work.problem), "orange")
   elseif broken > 0 then
@@ -283,6 +289,10 @@ local function round()
       ["not on network"] = "it isn't on the network",
     }
     say(("%s: %s"):format(m.title, why[m.state] or m.state), "red")
+  elseif work.remote and noOutput then
+    -- far away nothing else empties the chest under it
+    say(("%s has no output chest: pick the barrel under it (Setup, Chambers), unless the ender chest is under it.")
+      :format(noOutput.title), "orange")
   elseif sent > 0 then
     say(("Sent %d ores to the chambers."):format(sent))
   elseif working == 0 then

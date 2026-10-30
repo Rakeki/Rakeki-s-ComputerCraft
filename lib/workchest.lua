@@ -91,10 +91,14 @@ function Work:setRemote(chest, back)
   local stock = self.ask({ type = "stock" })
   local ok, home = true, stock and stock.workRemote and stock.work
   if not home then ok, home = claim.chest(self.ask, "work", chest) end
-  if not ok then return ok, home or "no storage computer answered" end
-  self.chest, self.back, self.home, self.remote = chest, back, home, true
-  self.active, self.problem = chest, nil
-  files.write(self.file, { chest = chest, back = back, home = home, remote = true })
+  -- far away either way: what the machines make goes into the ender chest
+  -- (and so home) even before its twin is found, and check looks again
+  local why = not ok and (home or "no storage computer answered") or nil
+  self.chest, self.back, self.home, self.remote = chest, back, ok and home or nil, true
+  self.active, self.problem = ok and chest or nil, why and ("its twin at home isn't found yet: %s"):format(why)
+  self.tried = os.clock()
+  files.write(self.file, { chest = chest, back = back, home = self.home, remote = true })
+  if not ok then return false, why end
   return true
 end
 
@@ -136,6 +140,7 @@ function Work:check(stock)
     ok, why = self:set(self.chest)
   end
   if ok then return true end
+  if self.remote then return false end -- setRemote said why
   -- an old storage computer doesn't answer 'work' at all
   self.problem = ok == false and ("the storage computer won't use %s: %s"):format(self.chest, why)
     or ("the storage computer didn't take the work chest (%s)"):format(why or "no answer")
@@ -221,28 +226,36 @@ function Work:setupPage(ui)
     ui:back()
     if ok then ui:say(text, "lime") else ui:say(("Couldn't: %s."):format(why or "no answer"), "red") end
   end
+  -- ender chests on the cable; one only touching the computer can't be
+  -- reached by the machines' chests, so it's counted apart (touching)
   local function enders()
-    local out = {}
+    local out, touching, sides = {}, 0, {}
+    for _, s in ipairs(rs.getSides()) do sides[s] = true end
     for _, n in ipairs(peripheral.getNames()) do
       local t = peripheral.getType(n) or ""
-      if t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then out[#out + 1] = n end
+      if t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then
+        if sides[n] then touching = touching + 1 else out[#out + 1] = n end
+      end
     end
     table.sort(out)
-    return out
+    return out, touching
   end
   -- Far away: work comes in through the ender chest on this network and
   -- what's made goes home through it, so there's nothing to pick unless
   -- there are several. (A separate return chest: '<program> chest remote'.)
   local function far()
-    local list = enders()
+    local list, touching = enders()
     local function use(chest)
       ui:say("Finding its twin on the storage network...", "lightBlue")
       ui:draw()
       local ok, why = self:setRemote(chest, nil)
       ui:say(ok and ("Far away: work comes in and goes home through %s."):format(chest)
-        or ("Couldn't use %s: %s."):format(chest, why or "no answer"), ok and "lime" or "red")
+        or ("Far away through %s, but its twin at home isn't found yet (%s). It keeps looking; or pick it on the storage computer under Far-away workers.")
+          :format(chest, why or "no answer"), ok and "lime" or "orange")
     end
-    if #list == 0 then
+    if #list == 0 and touching > 0 then
+      ui:say("The ender chest only touches me: put a wired modem on it, join it to the cable and right-click it, so the machines' chests can reach it.", "orange")
+    elseif #list == 0 then
       ui:say("No ender chest here: put one on my cable with a wired modem and right-click it.", "orange")
     elseif #list == 1 then
       use(list[1])
@@ -362,7 +375,8 @@ function Work:command(arg)
       print(("Work chest set: %s, filled through %s; everything goes home through %s."):format(chest, self.home,
         back or "the same chest"))
     else
-      print(("Couldn't use %s: %s."):format(chest, why))
+      print(("Far away through %s, but its twin at home isn't found yet: %s."):format(chest, why))
+      print("It keeps looking once a minute. Or pick it on the storage computer: Setup, Far-away workers.")
     end
     return
   end

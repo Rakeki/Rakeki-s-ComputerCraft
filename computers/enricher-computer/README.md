@@ -171,7 +171,11 @@ ender chest, and from there it goes home into storage, where the
 [smelter](../smelter-computer/README.md) gets it like any other dust (through
 its own ender chest, if it's far away too). Far away the output chest can
 already have dust in it when you pick it. Or put the ender chest itself under
-a chamber and pick no output chest. Put an **ender modem** on the enricher and the storage computer and
+a chamber and pick no output chest. The ender chest needs a **wired modem on
+it**, joined to the cable: one only touching the computer can't be reached
+from the barrels. If the storage computer hasn't found its twin yet, Far away
+still sticks: the dust goes into the ender chest anyway, the footer says the
+twin isn't found, and it looks again every minute. Put an **ender modem** on the enricher and the storage computer and
 pick **Work chest**, **Far away** on the [setup screen](#the-setup-screen)
 (or run `enricher chest remote`). The storage computer finds the twin by
 dropping an item into each chest it could be, or pick it there first with

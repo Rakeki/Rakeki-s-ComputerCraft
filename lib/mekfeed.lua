@@ -330,21 +330,25 @@ function Set:unstick(machines, input, putBack)
 end
 
 -- Empty each machine's output chest into input (the storage input chest,
--- or far away the ender chest). How many moved, and true if some didn't fit.
+-- or far away the ender chest). How many moved, true if some didn't fit,
+-- and why when a move failed outright (e.g. input isn't on this cable).
 function Set:collect(machines, input)
-  local moved, stuck = 0, false
+  local moved, stuck, why = 0, false, nil
   if not input then return 0, false end
   for _, m in ipairs(machines) do
     if m.entry.output and m.outOk then
       for slot, item in pairs(m.outList) do
         local ok, n = pcall(peripheral.call, m.entry.output, "pushItems", input, slot)
+        if not ok then
+          why = ("can't move %s's output from %s into %s: %s"):format(m.title, m.entry.output, input, tostring(n))
+        end
         n = ok and n or 0
         moved = moved + n
         if n < item.count then stuck = true end
       end
     end
   end
-  return moved, stuck
+  return moved, stuck, why
 end
 
 ---------------------------------------------------------------- commands

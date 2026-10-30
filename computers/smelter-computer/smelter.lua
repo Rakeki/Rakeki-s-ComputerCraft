@@ -420,8 +420,12 @@ local function round()
   local unsure, feedProblem = smelters:register(work.remote)
   problem = problem or feedProblem
   -- their output chests go home first, like the furnaces' output above
-  local _, outStuck = smelters:collect(meks, input)
-  if outStuck then blocked = true end
+  local _, outStuck, outWhy = smelters:collect(meks, input)
+  if outWhy then
+    problem = problem or outWhy
+  elseif outStuck then
+    blocked = true
+  end
   smelters:unstick(meks, input, function(m, item)
     noSmelt["mek:" .. item.name] = true
     tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
@@ -580,7 +584,7 @@ local function round()
   end
   -- far away without a far-away work chest, the storage computer can't see
   -- the furnaces: say what to do
-  if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
+  if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
     problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
   -- orders only burn in plain furnaces: blast furnaces, smokers and Mekanism smelters never take them
