@@ -380,6 +380,9 @@ and answer yes when it finds the bridge. A Refined Storage system with an
    ```
    storage                   -- start
    storage setup             -- choose the store and the chests again
+   storage config            -- change one setting (a chest, the extra input chests, a far-away worker's ender chest)
+   storage config fuel       -- straight to one: input, inputs, output, delivery, crafter, fuel, transfer, remote
+   storage config fuel minecraft:chest_9   -- or name the chest ('none' clears an optional one)
    storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
    storage tidy              -- show slot sizes and sort bulk items into storage with stack upgrades now
    storage dump              -- move everything into an ender chest, for another storage system
@@ -389,7 +392,29 @@ and answer yes when it finds the bridge. A Refined Storage system with an
    While `storage` is running, run these in a second tab (advanced
    computer: `bg storage tidy`) or stop it first with Ctrl+T.
 
-Then reboot, and it starts on its own from then on. To move from chests to
+Then reboot, and it starts on its own from then on.
+
+### Changing one setting
+
+`storage config` lists the setup (input, extra input chests, output, shared
+delivery, crafter, fuel and transfer chests) and changes just the one you
+pick, without going through `storage setup` again. Run it in a second tab
+(`bg storage config` on an advanced computer, then switch to that tab) and
+the running storage program uses the change straight away; or stop it with
+Ctrl+T, change it and reboot.
+
+**Far-away workers** (`storage config remote`): an
+[enricher](../enricher-computer/README.md#far-from-the-storage-system) or
+[smelter](../smelter-computer/README.md#far-from-the-storage-system) at another
+base works through an ender chest whose twin is on this cable. This looks
+for enrichers and smelters over the wireless or ender modem, shows which
+ender chest each one has here, and lets you pick it (or `none`). Then run
+`enricher chest remote` (or `smelter chest remote`) at that base and pick its
+ender chest: it takes the one you picked here, with no search. A far
+computer that already works through an ender chest switches on its next
+round.
+
+To move from chests to
 an ME or RS system later, add the bridge, run `storage setup` and answer yes:
 the turtles and the smelter carry on without being changed.
 

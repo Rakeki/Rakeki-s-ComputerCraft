@@ -54,6 +54,7 @@ local config = fs.exists("config.lua") and require("config") or {}
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
 local ENRICHER_PROTOCOL = "enricher" -- the enricher says which ores it takes on this
+local SMELTER_PROTOCOL = "smelter" -- hosted, so 'storage config remote' can find this smelter
 local ENRICHER_WAIT = 3 -- seconds to wait for the enricher to answer
 local ENRICHER_RETRY = 60 -- seconds before looking for an enricher again after there was none
 local EVERY = 10 -- seconds between rounds of emptying and filling the furnaces
@@ -914,6 +915,8 @@ if not net.open("any") then
   return
 end
 
+-- so the storage computer can find me ('storage config remote')
+rednet.host(SMELTER_PROTOCOL, os.getComputerLabel() or ("smelter-" .. os.getComputerID()))
 jobs = readOrders()
 term.clear()
 if report then report.init("smelter") end

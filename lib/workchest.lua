@@ -76,7 +76,10 @@ end
 -- through chest too. The storage computer finds the supply chest's twin by
 -- dropping an item into each chest it could be. The same answers as set.
 function Work:setRemote(chest, back)
-  local ok, home = claim.chest(self.ask, "work", chest)
+  -- picked on the storage computer already ('storage config remote'): no search
+  local stock = self.ask({ type = "stock" })
+  local ok, home = true, stock and stock.workRemote and stock.work
+  if not home then ok, home = claim.chest(self.ask, "work", chest) end
   if not ok then return ok, home or "no storage computer answered" end
   self.chest, self.back, self.home, self.remote = chest, back, home, true
   self.active, self.problem = chest, nil
@@ -96,6 +99,14 @@ function Work:check(stock)
     return false
   end
   if stock and stock.work == (self.remote and self.home or self.chest) then
+    self.active, self.problem = self.chest, nil
+    return true
+  end
+  -- far away, the storage computer may have been told which ender chest at
+  -- home is ours ('storage config remote'): take it
+  if self.remote and stock and stock.workRemote and type(stock.work) == "string" then
+    self.home = stock.work
+    files.write(self.file, { chest = self.chest, back = self.back, home = self.home, remote = true })
     self.active, self.problem = self.chest, nil
     return true
   end

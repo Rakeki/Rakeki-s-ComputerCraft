@@ -862,6 +862,7 @@
       "commands": [
         ["storage", "start (asks how it's set up the first time)"],
         ["storage setup", "choose the store and the chests again"],
+        ["storage config", "change one setting without the full setup: a chest, the extra input chests, or a far-away enricher's or smelter's ender chest (remote)"],
         ["storage test", "list the turtles' chests, check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
         ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"],
         ["storage dump", "move everything stored into an ender chest whose twin is another storage system's input chest (stop: stop it)"]
