@@ -95,12 +95,14 @@ local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
 local FUEL = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
 
 -- { backend = "chests" or "bridge", input, output = name, delivery, crafter, fuel, transfer = name or nil,
---   inputs = { extra input chest names }, deliveries = { [turtle id] = name }, works = { [computer id] = name } }
+--   inputs = { extra input chest names }, deliveries = { [turtle id] = name }, works = { [computer id] = name },
+--   feeders = { [computer id] = { name, ... } } }
 -- deliveries are the turtles' own chests, and crafter can be, too: each
 -- turtle finds its chest on the network itself (lib/claim.lua, the "claim"
 -- request). delivery is the shared one for turtles without their own.
 -- works are the smelter's and enricher's work chests (lib/workchest.lua, the
--- "work" request), filled in one go with "fill".
+-- "work" request), filled in one go with "fill". feeders are the barrels and
+-- chests the enricher feeds its chambers from (the "feeders" request).
 local setup
 local store -- the backend: chests.lua or bridge.lua
 local fuelList = {} -- the fuel chest's list()
@@ -961,11 +963,14 @@ end
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
+--                                                     or one of the asker's feeders
+--   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (the enricher's barrels: not storage)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
 --   { type = "list" }                               -> { re = "list", items = { { name, label, count } } }  (remote terminal)
 --   { type = "work", chest }                        -> { re = "work", ok, chest, error }  (a computer's work chest; no chest: stop)
 --   { type = "work", items } / { type = "work", seen } -> found through an ender chest, like "claim"
---   { type = "fill", items = { [name] = n }, fuel = n } -> { re = "fill", sent, ready, fuel, error, nochest }  (top it up)
+--   { type = "fill", items = { [name] = n }, fuel = n, sweep } -> { re = "fill", sent, ready, fuel, error, nochest, swept }  (top it up;
+--                                                     sweep: first put away everything else in it, for one ender chest both ways)
 -- From the crafting overseer, which runs the crafting queue when there is one:
 --   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
 --   { type = "load", crafter, grid, steps }         -> { re, steps (0: not loaded), error, missing = { [item] = n } }
@@ -1034,6 +1039,11 @@ local function claimable(name)
   end
   for _, list in ipairs({ setup.inputs, setup.works }) do
     for _, chest in pairs(list) do
+      if name == chest then return false end
+    end
+  end
+  for _, list in pairs(setup.feeders or {}) do
+    for _, chest in ipairs(list) do
       if name == chest then return false end
     end
   end
@@ -1274,6 +1284,29 @@ local function workChest(from, msg)
   return recordWork(from, chest)
 end
 
+-- With sweep (a far-away computer with one ender chest both ways), first
+-- put away everything in it that wasn't asked for: what its machines made
+-- and what it sent back. What was asked for stays, up to n of each and fuel
+-- for msg.fuel smelts.
+local function sweepWork(to, msg)
+  local keep, fuelLeft = {}, tonumber(msg.fuel) or 0
+  for name, n in pairs(msg.items) do
+    if type(name) == "string" and type(n) == "number" then keep[name] = math.floor(n) end
+  end
+  local okL, list = pcall(peripheral.call, to, "list")
+  for slot, item in pairs(okL and list or {}) do
+    local kept = 0
+    if not item.nbt and keep[item.name] then
+      kept = math.min(item.count, keep[item.name])
+      keep[item.name] = keep[item.name] - kept
+    elseif not item.nbt and fuelSmelts[item.name] and fuelLeft > 0 then
+      kept = math.min(item.count, math.ceil(fuelLeft / fuelSmelts[item.name]))
+      fuelLeft = fuelLeft - kept * fuelSmelts[item.name]
+    end
+    if item.count > kept then putAway(to, slot, item, item.count - kept) end
+  end
+end
+
 -- Top a work chest up to n of each item and to fuel for msg.fuel smelts
 -- (what's in it already counts), all in one request.
 local function fillWork(from, msg)
@@ -1281,6 +1314,7 @@ local function fillWork(from, msg)
   if not to or not peripheral.isPresent(to) then
     return { re = "fill", nochest = true, error = "you have no work chest here" }
   end
+  if msg.sweep then sweepWork(to, msg) end
   local present = {}
   local okL, list = pcall(peripheral.call, to, "list")
   for _, item in pairs(okL and list or {}) do
@@ -1313,7 +1347,60 @@ local function fillWork(from, msg)
       end
     end
   end
-  return { re = "fill", sent = sent, ready = ready, fuel = fuelValue(countAll()), error = failed }
+  return { re = "fill", sent = sent, ready = ready, fuel = fuelValue(countAll()), error = failed,
+    swept = msg.sweep and true or nil }
+end
+
+---------------------------------------------------------------- computers' feeders
+
+-- The enricher feeds each chamber from a hopper, or from a barrel or chest a
+-- pipe empties into the chamber. A barrel or chest on my cable would be
+-- storage, so it names them (all of them, every time they change):
+--   { type = "feeders", chests = { name, ... } } -> { re = "feeders", ok = true } or { ok = false, error }
+-- They're kept out of storage, and "send" may fill them. One it didn't
+-- have before must be empty, so a storage chest full of items never is taken.
+local function isFeederOf(id, name)
+  for _, chest in ipairs(setup.feeders[id] or {}) do
+    if chest == name then return true end
+  end
+  return false
+end
+
+local function feeders(from, msg)
+  local function no(why) return { re = "feeders", ok = false, error = why } end
+  if type(msg.chests) ~= "table" then return no("no chests given") end
+  local list = {}
+  for _, chest in ipairs(msg.chests) do
+    if type(chest) ~= "string" or not peripheral.isPresent(chest) or not isInventory(chest) then
+      return no(("I can't see %s: put a wired modem on it, on my cable, and right-click it"):format(tostring(chest)))
+    end
+    if not isFeederOf(from, chest) then
+      for id, names in pairs(setup.feeders) do
+        for _, name in ipairs(names) do
+          if name == chest then return no(("%s is computer #%d's feeder"):format(chest, id)) end
+        end
+      end
+      if not claimable(chest) or chest == setup.delivery or chest == setup.crafter then
+        return no(("%s is one of my own chests"):format(chest))
+      end
+      for _, names in ipairs({ setup.deliveries, setup.crafters }) do
+        for id, name in pairs(names) do
+          if name == chest then return no(("%s is turtle #%d's chest"):format(chest, id)) end
+        end
+      end
+      local ok, items = pcall(peripheral.call, chest, "list")
+      if not ok or next(items) then return no(("%s has items in it: empty it first"):format(chest)) end
+    end
+    list[#list + 1] = chest
+  end
+  local s = loadSetup() or setup
+  s.feeders = s.feeders or {}
+  setup.feeders[from] = #list > 0 and list or nil
+  s.feeders[from] = setup.feeders[from]
+  saveSetup(s)
+  store.scan() -- they may have been storage until now, or be storage again
+  os.queueEvent("storage_changed")
+  return { re = "feeders", ok = true }
 end
 
 -- A request is handled start to finish before the next, and handling one
@@ -1450,11 +1537,13 @@ local function handleRequest(from, msg)
     answer(from, msg, reply)
     if reply.error and not reply.nochest then message = { "Couldn't fill a work chest: " .. reply.error, "red" } end
     os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "feeders" then
+    answer(from, msg, feeders(from, msg))
   elseif type(msg) == "table" and msg.type == "send" then
     local sent, failed = {}, nil
     local furnace = isFurnace(msg.to)
-    if not furnace and not isHopper(msg.to) then
-      failed = ("%s isn't a furnace or hopper on my network"):format(tostring(msg.to))
+    if not furnace and not isHopper(msg.to) and not isFeederOf(from, msg.to) then
+      failed = ("%s isn't a furnace, hopper or your feeder on my network"):format(tostring(msg.to))
     elseif furnace and msg.slot == 2 then
       -- fuel for this many more items, of the first kind there is (a fuel
       -- slot only takes one kind), from the fuel chest first
@@ -1911,6 +2000,7 @@ end
 -- work chests are kept even while missing: fill says so, and one that comes
 -- back with items still in it is still theirs (a claim needs an empty chest)
 setup.works = setup.works or {}
+setup.feeders = setup.feeders or {}
 
 -- 'storage dump [chest|stop]': save the job for the running program
 if args[1] == "dump" then

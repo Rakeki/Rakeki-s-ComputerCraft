@@ -4,12 +4,12 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, a hopper on top and an input chest under it, all on that network; optional monitor
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, a feeder (a hopper on top, or a barrel a pipe pulls from into it) and an input chest under it, all on that network; optional monitor
 
 ## What it does
 
 Gets more ingots out of your ores with [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism)
-Enrichment Chambers. Every 5 seconds it fills each chamber's hopper with
+Enrichment Chambers. Every 5 seconds it fills each chamber's feeder with
 ores from the [storage system](../storage-computer/README.md). The chamber
 turns them into dust and pushes the dust out of its bottom into a storage
 input chest. The [smelter](../smelter-computer/README.md) then smelts the
@@ -28,23 +28,23 @@ Ore blocks come from silk touch, like a [Digital Miner](../digital-miner-manager
 with **Silk** on. Deepslate and nether ores count too.
 
 Each chamber works on one kind of ore at a time, the one there's most of in
-storage, and its hopper is kept topped up to a stack. Raw ores always go in
+storage, and its feeder is kept topped up to a stack. Raw ores always go in
 threes, so none are left over in the chamber. An Enriching Factory works
 too and takes a different ore in each of its slots.
 
 With a [work chest](#work-chest), the storage computer fills that chest once
-a round with the ores for every hopper, and the enricher fills the hoppers
-from it, instead of asking for each hopper in turn.
+a round with the ores for every feeder, and the enricher fills the feeders
+from it, instead of asking for each feeder in turn.
 
 While the enricher has a chamber with power, the smelter leaves those ores
 alone and smelts the dust instead. When the enricher stops, the smelter
 goes back to smelting the ores itself.
 
 The screen lists each chamber with the ore it's on, how many are queued in
-it and its hopper, its power and what it's doing: **enriching**,
+it and its feeder, its power and what it's doing: **enriching**,
 **starting**, **idle**, **needs N more** (raw ores waiting for a third),
 or in red **no power**, **output full** (the dust has nowhere to go) or
-**no hopper**. Under the list it shows how much ore is waiting in storage.
+**no feeder**. Under the list it shows how much ore is waiting in storage.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -55,7 +55,7 @@ With a wireless modem it also reports to the
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
-- [`lib/files.lua`](../../lib/files.lua): remembers which hopper feeds which chamber (copy to `/lib/files.lua`). Needed.
+- [`lib/files.lua`](../../lib/files.lua): remembers what feeds which chamber (copy to `/lib/files.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
@@ -70,8 +70,11 @@ With a wireless modem it also reports to the
    it. Open its security tab and set it to **Public**, so the enricher can
    set its sides for you. Put a **wired modem** on it, joined to the
    network with cable, and right-click the modem so it turns red.
-3. Put a **hopper on top** of the chamber, pointing down into it, with a
-   wired modem on it on the same network.
+3. Give the chamber a **feeder** with a wired modem on it, on the same
+   network: either a **hopper on top**, pointing down into it, or an
+   **empty barrel** (or chest) with something that moves its items into the
+   chamber, like a Mekanism logistical transporter whose barrel end is set
+   to **pull** with the Configurator. See [Barrel feeders](#barrel-feeders).
 4. Put a **chest under** the chamber with a wired modem on it, and run
    `storage setup` on the storage computer to add it as an **extra input
    chest**. Several chambers can share one through a pipe.
@@ -83,22 +86,40 @@ With a wireless modem it also reports to the
    Add each chamber (and pick the work chest), then `reboot`:
 
    ```
-   enricher add                     -- pick a chamber and the hopper on top of it
+   enricher add                     -- pick a chamber and its feeder (hopper or barrel)
    enricher add enrichmentChamber_0 minecraft:hopper_3   -- or name them straight away
+   enricher add enrichmentChamber_1 minecraft:barrel_2   -- a barrel a pipe empties into the chamber
    enricher remove                  -- list the chambers
    enricher remove 2                -- forget chamber 2
    enricher chest                   -- pick the work chest from the empty chests on the network
    enricher chest none              -- stop using one (what's in it goes back into storage)
-   enricher chest remote            -- far from home: two ender chest pairs (see below)
+   enricher chest remote            -- far from home: one ender chest both ways (see below)
    edit config.lua                  -- which ores, how many to keep, names
    ```
+
+## Barrel feeders
+
+A chamber doesn't have to be fed by a hopper. A barrel or chest works too,
+as long as something moves its items into the chamber: a Mekanism
+logistical transporter from the barrel to the chamber, with the barrel end
+set to **pull** with the Configurator, or a Create
+funnel. A barrel holds more than a hopper, and a fast transporter keeps up
+with an upgraded Enriching Factory.
+
+- The barrel has to be **empty** when you add it. `enricher add` only
+  lists empty barrels and chests, since every storage chest is one too.
+- Once the enricher is running, it tells the storage computer which barrels
+  are feeders, and the storage computer stops using them as storage. Until
+  it has said yes, those barrels aren't filled and the footer says why.
+  Update the storage computer too (`install update`).
+- The work chest fills a barrel feeder the same way as a hopper.
 
 ## Work chest
 
 A chest on the storage network that the storage computer fills for the
-enricher in one go: each round the enricher works out what every hopper
-needs, asks for all of it at once, and fills the hoppers from the chest
-itself. That's one request a round instead of one per hopper.
+enricher in one go: each round the enricher works out what every feeder
+needs, asks for all of it at once, and fills the feeders from the chest
+itself. That's one request a round instead of one per feeder.
 
 - It has to be **empty** when you pick it, and it can't be the input,
   output, fuel or transfer chest, a turtle's chest or the
@@ -107,21 +128,26 @@ itself. That's one request a round instead of one per hopper.
 - Anything left in it at the end of a round goes back through the input
   chest. Don't put things in it by hand.
 - If the chest goes missing or the storage computer won't take it, the
-  footer says why and the enricher fills each hopper the old way until it's
+  footer says why and the enricher fills each feeder the old way until it's
   back. Update the storage computer too (`install update`).
 
 ### Far from the storage system
 
-The chambers can be at another base, fed through two pairs of ender chests
+The chambers can be at another base, fed through one pair of ender chests
 shared by colour (EnderStorage or a mod like it), just like the
 [smelter far away](../smelter-computer/README.md#far-from-the-storage-system):
-a **supply** pair (home end on the storage cable, not picked in `storage
-setup`) and a **return** pair (home end an **extra input chest**). Put the
-return chest's far end under the chambers instead of a storage input chest,
-or pipe the chests under them into it, so the dust goes home. Put an
-**ender modem** on the enricher and the storage computer and run `enricher
-chest remote`. Far away nothing is loaded while the work chest isn't in
-use, and the footer says why.
+the home end on the storage cable (not picked in `storage setup`), the far
+end on the enricher's network. The storage computer fills it with ore each
+round, and takes out everything it didn't just send: the dust, and ores put
+back. So put the ender chest under a chamber instead of a storage input
+chest, or pipe the chests under the chambers into it, so the dust goes
+home. Put an **ender modem** on the enricher and the storage computer and
+run `enricher chest remote`. Far away nothing is loaded while the work
+chest isn't in use, and the footer says why. Update the storage computer
+too (`install update`).
+
+The command also lets you pick a second, **return** ender chest (home end
+an **extra input chest**) if you'd rather the dust went home through that.
 
 ## Things to know
 
@@ -132,11 +158,12 @@ use, and the footer says why.
   the chamber's side config (the wrench tab, Items), or set `setSides =
   false` in `config.lua` and put the chest at whichever side is Output.
 - **Speed.** A chamber on its own enriches one ore every 10 seconds; speed
-  upgrades make it much faster. The hopper keeps up with a fully upgraded
-  chamber.
+  upgrades make it much faster. A hopper keeps up with a fully upgraded
+  chamber; for a fast Enriching Factory use a barrel and a transporter.
 - An ore that doesn't go into the chamber within a minute is put back into
   storage and not tried again until the enricher restarts. If that happens
-  to every ore, the hopper probably isn't pointing into the chamber.
+  to every ore, the hopper probably isn't pointing into the chamber, or
+  nothing is moving items out of the barrel.
 - In an Enriching Factory a few raw ores can be left waiting in a slot for
   the next batch; they go in once there are three.
 - Coal, diamond, emerald and quartz ores give about as much with a Fortune

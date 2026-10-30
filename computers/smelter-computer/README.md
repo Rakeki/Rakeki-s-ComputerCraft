@@ -116,7 +116,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter chest                  -- pick the work chest from the empty chests on the network
    smelter chest minecraft:chest_7  -- or name it straight away
    smelter chest none             -- stop using one (what's in it goes back into storage)
-   smelter chest remote           -- far from home: work through two ender chest pairs (see below)
+   smelter chest remote           -- far from home: work through an ender chest (see below)
    smelter charcoal 256 spruce    -- make 256 charcoal from spruce logs
    smelter charcoal 64            -- make 64 from the logs there are most of
    smelter stone 512              -- make 512 stone from cobblestone
@@ -157,25 +157,28 @@ the items don't go through the transfer chest.
 ### Far from the storage system
 
 With ender chests that are shared by colour (EnderStorage or a mod like
-it), the furnaces can be at another base. You need two ender chest pairs:
-
-- **Supply:** one ender chest on the storage cable at home (wired modem,
-  not picked as any chest in `storage setup`) and its twin on the smelter's
-  own wired network. The storage computer fills it each round.
-- **Return:** one ender chest at home picked as an **extra input chest** in
-  `storage setup`, and its twin on the smelter's network. Smelted items,
-  leftovers and anything put back go home through it.
+it), the furnaces can be at another base. You need one ender chest pair:
+one ender chest on the storage cable at home (wired modem, not picked as
+any chest in `storage setup`) and its twin on the smelter's own wired
+network. The storage computer fills it each round, and smelted items,
+leftovers and anything put back go home through it too: each round the
+storage computer takes out everything it didn't just send.
 
 Put an **ender modem** on the smelter and one on the storage computer, then
-run `smelter chest remote` and pick the two chests. The storage computer
-finds the supply chest's twin at home by dropping an item into each chest
+run `smelter chest remote` and pick the chest. The storage computer
+finds its twin at home by dropping an item into each chest
 it could be until it turns up at your end, so it needs something stored.
 Far away the smelter can only load furnaces through the work chest: while
 it's not in use (storage not answering, a chest gone), nothing is loaded
-and the footer says why. Both bases need to be loaded.
+and the footer says why. Both bases need to be loaded. Update the
+storage computer too (`install update`).
+
+If you'd rather send things home separately, `smelter chest remote` also
+lets you pick a second, **return** ender chest, whose twin at home is an
+**extra input chest** in `storage setup`.
 
 ```
-smelter chest remote           -- pick the supply and return ender chests
+smelter chest remote           -- pick the ender chest (and, if you like, a return one)
 ```
 
 ## Things to know

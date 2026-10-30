@@ -53,9 +53,10 @@ supply:seen(r)
 | `{ type = "list" }` | `items` (each `{ name, label, count }`, plain items) | the remote terminal's search |
 | `{ type = "work", chest = name }` / `{ type = "work" }` | `ok`, `chest`, `error` | name this computer's work chest (empty chests only), or stop using it (its contents are put away); use `lib/workchest.lua` |
 | `{ type = "work", items = list() }`, then `{ type = "work", seen }` | as `claim` | a far-away work chest's twin, found by probe (`claim.chest(ask, "work", side)`) |
-| `{ type = "fill", items = { [name] = n }, fuel = n }` | `sent`, `ready`, `fuel`, `error`, `nochest` | top the asker's work chest up to n of each and fuel for n smelts (what's in it counts), in one go; no crafting |
+| `{ type = "fill", items = { [name] = n }, fuel = n, sweep = true or nil }` | `sent`, `ready`, `fuel`, `error`, `nochest`, `swept` | top the asker's work chest up to n of each and fuel for n smelts (what's in it counts), in one go; no crafting; `sweep` first puts away everything else in it (one ender chest both ways) |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
-| `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers, the enricher's chamber hoppers); no slot = any slot |
+| `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers, the enricher's chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
+| `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the enricher's barrel and chest feeders (the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the essence computer (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
@@ -104,18 +105,24 @@ each `stock`) says whether to use it, re-claims a forgotten one once a
 minute, and leaves `work.problem` for the footer; without one they fall
 back to `send`. Work chests are kept in setup even while missing (a claim
 needs an empty chest, and one coming back may still hold items).
-Far away (`work:setRemote(supply, back)`, `<program> chest remote`) the work
+Far away (`work:setRemote(supply, back)`, back optional; `<program> chest remote`) the work
 chest is an ender chest: `claim.chest(ask, "work", supply)` sends `work`
 with `items` / `seen`, the storage computer probes like `claim` and
 `recordWork`s the twin, `stock.work` is compared with the saved `home`,
-`work:input()` is the return ender chest (twin = an extra input chest) for
-furnace output, put-backs and leftovers, and there's no `send` fallback.
+`work:input()` is where furnace output, put-backs and leftovers go: the
+work chest itself with no `back` (every `fill` then carries `sweep = true`,
+even with nothing to ask for, and the storage computer first puts away all
+it holds beyond the items and fuel asked for; `swept` in the reply, else
+the program says to update), or the return ender chest (twin = an extra
+input chest). There's no `send` fallback.
 Ender chests (type contains `ender`) are never storage in `chests.lua`.
 The remote terminal (`computers/remote-terminal`) claims an ender chest as
 its delivery chest before each `deliver` and reads `list` (`{ name, label,
 count }` for every plain item); items dropped in go home with the sweep.
-The enricher fills a hopper on top of each Mekanism Enrichment Chamber (CC
-can't reach a Mekanism machine's slots: its own peripheral hides them), and
+The enricher fills a feeder for each Mekanism Enrichment Chamber (CC
+can't reach a Mekanism machine's slots: its own peripheral hides them): a
+hopper on top, or a barrel a pipe pulls from into the chamber, which it
+registers with `feeders` so it isn't storage; and
 the chamber auto-ejects dust into an extra input chest under it. The smelter
 asks the enricher (`enricher` protocol, `takes` → Lua patterns) which ores to
 leave alone, and smelts the dust.

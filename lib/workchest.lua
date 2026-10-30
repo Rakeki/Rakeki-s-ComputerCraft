@@ -8,14 +8,18 @@
 --
 -- Near the storage system the work chest is on its cable. Far away it's an
 -- ender chest (EnderStorage and the like): the storage computer fills its
--- twin at home, found the way turtles find their chest (lib/claim.lua), and
--- a second ender chest pair carries everything back to an input chest at
--- home (the return chest), since the storage computer's own is out of reach.
+-- twin at home, found the way turtles find their chest (lib/claim.lua).
+-- Things go home through the same chest: the program leaves what its
+-- machines made and what it sends back in it, and each fill (with sweep)
+-- first puts away everything in it that wasn't asked for. Or a second ender
+-- chest pair carries everything back to an input chest at home (the return
+-- chest), since the storage computer's own is out of reach.
 --
 --   local workchest = require("lib.workchest")
 --   local work = workchest.new("smelter", ask)       -- remembers the chest in /.smelter_chest
 --   work:set("minecraft:chest_3")                     -- 'smelter chest <name>'; work:set(nil) stops using one
---   work:setRemote("enderstorage:ender_chest_0", "enderstorage:ender_chest_1") -- far away: supply and return chests
+--   work:setRemote("enderstorage:ender_chest_0")     -- far away: one ender chest both ways
+--   work:setRemote("enderstorage:ender_chest_0", "enderstorage:ender_chest_1") -- or supply and return chests
 --   if work:check(stock) or work.remote then          -- after each 'stock' reply: true while it's in use
 --     local input = work:input(stock.input)           -- where finished items go back
 --     local r, why = work:fill(items, fuel)           -- top it up to items (name -> n), fuel for that many smelts
@@ -40,8 +44,9 @@ local Work = {}
 Work.__index = Work
 
 -- saved: { chest } on the cable, { chest, back, home, remote = true } far
--- away (chest: the supply ender chest here, back: the return one, home: the
--- supply chest's twin on the storage computer's network)
+-- away (chest: the supply ender chest here, back: the return one, or nil
+-- when chest goes both ways, home: the supply chest's twin on the storage
+-- computer's network)
 local function readSaved(self)
   local saved = files.read(self.file)
   saved = type(saved) == "table" and saved or {}
@@ -67,9 +72,9 @@ function Work:set(chest)
 end
 
 -- Far away: chest is the supply ender chest here, back the return one (its
--- twin at home is a storage input chest). The storage computer finds the
--- supply chest's twin by dropping an item into each chest it could be. The
--- same answers as set.
+-- twin at home is a storage input chest), or nil to send things home
+-- through chest too. The storage computer finds the supply chest's twin by
+-- dropping an item into each chest it could be. The same answers as set.
 function Work:setRemote(chest, back)
   local ok, home = claim.chest(self.ask, "work", chest)
   if not ok then return ok, home or "no storage computer answered" end
@@ -115,10 +120,11 @@ function Work:check(stock)
   return false
 end
 
--- Where finished items and leftovers go back into storage: the return chest
--- far away, else the storage computer's input chest.
+-- Where finished items and leftovers go back into storage: far away the
+-- return chest, or the work chest itself (the next fill sweeps them home),
+-- else the storage computer's input chest.
 function Work:input(stockInput)
-  if self.remote then return self.back end
+  if self.remote then return self.back or self.chest end
   return stockInput
 end
 
@@ -133,9 +139,14 @@ end
 -- (sent, ready, fuel, error), or nil and why.
 function Work:fill(items, fuel)
   if not self.active then return nil, self.problem or "no work chest" end
+  -- one ender chest both ways: ask every round, so what's made goes home
+  local sweep = self.remote and not self.back
   local r, why
-  if next(items) or (fuel or 0) > 0 then
-    r, why = self.ask({ type = "fill", items = items, fuel = fuel })
+  if sweep or next(items) or (fuel or 0) > 0 then
+    r, why = self.ask({ type = "fill", items = items, fuel = fuel, sweep = sweep or nil })
+  end
+  if sweep and r and not r.swept and not r.nochest then
+    r.error = r.error or "the storage computer is too old to take things home through one ender chest: 'install update' it"
   end
   self.list = readList(self.active)
   if r and r.nochest then self.active = nil end
@@ -164,7 +175,8 @@ end
 -- Everything left goes back into storage (input: from work:input); what
 -- doesn't fit stays for next round (fill counts it).
 function Work:empty(input)
-  if not self.active or not input then return end
+  -- one ender chest both ways: it stays, and the next fill sweeps it home
+  if not self.active or not input or input == self.active then return end
   for slot in pairs(readList(self.active)) do
     pcall(peripheral.call, self.active, "pushItems", input, slot)
   end
@@ -198,7 +210,7 @@ end
 
 -- The '<program> chest [name|none|remote]' command: name the work chest,
 -- pick one from the empty chests on the network, set up a far-away one
--- through two ender chests ("remote"), or stop using one ("none"), and
+-- through one ender chest, or two ("remote"), or stop using one ("none"), and
 -- print how it went. Needs a modem open (net.open) first: an ender modem
 -- far away.
 function Work:command(arg)
@@ -211,26 +223,33 @@ function Work:command(arg)
     or "There's no work chest yet.")
   if arg == "remote" then
     local enders = chestsHere(function(t) return t:find("ender", 1, true) ~= nil end)
-    if #enders < 2 then
-      print("I need two ender chests on my network, each with a wired modem: one the storage")
-      print("system fills (its twin is on the storage cable), one that carries things home")
-      print("(its twin is a storage input chest, added in 'storage setup').")
+    if #enders == 0 then
+      print("I need an ender chest on my network with a wired modem on it. Its twin goes on the")
+      print("storage cable with a wired modem (not an input chest): the storage system fills it,")
+      print("and takes back whatever else is in it.")
       return
     end
-    print("The SUPPLY ender chest (its twin on the storage cable, not an input chest):")
+    print("The ender chest (its twin on the storage cable, not an input chest):")
     local chest = pick("Which?", enders)
     if not chest then return end
     local rest = {}
     for _, e in ipairs(enders) do
       if e ~= chest then rest[#rest + 1] = e end
     end
-    print("The RETURN ender chest (its twin is a storage input chest):")
-    local back = pick("Which?", rest)
-    if not back then return end
-    print("Finding the supply chest's twin on the storage network...")
+    local back
+    if #rest > 0 then
+      print("Things go home through that chest too. Or pick a RETURN ender chest (its twin is a storage")
+      print("input chest) to send them through that instead:")
+      for i, name in ipairs(rest) do print(("%2d  %s"):format(i, name)) end
+      write("Which? (Enter: none, one chest both ways) ")
+      local text = read()
+      if text ~= "" then back = rest[tonumber(text)] or text end
+    end
+    print("Finding its twin on the storage network...")
     local ok, why = self:setRemote(chest, back)
     if ok then
-      print(("Work chest set: %s, filled through %s; everything goes home through %s."):format(chest, self.home, back))
+      print(("Work chest set: %s, filled through %s; everything goes home through %s."):format(chest, self.home,
+        back or "the same chest"))
     else
       print(("Couldn't use %s: %s."):format(chest, why))
     end

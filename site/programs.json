@@ -1080,7 +1080,7 @@
       "commands": [
         ["smelter", "start (runs on boot)"],
         ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
-        ["smelter chest remote", "furnaces at another base: fed through two ender chest pairs"],
+        ["smelter chest remote", "furnaces at another base: one ender chest both ways (or a return one too)"],
         ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
         ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
         ["smelter glass 256", "make 256 glass from sand or red sand (or press G)"],
@@ -1413,34 +1413,35 @@
         ["Ore block", "2 ingots"],
         ["3 raw ores", "4 ingots"],
         ["Raw ore block", "12 ingots"],
-        ["Per chamber", "a hopper and a chest"]
+        ["Per chamber", "a hopper or barrel, and a chest"]
       ],
       "features": [
         "Keeps every Enrichment Chamber (and Enriching Factory) on the storage network fed with ores from storage",
         "Iron, gold, copper, osmium, tin, lead and uranium: ores, raw ores and raw ore blocks, deepslate and nether ores too",
         "Gem ores too: 2 diamonds, emeralds, coal or quartz, 12 redstone or lapis, 6 fluorite (configurable)",
         "Raw ores always go in threes, so none are left over in a chamber",
-        "Optional work chest: the storage computer fills it once a round with the ores for every hopper",
+        "Optional work chest: the storage computer fills it once a round with the ores for every feeder",
+        "Hopper or barrel feeders: a barrel with a transporter pulling into the chamber keeps up with a fast Enriching Factory",
         "Sets each chamber's bottom to Output with Auto-eject, so the dust drops into a storage input chest",
         "The smelter leaves those ores alone while the enricher runs, and smelts the dust into ingots instead",
         "Puts back anything that doesn't go into a chamber, and says when a chamber has no power or nowhere to put its dust"
       ],
       "setup": [
         "Set up the storage computer and the smelter, and install update both.",
-        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a hopper on top pointing down and a chest under it, each with a wired modem, all on the storage network. Add the chest as an extra input chest in storage setup.",
+        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a feeder (a hopper on top pointing down, or an empty barrel with a transporter set to pull into the chamber) and a chest under it, each with a wired modem, all on the storage network. Add the chest as an extra input chest in storage setup.",
         "Put this computer on the same network with a wired modem, install, run enricher add for each chamber, and reboot.",
         "Optional: put an empty chest with a wired modem on the network and run enricher chest to make it the work chest."
       ],
       "commands": [
         ["enricher", "start (runs on boot)"],
-        ["enricher add", "add a chamber and the hopper on top of it"],
+        ["enricher add", "add a chamber and its feeder: the hopper on top, or a barrel a pipe pulls from"],
         ["enricher remove 2", "forget chamber 2 (no number: list them)"],
         ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
-        ["enricher chest remote", "chambers at another base: fed through two ender chest pairs"]
+        ["enricher chest remote", "chambers at another base: one ender chest both ways (or a return one too)"]
       ],
       "integrates": [
-        ["storage-computer", "Holds the ores, fills each chamber's hopper (or the enricher's work chest, in one go) when the enricher asks, and takes the dust back through an input chest."],
-        ["workchest", "One request a round fills the work chest with the ores for every hopper."],
+        ["storage-computer", "Holds the ores, fills each chamber's hopper or barrel (or the enricher's work chest, in one go) when the enricher asks, leaves barrel feeders out of storage, and takes the dust back through an input chest."],
+        ["workchest", "One request a round fills the work chest with the ores for every feeder."],
         ["smelter-computer", "Asks the enricher which ores to leave alone, and smelts the dust into ingots."],
         ["digital-miner-manager", "Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the enricher."],
         ["status-server", "Shows how many chambers are enriching, and when one needs attention."]
@@ -1448,7 +1449,7 @@
       "render": {
         "kind": "screen",
         "scene": "enricher",
-        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its hopper, its power and what it's doing."
+        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its feeder, its power and what it's doing."
       },
       "terminal": {
         "device": "computer",
@@ -1701,19 +1702,19 @@
       "file": "lib/workchest.lua",
       "color": "orange",
       "tagline": "A computer's work chest: the storage computer fills it in one request a round, and the program loads its own furnaces or hoppers from it, on the storage cable or far away through ender chests.",
-      "usage": "local workchest = require(\"lib.workchest\")\n\n-- ask(msg): your request function on the \"storage\" protocol\nlocal work = workchest.new(\"smelter\", ask)\n\n-- each round, after asking for 'stock':\nlocal input = work:input(stock.input) -- the return ender chest far away\nif work:check(stock) or work.remote then\n  work:fill({ [\"minecraft:raw_iron\"] = 64 }, 64) -- items, and fuel for 64 smelts\n  work:move(\"minecraft:raw_iron\", \"minecraft:furnace_2\", 1, 64)\n  work:move(\"minecraft:coal\", \"minecraft:furnace_2\", 2, 8)\n  work:empty(input) -- the rest back into storage\nelse\n  -- no work chest (work.problem says why): 'send' to each furnace\nend",
+      "usage": "local workchest = require(\"lib.workchest\")\n\n-- ask(msg): your request function on the \"storage\" protocol\nlocal work = workchest.new(\"smelter\", ask)\n\n-- each round, after asking for 'stock':\nlocal input = work:input(stock.input) -- far away: the ender chest itself (or the return one)\nif work:check(stock) or work.remote then\n  work:fill({ [\"minecraft:raw_iron\"] = 64 }, 64) -- items, and fuel for 64 smelts\n  work:move(\"minecraft:raw_iron\", \"minecraft:furnace_2\", 1, 64)\n  work:move(\"minecraft:coal\", \"minecraft:furnace_2\", 2, 8)\n  work:empty(input) -- the rest back into storage\nelse\n  -- no work chest (work.problem says why): 'send' to each furnace\nend",
       "api": [
         ["workchest.new(name, ask)", "A work chest for this program; the chest's name is saved in /.<name>_chest."],
-        ["work:setRemote(chest, back)", "Far away: chest is the supply ender chest here, back the return one (its twin is a storage input chest). The storage computer finds the supply chest's twin by probe. Same answers as set."],
-        ["work:input(stockInput)", "Where finished items go back: the return chest far away, else the storage input chest."],
+        ["work:setRemote(chest, back)", "Far away: chest is the ender chest here; back (optional) a return one whose twin is a storage input chest. Without back, things go home through chest: each fill sweeps out what wasn't asked for. The storage computer finds the chest's twin by probe. Same answers as set."],
+        ["work:input(stockInput)", "Where finished items go back: far away the ender chest itself (the next fill sweeps them home) or the return chest, else the storage input chest."],
         ["work:set(chest)", "Make this empty chest the work chest (nil: stop using one; its contents go back). True, false and why, or nil if nothing answered."],
         ["work:check(stock)", "After each 'stock' reply: true while the work chest is in use. Claims the saved one again if the storage computer forgot it (once a minute); work.problem says why not."],
-        ["work:fill(items, fuel)", "Top it up to items (name -> n) and fuel for that many smelts, in one request. The reply, or nil and why."],
+        ["work:fill(items, fuel)", "Top it up to items (name -> n) and fuel for that many smelts, in one request; with one ender chest both ways it asks every round and first sends home what wasn't asked for. The reply, or nil and why."],
         ["work:move(name, to, slot, n)", "Move up to n of an item from it into a furnace or hopper (slot optional). How many went."],
         ["work:empty(input)", "Send everything left back through the storage input chest."],
         ["work:command(arg)", "The '<program> chest [name|none|remote]' command: pick, name, set up far away or drop the work chest, printing how it went."]
       ],
-      "notes": "Only an empty chest can become a work chest, so a storage chest full of items is never taken, and it stops being storage. The storage computer keeps it across 'storage setup' and while it's missing. Whatever is left at the end of a round goes back through the input chest, so items never sit there unseen. A storage computer too old to know work chests never answers 'work', and the program carries on with 'send'. Far away (two EnderStorage-style ender chest pairs and an ender modem) there is no 'send' to fall back on: nothing is loaded until the work chest is back in use (check with work.remote)."
+      "notes": "Only an empty chest can become a work chest, so a storage chest full of items is never taken, and it stops being storage. The storage computer keeps it across 'storage setup' and while it's missing. Whatever is left at the end of a round goes back through the input chest, so items never sit there unseen. A storage computer too old to know work chests never answers 'work', and the program carries on with 'send'. Far away (an EnderStorage-style ender chest pair, or two, and an ender modem) there is no 'send' to fall back on: nothing is loaded until the work chest is back in use (check with work.remote)."
     },
     {
       "name": "net",

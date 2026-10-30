@@ -40,8 +40,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage
   computer](../computers/storage-computer/README.md), has it filled in one
-  request a round, moves items from it into furnaces or hoppers and sends the
-  rest back through the input chest. Used by `smelter-computer` and
+  request a round, moves items from it into furnaces or feeders and sends the
+  rest back through the input chest. Far away it's an ender chest, and things
+  go home through it too (or a return ender chest). Used by `smelter-computer` and
   `enricher-computer`.
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into
   a hidden window and shown in one go, and frames that haven't changed can be

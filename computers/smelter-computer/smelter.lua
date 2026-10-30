@@ -17,14 +17,15 @@
 --   smelter cancel [charcoal|stone|glass]  stop an order (no name: all of them)
 --   smelter chest [name|none]      use an empty chest on the network as the work chest
 --                                  (no name: pick from a list; none: stop using one)
---   smelter chest remote           far from the storage system: a supply and a return ender chest
+--   smelter chest remote           far from the storage system: one ender chest both ways (or a return one too)
 --
 -- With a work chest, the storage computer fills it once a round with
 -- everything the furnaces need, and the smelter loads them from it
 -- (lib/workchest.lua); without one, it asks for each furnace's load in turn.
--- Far away (an ender modem, and two EnderStorage-style ender chest pairs),
--- the work chest is an ender chest, and smelted items go home through the
--- other one, whose twin is a storage input chest.
+-- Far away (an ender modem, and an EnderStorage-style ender chest pair),
+-- the work chest is an ender chest, and smelted items go home through it
+-- too (the storage computer takes back what it didn't send), or through a
+-- second pair whose twin is a storage input chest.
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -271,7 +272,7 @@ local function round()
     return
   end
   stock = reply
-  -- far away, everything goes home through the return ender chest
+  -- far away, everything goes home through the ender chest (or the return one)
   local useWork = work:check(stock) or work.remote
   local counts, input = reply.counts, work:input(reply.input)
   local orders = jobs

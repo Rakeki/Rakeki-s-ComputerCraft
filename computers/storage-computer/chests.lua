@@ -70,6 +70,12 @@ function M.new(setup)
         if name == chest then return false end
       end
     end
+    -- the barrels and chests feeding the enricher's chambers ("feeders")
+    for _, list in pairs(setup.feeders or {}) do
+      for _, chest in ipairs(list) do
+        if name == chest then return false end
+      end
+    end
     local t = peripheral.getType(name)
     -- an ender chest (EnderStorage and the like) shares its inventory with
     -- one somewhere else: items stored in it would turn up there
