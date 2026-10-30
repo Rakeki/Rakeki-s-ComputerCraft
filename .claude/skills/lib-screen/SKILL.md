@@ -55,6 +55,15 @@ server's dashboard): build `key` from what it shows (title, counts, the
 rows' text, "5s ago" times) and return early when `display:same(key)`;
 each real change is sent to every player who can see the monitor.
 
+### Status boards
+
+A monitor that only has to say how each machine is doing (the enricher, the
+smelter) is a status board: `screen.tiles(win, w, top, bottom, tiles)` with a
+`{ title, text, bg, fg }` tile per machine, and `screen.legend(win, x, y, w,
+keys)` on the last row. The colours are always lime idle, yellow working,
+orange flat out / full, red needs you (white text); the detailed table stays
+on the computer's own screen.
+
 ### Monitors
 
 Never find, wrap or scale a monitor yourself: `screen.find` does it, so

@@ -41,12 +41,23 @@ While the enricher has a chamber with power, the smelter leaves those ores
 alone and smelts the dust instead. When the enricher stops, the smelter
 goes back to smelting the ores itself.
 
-The screen lists each chamber with the ore it's on, how many are queued in
+The computer's screen lists each chamber with the ore it's on, how many are queued in
 it and its feeder, its power and what it's doing: **enriching**,
 **starting**, **idle**, **needs N more** (raw ores waiting for a third),
 or in red **no power**, **output full** (the dust has nowhere to go),
 **no output chest** or
 **no feeder**. Under the list it shows how much ore is waiting in storage.
+
+A **monitor** is a status board you can read from across the room: a tile
+per chamber with its name and the ore it's on, coloured by how it's doing:
+
+| Colour | Means |
+|---|---|
+| Lime | ready and idle |
+| Yellow | working |
+| Orange | flat out: every slot busy and a stack waiting |
+| Red | needs you: no power, output full, or its feeder or output chest missing (it says which) |
+
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -177,6 +188,6 @@ an **extra input chest**) if you'd rather the dust went home through that.
   III pickaxe. Take them out of `gems` in `config.lua` to keep those ores
   for that.
 - Without a monitor it draws on the computer's own screen.
-- On a monitor narrower than 48 characters (2 blocks wide at the smallest text) the Queue and
-  Power columns are left out and long messages wrap over a few lines. 3 blocks wide shows everything.
+- The status board takes the largest text that fits. A monitor 2 blocks wide
+  shows a column of tiles; wider ones fit two or more side by side.
 - **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set enricher.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set enricher.monitor none` keeps it off monitors.

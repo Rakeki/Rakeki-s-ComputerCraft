@@ -64,7 +64,8 @@ output chest in `smelter add`).
   `setSides = false` in `config.lua`.
 - On the screen they're listed under the furnaces in light blue, with their
   power instead of fuel, and in red when they have no power, no feeder, or
-  nowhere to put what they make.
+  nowhere to put what they make. On the status board they're tiles like the
+  furnaces.
 - Something that doesn't go in within a minute is put back into storage and
   not tried in them again until the smelter restarts.
 
@@ -243,4 +244,4 @@ smelter chest remote           -- pick the ender chest (and, if you like, a retu
 - After `install update`, an older `config.lua` (kept as it was) has no
   cook list: the smelter then cooks the food listed above and keeps 64
   potatoes. Copy the `cook` and `keep` lists from the new one to change them.
-- **A monitor.** The smelter draws on the computer's own screen unless you name a monitor for it: put a wired modem on the monitor, join it to the cable, right-click the modem to see its name, then `set smelter.monitor monitor_3` and reboot (`set smelter.monitor none` to go back). It never takes a monitor you haven't named, since the storage computer and others on the cable have their own. The C, S, G and X keys still work on the computer.
+- **A status board.** Name a monitor for the smelter and it becomes a status board: a tile per furnace and Mekanism smelter, **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). Put a wired modem on the monitor, join it to the cable, right-click the modem to see its name, then `set smelter.monitor monitor_3` and reboot (`set smelter.monitor none` to stop). It never takes a monitor you haven't named, since the storage computer and others on the cable have their own. The full table, the orders and the C, S, G and X keys stay on the computer's screen.

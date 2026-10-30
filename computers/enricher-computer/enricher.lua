@@ -44,7 +44,7 @@ local ENRICHER_PROTOCOL = "enricher" -- the smelter asks which ores to leave alo
 local EVERY = 5 -- seconds between rounds of filling the feeders
 local REPLY_WAIT = 30 -- seconds to wait for the storage computer to answer (a busy one answers late)
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
-local MONITOR_SCALE = 0.5 -- text size on the monitor (0.5 fits the most)
+local BOARD_SCALES = { 1, 0.5 } -- text sizes tried on the monitor, largest first
 local WIDE = 48 -- characters across from which the queue and power columns are shown
 
 -- Used if config.lua has none; see config.lua for what they mean.
@@ -280,9 +280,13 @@ end
 ---------------------------------------------------------------- screen
 
 -- Drawn through lib/screen.lua (a hidden window shown in one go), so it
--- doesn't flash: on a monitor if there is one, else the terminal.
-local display
+-- doesn't flash. The computer's screen has the full table; a monitor
+-- (enricher.monitor, or the first free one) is a status board: a tile per
+-- chamber, lime idle, yellow working, orange flat out, red needs you.
+local display = screen.new(term.current())
+local board
 local fitText = screen.fit
+local LEGEND = { { "lime", "idle" }, { "yellow", "working" }, { "orange", "flat out" }, { "red", "help" } }
 
 local function waitingText()
   local list, total = {}, 0
@@ -344,12 +348,39 @@ local function draw()
   display:show()
 end
 
+local function drawBoard()
+  if not board.target then return end
+  local tiles, working = {}, 0
+  for _, m in ipairs(machines) do
+    local item = m.item or (m.inputs[1] and m.inputs[1].name)
+    local colour, text = mekfeed.status(m, item and nice(item))
+    if colour == "yellow" or colour == "orange" then working = working + 1 end
+    tiles[#tiles + 1] = { m.title, text, colour, colour == "red" and "white" or "black" }
+  end
+  local key = { message[1], message[2] }
+  for _, t in ipairs(tiles) do key[#key + 1] = table.concat(t, "/") end
+  if board:same(table.concat(key, "|")) then return end
+
+  local win, w, h = board:frame()
+  screen.put(win, 1, 1, (" "):rep(w), "white", "gray")
+  screen.put(win, 2, 1, fitText("Enricher", w - 2), "yellow", "gray")
+  local count = ("%d of %d working"):format(working, #machines)
+  if #count + 12 <= w then screen.put(win, w - #count, 1, count, "lightGray", "gray") end
+  local left = screen.tiles(win, w, 3, h - 3, tiles)
+  if left > 0 then screen.put(win, 2, h - 2, ("...and %d more"):format(left), "gray") end
+  if #machines == 0 then screen.put(win, 2, 3, fitText("No chambers yet.", w - 2), "gray") end
+  screen.put(win, 1, h - 1, fitText(message[1], w), message[2])
+  screen.legend(win, 2, h, w - 2, LEGEND)
+  board:show()
+end
+
 local function uiLoop()
   while true do
     draw()
+    drawBoard()
     repeat
       local event = os.pullEvent()
-      if event == "peripheral" or event == "peripheral_detach" then display:refresh() end
+      if event == "peripheral" or event == "peripheral_detach" then board:refresh() end
     until event == "enricher_changed" or event == "peripheral" or event == "peripheral_detach"
       or event == "monitor_resize" or event == "term_resize"
   end
@@ -403,7 +434,7 @@ if not net.open("any") then
   return
 end
 
-display = screen.find({ setting = "enricher.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
+board = screen.find({ setting = "enricher.monitor", scales = BOARD_SCALES, minW = 15, minH = 8 })
 term.clear()
 if errlog then errlog.init("enricher") end
 if report then report.init("enricher") end

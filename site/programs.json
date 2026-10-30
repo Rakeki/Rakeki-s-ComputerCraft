@@ -1103,7 +1103,10 @@
       "render": {
         "kind": "screen",
         "scene": "smelter",
-        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order."
+        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.",
+        "more": [
+          { "scene": "smelterBoard", "caption": "A monitor named with set smelter.monitor is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
+        ]
       },
       "terminal": {
         "device": "computer",
@@ -1456,7 +1459,10 @@
       "render": {
         "kind": "screen",
         "scene": "enricher",
-        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its feeder, its power and what it's doing."
+        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its feeder, its power and what it's doing.",
+        "more": [
+          { "scene": "enricherBoard", "caption": "Its monitor is a status board: a tile per chamber, lime idle, yellow working, orange flat out (every slot busy, a stack waiting), red when it needs you (no power, output full, a chest missing)." }
+        ]
       },
       "terminal": {
         "device": "computer",
@@ -1718,6 +1724,7 @@
         ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
         ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
         ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, and true if some didn't fit."],
+        ["mekfeed.status(m, working)", "Status board colour and words: red (not on network, no feeder or output chest, no power, output full), orange (working flat out: every slot busy and a stack waiting), yellow (working: says working), lime (idle)."],
         ["mekfeed.ready(m)", "Present, powered and its feeder answers."],
         ["mekfeed.space(m, name)", "The most of an item its feeder may be sent: room in the machine's input slots less what's waiting, and room in the feeder."],
         ["mekfeed.current(m)", "What's in its feeder, or in a single machine's slot: keep sending that. nil when it's free."],
@@ -1801,6 +1808,8 @@
       "tagline": "Flicker-free monitors and terminals: each frame is drawn hidden and shown in one go, and frames that haven't changed are skipped.",
       "usage": "local screen = require(\"lib.screen\")\nlocal s = screen.find({ scales = { 1, 0.5 }, minW = 40, fallback = term.current() })\n\nif not s:same(key) then             -- optional: skip a frame that looks the same\n  local win, w, h = s:frame()       -- hidden and cleared\n  screen.put(win, 1, 1, \"Hello\", \"yellow\", \"gray\")\n  s:show()                          -- up it goes, all at once\nend",
       "api": [
+        ["screen.tiles(t, w, top, bottom, tiles, minW)", "A status board: a coloured tile per { title, text, bg, fg } (3 rows high, at least minW wide, stretched to fill) between rows top and bottom. How many didn't fit."],
+        ["screen.legend(t, x, y, w, keys)", "What the tile colours mean on one row, { colour, word } pairs; stops before one that doesn't fit."],
         ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'), named (no monitor until that setting names one)."],
         ["s:refresh()", "Call on peripheral / peripheral_detach: keeps a monitor that's still there, else moves to another or the fallback. True when it moved."],
         ["s:clicked(ev)", "x, y (and true for a drag) when the event is a tap on its monitor, or a click while it's on the terminal."],

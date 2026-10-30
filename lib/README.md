@@ -53,7 +53,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   a hidden window and shown in one go, and frames that haven't changed can be
   skipped. `screen.find` picks the monitor (next to it or on the cable; the
   player can name one with `set <program>.monitor <name>`), sets its text
-  scale once and follows monitors as they're added or removed. Used by `mine-server`,
+  scale once and follows monitors as they're added or removed. `screen.tiles`
+  draws a status board (a coloured tile per machine). Used by `mine-server`,
   `status-server`, `blueprint-projector`, `storage-computer`,
   `craft-overseer`, `smelter-computer`, `cooker-computer`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,

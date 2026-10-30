@@ -44,6 +44,8 @@
 --   screen.put(t, x, y, text, fg, bg) write text; colours are names ("lime") or numbers (colors.lime), bg black if left out
 --   screen.fit(text, w)              cut or pad text to exactly w characters
 --   screen.wrap(text, w, most)       text in lines of up to w characters, broken at spaces (most: line limit)
+--   screen.tiles(t, w, top, bottom, tiles, minW)  a status board: a coloured tile per { title, text, bg, fg }
+--   screen.legend(t, x, y, w, { { colour, word }, ... })  what the tile colours mean, on one row
 local screen = {}
 screen.__index = screen
 
@@ -190,6 +192,37 @@ function screen.fit(text, w)
   if w <= 0 then return "" end
   if #text > w then return text:sub(1, w) end
   return text .. (" "):rep(w - #text)
+end
+
+-- A status board: one coloured tile per machine, { title, text, bg, fg
+-- (default black) }, in a grid from row top to row bottom of t (w wide).
+-- Each tile is 3 rows high (title, text, blank) and at least minW wide,
+-- stretched to fill the width. Returns how many didn't fit.
+function screen.tiles(t, w, top, bottom, tiles, minW)
+  minW = minW or 12
+  local cols = math.max(1, math.floor((w + 1) / (minW + 1)))
+  local tileW = math.floor((w + 1) / cols) - 1
+  local rows = math.floor((bottom - top + 2) / 4)
+  for i, tile in ipairs(tiles) do
+    local row, col = math.floor((i - 1) / cols), (i - 1) % cols
+    if row >= rows then return #tiles - i + 1 end
+    local x, y, fg = 1 + col * (tileW + 1), top + row * 4, tile[4] or "black"
+    screen.put(t, x, y, screen.fit(" " .. tile[1], tileW), fg, tile[3])
+    screen.put(t, x, y + 1, screen.fit(" " .. (tile[2] or ""), tileW), fg, tile[3])
+    screen.put(t, x, y + 2, (" "):rep(tileW), fg, tile[3])
+  end
+  return 0
+end
+
+-- What the tile colours mean, on one row of t from x: { colour, word } pairs.
+function screen.legend(t, x, y, w, keys)
+  local right = x + w
+  for _, p in ipairs(keys) do
+    if x + #p[2] + 2 > right then return end
+    screen.put(t, x, y, " ", "black", p[1])
+    screen.put(t, x + 2, y, p[2], "lightGray")
+    x = x + #p[2] + 4
+  end
 end
 
 -- text in lines of at most w characters, broken at spaces where it can,

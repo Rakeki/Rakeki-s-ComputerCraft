@@ -594,12 +594,14 @@ end
 ---------------------------------------------------------------- screen
 
 -- Drawn through lib/screen.lua (a hidden window shown in one go), so it
--- doesn't flash: on the computer's screen, or on the monitor named with
--- 'set smelter.monitor <name>' (only then: the storage computer and others
--- on the cable may have monitors of their own). The keys and their prompts
--- stay on the computer.
-local display = screen.find({ setting = "smelter.monitor", named = true, scales = { 1, 0.5 }, minW = 40, minH = 12,
-  fallback = term.current() })
+-- doesn't flash. The computer's screen has the full table and the keys; the
+-- monitor named with 'set smelter.monitor <name>' (only then: the storage
+-- computer and others on the cable may have monitors of their own) is a
+-- status board: a tile per furnace, lime idle, yellow smelting, orange a
+-- full stack in, red needs you (no fuel or power, output stuck).
+local display = screen.new(term.current())
+local board = screen.find({ setting = "smelter.monitor", named = true, scales = { 1, 0.5 }, minW = 15, minH = 8 })
+local LEGEND = { { "lime", "idle" }, { "yellow", "smelting" }, { "orange", "full" }, { "red", "help" } }
 local prompts = 0 -- prompts shown on the terminal, so it's drawn again after one
 local win
 local fitText = screen.fit
@@ -773,23 +775,54 @@ local function cancelPrompt()
   say(cancelled(kind))
 end
 
--- On a monitor, the computer's own screen says where to look and which
--- keys work.
-local function termNote()
-  if not display.name then return end
-  promptScreen()
-  print(("The smelter is on monitor %s."):format(display.name))
-  print("Keys here: C charcoal, S stone, G glass, X cancel an order.")
+-- Status board colour and words for a furnace: red when items wait with
+-- no fuel or its output can't go anywhere, orange a full stack in, yellow
+-- smelting, lime idle.
+local function furnaceStatus(f)
+  if f.output then return "red", "output full" end
+  if f.input and not f.fuel then return "red", "no fuel" end
+  if f.input then return f.input.count >= 64 and "orange" or "yellow", nice(f.input.name) end
+  return "lime", "idle"
+end
+
+local function drawBoard()
+  if not board.target then return end
+  local tiles, working = {}, 0
+  for _, f in ipairs(furnaces) do
+    local colour, text = furnaceStatus(f)
+    tiles[#tiles + 1] = { nice(f.name), text, colour, colour == "red" and "white" or "black" }
+  end
+  for _, m in ipairs(meks) do
+    local item = mekfeed.current(m) or (m.inputs[1] and m.inputs[1].name)
+    local colour, text = mekfeed.status(m, item and nice(item))
+    tiles[#tiles + 1] = { m.title, text, colour, colour == "red" and "white" or "black" }
+  end
+  for _, t in ipairs(tiles) do
+    if t[3] == "yellow" or t[3] == "orange" then working = working + 1 end
+  end
+  local key = { message[1], message[2] }
+  for _, t in ipairs(tiles) do key[#key + 1] = table.concat(t, "/") end
+  if board:same(table.concat(key, "|")) then return end
+
+  local bwin, w, h = board:frame()
+  screen.put(bwin, 1, 1, (" "):rep(w), "white", "gray")
+  screen.put(bwin, 2, 1, "Smelter", "yellow", "gray")
+  local count = ("%d of %d smelting"):format(working, #tiles)
+  if #count + 11 <= w then screen.put(bwin, w - #count, 1, count, "lightGray", "gray") end
+  local left = screen.tiles(bwin, w, 3, h - 3, tiles)
+  if left > 0 then screen.put(bwin, 2, h - 2, ("...and %d more"):format(left), "gray") end
+  if #tiles == 0 then screen.put(bwin, 2, 3, fitText("No furnaces yet.", w - 2), "gray") end
+  screen.put(bwin, 1, h - 1, fitText(message[1], w), message[2])
+  screen.legend(bwin, 2, h, w - 2, LEGEND)
+  board:show()
 end
 
 local function uiLoop()
-  termNote()
   while true do
     draw()
+    drawBoard()
     local event, a = os.pullEvent()
-    if event == "peripheral" or event == "peripheral_detach" then
-      if display:refresh() then termNote() end
-    end
+    if event == "peripheral" or event == "peripheral_detach" then board:refresh() end
     -- char, not key: read() in the prompt would otherwise get the "c" too
     a = event == "char" and a:lower()
     if a == "c" or a == "s" or a == "g" or a == "x" then prompts = prompts + 1 end
@@ -802,7 +835,6 @@ local function uiLoop()
     elseif a == "x" then
       cancelPrompt()
     end
-    if a == "c" or a == "s" or a == "g" or a == "x" then termNote() end
   end
 end
 

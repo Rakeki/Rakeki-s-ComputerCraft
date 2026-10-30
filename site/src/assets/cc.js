@@ -1467,6 +1467,62 @@
     return s;
   }
 
+  //---------------------------------------------------------------- status boards
+
+  // The monitor of the enricher and the smelter: a tile per machine, like
+  // screen.tiles in lib/screen.lua (3 rows high, at least 12 wide, stretched
+  // to fill), lime idle, yellow working, orange flat out, red needs you.
+  function statusBoard(el, title, verb, legend, tiles, step) {
+    const W = 39, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    function draw() {
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, title, "yellow", "gray");
+      const working = tiles.filter((t) => t[2] === "yellow" || t[2] === "orange").length;
+      const count = `${working} of ${tiles.length} ${verb}`;
+      s.put(W - count.length, 1, count, "lightGray", "gray");
+      const cols = Math.max(1, Math.floor((W + 1) / 13)), tileW = Math.floor((W + 1) / cols) - 1;
+      tiles.forEach(([name, text, bg], i) => {
+        const x = 1 + (i % cols) * (tileW + 1), y = 3 + Math.floor(i / cols) * 4, fg = bg === "red" ? "white" : "black";
+        s.put(x, y, fitT(" " + name, tileW), fg, bg);
+        s.put(x, y + 1, fitT(" " + text, tileW), fg, bg);
+        s.put(x, y + 2, " ".repeat(tileW), fg, bg);
+      });
+      const red = tiles.find((t) => t[2] === "red");
+      s.put(1, H - 1, fitT(red ? `${red[0]}: ${red[1]}` : "", W), "red");
+      let x = 2;
+      // like screen.legend: stop before a word that doesn't fit
+      for (const [c, word] of legend) {
+        if (x + word.length + 2 > W) break;
+        s.put(x, H, " ", "black", c); s.put(x + 2, H, word, "lightGray"); x += word.length + 4;
+      }
+      s.render();
+    }
+    setInterval(() => { step(); draw(); }, 1000);
+    draw();
+    return s;
+  }
+
+  // Three chambers busy (the factory flat out), one out of power, one idle.
+  function enricherBoard(el) {
+    const tiles = [["Chamber 1", "iron ore", "yellow"], ["Chamber 2", "raw gold", "yellow"], ["Factory", "copper ore", "orange"],
+      ["Chamber 4", "no power", "red"], ["Chamber 5", "idle", "lime"]];
+    let t = 0;
+    return statusBoard(el, "Enricher", "working", [["lime", "idle"], ["yellow", "working"], ["orange", "flat out"], ["red", "help"]],
+      tiles, () => { t++; tiles[4] = t % 6 < 3 ? ["Chamber 5", "idle", "lime"] : ["Chamber 5", "lapis ore", "yellow"]; });
+  }
+
+  // Furnaces and a Mekanism smelter: one out of fuel.
+  function smelterBoard(el) {
+    const tiles = [["blast furnace 0", "raw iron", "orange"], ["blast furnace 1", "raw gold", "yellow"], ["furnace 2", "oak log", "yellow"],
+      ["furnace 3", "no fuel", "red"], ["smoker 4", "idle", "lime"], ["Smelter 1", "iron dust", "orange"]];
+    let t = 0;
+    return statusBoard(el, "Smelter", "smelting", [["lime", "idle"], ["yellow", "smelting"], ["orange", "full"], ["red", "help"]],
+      tiles, () => { t++; tiles[4] = t % 8 < 4 ? ["smoker 4", "idle", "lime"] : ["smoker 4", "beef", "yellow"]; });
+  }
+
   //---------------------------------------------------------------- remote terminal
 
   // The remote terminal: same layout as computers/remote-terminal/remote.lua.
@@ -1650,5 +1706,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, remote, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, enricherBoard, smelterBoard, remote, essence, buildControl, instabuild } };
 })();

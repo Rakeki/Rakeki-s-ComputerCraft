@@ -237,6 +237,28 @@ function mekfeed.full(m)
   return false
 end
 
+-- Every process slot is busy and a stack is waiting: as fast as it goes.
+function mekfeed.flatOut(m)
+  for i = 1, m.slots do
+    if not m.inputs[i] then return false end
+  end
+  return mekfeed.inputOf(m) + m.feedTotal >= STACK
+end
+
+-- Status board colour and words for a machine: red (needs you: no power,
+-- missing, output full), orange (working flat out), yellow (working), lime
+-- (ready and idle). working: what to say it's doing, e.g. the item.
+function mekfeed.status(m, working)
+  if not m.present then return "red", "not on network" end
+  if not m.feedOk then return "red", "no feeder" end
+  if not m.outOk then return "red", "no output chest" end
+  if (m.energy or 0) <= 0 then return "red", "no power" end
+  if mekfeed.full(m) then return "red", "output full" end
+  if (m.usage or 0) > 0 then return mekfeed.flatOut(m) and "orange" or "yellow", working or "working" end
+  if mekfeed.inputOf(m) + m.feedTotal > 0 then return "yellow", "starting" end
+  return "lime", "idle"
+end
+
 -- Note a feeder was sent n of an item.
 function mekfeed.added(m, name, n)
   m.feed[name] = (m.feed[name] or 0) + n
