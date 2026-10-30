@@ -120,7 +120,8 @@ end
 
 local work = workchest.new("enricher", ask)
 local chambers = mekfeed.new({ name = "enricher", single = "enrichmentChamber", factory = "EnrichingFactory",
-  what = "enrichment chamber", title = "Chamber", names = NAMES, setSides = SET_SIDES, ask = ask, tell = tell })
+  what = "enrichment chamber", title = "Chamber", names = NAMES, setSides = SET_SIDES, ask = ask, tell = tell,
+  far = function() return work.remote end })
 
 ---------------------------------------------------------------- choosing
 

@@ -161,9 +161,13 @@ shared by colour (EnderStorage or a mod like it), just like the
 the home end on the storage cable (not picked in `storage setup`), the far
 end on the enricher's network. The storage computer fills it with ore each
 round, and takes out everything it didn't just send: the dust, and ores put
-back. So put the ender chest under a chamber instead of a storage input
-chest, or pipe the chests under the chambers into it, so the dust goes
-home. Put an **ender modem** on the enricher and the storage computer and
+back. So put a barrel or chest under each chamber and pick it as its
+**output chest**: each round the enricher moves the dust from it into the
+ender chest, and from there it goes home into storage, where the
+[smelter](../smelter-computer/README.md) gets it like any other dust (through
+its own ender chest, if it's far away too). Far away the output chest can
+already have dust in it when you pick it. Or put the ender chest itself under
+a chamber and pick no output chest. Put an **ender modem** on the enricher and the storage computer and
 pick **Work chest**, **Far away** on the [setup screen](#the-setup-screen)
 (or run `enricher chest remote`). The storage computer finds the twin by
 dropping an item into each chest it could be, or pick it there first with
@@ -183,7 +187,9 @@ computer at once, in the running enricher if there is one:
 - **Chambers**: every chamber with its feeder and output chest. Tap one to
   change its feeder or output chest, or remove it; **+ Add a chamber** picks
   a chamber, then its feeder (a hopper, or an empty barrel), then its output
-  chest (or none, when a storage input chest is under it).
+  chest (or none, when a storage input chest is under it). Far away, set
+  the work chest first: then chests that already have something in them
+  are offered too, and the output chest is emptied into the ender chest.
 - **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
   there's nothing to pick: work comes in through the ender chest on its
   network and what it makes goes home through the same chest (it only asks

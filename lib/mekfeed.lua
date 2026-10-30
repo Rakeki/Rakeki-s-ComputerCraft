@@ -12,7 +12,8 @@
 --   local set = mekfeed.new({ name = "smelter",           -- machines saved in /.smelter_machines
 --     single = "energizedSmelter", factory = "SmeltingFactory", -- peripheral types
 --     what = "smelter", title = "Smelter",                -- for messages; "Smelter 1" on the screen
---     names = config.names, setSides = true, ask = ask, tell = tell })
+--     names = config.names, setSides = true, ask = ask, tell = tell,
+--     far = function() return work.remote end })         -- far from storage: chests with items in can be picked
 --   local machines = set:read()                           -- every machine and its feeder, read at once
 --   local unsure, problem = set:register(work.remote)     -- tell the storage computer which barrels are feeders
 --   set:unstick(machines, input, function(m, item) ... end) -- put back what doesn't go in
@@ -362,6 +363,16 @@ local function isEmpty(name)
   return ok and type(items) == "table" and next(items) == nil
 end
 
+-- Far from the storage system nothing on this cable is a storage chest, so
+-- a barrel the machine has already filled can still be picked.
+function Set:far()
+  return self.opts.far ~= nil and self.opts.far() == true
+end
+
+local function freeChest(self, name)
+  return self:far() or isEmpty(name)
+end
+
 function Set:list()
   local list = self:entries()
   if #list == 0 then print(("No %ss yet. Add one with '%s add'."):format(self.opts.what, self.opts.name)) end
@@ -397,7 +408,7 @@ function Set:add(machine, feeder, output)
     -- every storage chest is a barrel or chest too: only empty ones are offered
     local feeders = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and (isHopper(peripheral.getType(name)) or isEmpty(name)) then feeders[#feeders + 1] = name end
+      if not used[name] and (isHopper(peripheral.getType(name)) or freeChest(self, name)) then feeders[#feeders + 1] = name end
     end
     if #feeders == 0 then
       print(("Nothing free to feed it. Put a hopper on top of the %s, pointing down, or an empty barrel a pipe pulls from into it, with a wired modem on it joined to the cable.")
@@ -411,13 +422,18 @@ function Set:add(machine, feeder, output)
   if asking then
     local outs = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and name ~= feeder and not isHopper(peripheral.getType(name)) and isEmpty(name) then
+      if not used[name] and name ~= feeder and not isHopper(peripheral.getType(name)) and freeChest(self, name) then
         outs[#outs + 1] = name
       end
     end
     if #outs > 0 then
-      print("Its OUTPUT chest, under it, where what it makes goes (emptied into storage each round).")
-      print("Enter: none, the chest under it is a storage input chest.")
+      if self:far() then
+        print("Its OUTPUT chest or barrel, under it, where what it makes goes (sent home through the ender chest each round).")
+        print("Enter: none, the ender chest itself is under it.")
+      else
+        print("Its OUTPUT chest, under it, where what it makes goes (emptied into storage each round).")
+        print("Enter: none, the chest under it is a storage input chest.")
+      end
       output = choose("Which?", outs)
     end
   end
@@ -432,14 +448,14 @@ function Set:add(machine, feeder, output)
   end
   local feederType = peripheral.getType(feeder) or ""
   if not isFeeder(feederType) then print(feeder .. " isn't a hopper, barrel or chest.") return end
-  if not isHopper(feederType) and not isEmpty(feeder) then
+  if not isHopper(feederType) and not freeChest(self, feeder) then
     print(feeder .. " has items in it: empty it first (it might be a storage chest).")
     return
   end
   if output then
     local outType = peripheral.getType(output) or ""
     if not isFeeder(outType) or isHopper(outType) then print(output .. " isn't a barrel or chest.") return end
-    if not isEmpty(output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
+    if not freeChest(self, output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
   end
 
   list[#list + 1] = { machine = machine, feeder = feeder, output = output }
@@ -451,6 +467,8 @@ function Set:add(machine, feeder, output)
   end
   if output then
     print(("What it makes goes into %s (put it under the machine), and from there into storage."):format(output))
+  elseif self:far() then
+    print("Put the ender chest under it: what it makes comes out there and goes home.")
   else
     print("Put a storage input chest under it (add it in 'storage setup'): what it makes comes out there.")
   end
@@ -480,8 +498,10 @@ function Set:setupPage(ui)
       names = findOnNetwork(isFeeder), current = current,
       nothing = "Nothing free: a hopper on top, or an empty barrel, with a wired modem on it.",
       roleOf = function(n) return u[n] and "another machine's" end,
-      -- every storage chest is a barrel or chest too: only empty ones
-      only = function(n, info) return n == current or isHopper(peripheral.getType(n) or "") or info.stacks == 0 end,
+      -- every storage chest is a barrel or chest too: only empty ones (far away, any)
+      only = function(n, info)
+        return n == current or self:far() or isHopper(peripheral.getType(n) or "") or info.stacks == 0
+      end,
       pick = function(n)
         if u[n] then ui:say(("%s is another machine's."):format(n), "orange") return end
         ui:back()
@@ -491,11 +511,14 @@ function Set:setupPage(ui)
   end
   local function pickOutput(skip, current, feeder, done)
     local u = used(skip)
-    ui:pickChest({ title = "Pick its output chest", hint = "Under it: what it makes goes here, then into storage.",
+    local far = self:far()
+    ui:pickChest({ title = "Pick its output chest",
+      hint = far and "Under it: what it makes goes here, then home through the ender chest."
+        or "Under it: what it makes goes here, then into storage.",
       names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
-      none = "(none: a storage input chest is under it)",
+      none = far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)",
       roleOf = function(n) return u[n] and "another machine's" or n == feeder and "its feeder" or nil end,
-      only = function(n, info) return n == current or info.stacks == 0 end,
+      only = function(n, info) return n == current or far or info.stacks == 0 end,
       pick = function(n)
         if n and (u[n] or n == feeder) then ui:say(("%s is taken."):format(n), "orange") return end
         ui:back()
@@ -526,7 +549,8 @@ function Set:setupPage(ui)
           { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
             pickFeeder(i, e.feeder, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
           end },
-          { label = "Output chest", value = e.output or "none: a storage input chest", colour = e.output and there(e.output) or "gray",
+          { label = "Output chest", value = e.output or (self:far() and "none: the ender chest" or "none: a storage input chest"),
+            colour = e.output and there(e.output) or "gray",
             act = function()
               pickOutput(i, e.output, e.feeder, function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end)
             end },

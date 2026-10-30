@@ -243,7 +243,7 @@ end
 local work = workchest.new("smelter", ask)
 local smelters = mekfeed.new({ name = "smelter", single = "energizedSmelter", factory = "SmeltingFactory",
   what = "energized smelter", title = "Smelter", names = config.names, setSides = config.setSides ~= false,
-  ask = ask, tell = tell })
+  ask = ask, tell = tell, far = function() return work.remote end })
 
 local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
 

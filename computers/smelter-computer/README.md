@@ -238,7 +238,9 @@ smelter if there is one:
 - **Mekanism smelters**: each with its feeder and output chest. Tap one to
   change them or remove it; **+ Add an energized smelter** picks the
   smelter, then its feeder (a hopper, or an empty barrel), then its output
-  chest (or none).
+  chest (or none). Far away, set the work chest first: then chests that
+  already have something in them are offered too, and the output chest is
+  emptied into the ender chest, which takes the ingots home.
 - **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
   there's nothing to pick: work comes in through the ender chest on its
   network and what it makes goes home through the same chest (it only asks
