@@ -172,6 +172,8 @@ Copy these to the turtle:
    **buffer chest** directly **under** the turtle's home block. The chest it's
    taking from then pushes exactly the blocks it needs into it, from
    wherever they are, and nothing in the supply chest gets moved about.
+   Sophisticated Storage barrels need one: they don't let the turtle move
+   blocks to the front, so without it only the first few stacks are in reach.
 4. Run `village`. Pick a theme, give a radius (Enter for 48), and press Enter.
 
 ### Materials

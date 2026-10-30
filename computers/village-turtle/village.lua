@@ -641,6 +641,8 @@ local function moveAll(c, self, from, count, to)
   return moved
 end
 
+local warnedReach = false -- said once that blocks in the supply chest are out of reach
+
 -- Take up to `want` items matching match() from the chest in front.
 -- turtle.suck takes the chest's first stack, so without a buffer chest the
 -- wanted stack is moved to the front of the chest first.
@@ -691,7 +693,13 @@ local function takeFront(match, want, current)
           moved = false
         end
       end
-      if moved then moved = moveAll(c, self, from, math.min(items[from].count, want - have), 1) > 0 end
+      if moved then
+        -- some barrels (Sophisticated Storage) put what's pushed into them
+        -- wherever they like, not in the slot asked for: check it's in slot 1
+        moveAll(c, self, from, math.min(items[from].count, want - have), 1)
+        local now = c.list()[1]
+        moved = now ~= nil and match(now.name)
+      end
       if not moved then
         if held then
           turtle.select(held)
@@ -699,14 +707,17 @@ local function takeFront(match, want, current)
         end
         -- a barrel with stack upgrades puts back whatever is dropped into it
         -- in the same slot, so taking stacks off the front never gets past it
+        local big = false
         for _, it in pairs(items) do
-          if it.count > 64 then
-            print("Couldn't get to the blocks I need in my supply chest: make room in it (an empty slot).")
-            turtle.select(1)
-            return
-          end
+          if it.count > 64 then big = true end
         end
-        return suckSorting(match, want - have)
+        if not big then suckSorting(match, want - have) end
+        if current() == have and not warnedReach then
+          print("Couldn't get to the blocks I need in my supply chest. Put an empty chest under me (a buffer chest): the supply chest hands me what I need through it.")
+          warnedReach = true
+        end
+        turtle.select(1)
+        return
       end
     end
     turtle.select(freeSlotFor(items[from].name) or 1)

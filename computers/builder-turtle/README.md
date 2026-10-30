@@ -129,7 +129,10 @@ red) it says so and tries again 5 minutes later.
   pushes exactly the blocks it needs into that chest, from wherever they
   are, and the turtle takes them from there: quick, and nothing in the
   supply chest moves. Without one, it moves the block it needs to the first
-  slot itself, which is slower with stack upgrades; keep a slot empty.
+  slot itself, which is slower with stack upgrades; keep a slot empty. Some
+  barrels (Sophisticated Storage) don't let it choose the slot: then it can
+  only reach blocks a few stacks deep, and says so on its screen. Give
+  those a buffer chest.
 - It flies over the top of a building, so the building's top has to stay
   a few blocks below the build limit (Y 319): 2 blocks, plus 1 for each
   extra builder sharing it. One that's too high is refused, saying how far

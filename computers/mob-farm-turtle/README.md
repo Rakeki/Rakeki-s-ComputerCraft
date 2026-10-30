@@ -63,6 +63,8 @@ chest hasn't got it.
    **buffer chest** directly **under** the turtle's start block. The supply
    chest then pushes exactly the blocks it needs into it, from wherever they
    are, and nothing in the supply chest gets moved about.
+   Sophisticated Storage barrels need one: they don't let the turtle move
+   blocks to the front, so without it only the first few stacks are in reach.
 4. To build with something other than cobblestone, put a stack of it in the
    turtle's **slot 1** (top left) before you start. That's the block it uses.
 5. Run:
