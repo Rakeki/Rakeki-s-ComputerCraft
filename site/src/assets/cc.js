@@ -925,6 +925,7 @@
       s.clear();
       s.fill(1, "gray");
       s.put(2, 1, "Cooking pots", "yellow", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       s.put(2, 3, "#", "yellow"); s.put(5, 3, "Makes", "yellow"); s.put(21, 3, "Made", "yellow"); s.put(29, 3, "Doing", "yellow");
       pots.forEach((p, i) => {
         const y = 4 + i;
@@ -934,7 +935,7 @@
         s.put(29, y, fitT(p.state, W - 29), p.colour);
       });
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("cooker add / relay / remove in another tab", W), "gray");
+      s.put(1, H, fitT("F1 or Setup: the setup screen", W), "gray");
       s.render();
     }
 
@@ -970,6 +971,7 @@
       const expR = W - 1, potsR = expR - 11, storedR = potsR - 8;
       s.fill(1, "gray");
       s.put(2, 1, "Exp candy", "yellow", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       s.put(2, 3, "Candy", "yellow"); right(storedR, 3, "Stored", "yellow"); right(potsR, 3, "In pots", "yellow"); right(expR, 3, "Exp", "yellow");
       let total = 0;
       candy.forEach(([name, n, exp, pots], i) => {
@@ -1635,9 +1637,10 @@
       s.clear();
       s.fill(1, "gray");
       const total = Object.values(ess).reduce((a, b) => a + b, 0);
-      s.put(2, 1, fitT(`Essence ${total} (${Object.keys(ess).length} kinds)`, W - 20), "yellow", "gray");
-      s.put(W - 16, 1, " Recipes ", "black", "yellow");
-      s.put(W - 6, 1, " Pots ", "white", "gray");
+      s.put(2, 1, fitT(`Essence ${total} (${Object.keys(ess).length} kinds)`, W - 28), "yellow", "gray");
+      s.put(W - 24, 1, " Recipes ", "black", "yellow");
+      s.put(W - 14, 1, " Pots ", "white", "gray");
+      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       s.put(1, 2, "Find: ", "yellow");
       s.put(7, 2, fitT("", W - 7), "white", "gray");
       [["Makes", 2], ["From", 21], ["  Can", W - 12], ["Stored", W - 6]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
@@ -1657,7 +1660,7 @@
       s.put(20, y, " Max ", "black", "lightGray");
       s.put(26, y, " Order ", "white", "green");
       s.put(1, H - 1, fitT("Crafting 24 iron ingot.", W), "lime");
-      s.put(1, H, fitT("Type to find, arrows pick + amount, Enter orders", W), "gray");
+      s.put(1, H, fitT("Type to find, arrows pick + amount, Enter orders, F1 setup", W), "gray");
       s.render();
     }
 

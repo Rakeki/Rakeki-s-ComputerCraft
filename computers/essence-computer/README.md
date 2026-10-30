@@ -51,6 +51,7 @@ the pots and how much an hour. With a wireless modem it also reports to the
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
+- [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen (copy to `/lib/setupui.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
@@ -69,10 +70,14 @@ the pots and how much an hour. With a wireless modem it also reports to the
    right-click each so it turns red. A computer only sees a pot from below.
    A row of pots on a row of modems works well.
 4. Place this computer with a wired modem on it, joined to the same network,
-   install and reboot.
+   install and reboot. There's nothing to pick: every Hopper Botany Pot on
+   the cable is used. **Setup** at the top right of its screen, **F1**, or
+   `essence setup` shows the [setup screen](#the-setup-screen): the pots it
+   found and what each needs.
 
 ```
 essence                          -- start (runs on boot)
+essence setup                    -- the setup screen (in the running program)
 essence find iron                -- recipes for anything with "iron" in its name, and how many you can make
 essence make 64 iron ingot       -- order 64 iron ingots
 edit config.lua                  -- what counts as essence, what to leave in the pots, pot names
@@ -81,7 +86,23 @@ edit config.lua                  -- what counts as essence, what to leave in the
 On the Recipes tab: type to search, **Backspace** to delete, **Up** /
 **Down** (or the mouse wheel, or a click) to pick, **Left** / **Right** for
 one craft fewer or more, **Page Up** / **Page Down** for ten, **End** for as
-many as you can make, **Enter** to order. **Tab** switches tabs.
+many as you can make, **Enter** to order. **Tab** switches tabs, **F1**
+opens the setup screen.
+
+### The setup screen
+
+Like the [storage computer's](../storage-computer/README.md#the-setup-screen),
+[smelter's](../smelter-computer/README.md#the-setup-screen) and
+[cooker's](../cooker-computer/README.md#the-setup-screen), opened the same
+ways (**Setup**, **F1**, or `essence setup` in a second tab), with the same
+keys. There's nothing to pick, so it's a check list:
+
+- **Pots**: every pot on the cable, with its crop and what it's doing, in
+  red when it needs you (not a Hopper Botany Pot, or the input chest full).
+- **Recipes**: how many essence recipes came from the storage computer.
+- **Storage computer**: whether it's answering.
+
+**Done** (or D, or Backspace) goes back to the recipes.
 
 ## Things to know
 

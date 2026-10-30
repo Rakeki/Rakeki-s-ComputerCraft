@@ -1130,7 +1130,7 @@
       "deviceLabel": "Computer + wired modem",
       "color": "purple",
       "tagline": "Runs Cobblemon campfire pots for the storage system: makes exp candy from sculk and honeycomb, and compresses it up to XL.",
-      "libs": ["report", "errlog", "screen", "net", "files"],
+      "libs": ["report", "errlog", "screen", "net", "files", "setupui"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1151,13 +1151,15 @@
       "setup": [
         "Put a campfire pot on a lit campfire, a hopper pointing into its side, a hopper under it, and a comparator facing away from it into a redstone relay. Put a wired modem on each hopper and the relay, join them to the storage network and right-click the modems.",
         "Power the pot with a redstone block (that shuts its lid), touching neither the hoppers, the comparator's sides nor the relay. Update the storage computer with install update.",
-        "Put this computer on the same network with a wired modem (and a monitor for the candy count), install, run cooker add for each pot, and reboot."
+        "Put this computer on the same network with a wired modem (and a monitor for the candy count), install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or cooker setup) and add each pot: what it makes, its feed and output hoppers and its relay."
       ],
       "commands": [
         ["cooker", "start (runs on boot)"],
+        ["cooker setup", "the setup screen on the monitor and the computer: pots (add, change, remove) and the monitor; or tap Setup on the monitor or screen, or press F1"],
         ["cooker add", "add a pot: what it makes, its feed and output hoppers, and its relay"],
         ["cooker relay 2", "give pot 2 its relay (pots set up before relays were needed)"],
-        ["cooker remove 2", "forget pot 2 (no number: list the pots)"]
+        ["cooker remove 2", "forget pot 2 (no number: list the pots)"],
+        ["cooker monitor", "pick the candy monitor from every one on the network (or name it, or none); a running cooker moves to it at once"]
       ],
       "integrates": [
         ["storage-computer", "Holds the sculk, honeycomb and candy, and fills the pots' feed hoppers when the cooker asks."],
@@ -1494,7 +1496,8 @@
         "report",
         "errlog",
         "screen",
-        "net"
+        "net",
+        "setupui"
       ],
       "keep": [
         "config.lua"
@@ -1537,6 +1540,10 @@
         [
           "essence",
           "start (runs on boot)"
+        ],
+        [
+          "essence setup",
+          "the setup screen: the pots it found and what each needs, the recipes and the storage computer; or Setup on its screen, or F1"
         ],
         [
           "essence find iron",
@@ -1744,7 +1751,7 @@
       "title": "lib/setupui",
       "file": "lib/setupui.lua",
       "color": "yellow",
-      "tagline": "Setup screens on the monitor and the terminal at once: pages of settings, and chest lists a page at a time with what's in each chest, an Empty filter and typed search. The storage computer's, the enricher's and the smelter's setup screens are built on it.",
+      "tagline": "Setup screens on the monitor and the terminal at once: pages of settings, and chest lists a page at a time with what's in each chest, an Empty filter and typed search. The storage computer's, the enricher's, the smelter's, the cooker's and the essence computer's setup screens are built on it.",
       "usage": "local setupui = require(\"lib.setupui\")\n\nlocal ui = setupui.new({ screens = { termScreen, monScreen } })\nlocal saved = ui:run({\n  title = \"Storage settings\",\n  rows = function(ui) return { { label = \"Fuel chest\", value = fuel or \"none\",\n    act = function() ui:pickChest({ title = \"Pick: Fuel chest\", names = names, none = \"(none)\",\n      pick = function(name) fuel = name; ui:back() end }) end } } end,\n  buttons = function(ui) return { { \" Save \", \"black\", \"lime\", function() ui:finish(true) end } } end,\n})",
       "api": [
         [

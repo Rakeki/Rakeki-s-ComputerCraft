@@ -5,6 +5,9 @@
 -- system's crafting turtle makes it.
 --
 --   essence                         start (startup.lua runs this)
+--   essence setup                   the setup screen: the pots it found and what each needs, the recipes and
+--                                   the storage computer (in the running program if there is one; or Setup
+--                                   at the top right of its screen, or F1)
 --   essence find <text>             list the recipes for items matching text, and how many you can make
 --   essence make <count> <text>     order count of an item (the first match for text)
 --
@@ -15,6 +18,7 @@
 -- are never touched.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
+local setupui = require("lib.setupui") -- the setup screen
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -419,15 +423,16 @@ local function draw()
   local win, w, h = display:frame()
   screen.put(win, 1, 1, (" "):rep(w), "white", "gray")
   local total, kinds = essenceTotals()
-  screen.put(win, 2, 1, fitText(("Essence %d (%d kinds)"):format(total, kinds), w - 20), "yellow", "gray")
-  local x = w - 16
+  screen.put(win, 2, 1, fitText(("Essence %d (%d kinds)"):format(total, kinds), w - 28), "yellow", "gray")
+  local x = w - 24
   for _, t in ipairs({ { "recipes", " Recipes " }, { "pots", " Pots " } }) do
     x = button(win, x, 1, t[2], { tab = t[1] }, tab == t[1] and "black" or "white", tab == t[1] and "yellow" or "gray")
   end
+  button(win, w - 6, 1, " Setup ", { setup = true })
   if tab == "recipes" then drawRecipes(win, w, h) else drawPots(win, w, h) end
   screen.put(win, 1, h - 1, fitText(message[1], w), message[2])
-  screen.put(win, 1, h, fitText(tab == "recipes" and "Type to find, arrows pick + amount, Enter orders"
-    or "Tab: recipes", w), "gray")
+  screen.put(win, 1, h, fitText(tab == "recipes" and "Type to find, arrows pick + amount, Enter orders, F1 setup"
+    or "Tab: recipes  F1: setup", w), "gray")
   if tab == "recipes" then
     win.setCursorPos(7 + math.min(#query, w - 8), 2)
     win.setTextColor(colors.white)
@@ -436,9 +441,47 @@ local function draw()
   display:show()
 end
 
+-- The pots it found (nothing to pick: every Hopper Botany Pot on the
+-- cable is used), the recipes and the storage computer, on the terminal
+-- (lib/setupui.lua), like the other programs' setup screens.
+local function setupScreen()
+  local ui = setupui.new({ screens = { display }, name = "essence" })
+  ui:say("Every Hopper Botany Pot on the cable is used: nothing to pick.")
+  ui:run({
+    title = "Essence setup",
+    rows = function()
+      local found = findPots()
+      return {
+        { label = "Pots", value = ("%d on the network"):format(#found), act = function()
+          ui:open({
+            title = "Pots", hint = "Stand each pot on a full-block wired modem joined to the cable.",
+            rows = function()
+              local byName, out = {}, {}
+              for _, p in ipairs(pots) do byName[p.name] = p end
+              for i, name in ipairs(findPots()) do
+                local p = byName[name]
+                out[#out + 1] = { label = NAMES[name] or ("Pot " .. i),
+                  value = p and ("%s: %s"):format(p.crop or "-", p.state or "...") or name,
+                  colour = p and p.colour == "red" and "red" or "lightGray" }
+              end
+              if #out == 0 then out[1] = { label = "No botany pots on the network yet.", dim = true } end
+              return out
+            end,
+          })
+        end },
+        { label = "Recipes", value = recipesAt and ("%d from the storage computer"):format(#recipes)
+          or "not loaded yet", colour = #recipes > 0 and "lightGray" or "orange" },
+        { label = "Storage computer", value = next(counts) and "answering" or "no answer yet",
+          colour = next(counts) and "lightGray" or "orange" },
+      }
+    end,
+  })
+end
+
 local function act(a)
   local b = current()
-  if a.tab then tab = a.tab
+  if a.setup then setupScreen()
+  elseif a.tab then tab = a.tab
   elseif a.pick then
     if a.pick ~= selected then selected, amount = a.pick, 1 end
   elseif a.add and b then amount = math.max(1, amount + a.add)
@@ -457,7 +500,10 @@ local function uiLoop()
     draw()
     local ev = { os.pullEvent() }
     local e = ev[1]
-    if e == "char" and tab == "recipes" then
+    -- F1, or 'essence setup' in another tab (the Setup button is one of the buttons)
+    if setupui.wanted("essence", ev) or (e == "key" and ev[2] == keys.f1) then
+      setupScreen()
+    elseif e == "char" and tab == "recipes" then
       query = query .. ev[2]
       selected, amount = 1, 1
       refreshList()
@@ -556,8 +602,19 @@ if args[1] == "find" or args[1] == "make" then
   print(text2)
   term.setTextColor(colors.white)
   return
+elseif args[1] == "setup" then
+  if setupui.openInRunning("essence") then
+    print("The setup screen is open in the essence program (its tab).")
+    return
+  end
+  if connect() then fetch() end
+  setupScreen()
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  return
 elseif args[1] then
-  print("Usage: essence [find <item> | make <count> <item>]")
+  print("Usage: essence [setup | find <item> | make <count> <item>]")
   return
 end
 

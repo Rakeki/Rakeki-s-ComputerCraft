@@ -20,8 +20,9 @@ return {
     -- ["cobblemon:exp_candy_s"] = 64,
     -- ["minecraft:honeycomb"] = 16,
   },
-  -- The monitor that shows how much candy there is: its name, or nil for
-  -- whichever monitor is attached or on the network.
+  -- The monitor that shows how much candy there is: pick it on the setup
+  -- screen or with 'cooker monitor' instead. A name here is only taken the
+  -- first time (it becomes that setting).
   monitor = nil,
   -- What that monitor lists: item, what to call it, and the exp one gives.
   candy = {

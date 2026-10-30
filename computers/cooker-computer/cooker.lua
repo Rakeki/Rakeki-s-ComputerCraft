@@ -4,9 +4,13 @@
 -- 3 L -> XL), or any other pot recipe set in config.lua. One pot per recipe.
 --
 --   cooker                                  start (startup.lua runs this)
+--   cooker setup                            the setup screen, on the monitor and the terminal: pots (add,
+--                                           change, remove) and the monitor (in the running cooker if there
+--                                           is one; or Setup on its monitor or screen, or F1)
 --   cooker add [recipe feed output relay]   add a pot (asks for anything not given)
 --   cooker relay <n> [relay]                give pot n its redstone relay
 --   cooker remove <n>                       forget pot n (no number: list them)
+--   cooker monitor [name|none]              pick the candy monitor (no name: from a list)
 --
 -- With a monitor attached (or on the network), it shows how much candy
 -- there is: each size in storage and in the pots, and the exp it's all worth.
@@ -34,6 +38,7 @@
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local setupui = require("lib.setupui") -- the setup screen
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 local config = fs.exists("config.lua") and require("config") or {}
@@ -427,6 +432,7 @@ local function draw()
   win, w, h = display:frame()
   put(1, 1, (" "):rep(w), "white", "gray")
   put(2, 1, "Cooking pots", "yellow", "gray")
+  put(w - 6, 1, " Setup ", "black", "lightGray")
   put(2, 3, "#", "yellow")
   put(5, 3, "Makes", "yellow")
   put(21, 3, "Made", "yellow")
@@ -442,12 +448,19 @@ local function draw()
   if #pots > rows then put(2, h - 2, ("...and %d more"):format(#pots - rows), "gray") end
   if #pots == 0 then put(2, 4, "No pots yet.", "gray") end
   put(1, h - 1, fitText(message[1], w), message[2])
-  put(1, h, fitText("cooker add / relay / remove in another tab", w), "gray")
+  put(1, h, fitText("F1 or Setup: the setup screen", w), "gray")
   display:show()
 end
 
--- The candy monitor, if there is one (the terminal keeps the pots).
-local monitor = screen.find({ scales = { 1, 0.5 }, minW = 36, minH = 12, name = config.monitor })
+-- The candy monitor, if there is one (the terminal keeps the pots). A
+-- config.lua from before 'cooker monitor' may name it: that becomes the
+-- setting, which the setup screen and 'cooker monitor' change.
+if config.monitor and settings.get("cooker.monitor") == nil then
+  settings.set("cooker.monitor", config.monitor)
+  settings.save()
+end
+local MONITOR = { setting = "cooker.monitor", scales = { 1, 0.5 }, minW = 36, minH = 12 }
+local monitor = screen.find(MONITOR)
 
 local function commas(n)
   local text = tostring(math.floor(n))
@@ -505,6 +518,7 @@ local function drawMonitor()
   local storedR = potsR - 8
   at(1, 1, (" "):rep(w), "white", "gray")
   at(2, 1, "Exp candy", "yellow", "gray")
+  at(w - 6, 1, " Setup ", "black", "lightGray")
   at(2, 3, "Candy", "yellow")
   right(storedR, 3, "Stored", "yellow")
   right(potsR, 3, "In pots", "yellow")
@@ -526,15 +540,25 @@ local function drawMonitor()
   monitor:show()
 end
 
+local setupScreen -- in the commands section below
+
 local function uiLoop()
   while true do
     draw()
     drawMonitor()
+    local event, opened
     repeat
-      local event = os.pullEvent()
-      if event == "peripheral" or event == "peripheral_detach" then monitor:refresh() end
-    until event == "cooker_changed" or event == "peripheral" or event == "peripheral_detach"
-      or event == "monitor_resize" or event == "term_resize"
+      local ev = { os.pullEvent() }
+      event = ev[1]
+      if event == "peripheral" or event == "peripheral_detach" or event == "cooker_monitor" then monitor:refresh() end
+      -- the Setup button on the monitor or the screen, F1, or 'cooker setup' in another tab
+      local mx, my = monitor:clicked(ev)
+      local tx, ty = display:clicked(ev)
+      opened = setupui.wanted("cooker", ev) or (mx and my == 1 and mx >= monitor:size() - 6)
+        or (tx and ty == 1 and tx >= display:size() - 6) or (event == "key" and ev[2] == keys.f1)
+      if opened then setupScreen({ display, monitor }) end
+    until opened or event == "cooker_changed" or event == "peripheral" or event == "peripheral_detach"
+      or event == "cooker_monitor" or event == "monitor_resize" or event == "term_resize"
   end
 end
 
@@ -668,6 +692,158 @@ local function addPot(args)
   print("Keep the pot powered with redstone (lid shut), but not the hoppers, comparator or relay.")
 end
 
+-- Pots (recipe, feed hopper, output hopper, relay) and the monitor on one
+-- screen (lib/setupui.lua), on screens (the terminal first). Each change is
+-- saved as it's made.
+function setupScreen(screens)
+  local ui = setupui.new({ screens = screens, name = "cooker" })
+  -- which pot uses each hopper and relay (skip: this pot)
+  local function usedBy(skip)
+    local u = {}
+    for i, e in ipairs(readPots()) do
+      if i ~= skip then
+        u[e.feed], u[e.out] = i, i
+        if e.relay then u[e.relay] = i end
+      end
+    end
+    return u
+  end
+  local function pickRecipe(current, done)
+    ui:open({ title = "What the pot makes", hint = "The recipes are in config.lua.",
+      rows = function()
+        local out = {}
+        for _, key in ipairs(recipeKeys()) do
+          local r = recipeOf(key)
+          out[#out + 1] = { label = key, value = ("from %s"):format(recipeText(r)),
+            colour = key == current and "yellow" or "lightGray", act = function()
+              ui:back()
+              done(key)
+            end }
+        end
+        if #out == 0 then out[1] = { label = "No recipes in config.lua.", dim = true } end
+        return out
+      end })
+  end
+  local function pickHopper(title, hint, skip, current, other, done)
+    local u = usedBy(skip)
+    ui:pickChest({ title = title, hint = hint, names = findOnNetwork("hopper"), current = current,
+      nothing = "No hoppers here: put a wired modem on each and right-click it.",
+      roleOf = function(n) return u[n] and ("pot %d's"):format(u[n]) or n == other and "its other hopper" or nil end,
+      pick = function(n)
+        if u[n] or n == other then ui:say(("%s is taken."):format(n), "orange") return end
+        ui:back()
+        done(n)
+      end })
+  end
+  local function chooseRelay(skip, current, done)
+    local u = usedBy(skip)
+    ui:open({ title = "Its redstone relay", hint = "The relay the pot's comparator points into.",
+      rows = function()
+        local out = {}
+        for _, n in ipairs(findOnNetwork("redstone_relay")) do
+          out[#out + 1] = { label = n, value = n == current and "now" or u[n] and ("pot %d's"):format(u[n]) or "",
+            colour = n == current and "yellow" or u[n] and "gray" or "lightGray", act = function()
+              if u[n] then ui:say(("%s is pot %d's."):format(n, u[n]), "orange") return end
+              ui:back()
+              done(n)
+            end }
+        end
+        if #out == 0 then
+          out[1] = { label = "No redstone relay here: put a wired modem on one and right-click it.", dim = true }
+        end
+        return out
+      end })
+  end
+  local function change(i, field, value, text)
+    local list = readPots()
+    if not list[i] then return end
+    list[i][field] = value
+    writePots(list)
+    ui:say(text, "lime")
+  end
+
+  local function potPage(i)
+    return {
+      title = function()
+        local e = readPots()[i]
+        local r = e and recipeOf(e.recipe)
+        return ("Pot %d%s"):format(i, r and (": " .. nice(r.make)) or "")
+      end,
+      rows = function()
+        local e = readPots()[i]
+        if not e then return { { label = "Removed.", dim = true } } end
+        local function there(n) return n and peripheral.isPresent(n) and "lightGray" or "red" end
+        return {
+          { label = "Makes", value = e.recipe, colour = recipeOf(e.recipe) and "lightGray" or "red", act = function()
+            pickRecipe(e.recipe, function(k) change(i, "recipe", k, ("Pot %d makes %s now."):format(i, k)) end)
+          end },
+          { label = "Feed hopper", value = e.feed, colour = there(e.feed), act = function()
+            pickHopper("Pick its feed hopper", "Pointing into the pot's side.", i, e.feed, e.out,
+              function(n) change(i, "feed", n, ("Feed hopper: %s."):format(n)) end)
+          end },
+          { label = "Output hopper", value = e.out, colour = there(e.out), act = function()
+            pickHopper("Pick its output hopper", "Under the pot.", i, e.out, e.feed,
+              function(n) change(i, "out", n, ("Output hopper: %s."):format(n)) end)
+          end },
+          { label = "Relay", value = e.relay or "none", colour = there(e.relay), act = function()
+            chooseRelay(i, e.relay, function(n) change(i, "relay", n, ("Relay: %s."):format(n)) end)
+          end },
+          { label = "Remove it", colour = "red", act = function()
+            local list = readPots()
+            table.remove(list, i)
+            writePots(list)
+            ui:back()
+            ui:say(("Forgot pot %d. Empty it and its hoppers by hand."):format(i), "lime")
+          end },
+        }
+      end,
+    }
+  end
+
+  local function add()
+    pickRecipe(nil, function(key)
+      pickHopper("Pick its feed hopper", "Pointing into the pot's side.", nil, nil, nil, function(feed)
+        pickHopper("Pick its output hopper", "Under the pot.", nil, nil, feed, function(out)
+          chooseRelay(nil, nil, function(relay)
+            local list = readPots()
+            list[#list + 1] = { recipe = key, feed = feed, out = out, relay = relay }
+            writePots(list)
+            ui:say(("Pot %d added. Keep the pot powered (lid shut), but not its hoppers, comparator or relay.")
+              :format(#list), "lime")
+          end)
+        end)
+      end)
+    end)
+    ui:say("Tap what the pot makes.")
+  end
+
+  ui:say("Tap a setting to change it.")
+  ui:run({
+    title = "Cooker setup",
+    rows = function()
+      return {
+        { label = "Pots", value = ("%d added"):format(#readPots()), act = function()
+          ui:open({
+            title = "Pots", hint = "Each pot, what it makes and its hoppers and relay.",
+            rows = function()
+              local out = {}
+              for i, e in ipairs(readPots()) do
+                out[#out + 1] = { label = ("Pot %d"):format(i), value = ("%s, feed %s"):format(e.recipe, e.feed),
+                  act = function() ui:open(potPage(i)) end }
+              end
+              out[#out + 1] = { label = "+ Add a pot", colour = "lime", act = add }
+              return out
+            end,
+          })
+        end },
+        { label = "Monitor", value = setupui.monitorText("cooker.monitor"),
+          act = function() ui:monitorPage("cooker.monitor", "cooker_monitor") end },
+      }
+    end,
+  })
+  os.queueEvent("cooker_added") -- a round straight away, with the changes
+end
+
 local function potNumber(args, list)
   local n = tonumber(args[2])
   if not n or not list[n] then
@@ -707,8 +883,27 @@ elseif args[1] == "remove" then
     print(("Forgot pot %d (%s). Empty it and its hoppers by hand."):format(n, entry.recipe))
   end
   return
+elseif args[1] == "monitor" then
+  local pick = screen.choose("cooker.monitor", args[2])
+  if pick then
+    -- a cooker running in another tab moves to it now
+    os.queueEvent("cooker_monitor")
+    print(pick == "none" and "No candy monitor from now on." or ("The candy goes on %s."):format(pick))
+  end
+  return
+elseif args[1] == "setup" then
+  if setupui.openInRunning("cooker") then
+    print("The setup screen is open in the cooker (its tab) and on its monitor.")
+    return
+  end
+  setupScreen({ display, monitor })
+  term.setBackgroundColor(colors.black)
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Setup saved. The cooker uses it on its next round.")
+  return
 elseif args[1] then
-  print("Usage: cooker [add | relay <n> | remove <n>]")
+  print("Usage: cooker [setup | add | relay <n> | remove <n> | monitor [name|none]]")
   return
 end
 

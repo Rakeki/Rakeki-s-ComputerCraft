@@ -2,7 +2,8 @@
 -- tap one (or click it, or pick it with the arrow keys and Enter) to open
 -- its page, and chest lists that go a page at a time with what's in each
 -- chest beside it, so a big network is as easy to set up as a small one.
--- The storage computer, the enricher and the smelter build their setup on it.
+-- The storage computer, the enricher, the smelter, the cooker and the essence
+-- computer build their setup on it.
 --
 --   local setupui = require("lib.setupui")
 --   local ui = setupui.new({ screens = { termScreen, monScreen } }) -- lib/screen.lua screens; the

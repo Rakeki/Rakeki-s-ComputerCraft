@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each cooking pot, two hoppers and a redstone relay on that network; optional monitor for the candy count
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each cooking pot, two hoppers and a redstone relay on that network; optional monitor for the candy count (picked on the setup screen or with `cooker monitor`)
 
 ## What it does
 
@@ -69,8 +69,10 @@ shows how much candy you have:
 
 It needs room for 36 characters across: a monitor 4 blocks wide, or 2 or 3
 wide (it then uses smaller text), and at least 2 blocks tall. It updates
-every 10 seconds, with the pots. To pick one monitor out of several, or
-change what it lists, see `monitor` and `candy` in `config.lua`.
+every 10 seconds, with the pots. To pick one monitor out of several, use
+**Monitor** on the [setup screen](#the-setup-screen) or `cooker monitor`
+(the running cooker moves to it at once); to change what it lists, see
+`candy` in `config.lua`.
 
 ## Example layouts
 
@@ -101,6 +103,7 @@ input chest, then into the S pot, and so on up to XL.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen (copy to `/lib/setupui.lua`). Needed.
 
 ## Setup
 
@@ -130,25 +133,50 @@ input chest, then into the S pot, and so on up to XL.
 8. Place this computer with a wired modem on it, joined to the same network
    (a wireless modem as well is only needed for the status server). For the
    [candy monitor](#candy-monitor), put a monitor on it too. Install this
-   program, then add each pot and reboot.
+   program and reboot. Then tap **Setup** at the top right of its monitor or
+   screen, press **F1**, or run `cooker setup` in a second tab: the
+   [setup screen](#the-setup-screen). Under **Pots**, add each pot.
 
    ```
-   cooker add                         -- add a pot: asks what it makes, its hoppers and its relay
+   cooker setup                       -- the setup screen (in the running cooker, on its monitor)
+   cooker add                         -- or by typing: add a pot: asks what it makes, its hoppers and its relay
    cooker add exp_candy_s minecraft:hopper_3 minecraft:hopper_4 redstone_relay_0   -- the same in one go
    cooker                             -- start (startup.lua does this on boot)
    cooker relay 2                     -- give pot 2 its relay (pots added before relays were needed)
    cooker remove 2                    -- forget pot 2 (no number: list the pots)
+   cooker monitor                     -- pick the candy monitor ('none': no monitor)
    ```
 
 `cooker add`, `relay` and `remove` work from another tab while the cooker
 runs (Ctrl+T to stop it, or open a tab on an advanced computer); it picks
 up the change straight away.
 
+### The setup screen
+
+**Setup** at the top right of the monitor or the computer's screen, **F1**
+on the computer, or `cooker setup` (in a second tab, or after Ctrl+T)
+opens it on the monitor and the computer at once, in the running cooker if
+there is one. It works like the
+[storage computer's](../storage-computer/README.md#the-setup-screen):
+
+- **Pots**: every pot with what it makes. Tap one to change its recipe,
+  feed hopper, output hopper or relay, or remove it; **+ Add a pot** picks
+  what it makes, then its feed hopper, its output hopper and its relay.
+  Hopper lists show what's in each hopper; ones another pot uses are grey.
+- **Monitor**: which monitor shows the [candy count](#candy-monitor).
+
+On the computer the arrow keys and Enter pick, Page Up and Page Down turn
+the page, Backspace goes back, and a button's first letter presses it (D
+for **Done**, B for **Back**; not on hopper lists, where typing narrows the
+list). Each change is saved as you make it, and the cooker uses it straight
+away.
+
 ### Pots set up before the comparator
 
 Older versions of the cooker counted what went into each pot instead of
 reading a comparator, and could lose count. Add a comparator and a relay to
-each pot (steps 5 and 6), then run `cooker relay <n>` for each one. Until it
+each pot (steps 5 and 6), then pick each pot's **Relay** on the setup screen
+(or run `cooker relay <n>`). Until it
 has a relay, a pot isn't fed and the screen says **no relay**. Whatever is in
 the pots already is fine: the comparator sees it.
 
@@ -169,8 +197,8 @@ the pots already is fine: the comparator sees it.
 - If the storage computer doesn't answer while loading a pot, nothing is
   lost: the cooker sees what arrived in the feed hopper on its next round.
 - After `install update`, an older `config.lua` (kept as it was) has no
-  `monitor` or `candy` settings: the monitor then uses any monitor it finds
-  and lists the candy above.
+  `candy` setting: the monitor then lists the candy above. A monitor named
+  in an older `config.lua` becomes the setup screen's Monitor setting.
 - Everything with a pot to go into gets used: to keep some sculk,
   honeycomb or smaller candy in storage, add it to `keep` in `config.lua`.
 - With Create installed, Cobblemon also makes XS candy from experience

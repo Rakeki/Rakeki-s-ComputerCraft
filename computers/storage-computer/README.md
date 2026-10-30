@@ -72,8 +72,10 @@ it can be tapped. It shows:
   until you clear it.
 - the **services** working with the storage system, as a row of tiles over
   the footer: the [smelter](../smelter-computer/README.md),
-  [enricher](../enricher-computer/README.md), crafting turtles, the cooker
-  and anything else that has asked it for items, near or far away. **Lime**
+  [enricher](../enricher-computer/README.md), crafting turtles, the
+  [cooker](../cooker-computer/README.md), the
+  [essence computer](../essence-computer/README.md) and anything else that
+  has asked it for items, near or far away. **Lime**
   working, **light grey** idle, **orange** waiting, **red** error, **grey**
   offline (no word from it for 30 seconds). Tap one to read what it's doing
   on the message line. Two of a kind show their computer IDs. One that's
