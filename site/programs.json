@@ -627,7 +627,7 @@
         "Plans are JSON or Lua files in /plans: install more with install plan <name>, or write your own",
         "Move, raise and turn the building from the monitor",
         "Layer view outlines every block of one layer to build from",
-        "Top-down map of the layer and the blocks it needs",
+        "Top-down map of the layer, and the blocks it needs in three tabs: this layer, the whole build, and what the builder turtles are waiting for now",
         "Follows a village turtle and projects the building it's working on",
         "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them",
         "Comes with a sky station: 63 wide, 98 high, raised into the sky and built in the air",

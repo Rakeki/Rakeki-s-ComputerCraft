@@ -19,7 +19,7 @@
 --   c:start()       -- or os.queueEvent(crew.START) from a UI handler
 --   c:stop()        -- or os.queueEvent(crew.STOP); asked twice, gives up on silent turtles
 --   c:run()         -- the loop: hears the turtles and hands out waiting strips (in parallel with the rest)
---   c.build, c:note(), c:lowY()
+--   c.build, c:note(), c:lowY(), c:needs()
 local net = require("lib.net")
 
 local crew = {}
@@ -144,6 +144,19 @@ function Crew:note()
   return who .. "starting"
 end
 
+-- What each builder is doing and, while it waits or restocks, the items it
+-- needs now: { { builder, stage, note, need = { [item] = n } or nil } }.
+function Crew:needs()
+  local out = {}
+  for _, p in ipairs(self.build and self.build.parts or {}) do
+    if p.builder and not p.finished then
+      out[#out + 1] = { builder = p.builder, stage = p.stage, note = p.note, need = p.need }
+    end
+  end
+  table.sort(out, function(a, b) return a.builder < b.builder end)
+  return out
+end
+
 -- The lowest layer (world y) any builder is building, or nil.
 function Crew:lowY()
   local low
@@ -184,6 +197,8 @@ function Crew:onBuilder(from, msg)
   if not p then return end
   p.stage, p.done, p.total, p.y, p.skipped, p.note = msg.stage, msg.done, msg.total, msg.y, msg.skipped, msg.note
   p.cleared, p.toClear, p.builder = msg.cleared, msg.toClear, from
+  -- what it's waiting for or fetching: only while it is
+  p.need = (msg.stage == "waiting" or msg.stage == "restocking") and type(msg.need) == "table" and msg.need or nil
   if msg.stage == "done" or msg.stage == "stopped" then
     p.finished, p.stopped = true, msg.stage == "stopped"
     -- free again: it can take a strip nobody has yet

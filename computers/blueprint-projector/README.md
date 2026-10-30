@@ -27,9 +27,16 @@ where you want it. Then use it to build:
   [Having a turtle build it](#having-a-turtle-build-it).
 
 Under the buttons, the monitor shows a top-down map of the current layer
-(north is up) and how many of each block it needs, so you know what to bring.
-In Whole view, the layer buttons choose how high to show the building (the
-count covers every layer up to there).
+(north is up) and, beside it, a list with three tabs:
+
+- **Layer**: how many of each block this layer needs.
+- **Build**: how many of each block the whole building needs.
+- **Now**: while builder turtles are building it, what each one is doing
+  and the blocks it's waiting for or fetching right now (in orange), so you
+  know what to put in its supply chest.
+
+Tap a tab to switch. In Whole view, the layer buttons choose how high to
+show the building.
 
 The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,

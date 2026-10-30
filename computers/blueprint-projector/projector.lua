@@ -213,7 +213,7 @@ local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
     view = state.view, layer = state.layer, step = state.step, hidden = state.hidden, build = state.build,
-    buildPlan = state.buildPlan,
+    buildPlan = state.buildPlan, page = state.page,
   })
 end
 
@@ -448,14 +448,43 @@ local function model()
   for _, b in ipairs(plan.layers[state.layer - 1] or {}) do mark(map.below, b, true) end
   for _, b in ipairs(plan.layers[state.layer]) do mark(map.cells, b, plan.mats[b.m]) end
 
-  local counts, n = {}, {}
-  local from = state.view == "whole" and 1 or state.layer
-  for y = from, state.layer do
-    for _, b in ipairs(plan.layers[y]) do n[b.m] = (n[b.m] or 0) + 1 end
+  -- the list beside the map: this layer, the whole build, or what the
+  -- builder turtles need now
+  local page = state.page or "layer"
+  local counts, title = {}, nil
+  if page == "now" then
+    title = "Turtles need now"
+    -- an item needed, with the plan's colour for it when one of its blocks is that item
+    local function matFor(item)
+      for _, mat in ipairs(plan.mats) do
+        if mat.block:gsub("%[.*$", "") == item then return mat end
+      end
+    end
+    local list = state.build and builders:needs() or {}
+    if not state.build then counts[1] = { text = "No build running.", colour = colors.gray } end
+    if state.build and #list == 0 then counts[1] = { text = "Waiting for a builder.", colour = colors.gray } end
+    for _, b in ipairs(list) do
+      local doing = b.stage == "build" and "building" or b.stage == "clear" and "clearing" or b.note or b.stage or "starting"
+      counts[#counts + 1] = { text = ("#%d %s"):format(b.builder, doing),
+        colour = b.need and colors.orange or colors.lime }
+      local items = {}
+      for item, n in pairs(b.need or {}) do items[#items + 1] = { item = item, n = n } end
+      table.sort(items, function(x, y) return x.n > y.n end)
+      for _, it in ipairs(items) do
+        counts[#counts + 1] = { mat = matFor(it.item), text = it.item:gsub("^.-:", ""), n = it.n }
+      end
+    end
+  else
+    local n, total = {}, 0
+    local from = page == "build" and 1 or state.layer
+    local to = page == "build" and plan.h or state.layer
+    for y = from, to do
+      for _, b in ipairs(plan.layers[y]) do n[b.m] = (n[b.m] or 0) + 1 end
+    end
+    for m, c in pairs(n) do counts[#counts + 1] = { mat = plan.mats[m], n = c }; total = total + c end
+    table.sort(counts, function(a, b) return a.n > b.n end)
+    title = page == "build" and ("Whole build: %d"):format(total) or ("Layer %d: %d"):format(state.layer, total)
   end
-  local total = 0
-  for m, c in pairs(n) do counts[#counts + 1] = { mat = plan.mats[m], n = c }; total = total + c end
-  table.sort(counts, function(a, b) return a.n > b.n end)
 
   local ids = planIds(state.plan)
   local index = 1
@@ -464,7 +493,7 @@ local function model()
     plan = plan, index = index, planCount = #ids, state = state, facing = FACING[state.turn % 4],
     status = status, note = note or (state.build and builders:note()) or (plan.village and villageNote()),
     map = map, counts = counts, building = state.build ~= nil, canBuild = not plan.village,
-    countTitle = (from == state.layer and "Layer %d: %d" or "Layers 1-%d: %d"):format(state.layer, total),
+    countTitle = title, page = page,
   }
 end
 
@@ -505,6 +534,8 @@ local function act(action)
     state.view = VIEWS[i % #VIEWS + 1]
     -- layer view starts at the bottom, where you'd start building
     if state.view == "layer" then state.layer = 1 elseif state.view == "whole" then state.layer = plan.h end
+  elseif action == "pageLayer" or action == "pageBuild" or action == "pageNow" then
+    state.page = action:sub(5):lower()
   elseif action == "here" then
     placeHere()
   elseif action == "hide" then

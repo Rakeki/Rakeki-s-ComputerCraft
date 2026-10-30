@@ -418,7 +418,7 @@
       [".......", ".......", ".......", "...S...", ".......", ".......", "......."],
     ];
     const plans = ["Cottage", "Watchtower", "Pagoda", "Sky Station"];
-    const st = { plan: 0, x: 100, y: 64, z: -15, turn: 0, view: "whole", layer: 8, step: 1, hidden: false };
+    const st = { plan: 0, x: 100, y: 64, z: -15, turn: 0, view: "whole", layer: 8, step: 1, hidden: false, page: "layer" };
     const FACING = ["north", "east", "south", "west"], STEPS = [1, 5, 16], VIEWS = ["whole", "layer", "outline"];
     const LABEL = { whole: "Whole", layer: "Layer", outline: "Outline" };
     let status = ["Showing 39 shapes", "lime"], timer = null;
@@ -481,23 +481,40 @@
       btn(x, 7, st.hidden ? "Show" : "Hide", "hide", "white", st.hidden ? "green" : "red");
       s.put(2, 9, fitT(status[0], W - 2), status[1]);
       s.put(2, 11, `Layer ${st.layer}, north is up`, "yellow");
+      // the list: this layer, the whole build, or what the builder needs now (like ui.lua's tabs)
       const counts = {};
-      for (let l = st.view === "whole" ? 1 : st.layer; l <= st.layer; l++) for (const ch of layers[l - 1].join("")) if (ch !== ".") counts[ch] = (counts[ch] || 0) + 1;
+      const from = st.page === "build" ? 1 : st.layer, to = st.page === "build" ? 8 : st.layer;
+      for (let l = from; l <= to; l++) for (const ch of layers[l - 1].join("")) if (ch !== ".") counts[ch] = (counts[ch] || 0) + 1;
       for (let row = 0; row < 7; row++) for (let col = 0; col < 7; col++) {
         const ch = cellAt(st.layer - 1, col, row);
         if (ch) { const m = mats[ch]; s.put(2 + col, 12 + row, ch, m[3] ? "black" : "white", m[2]); }
         else if (cellAt(st.layer - 2, col, row)) s.put(2 + col, 12 + row, "·", "lightGray", "gray");
         else s.put(2 + col, 12 + row, " ", "white", "gray");
       }
+      let tx = 11;
+      for (const [label, page] of [["Layer", "layer"], ["Build", "build"], ["Now", "now"]]) {
+        const on = st.page === page;
+        s.put(tx, 12, label, on ? "black" : "white", on ? "yellow" : "gray");
+        s.zones.push({ x1: tx, x2: tx + label.length - 1, y1: 12, y2: 12, action: () => { st.page = page; } });
+        tx += label.length + 1;
+      }
       const list = Object.entries(counts).sort((a, b) => b[1] - a[1]);
       const total = list.reduce((n, [, c]) => n + c, 0);
-      s.put(11, 12, st.view === "whole" ? `Layers 1-${st.layer}: ${total}` : `Layer ${st.layer}: ${total}`, "yellow");
-      list.forEach(([ch, n], i) => {
-        const m = mats[ch];
-        s.put(11, 13 + i, ch, m[3] ? "black" : "white", m[2]);
-        s.put(13, 13 + i, m[0]);
-        s.put(W - 1 - String(n).length, 13 + i, String(n), "lightGray");
-      });
+      if (st.page === "now") {
+        s.put(11, 13, "Turtles need now", "yellow");
+        s.put(11, 14, fitT("#7 needs oak planks", W - 11), "orange");
+        s.put(11, 15, "P", mats.P[3] ? "black" : "white", mats.P[2]);
+        s.put(13, 15, mats.P[0]);
+        s.put(W - 3, 15, "24", "lightGray");
+      } else {
+        s.put(11, 13, st.page === "build" ? `Whole build: ${total}` : `Layer ${st.layer}: ${total}`, "yellow");
+        list.slice(0, 5).forEach(([ch, n], i) => {
+          const m = mats[ch];
+          s.put(11, 14 + i, ch, m[3] ? "black" : "white", m[2]);
+          s.put(13, 14 + i, m[0]);
+          s.put(W - 1 - String(n).length, 14 + i, String(n), "lightGray");
+        });
+      }
       s.render();
     }
     el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });

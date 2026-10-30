@@ -1,6 +1,7 @@
 -- Control panel for the blueprint projector: buttons to move, turn and step
 -- through the projected building, a top-down map of the current layer and
--- the blocks it needs. Draws to a monitor or the computer's own screen and
+-- a list in three pages: the blocks this layer needs, the whole build's, and
+-- what the builder turtles are waiting for now. Draws to a monitor or the computer's own screen and
 -- turns clicks into action names for projector.lua.
 local screen = require("lib.screen") -- flicker-free drawing
 local ui = {}
@@ -61,15 +62,29 @@ function ui:drawMap(m, x0, y0, cols, rows)
   end
 end
 
+-- A tab: tight text (no padding, so three fit in COUNTS_W), lit when it's the page shown.
+function ui:tab(x, y, label, action, on)
+  put(self.win, x, y, label, on and colors.black or colors.white, on and colors.yellow or colors.gray)
+  table.insert(self.buttons, { x1 = x, x2 = x + #label - 1, y = y, action = action })
+  return x + #label + 1
+end
+
+-- The list beside the map: tabs for this layer, the whole build and what
+-- the builder turtles need now, then that page's rows.
 function ui:drawCounts(m, x0, y0, width, rows)
-  put(self.win, x0, y0, fit(m.countTitle, width), colors.yellow, colors.black)
+  local x = self:tab(x0, y0, "Layer", "pageLayer", m.page == "layer")
+  x = self:tab(x, y0, "Build", "pageBuild", m.page == "build")
+  self:tab(x, y0, "Now", "pageNow", m.page == "now")
+  put(self.win, x0, y0 + 1, fit(m.countTitle, width), colors.yellow, colors.black)
   for i, c in ipairs(m.counts) do
-    if i >= rows then break end
-    local name = c.mat.block:gsub("^.-:", ""):gsub("%[.*$", "")
-    local n = tostring(c.n)
-    put(self.win, x0, y0 + i, c.mat.char, c.mat.light and colors.black or colors.white, c.mat.term)
-    put(self.win, x0 + 2, y0 + i, fit(name, width - #n - 3), colors.white, colors.black)
-    put(self.win, x0 + width - #n, y0 + i, n, colors.lightGray, colors.black)
+    if i + 1 >= rows then break end
+    local y = y0 + 1 + i
+    local name = c.text or c.mat.block:gsub("^.-:", ""):gsub("%[.*$", "")
+    local n = c.n and tostring(c.n) or ""
+    local indent = (c.mat or c.n) and 2 or 0
+    if c.mat then put(self.win, x0, y, c.mat.char, c.mat.light and colors.black or colors.white, c.mat.term) end
+    put(self.win, x0 + indent, y, fit(name, width - #n - indent - 1), c.colour or colors.white, colors.black)
+    if c.n then put(self.win, x0 + width - #n, y, n, colors.lightGray, colors.black) end
   end
 end
 
@@ -137,9 +152,9 @@ function ui:draw(m)
     self:drawMap(m, 2, top + 1, cols, rows)
     self:drawCounts(m, cols + 4, top + 1, w - cols - 4, rows)
   else
-    local mapRows = math.min(m.map.d, math.max(3, rows - #m.counts - 2))
+    local mapRows = math.min(m.map.d, math.max(3, rows - #m.counts - 3))
     self:drawMap(m, 2, top + 1, w - 2, mapRows)
-    if rows - mapRows >= 3 then self:drawCounts(m, 2, top + mapRows + 2, w - 2, rows - mapRows - 1) end
+    if rows - mapRows >= 4 then self:drawCounts(m, 2, top + mapRows + 2, w - 2, rows - mapRows - 1) end
   end
 
   self.display:show()

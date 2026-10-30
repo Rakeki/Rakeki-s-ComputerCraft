@@ -156,15 +156,17 @@ local function total() return #job.blocks end
 
 local function openModem() return net.open() end
 
--- Tell the projector that sent the building how far along it is.
-local function sendProgress(stage, note)
+-- Tell the projector that sent the building how far along it is. need:
+-- the items it's waiting for or fetching now (item -> how many), shown on
+-- the panel's Now page.
+local function sendProgress(stage, note, need)
   if not job or not openModem() then return end
   local b = prog and prog.stage == "build" and order[prog.step] and job.blocks[order[prog.step]]
   rednet.send(job.from, {
     type = "progress", key = job.key, name = job.name, stage = stage,
     done = prog and prog.stage == "build" and prog.step - 1 or 0, total = total(),
     cleared = prog and prog.stage == "clear" and prog.step or nil, toClear = box and clearCells() or nil,
-    y = b and b[2] or nil, skipped = prog and prog.skipped or 0, note = note,
+    y = b and b[2] or nil, skipped = prog and prog.skipped or 0, note = note, need = need,
   }, BUILD_PROTOCOL)
 end
 
@@ -569,7 +571,7 @@ end
 local function restock(want, why)
   print("Going home: " .. why)
   status("restocking", why)
-  sendProgress("restocking", why)
+  sendProgress("restocking", why, want)
   goHome()
   dump(want)
   ensureFuel()
@@ -597,7 +599,7 @@ local function waitForItem(item, want)
     if not said then
       print(("Out of %s. Put some in the chest behind my home block."):format(shortName(item)))
       status("waiting", "needs " .. shortName(item))
-      sendProgress("waiting", "needs " .. shortName(item))
+      sendProgress("waiting", "needs " .. shortName(item), { [item] = want })
       said = true
     end
     local timer = os.startTimer(10)
