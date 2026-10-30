@@ -832,7 +832,7 @@
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
       "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
-      "libs": ["report", "errlog", "screen", "files", "net"],
+      "libs": ["report", "errlog", "screen", "files", "net", "setupui"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
@@ -1734,6 +1734,45 @@
         ["set:command(args)", "'<program> add [machine feeder [output]]' and 'remove <n>'; false if args is neither."]
       ],
       "notes": "The machine ejects what it makes out of its bottom into its output chest (emptied by collect, registered like a barrel feeder) or a storage input chest: read sets that side to Output with Auto-eject when the machine is Public. A barrel feeder needs something moving its items into the machine (a logistical transporter set to pull, a funnel), has to be empty when added, and isn't filled until the storage computer has taken it as a feeder (it stops being storage). Far away (remote) nothing is registered."
+    },
+    {
+      "name": "setupui",
+      "title": "lib/setupui",
+      "file": "lib/setupui.lua",
+      "color": "yellow",
+      "tagline": "Setup screens on the monitor and the terminal at once: pages of settings, and chest lists a page at a time with what's in each chest, an Empty filter and typed search. The storage computer's setup is built on it.",
+      "usage": "local setupui = require(\"lib.setupui\")\n\nlocal ui = setupui.new({ screens = { termScreen, monScreen } })\nlocal saved = ui:run({\n  title = \"Storage settings\",\n  rows = function(ui) return { { label = \"Fuel chest\", value = fuel or \"none\",\n    act = function() ui:pickChest({ title = \"Pick: Fuel chest\", names = names, none = \"(none)\",\n      pick = function(name) fuel = name; ui:back() end }) end } } end,\n  buttons = function(ui) return { { \" Save \", \"black\", \"lime\", function() ui:finish(true) end } } end,\n})",
+      "api": [
+        [
+          "setupui.new({ screens, onEvent })",
+          "A setup screen drawn on every lib/screen.lua screen given (the first is the terminal: the keyboard moves its highlight). onEvent sees every event."
+        ],
+        [
+          "ui:run(page)",
+          "Shows page until ui:finish(result); returns result. A page has title, hint, rows(ui) -> { { label, value, colour, labelColour, dim, act } }, optional buttons(ui), filter (typing narrows it), empty(row) (an Empty button)."
+        ],
+        [
+          "ui:open(page) / ui:back()",
+          "Go to a page, and back to the one before."
+        ],
+        [
+          "ui:say(text, colour) / ui:draw()",
+          "The message line; draw now (before a slow call)."
+        ],
+        [
+          "ui:pickChest(o)",
+          "A page of chests (o.names) with what's in each; o.pick(name) when one is tapped, o.none adds a (none) row, o.roleOf greys out used ones, o.only leaves some out."
+        ],
+        [
+          "ui:monitorPage(setting, event)",
+          "Pick the monitor a lib/screen.lua setting names, and queue event."
+        ],
+        [
+          "setupui.contents(names)",
+          "name -> { stacks, top }: every chest's contents, read at once (each call takes a tick otherwise)."
+        ]
+      ],
+      "notes": "Rows past the screen's height go on more pages (the < > buttons, Page Up / Down, the mouse wheel). Every chest's contents are read side by side when a list opens, so even hundreds of chests show at once."
     },
     {
       "name": "workchest",

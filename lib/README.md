@@ -49,6 +49,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   rest back through the input chest. Far away it's an ender chest, and things
   go home through it too (or a return ender chest). Used by `smelter-computer` and
   `enricher-computer`.
+- `setupui.lua`: setup screens on the monitor and the terminal at once: pages of
+  settings, and chest lists a page at a time with what's in each chest, an Empty
+  filter and typed search. Used by `storage-computer`.
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into
   a hidden window and shown in one go, and frames that haven't changed can be
   skipped. `screen.find` picks the monitor (next to it or on the cable; the

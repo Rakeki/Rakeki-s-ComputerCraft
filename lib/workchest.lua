@@ -26,6 +26,7 @@
 --     local n = work:move(name, furnace, 1, 64)       -- from it into a machine (slot optional): how many went
 --     work:empty(input)                               -- the rest back into storage
 --   end
+--   ui:open(work:setupPage(ui))                       -- on a lib/setupui.lua setup screen
 --
 -- ask(msg) is the program's own request function on the "storage" protocol
 -- (it returns the reply, or nil and why). Without a work chest, or with a
@@ -192,6 +193,95 @@ function Work:empty(input)
     pcall(peripheral.call, self.active, "pushItems", input, slot)
   end
   self.list = {}
+end
+
+---------------------------------------------------------------- the setup screen
+
+-- What the work chest is now, in a few words.
+function Work:describe()
+  readSaved(self)
+  if not self.chest then return "none" end
+  return self.remote and ("far away: " .. self.chest) or self.chest
+end
+
+-- A lib/setupui.lua page for the work chest: one on the cable, far away
+-- through an ender chest (and maybe a return one), or none.
+function Work:setupPage(ui)
+  local function done(ok, why, text)
+    ui:back()
+    if ok then ui:say(text, "lime") else ui:say(("Couldn't: %s."):format(why or "no answer"), "red") end
+  end
+  local function enders()
+    local out = {}
+    for _, n in ipairs(peripheral.getNames()) do
+      local t = peripheral.getType(n) or ""
+      if t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then out[#out + 1] = n end
+    end
+    table.sort(out)
+    return out
+  end
+  local function far()
+    local list = enders()
+    ui:pickChest({ title = "Pick its ender chest", hint = "Its twin goes on the storage cable (not an input chest).",
+      names = list, current = self.remote and self.chest or nil,
+      nothing = "No ender chest here: put one on my cable with a wired modem.",
+      pick = function(chest)
+        ui:back()
+        local rest = {}
+        for _, n in ipairs(list) do
+          if n ~= chest then rest[#rest + 1] = n end
+        end
+        local function go(back)
+          ui:back()
+          ui:say("Finding its twin on the storage network...", "lightBlue")
+          ui:draw()
+          local ok, why = self:setRemote(chest, back)
+          ui:say(ok and ("Work chest: %s, filled through %s; things go home through %s."):format(chest, self.home,
+            back or "the same chest") or ("Couldn't use %s: %s."):format(chest, why or "no answer"), ok and "lime" or "red")
+        end
+        ui:pickChest({ title = "Return chest?", hint = "Things go home through the same chest, or a return ender chest.",
+          names = rest, current = self.back, none = "(none: one chest both ways)", nothing = "No other ender chest.",
+          pick = go })
+        ui:say("Tap (none), or a second ender chest whose twin is a storage input chest.")
+      end })
+    ui:say("Tap the ender chest.")
+  end
+  return {
+    title = "Work chest",
+    hint = "The storage computer fills it in one go each round.",
+    rows = function()
+      return {
+        { label = "Now", value = self:describe(), colour = self.chest and "lightGray" or "gray" },
+        { label = "A chest on this cable", value = "near the storage", colour = "gray", act = function()
+          local names = {}
+          for _, n in ipairs(peripheral.getNames()) do
+            local t = peripheral.getType(n) or ""
+            if not t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then names[#names + 1] = n end
+          end
+          table.sort(names)
+          ui:pickChest({ title = "Pick the work chest", hint = "An empty chest on the storage cable.",
+            names = names, current = not self.remote and self.chest or nil,
+            only = function(n, info) return n == self.chest or info.stacks == 0 end,
+            nothing = "No empty chest here: put a wired modem on one and right-click it.",
+            pick = function(chest)
+              ui:say("Asking the storage computer...", "lightBlue")
+              ui:draw()
+              local ok, why = self:set(chest)
+              done(ok, why, ("Work chest: %s. The storage computer fills it from now on."):format(chest))
+            end })
+          ui:say("Tap an empty chest.")
+        end },
+        { label = "Far away: through an ender chest", value = "another base", colour = "gray", act = far },
+        { label = "None", value = "load each machine in turn", colour = "gray", act = function()
+          ui:say("Asking the storage computer...", "lightBlue")
+          ui:draw()
+          local ok, why = self:set(nil)
+          ui:say(ok and "No work chest now: what was in it went back into storage." or ("Couldn't: %s."):format(why or "no answer"),
+            ok and "lime" or "red")
+        end },
+      }
+    end,
+  }
 end
 
 ---------------------------------------------------------------- the command

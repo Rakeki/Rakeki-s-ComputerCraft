@@ -19,6 +19,7 @@
 --   local moved, stuck = set:collect(machines, input)    -- output chests into storage
 --   local n = set.roomFor(m, name)                        -- how many more of an item it can take
 --   set:command(args)                                     -- '<program> add ...' / 'remove ...'; false if neither
+--   ui:open(set:setupPage(ui))                            -- the machines on a lib/setupui.lua setup screen
 --
 -- Each machine: { n, entry = { machine, feeder, output (nil: none) }, title,
 -- slots, factory, present, inputs[i], outputs[i] (each { name, count } or
@@ -453,6 +454,140 @@ function Set:add(machine, feeder, output)
   else
     print("Put a storage input chest under it (add it in 'storage setup'): what it makes comes out there.")
   end
+end
+
+---------------------------------------------------------------- the setup screen
+
+-- A lib/setupui.lua page of the machines: tap one to change its feeder or
+-- output chest or remove it, or add one (machine, then feeder, then output
+-- chest). Saved as each change is made.
+function Set:setupPage(ui)
+  local opts = self.opts
+  -- every chest another machine uses (skip: this machine's entry)
+  local function used(skip)
+    local u = {}
+    for i, e in ipairs(self:entries()) do
+      if i ~= skip then
+        u[e.machine], u[e.feeder] = true, true
+        if e.output then u[e.output] = true end
+      end
+    end
+    return u
+  end
+  local function pickFeeder(skip, current, done)
+    local u = used(skip)
+    ui:pickChest({ title = "Pick its feeder", hint = "The hopper on top of it, or the barrel a pipe pulls from into it.",
+      names = findOnNetwork(isFeeder), current = current,
+      nothing = "Nothing free: a hopper on top, or an empty barrel, with a wired modem on it.",
+      roleOf = function(n) return u[n] and "another machine's" end,
+      -- every storage chest is a barrel or chest too: only empty ones
+      only = function(n, info) return n == current or isHopper(peripheral.getType(n) or "") or info.stacks == 0 end,
+      pick = function(n)
+        if u[n] then ui:say(("%s is another machine's."):format(n), "orange") return end
+        ui:back()
+        done(n)
+      end })
+    ui:say("Tap its hopper or barrel.")
+  end
+  local function pickOutput(skip, current, feeder, done)
+    local u = used(skip)
+    ui:pickChest({ title = "Pick its output chest", hint = "Under it: what it makes goes here, then into storage.",
+      names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
+      none = "(none: a storage input chest is under it)",
+      roleOf = function(n) return u[n] and "another machine's" or n == feeder and "its feeder" or nil end,
+      only = function(n, info) return n == current or info.stacks == 0 end,
+      pick = function(n)
+        if n and (u[n] or n == feeder) then ui:say(("%s is taken."):format(n), "orange") return end
+        ui:back()
+        done(n)
+      end })
+    ui:say("Tap the chest under it, or (none).")
+  end
+  local function change(i, field, value, text)
+    local list = self:entries()
+    if not list[i] then return end
+    list[i][field] = value
+    self:save(list)
+    ui:say(text, "lime")
+  end
+
+  local function machinePage(i)
+    return {
+      title = function()
+        local e = self:entries()[i]
+        return e and (self.names[e.machine] or ("%s %d"):format(opts.title, i)) or opts.title
+      end,
+      rows = function()
+        local e = self:entries()[i]
+        if not e then return { { label = "Removed.", dim = true } } end
+        local function there(n) return peripheral.isPresent(n) and "lightGray" or "red" end
+        return {
+          { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
+          { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
+            pickFeeder(i, e.feeder, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
+          end },
+          { label = "Output chest", value = e.output or "none: a storage input chest", colour = e.output and there(e.output) or "gray",
+            act = function()
+              pickOutput(i, e.output, e.feeder, function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end)
+            end },
+          { label = "Remove it", colour = "red", act = function()
+            local list = self:entries()
+            local gone = table.remove(list, i)
+            self:save(list)
+            ui:back()
+            ui:say(("Forgot %s. Empty its feeder%s by hand."):format(gone.machine, gone.output and " and output chest" or ""), "lime")
+          end },
+        }
+      end,
+    }
+  end
+
+  local function add()
+    local free = self:free()
+    if #free == 0 then
+      ui:say(("No %s on the network that isn't added: put a wired modem on it and right-click it."):format(opts.what), "orange")
+      return
+    end
+    local function withMachine(machine)
+      pickFeeder(nil, nil, function(feeder)
+        pickOutput(nil, nil, feeder, function(output)
+          local list = self:entries()
+          list[#list + 1] = { machine = machine, feeder = feeder, output = output }
+          self:save(list)
+          local hopper = isHopper(peripheral.getType(feeder) or "")
+          ui:say(("%s %d added.%s"):format(opts.title, #list, hopper and ""
+            or " A pipe has to move its items in: a logistical transporter set to pull, or a funnel."), "lime")
+        end)
+      end)
+    end
+    if #free == 1 then return withMachine(free[1]) end
+    ui:open({
+      title = ("Pick the %s"):format(opts.what), hint = "Right-click a modem to see its block's name.",
+      rows = function()
+        local out = {}
+        for _, n in ipairs(free) do
+          out[#out + 1] = { label = n, act = function() ui:back(); withMachine(n) end }
+        end
+        return out
+      end,
+    })
+  end
+
+  return {
+    title = opts.title .. "s",
+    hint = ("Each %s, its feeder and its output chest."):format(opts.what),
+    rows = function()
+      local out = {}
+      for i, e in ipairs(self:entries()) do
+        local here = peripheral.isPresent(e.machine)
+        out[#out + 1] = { label = self.names[e.machine] or ("%s %d"):format(opts.title, i),
+          value = here and e.machine or (e.machine .. " (missing)"), colour = here and "lightGray" or "red",
+          act = function() ui:open(machinePage(i)) end }
+      end
+      out[#out + 1] = { label = ("+ Add a %s"):format(opts.what), colour = "lime", act = add }
+      return out
+    end,
+  }
 end
 
 -- '<program> add [machine feeder [output]]' and '<program> remove <n>': true if

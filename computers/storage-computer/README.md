@@ -341,7 +341,6 @@ and set **Store items in** to the ME system. A Refined Storage system with an
 ## Files
 
 - `storage.lua`: the program. Check intervals are at the top.
-- `setupui.lua`: the setup screen, on the monitor and the computer
 - `chests.lua`: storing in the chests on the network: which blocks count as storage, and what counts as bulk for stack upgrades
 - `bridge.lua`: storing in an ME or RS system through its bridge
 - `crafting.lua`: works out what to craft, ingredients first
@@ -353,6 +352,7 @@ and set **Store items in** to the ME system. A Refined Storage system with an
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen, on the monitor and the computer (copy to `/lib/setupui.lua`). Needed.
 
 ## Setup
 

@@ -59,7 +59,7 @@ if crafting and fs.exists("pack_recipes.lua") then
   end
 end
 local chests = require("chests")
-local setupui = require("setupui") -- the setup screen
+local setupui = require("lib.setupui") -- the setup screen, on the monitor and the terminal
 local bridges = fs.exists("bridge.lua") and require("bridge")
 
 local SETUP_FILE = "/.storage_setup"
@@ -2056,14 +2056,178 @@ end
 
 -- The setup screen (setupui.lua) on this computer's terminal and the
 -- monitor. s is edited in place; true when the player saved it.
+-- The settings on the setup screen's first page, and the line shown above
+-- each one's list.
+local SETTINGS = {
+  { key = "input", what = "Input chest", need = true, hint = "Items dropped in here get put away." },
+  { key = "inputs", what = "Extra input chests", hint = "Emptied like the input chest." },
+  { key = "output", what = "Output chest", need = true, hint = "What you take from storage is sent here." },
+  { key = "delivery", what = "Shared delivery chest", hint = "For turtles that can't find a chest of their own." },
+  { key = "crafter", what = "Crafter chest", hint = "In front of the crafting turtle (or let it find its own)." },
+  { key = "fuel", what = "Fuel chest", hint = "Coal and charcoal for the smelter and the turtles." },
+  { key = "transfer", what = "Transfer chest", bridge = true, hint = "Items for furnaces and the crafter pass through it." },
+  { key = "remote", what = "Far-away workers", hint = "Enrichers and smelters at another base, through an ender chest." },
+}
+
+-- The chests turtles and computers claim themselves: picking one for
+-- something else takes it back (they find another). Mekanism feeders are
+-- left alone: the enricher and smelter register them again every round.
+local CLAIMS = { "deliveries", "crafters", "works" }
+
+-- The setup screen (lib/setupui.lua) on this computer's terminal and the
+-- monitor: every setting on one page, chest lists a page at a time with
+-- what's in each. s is edited in place; true when the player saved it.
 editSetup = function(s, kind, first)
   for _, which in ipairs({ "inputs", "deliveries", "crafters", "works", "feeders" }) do s[which] = s[which] or {} end
   -- the store: chests, unless there's a bridge to use
   if not kind then s.backend = "chests" elseif not s.backend then s.backend = "bridge" end
-  return setupui.run({ setup = s, screens = { termScreen, monScreen }, bridge = kind, first = first,
-    isInventory = isInventory, isEnder = isEnder, usedIn = usedIn, workers = findWorkers,
+  local ui = setupui.new({ screens = { termScreen, monScreen },
     -- a second 'storage setup' meanwhile: this one is open already
     onEvent = function(ev) if ev[1] == "storage_open_setup" then os.queueEvent("storage_setup_opened") end end })
+
+  local function claimed(name)
+    for _, which in ipairs(CLAIMS) do
+      for _, n in pairs(s[which]) do
+        if n == name then return true end
+      end
+    end
+    return false
+  end
+  local function unclaim(name)
+    for _, which in ipairs(CLAIMS) do
+      for id, n in pairs(s[which]) do
+        if n == name then s[which][id] = nil end
+      end
+    end
+  end
+
+  -- The chest list for setting c (c.ender: ender chests too, c.enderOnly:
+  -- only those, c.worker: a far-away worker's), then done(name or nil).
+  local function pickFor(c, done)
+    local cur = c.worker and s.works[c.worker.id] or s[c.key]
+    local names = {}
+    for _, n in ipairs(peripheral.getNames()) do
+      if isInventory(n) then
+        local ender = isEnder(n)
+        if c.enderOnly and ender or not c.enderOnly and (c.ender or not ender) then names[#names + 1] = n end
+      end
+    end
+    table.sort(names)
+    ui:pickChest({ title = "Pick: " .. c.what, hint = c.hint, names = names, current = cur,
+      none = not c.need and "(none)" or nil, nothing = "No chests here.",
+      roleOf = function(n) return usedIn(s)[n] end,
+      pick = function(name)
+        local role = name and name ~= cur and usedIn(s)[name]
+        if role and not claimed(name) then
+          ui:say(("%s is already the %s."):format(name, role), "orange")
+          return
+        end
+        if role then unclaim(name) end
+        ui:back()
+        done(name)
+      end })
+    ui:say(c.need and "Tap a chest." or "Tap a chest, or (none).")
+  end
+
+  local inputsPage = {
+    title = "Extra input chests", hint = SETTINGS[2].hint,
+    rows = function()
+      local out = { { label = "+ Add an input chest", colour = "lime", act = function()
+        pickFor({ what = "New input chest", ender = true, need = true, hint = SETTINGS[2].hint }, function(name)
+          s.inputs[#s.inputs + 1] = name
+          ui:say(("%s is an input chest now."):format(name), "lime")
+        end)
+      end } }
+      for i, n in ipairs(s.inputs) do
+        out[#out + 1] = { label = n, value = "tap to remove", colour = "gray", act = function()
+          table.remove(s.inputs, i)
+          ui:say(("%s is storage again."):format(n), "lime")
+        end }
+      end
+      return out
+    end,
+  }
+
+  local found, why
+  local function look()
+    ui:say("Looking for enrichers and smelters...", "lightBlue")
+    ui:draw()
+    found, why = findWorkers()
+    found = found or {}
+    ui:say(#found > 0 and "Tap one to pick its ender chest here." or "Nothing found.", #found > 0 and "lightGray" or "orange")
+  end
+  local workersPage = {
+    title = "Far-away workers", hint = SETTINGS[8].hint,
+    enter = function() if not found then look() end end,
+    rows = function()
+      local out = {}
+      for _, w in ipairs(found or {}) do
+        out[#out + 1] = { label = ("%s #%d"):format(w.kind, w.id), value = s.works[w.id] or "no ender chest here",
+          colour = s.works[w.id] and "lightGray" or "gray", act = function()
+            pickFor({ what = ("%s #%d's ender chest"):format(w.kind, w.id), worker = w, enderOnly = true,
+              hint = "Its twin is at that computer." }, function(name)
+              s.works[w.id] = name
+              ui:say(name and ("On %s #%d, run '%s setup' and pick Work chest, Far away: it takes %s."):format(w.kind,
+                w.id, w.kind, name) or "Done. What's left in its old ender chest stays there.", "lime")
+            end)
+          end }
+      end
+      if found and #found == 0 then
+        out[#out + 1] = { label = why or "None answered: are they running, with an ender or wireless modem?", dim = true }
+      end
+      out[#out + 1] = { label = "Look again", colour = "lightBlue", act = look }
+      return out
+    end,
+  }
+
+  local main = {
+    title = first and "Storage setup" or "Storage settings",
+    rows = function()
+      local out = {}
+      if kind then
+        out[#out + 1] = { label = "Store items in", value = s.backend == "bridge" and ("the " .. kind .. " system") or "chests",
+          act = function()
+            s.backend = s.backend == "bridge" and "chests" or "bridge"
+            if s.backend ~= "bridge" then s.transfer = nil end
+          end }
+      end
+      for _, c in ipairs(SETTINGS) do
+        if not c.bridge or s.backend == "bridge" then
+          local value, colour = s[c.key], "lightGray"
+          if c.key == "inputs" then
+            value = #s.inputs == 0 and "none" or #s.inputs == 1 and s.inputs[1] or (#s.inputs .. " chests")
+          elseif c.key == "remote" then
+            value = "find them"
+          elseif not value then
+            value, colour = c.need and "not set" or "none", c.need and "orange" or "gray"
+          end
+          out[#out + 1] = { label = c.what, value = value, colour = colour, act = function()
+            if c.key == "inputs" then
+              ui:open(inputsPage)
+            elseif c.key == "remote" then
+              ui:open(workersPage)
+            else
+              pickFor(c, function(name)
+                s[c.key] = name
+                ui:say(("%s: %s."):format(c.what, name or "none"), "lime")
+              end)
+            end
+          end }
+        end
+      end
+      return out
+    end,
+    buttons = function()
+      return {
+        { " Save ", "black", "lime", function()
+          if s.input and s.output then ui:finish(true) else ui:say("Pick the input and output chests first.", "orange") end
+        end },
+        { " Cancel ", "white", "red", function() ui:finish(false) end },
+      }
+    end,
+  }
+  ui:say(first and "Pick the input and output chests, then Save." or "Tap a setting to change it.")
+  return ui:run(main)
 end
 
 -- A storage program running in another tab opens the setup screen itself
