@@ -38,8 +38,9 @@ a round with the ores for every feeder, and the enricher fills the feeders
 from it, instead of asking for each feeder in turn.
 
 While the enricher has a chamber with power, the smelter leaves those ores
-alone and smelts the dust instead. When the enricher stops, the smelter
-goes back to smelting the ores itself.
+alone and smelts the dust instead. When the enricher stops, or can't load
+its chambers (its screen says why in red), the smelter goes back to
+smelting the ores itself, so they never just sit in storage.
 
 The computer's screen lists each chamber with the ore it's on, how many are queued in
 it and its feeder, its power and what it's doing: **enriching**,

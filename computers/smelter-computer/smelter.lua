@@ -573,6 +573,11 @@ local function round()
   for _, m in ipairs(meks) do
     if (m.usage or 0) > 0 then busy = busy + 1 end
   end
+  -- far away without 'smelter chest remote', the storage computer can't see
+  -- the furnaces: say what to do
+  if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
+    problem = problem .. ". Far from the storage system? Run 'smelter chest remote'"
+  end
   if problem then
     say("Couldn't move items: " .. problem, "red")
   elseif news and os.clock() < news[3] then

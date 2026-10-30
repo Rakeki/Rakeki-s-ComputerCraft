@@ -68,7 +68,7 @@ local machines = {} -- what the screen shows: each chamber with its feeder and h
 local message = { "Looking for the storage computer...", "lightGray" }
 local news -- { text, colour, untilTime }: a put-back item, shown for a minute
 local waiting = {} -- item -> how many in storage to enrich, for the screen
-local taking = false -- a chamber is ready, so the smelter should leave the ores alone
+local taking = false -- a chamber is ready and loading works, so the smelter should leave the ores alone
 local noEnrich = {} -- item -> true: found not to go into a chamber (until restart)
 
 ---------------------------------------------------------------- helpers
@@ -140,7 +140,7 @@ local function round()
   for _, m in ipairs(machines) do
     if mekfeed.ready(m) then ready = ready + 1 end
   end
-  taking = ready > 0
+  taking = false
   if #machines == 0 then
     local free = #chambers:free()
     say(free > 0 and ("%d chamber(s) on the network: hold Ctrl+T twice, then 'enricher add'."):format(free)
@@ -246,6 +246,15 @@ local function round()
     end
     if m.colour == "red" then broken = broken + 1 elseif m.state == "enriching" then working = working + 1 end
   end
+
+  -- far away without 'enricher chest remote', the storage computer can't see
+  -- the feeders: say what to do
+  if problem and not work.chest and (problem:find("network") or problem:find("can't see")) then
+    problem = problem .. ". Far from the storage system? Run 'enricher chest remote'"
+  end
+  -- leave the ores to the smelter while they can't be loaded here, so they
+  -- don't sit in storage
+  taking = ready > 0 and not problem and not (work.remote and not work.active)
 
   if news and os.clock() < news[3] then
     message = { news[1], news[2] }
