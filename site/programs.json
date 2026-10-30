@@ -643,7 +643,7 @@
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a plan from /plans (.json or .lua)"],
         ["projector village", "follow what a village turtle is building"],
-        ["projector build", "have the builder turtles build the plan where it's shown (or tap Build)"],
+        ["projector build", "have the builder turtles (or instabuild) build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
         ["projector check <plan>", "load a plan and list the blocks it needs"],
         ["projector clear", "remove the projection"]
@@ -651,6 +651,7 @@
       "integrates": [
         ["village-turtle", "'projector village' shows the turtle's current building where it's building it, layer by layer."],
         ["builder-turtle", "Build sends the plan, in world coordinates, to a builder turtle; the panel follows its progress."],
+        ["instabuild", "In creative, with instabuild serve running on a command computer, Build places the plan there in seconds instead."],
         ["status-server", "Shows which plan is up, where it is and the layer you're on."],
         ["report", "Optional: without lib/report.lua or a modem it just projects."]
       ],
@@ -784,8 +785,8 @@
       "device": "computer",
       "deviceLabel": "Command computer (creative only)",
       "color": "purple",
-      "tagline": "Creative only: places a whole plan in seconds from a command computer, no turtles or materials, and undoes it again.",
-      "libs": ["plan", "files", "errlog"],
+      "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
+      "libs": ["plan", "files", "net", "errlog"],
       "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
@@ -795,26 +796,28 @@
       ],
       "features": [
         "Any plan in /plans, at the same coordinates and facing as build control",
-        "Ground plans clear their box first; plans built in the air only place their blocks",
-        "Never replaces chests, barrels, computers or turtles",
-        "Keeps a copy of what it changes: instabuild undo puts it all back",
+        "instabuild serve: tap Build on the blueprint projector and it places the plan where it's shown",
+        "Never replaces a block: plan blocks only go into air, and it says how many it left out",
+        "Keeps a list of what it placed: instabuild undo takes it out again",
         "A row of the same block goes in with one fill"
       ],
       "setup": [
         "In a creative world: /give @s computercraft:computer_command, and place it anywhere.",
         "Install this on it. More plans: install plan <name>.",
-        "Run instabuild <plan> <x> <y> <z> [facing], check the box it prints, and press y."
+        "Run instabuild <plan> <x> <y> <z> [facing], check the box it prints, and press y.",
+        "Or, with a modem: run instabuild serve, place the plan with the blueprint projector and tap Build there."
       ],
       "commands": [
         ["instabuild list", "the plans here, with their sizes"],
         ["instabuild check <plan>", "its size and the blocks it uses"],
         ["instabuild <plan> <x> <y> <z> [facing]", "build it with its north-west bottom corner at x y z"],
         ["instabuild <plan> here [facing]", "2 blocks south of this computer, on its level"],
-        ["instabuild undo", "put back what the last build replaced"]
+        ["instabuild serve", "place what the blueprint projector shows when Build is tapped on it (U undo, Q stop)"],
+        ["instabuild undo", "remove what the last build placed"]
       ],
       "integrates": [
         ["build-control", "Same plans and coordinates: try a spot with instabuild, undo, then have the turtles build it for real."],
-        ["blueprint-projector", "Shows the same plans as outlines first."]
+        ["blueprint-projector", "With instabuild serve running, the projector's Build places the plan exactly where it's shown."]
       ],
       "render": {
         "kind": "screen",

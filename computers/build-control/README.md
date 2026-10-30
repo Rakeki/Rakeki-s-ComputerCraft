@@ -85,5 +85,6 @@ east from there whichever way it faces.
 - It builds from a copy of the plan taken when it started, so updating the
   plan in `/plans` (or a reboot) never changes what's still to be handed out.
 - In creative, [instabuild](../instabuild/README.md) places a plan at the
-  same coordinates in seconds from a command computer, and undoes it: handy
+  same coordinates in seconds from a command computer (only into air: it
+  never replaces a block), and undoes it: handy
   for trying a spot before the turtles build it.

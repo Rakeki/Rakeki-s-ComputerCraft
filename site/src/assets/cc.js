@@ -1725,13 +1725,13 @@
         ["> instabuild skystation 100 150 -40", "white"],
         ["Sky Station facing north: 63 x 63 x 98, 21166", "white"], ["blocks,", "white"],
         ["from 100,150,-40 to 162,247,22.", "white"],
-        ["It's built in the air: only its own blocks are", "lightGray"], ["placed.", "lightGray"],
+        ["Blocks only go where there's air: nothing already", "lightGray"], ["there is replaced.", "lightGray"],
         ["Build it? (y/n) y", "yellow"],
         ["Looking at what's there...", "white"],
         [`Building: ${done} of ${runs} runs`, "white"],
       ];
       if (done >= runs) {
-        lines.push(["Built Sky Station: 21166 blocks changed.", "lime"], ["'instabuild undo' puts back what was there.", "white"]);
+        lines.push(["Placed Sky Station: 21166 blocks.", "lime"], ["'instabuild undo' removes it again.", "white"]);
       }
       lines.forEach(([t, c], i) => s.put(1, i + 1, t.slice(0, W), c));
       s.render();

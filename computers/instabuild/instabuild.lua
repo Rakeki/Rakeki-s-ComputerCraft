@@ -1,38 +1,34 @@
 -- Instabuild: places a whole plan from /plans in a few seconds, from a
 -- command computer (creative only). Uses the same plans and coordinates as
--- build-control, and keeps what was there so the last build can be undone.
+-- build-control, or places whatever the blueprint projector shows when its
+-- Build is tapped ('instabuild serve'). It only ever places blocks into air:
+-- nothing that's already there is replaced. It keeps a list of what it
+-- placed, so the last build can be undone.
 --
 --   instabuild list                          the plans here, with their sizes
 --   instabuild check <plan>                  size and the blocks it uses
 --   instabuild <plan> <x> <y> <z> [facing]   north-west bottom corner at x y z
 --   instabuild <plan> here [facing]          2 blocks south of this computer, on its level
---   instabuild undo                          put back what the last build replaced
+--   instabuild serve                         place the projector's plan when Build is tapped on it
+--   instabuild undo                          remove what the last build placed
 --
 -- facing is where the plan's front (its first row) faces: north (the
--- default), east, south or west. Plans built on the ground clear their box
--- (as builder turtles do); ones built in the air ("clear": false) only place
--- their blocks. Chests, computers and other blocks that hold things are
--- never replaced. Plans: 'install plan <name>', or your own in /plans.
+-- default), east, south or west. Plans: 'install plan <name>', or your own
+-- in /plans.
 local plans = require("lib.plan") -- loading plans and placing them in the world
 local files = require("lib.files")
+local net = require("lib.net") -- rednet requests and answers, for serve
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
-local UNDO_FILE = "/.instabuild_undo" -- what the last build replaced, for 'instabuild undo'
+local UNDO_FILE = "/.instabuild_undo" -- what the last build placed, for 'instabuild undo'
+local SERVE_FILE = "/.instabuild_serve" -- there while serving, so startup serves again after a reboot
+local PROTOCOL = "instabuild" -- the blueprint projector sends buildings on this
 local FACINGS = { north = 0, east = 1, south = 2, west = 3 }
 local HERE_GAP = 2 -- 'here' puts the building this many blocks south of the computer
 local WORLD_TOP, WORLD_BOTTOM = 319, -64 -- where blocks can go (1.18 and later)
 local READ_MAX = 4096 -- most blocks one getBlockInfos call reads
 local IN_FLIGHT = 128 -- commands sent before waiting for answers
 local AIR = { ["minecraft:air"] = true, ["minecraft:cave_air"] = true, ["minecraft:void_air"] = true }
--- never replaced, even without the block data that gives them away (a bulk
--- read may leave it out): anything that holds items or settings
-local KEEP = {
-  "chest", "barrel", "shulker_box", "furnace", "smoker", "hopper", "dispenser", "dropper", "sign",
-  "beacon", "brewing_stand", "lectern", "jukebox", "crafter", "chiseled_bookshelf", "campfire",
-  "decorated_pot", "banner", "command_block", "structure_block", "spawner", "vault",
-  "computer", "turtle", "monitor",
-}
-local KEEP_MODS = { "computercraft:" } -- every block from these mods
 
 local args = { ... }
 
@@ -42,23 +38,10 @@ local function facingName(turn)
   end
 end
 
--- A block as setblock takes it: name, then its state in brackets.
-local function blockString(info)
-  local parts = {}
-  for k, v in pairs(info.state or {}) do parts[#parts + 1] = k .. "=" .. tostring(v) end
-  table.sort(parts)
-  return #parts > 0 and (info.name .. "[" .. table.concat(parts, ",") .. "]") or info.name
-end
-
-local function keep(info)
-  if info.nbt then return true end
-  for _, mod in ipairs(KEEP_MODS) do
-    if info.name:sub(1, #mod) == mod then return true end
-  end
-  for _, word in ipairs(KEEP) do
-    if info.name:find(word, 1, true) then return true end
-  end
-  return false
+local function yes(question)
+  write(question .. " (y/n) ")
+  local answer = read()
+  return answer and answer:lower():sub(1, 1) == "y"
 end
 
 ---------------------------------------------------------------- reading the world
@@ -181,6 +164,75 @@ local function place(list, label)
   return failed, why
 end
 
+-- Why a building in box a can't be placed, or nil.
+local function outside(a)
+  if a.y1 > WORLD_TOP or a.y0 < WORLD_BOTTOM then
+    return ("That goes outside the world: blocks can only go from Y %d to Y %d."):format(WORLD_BOTTOM, WORLD_TOP)
+  end
+  if a.x1 - a.x0 + 1 > READ_MAX then return "That's too wide to read in one go." end
+end
+
+-- Place a building (block names mats, blocks { x, y, z, m } in world
+-- coordinates, box a) into the air in its box: a block that's already there
+-- is never replaced. Keeps the list of what it placed for undo. Returns
+-- { name, placed, inWay (plan blocks left out: something else is there),
+-- failed, why }.
+local function placeBuilding(name, mats, blocks, a)
+  local want = {}
+  local function key(bx, by, bz) return ((bx - a.x0) * (a.y1 - a.y0 + 1) + (by - a.y0)) * (a.z1 - a.z0 + 1) + (bz - a.z0) end
+  for _, b in ipairs(blocks) do
+    local block = mats[b[4]]
+    if block and not AIR[plans.base(block)] then want[key(b[1], b[2], b[3])] = block end
+  end
+
+  print("Looking at what's there...")
+  local todo, inWay = {}, 0
+  local ok, readErr = pcall(eachBlock, a, function(bx, by, bz, info)
+    local target = want[key(bx, by, bz)]
+    if not target or not info then return end
+    if AIR[info.name] then
+      todo[#todo + 1] = { bx, by, bz, target }
+    elseif info.name ~= plans.base(target) then
+      inWay = inWay + 1
+    end
+  end)
+  if not ok then error("Couldn't read the blocks there: " .. tostring(readErr) .. " Is it all loaded (within render distance)?", 0) end
+  local result = { name = name, placed = #todo, inWay = inWay, failed = 0 }
+  if #todo == 0 then return result end
+
+  -- undo puts air back wherever a block went in
+  local undo = {}
+  for i, c in ipairs(todo) do undo[i] = { c[1], c[2], c[3], "minecraft:air" } end
+  -- the old copy goes first: two copies of a big build don't fit on the disk
+  files.delete(UNDO_FILE)
+  files.write(UNDO_FILE, { name = name, runs = runs(undo) })
+  result.failed, result.why = place(runs(todo), "Building:")
+  return result
+end
+
+-- What a build did, in a line.
+local function summary(r)
+  if r.placed == 0 then
+    return r.inWay > 0 and ("Nothing placed for %s: all %d of its blocks have something there already."):format(r.name, r.inWay)
+      or ("%s is already there: nothing to place."):format(r.name)
+  end
+  local text = ("Placed %s: %d blocks"):format(r.name, r.placed)
+  if r.inWay > 0 then text = text .. (", %d left out (something already there)"):format(r.inWay) end
+  if r.failed > 0 then text = text .. (", %d runs failed (%s): is all of it loaded?"):format(r.failed, tostring(r.why)) end
+  return text .. "."
+end
+
+-- Remove what the last build placed. Returns a line saying what happened.
+local function undoLast(ask)
+  local u = files.read(UNDO_FILE)
+  if not u then return "Nothing to undo." end
+  if ask and not ask(("Remove what %s placed?"):format(u.name)) then return "Left as it is." end
+  local failed, why = place(u.runs, "Undoing:")
+  files.delete(UNDO_FILE)
+  if failed > 0 then return ("Undone %s, but %d runs failed (%s): is all of it loaded?"):format(u.name, failed, tostring(why)) end
+  return ("Undone %s."):format(u.name)
+end
+
 ---------------------------------------------------------------- commands
 
 local function listPlans()
@@ -200,8 +252,7 @@ end
 local function checkPlan(id)
   local p, err = plans.load(id)
   if not p then error(err, 0) end
-  print(("%s: %d wide, %d deep, %d high, %d blocks%s"):format(p.name, p.w, p.l, p.h, #p.blocks,
-    p.clear and "" or ", built in the air"))
+  print(("%s: %d wide, %d deep, %d high, %d blocks"):format(p.name, p.w, p.l, p.h, #p.blocks))
   table.sort(p.mats, function(a, b) return a.total > b.total end)
   for _, m in ipairs(p.mats) do print(("  %-34s %d"):format(m.block, m.total)) end
 end
@@ -223,82 +274,88 @@ local function build(id, where, facingArg)
   local a = plans.area(p, at)
   print(("%s facing %s: %d x %d x %d, %d blocks,"):format(p.name, facingName(turn), p.w, p.l, p.h, #p.blocks))
   print(("from %d,%d,%d to %d,%d,%d."):format(a.x0, a.y0, a.z0, a.x1, a.y1, a.z1))
-  if a.y1 > WORLD_TOP or a.y0 < WORLD_BOTTOM then
-    error(("That goes outside the world: blocks can only go from Y %d to Y %d."):format(WORLD_BOTTOM, WORLD_TOP), 0)
-  end
-  print(p.clear and "Everything else in that box is cleared to air (chests and computers are kept)."
-    or "It's built in the air: only its own blocks are placed.")
-  write("Build it? (y/n) ")
-  local answer = read()
-  if not answer or answer:lower():sub(1, 1) ~= "y" then return print("Not built.") end
-
-  -- what goes where: the plan's blocks, and air in the rest of the box when clearing
+  local why = outside(a)
+  if why then error(why, 0) end
+  print("Blocks only go where there's air: nothing already there is replaced.")
+  if not yes("Build it?") then return print("Not built.") end
   local mats, blocks = plans.world(p, at)
-  local want = {}
-  local function key(bx, by, bz) return ((bx - a.x0) * (a.y1 - a.y0 + 1) + (by - a.y0)) * (a.z1 - a.z0 + 1) + (bz - a.z0) end
-  for _, b in ipairs(blocks) do want[key(b[1], b[2], b[3])] = mats[b[4]] end
-
-  print("Looking at what's there...")
-  local todo, undo, kept, changing, halves = {}, {}, 0, {}, {}
-  local ok, readErr = pcall(eachBlock, a, function(bx, by, bz, info)
-    local target = want[key(bx, by, bz)] or (p.clear and "minecraft:air" or nil)
-    if not target or not info then return end
-    if AIR[info.name] and AIR[target] then return end
-    if info.name == target then return end
-    if keep(info) then
-      kept = kept + 1
-      return
-    end
-    todo[#todo + 1] = { bx, by, bz, target }
-    undo[#undo + 1] = { bx, by, bz, AIR[info.name] and "minecraft:air" or blockString(info) }
-    changing[key(bx, by, bz)] = true
-    local half = info.state and info.state.half
-    if half == "lower" or half == "upper" then halves[#halves + 1] = { bx, by + (half == "lower" and 1 or -1), bz, info.name } end
-  end)
-  if not ok then error("Couldn't read the blocks there: " .. tostring(readErr) .. " Is it all loaded (within render distance)?", 0) end
-  if #todo == 0 then return print("It's already there: nothing to change.") end
-
-  -- a door or tall plant loses its other half when one half is replaced:
-  -- keep that half for undo too, if it isn't being replaced anyway
-  for _, h in ipairs(halves) do
-    local inside = h[2] >= a.y0 and h[2] <= a.y1
-    if not (inside and changing[key(h[1], h[2], h[3])]) then
-      local okInfo, info = pcall(commands.getBlockInfo, h[1], h[2], h[3])
-      if okInfo and info and info.name == h[4] then undo[#undo + 1] = { h[1], h[2], h[3], blockString(info) } end
-    end
-  end
-
-  local undoRuns = runs(undo)
-  undo = nil
-  -- the old copy goes first: two copies of a big build don't fit on the disk
-  files.delete(UNDO_FILE)
-  files.write(UNDO_FILE, { name = p.name, runs = undoRuns })
-  local failed, why = place(runs(todo), "Building:")
-  if failed > 0 then
-    printError(("%d runs failed (%s): is all of it loaded?"):format(failed, tostring(why)))
-  end
-  print(("Built %s: %d blocks changed%s."):format(p.name, #todo,
-    kept > 0 and (", %d kept (chests, computers...)"):format(kept) or ""))
-  print("'instabuild undo' puts back what was there.")
+  local r = placeBuilding(p.name, mats, blocks, a)
+  print(summary(r))
+  if r.placed > 0 then print("'instabuild undo' removes it again.") end
 end
 
-local function undoLast()
-  local u = files.read(UNDO_FILE)
-  if not u then return print("Nothing to undo.") end
-  write(("Put back what %s replaced? (y/n) "):format(u.name))
-  local answer = read()
-  if not answer or answer:lower():sub(1, 1) ~= "y" then return print("Left as it is.") end
-  local failed, why = place(u.runs, "Undoing:")
-  if failed > 0 then printError(("%d runs failed (%s): is all of it loaded?"):format(failed, tostring(why))) end
-  files.delete(UNDO_FILE)
-  print(("Undone %s."):format(u.name))
+---------------------------------------------------------------- serving the projector
+
+-- Why a build request from the projector can't be placed, or nil.
+local function badRequest(msg)
+  local a = msg.area
+  if type(msg.mats) ~= "table" or type(msg.blocks) ~= "table" or type(a) ~= "table" then return "that's not a building" end
+  for _, k in ipairs({ "x0", "y0", "z0", "x1", "y1", "z1" }) do
+    if type(a[k]) ~= "number" then return "that's not a building" end
+  end
+  return outside(a)
+end
+
+-- Wait for the blueprint projector's Build: it sends the plan where it's
+-- shown, which goes in straight away (tapping Build is the go-ahead).
+local function serve()
+  if not net.open("any") then
+    error("'instabuild serve' needs a modem (wired, wireless or ender) to hear the projector.", 0)
+  end
+  rednet.host(PROTOCOL, "instabuild-" .. os.getComputerID())
+  files.write(SERVE_FILE, { since = os.epoch("utc") })
+  print("Waiting for the blueprint projector: tap Build on it")
+  print("to place its plan where it's shown.")
+  print("U: undo the last build. Q: stop serving.")
+
+  local busy, job = false, nil
+  -- answers straight away, so the projector never waits for a big build
+  local function listen()
+    while true do
+      local from, msg = rednet.receive(PROTOCOL)
+      if type(msg) == "table" and msg.type == "build" then
+        local why = busy and "busy placing another building" or badRequest(msg)
+        net.answer(from, PROTOCOL, msg, { ok = not why, why = why })
+        if not why then
+          busy, job = true, { from = from, msg = msg }
+          os.queueEvent("instabuild_job")
+        end
+      end
+    end
+  end
+  local function work()
+    while true do
+      local ev, ch = os.pullEvent()
+      if ev == "instabuild_job" and job then
+        local from, msg = job.from, job.msg
+        local name = type(msg.name) == "string" and msg.name or "the building"
+        print(("Projector #%d: placing %s."):format(from, name))
+        local ok, r = (errlog and errlog.pcall or pcall)(placeBuilding, name, msg.mats, msg.blocks, msg.area)
+        local text = ok and summary(r) or ("Couldn't place %s: %s"):format(name, tostring(r))
+        if ok then print(text) else printError(text) end
+        rednet.send(from, { type = "done", id = msg.id, text = text, placed = ok and r.placed or 0 }, PROTOCOL)
+        busy, job = false, nil
+      elseif ev == "char" and (ch == "u" or ch == "U") and not busy then
+        busy = true
+        local ok, text = (errlog and errlog.pcall or pcall)(undoLast, yes)
+        print(ok and text or tostring(text))
+        busy = false
+      elseif ev == "char" and (ch == "q" or ch == "Q") then
+        return
+      end
+    end
+  end
+  parallel.waitForAny(listen, work)
+  rednet.unhost(PROTOCOL)
+  files.delete(SERVE_FILE)
+  print("Stopped serving. 'instabuild serve' starts again.")
 end
 
 local function main()
   local cmd = args[1]
   if cmd == nil then
     print("Usage: instabuild <plan> <x> <y> <z> [facing], instabuild <plan> here,")
-    print("instabuild list, instabuild check <plan>, instabuild undo")
+    print("instabuild serve, instabuild list, instabuild check <plan>, instabuild undo")
     return
   elseif cmd == "list" then
     return listPlans()
@@ -309,7 +366,8 @@ local function main()
   if not commands then
     error("This needs a command computer (creative): /give @s computercraft:computer_command", 0)
   end
-  if cmd == "undo" then return undoLast() end
+  if cmd == "undo" then return print(undoLast(yes)) end
+  if cmd == "serve" then return serve() end
   build(cmd, { args[2], args[3], args[4] }, args[2] == "here" and args[3] or args[5])
 end
 

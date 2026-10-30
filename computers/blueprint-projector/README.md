@@ -24,7 +24,9 @@ where you want it. Then use it to build:
   checking it fits before looking at the details.
 - **Build** hands it to a [builder turtle](../builder-turtle/README.md),
   which builds it right where it's shown. See
-  [Having a turtle build it](#having-a-turtle-build-it).
+  [Having a turtle build it](#having-a-turtle-build-it). In creative, a
+  command computer running [instabuild](../instabuild/README.md) places it
+  there in seconds instead: see [Placing it with instabuild](#placing-it-with-instabuild).
 
 Under the buttons, the monitor shows a top-down map of the current layer
 (north is up) and, beside it, a list with three tabs:
@@ -87,7 +89,7 @@ projector                  -- show the last plan (startup does this)
 projector pagoda           -- show a plan: /plans/<name>.json or .lua
 projector disk/house.lua   -- show a plan file from anywhere
 projector village          -- follow what a village turtle is building
-projector build            -- have the builder turtles build the plan where it's shown
+projector build            -- have the builder turtles (or instabuild) build the plan where it's shown
 projector list             -- every plan, with its size
 projector check house      -- load a plan and list its size and blocks
 projector clear            -- remove the projection (Ctrl+T first to stop it)
@@ -106,7 +108,7 @@ projector clear            -- remove the projection (Ctrl+T first to stop it)
 | **Layer − +** | the layer to build (Layer view) or how high to show it (Whole view) |
 | **Here** | put it back next to the projector |
 | **Hide / Show** | take the projection down or put it back |
-| **Build / Stop** | have a [builder turtle](../builder-turtle/README.md) build it here, or stop it |
+| **Build / Stop** | have a [builder turtle](../builder-turtle/README.md) build it here, or stop it ([instabuild](../instabuild/README.md) places it, if one is serving) |
 
 Without a monitor, the panel shows on the computer's screen: click instead of
 tap. A monitor added (or removed) while it runs is picked up straight away. The keyboard works too: arrows move, PgUp/PgDn raise and lower, Q/E
@@ -165,6 +167,21 @@ build limit is Y 319).
   shows it in one colour or only part of it; Layer view shows each layer in
   full.
 - Turtles stop when their chunk unloads, so stay nearby while they work.
+
+## Placing it with instabuild
+
+In creative, run `instabuild serve` on a command computer with
+[instabuild](../instabuild/README.md) (and a modem this computer can reach),
+then tap **Build**: the building goes in within seconds, exactly where it's
+shown, with no turtles or materials.
+
+- Instabuild never replaces a block: plan blocks only go where there's air,
+  and the panel says how many were left out because something was there.
+- The panel says when it's placed. Undo it on the command computer (press
+  U there).
+- While an instabuild computer is serving, Build always goes to it. To send
+  a plan to the builder turtles instead, stop it serving (Q there), or run
+  `set projector.instabuild false` here.
 
 ## The factory
 

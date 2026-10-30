@@ -10,6 +10,7 @@
 --   projector <plan>          show a plan: /plans/<plan>.json or .lua, or a file path
 --   projector village         show what a village turtle is building, where it's building it
 --   projector build           have a builder turtle (computers/builder-turtle) build the plan where it's shown
+--                             (or a command computer running 'instabuild serve' place it, in creative)
 --   projector list            list the plans
 --   projector check <plan>    load a plan and print its size and blocks
 --   projector clear           remove the projection (stays hidden after a reboot)
@@ -38,6 +39,9 @@ local INSET_BLOCK = 0.04    -- shrink single blocks a little so neighbours' outl
 local INSET_MERGED = 0.01
 local VILLAGE_FILE = "/.projector_village" -- the last building heard from a village turtle
 local PLAN_PROTOCOL = "village_plan" -- rednet protocol village turtles share their building on
+local INSTA_PROTOCOL = "instabuild" -- a command computer running 'instabuild serve' places plans sent on this
+local INSTA_WAIT = 10 -- seconds to wait for it to take a building
+local INSTA_RETRY = 30 -- seconds before looking for one again after none was found
 
 local args = { ... }
 
@@ -501,7 +505,7 @@ local function act(action)
   if not action then return end
   if action == "build" then
     -- the talking to the turtles happens in buildLoop, so the panel never waits
-    if state.build then os.queueEvent(crew.STOP) else requestBuild() end
+    if state.build then os.queueEvent(crew.STOP) else os.queueEvent("projector_build") end
     return
   end
   local moving = MOVES[action] or action == "turnLeft" or action == "turnRight" or action == "here"
@@ -718,8 +722,42 @@ state.build = builders.build
 -- Starts and stops builds asked for on the panel, hears progress, and hands
 -- out strips nobody has taken yet.
 local function buildLoop()
-  if buildOnStart and not state.build then requestBuild() end
+  if buildOnStart and not state.build then os.queueEvent("projector_build") end
   builders:run()
+end
+
+---------------------------------------------------------------- instabuild
+
+-- In creative, a command computer running 'instabuild serve' places the
+-- plan where it's shown in one go. Build goes to it when there is one
+-- ('set projector.instabuild false' skips it), else to the builder turtles.
+local insta = net.peer(INSTA_PROTOCOL, { open = "any", retry = INSTA_RETRY })
+
+local function instaLoop()
+  while true do
+    local ev, _, msg, protocol = os.pullEvent()
+    if ev == "projector_build" and not state.build then
+      if plan.village or settings.get("projector.instabuild") == false then
+        requestBuild()
+      else
+        local mats, blocks = plans.world(plan, state)
+        local reply, why = insta:ask({ type = "build", name = plan.name, mats = mats, blocks = blocks,
+          area = plans.area(plan, state) }, INSTA_WAIT)
+        if why == "none" or why == "no modem" then
+          requestBuild()
+        elseif not reply then
+          tell("The instabuild computer didn't answer.")
+        elseif reply.ok then
+          tell(("Instabuild is placing %s..."):format(plan.name))
+        else
+          tell("Instabuild: " .. tostring(reply.why))
+        end
+      end
+    elseif ev == "rednet_message" and protocol == INSTA_PROTOCOL and type(msg) == "table" and msg.type == "done" then
+      tell(tostring(msg.text))
+      if report then report.log(tostring(msg.text)) end
+    end
+  end
 end
 
 ---------------------------------------------------------------- commands
@@ -807,7 +845,7 @@ local function main()
   projector.clear()
   if report then report.init("blueprint projector") end
   redraw()
-  parallel.waitForAny(panelLoop, drawLoop, villageLoop, buildLoop,
+  parallel.waitForAny(panelLoop, drawLoop, villageLoop, buildLoop, instaLoop,
     report and report.loop or function() while true do sleep(3600) end end)
 end
 

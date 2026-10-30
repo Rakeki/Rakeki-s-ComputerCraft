@@ -70,7 +70,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
   `smelter-computer`, `cooker-computer`, `enricher-computer`, `essence-computer`,
-  `crate-turtle` (for `crate stock`), `build-control` and `remote-terminal`.
+  `crate-turtle` (for `crate stock`), `build-control`, `instabuild` and `remote-terminal`.
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
   `writeFile` / `readFile` / `deleteFile` are these. Used by
