@@ -1090,7 +1090,7 @@
         ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
         ["smelter glass 256", "make 256 glass from sand or red sand (or press G)"],
         ["smelter cancel stone", "stop an order; no name stops both (or press X)"],
-        ["set smelter.monitor monitor_3", "show the smelter on that monitor (on its cable), then reboot; none: back to the computer's screen"]
+        ["smelter monitor", "pick the status board's monitor from every one on the network (or name it, or none); a running smelter moves to it at once"]
       ],
       "integrates": [
         ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks, or fills its work chest in one go."],
@@ -1106,7 +1106,7 @@
         "scene": "smelter",
         "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.",
         "more": [
-          { "scene": "smelterBoard", "caption": "A monitor named with set smelter.monitor is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
+          { "scene": "smelterBoard", "caption": "A monitor touching the smelter, or one on the cable picked with smelter monitor, is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
         ]
       },
       "terminal": {
@@ -1811,7 +1811,8 @@
       "api": [
         ["screen.tiles(t, w, top, bottom, tiles, minW)", "A status board: a coloured tile per { title, text, bg, fg } (3 rows high, at least minW wide, stretched to fill) between rows top and bottom. How many didn't fit."],
         ["screen.legend(t, x, y, w, keys)", "What the tile colours mean on one row, { colour, word } pairs; stops before one that doesn't fit."],
-        ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'), named (no monitor until that setting names one)."],
+        ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'), named (while that setting is unset, only a monitor touching the computer, never one on the cable)."],
+        ["screen.choose(setting, arg)", "For a '<program> monitor' command: lists every monitor the computer sees (touching it or on the cable), saves the player's pick (or 'none', or arg given on the command line) in setting and returns it; nil when left as it was. Queue an event the running program calls refresh() on, so it moves straight away."],
         ["s:refresh()", "Call on peripheral / peripheral_detach: keeps a monitor that's still there, else moves to another or the fallback. True when it moved."],
         ["s:clicked(ev)", "x, y (and true for a drag) when the event is a tap on its monitor, or a click while it's on the terminal."],
         ["s.target, s.name", "What it draws on now (nil: nothing to draw on), and the monitor's name (nil on the terminal)."],

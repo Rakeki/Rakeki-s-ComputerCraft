@@ -22,6 +22,7 @@
 --   smelter chest [name|none]      use an empty chest on the network as the work chest
 --                                  (no name: pick from a list; none: stop using one)
 --   smelter chest remote           far from the storage system: one ender chest both ways (or a return one too)
+--   smelter monitor [name|none]    the monitor for the status board, from every one on the network
 --
 -- With a work chest, the storage computer fills it once a round with
 -- everything the furnaces need, and the smelter loads them from it
@@ -596,9 +597,9 @@ end
 
 -- Drawn through lib/screen.lua (a hidden window shown in one go), so it
 -- doesn't flash. The computer's screen has the full table and the keys; the
--- monitor named with 'set smelter.monitor <name>' (only then: the storage
--- computer and others on the cable may have monitors of their own) is a
--- status board: a tile per furnace, lime idle, yellow smelting, orange a
+-- monitor picked with 'smelter monitor' (a monitor on the cable only then:
+-- the storage computer and others there have their own; until then one
+-- touching the computer) is a status board: a tile per furnace, lime idle, yellow smelting, orange a
 -- full stack in, red needs you (no fuel or power, output stuck).
 local display = screen.new(term.current())
 local board = screen.find({ setting = "smelter.monitor", named = true, scales = { 1, 0.5 }, minW = 15, minH = 8 })
@@ -644,7 +645,7 @@ local function draw()
       m.present and ("%d%% power"):format(math.floor((m.energy or 0) * 100 + 0.5)) or "-" }
   end
   -- every event lands here: skip a frame that would look the same
-  local key = { stat, message[1], message[2], prompts, table.concat(lines, "/") }
+  local key = { stat, message[1], message[2], prompts, table.concat(lines, "/"), board.name or "" }
   for _, row in ipairs(list) do key[#key + 1] = table.concat(row, "/") end
   if display:same(table.concat(key, "|")) then return end
 
@@ -666,7 +667,10 @@ local function draw()
   end
   if #list > rows then put(2, 4 + rows, ("...and %d more"):format(#list - rows), "gray") end
   if #list == 0 then put(2, 4, "No furnaces yet.", "gray") end
-  if #lines == 0 then put(1, h - 2, fitText(" No orders.", w), "gray") end
+  if #lines == 0 then
+    put(1, h - 2, fitText(board.name and (" No orders. Board on " .. board.name)
+      or " No orders. No monitor: 'smelter monitor' picks one", w), "gray")
+  end
   for i, line in ipairs(lines) do
     put(1, h - 2 - #lines + i, fitText(" " .. line, w), "lightBlue")
   end
@@ -823,7 +827,7 @@ local function uiLoop()
     draw()
     drawBoard()
     local event, a = os.pullEvent()
-    if event == "peripheral" or event == "peripheral_detach" then board:refresh() end
+    if event == "peripheral" or event == "peripheral_detach" or event == "smelter_monitor" then board:refresh() end
     -- char, not key: read() in the prompt would otherwise get the "c" too
     a = event == "char" and a:lower()
     if a == "c" or a == "s" or a == "g" or a == "x" then prompts = prompts + 1 end
@@ -896,6 +900,14 @@ elseif args[1] == "cancel" then
       cancelOrder(o.kind)
       print(cancelled(o.kind))
     end
+  end
+  return
+elseif args[1] == "monitor" then
+  local pick = screen.choose("smelter.monitor", args[2])
+  if pick then
+    -- a smelter running in another tab moves to it now
+    os.queueEvent("smelter_monitor")
+    print(pick == "none" and "No status board from now on." or ("The status board goes on %s."):format(pick))
   end
   return
 elseif smelters:command(args) then

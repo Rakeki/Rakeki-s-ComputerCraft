@@ -845,7 +845,7 @@
         s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
       });
       const lines = st.orders.map((o) => `${o.kind}: ${o.made} of ${o.count} made from ${o.from}`);
-      if (!lines.length) s.put(1, H - 2, fitT(" No orders.", W), "gray");
+      if (!lines.length) s.put(1, H - 2, fitT(" No orders. Board on monitor_3", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
       s.put(1, H, fitT("C: charcoal  S: stone  G: glass  X: cancel an order", W), "gray");

@@ -73,8 +73,13 @@ Monitors on the wired network count too, so every computer on the storage
 cable sees every monitor on it. Always pass `setting = "<command>.monitor"`:
 the player names the monitor with `set <command>.monitor <name>` (`none` for
 no monitor), read again on every `refresh()`. Unset, the first free monitor
-is taken, or none with `named = true` (for a program that gained a monitor
-later, so it doesn't take another program's in an existing world).
+is taken, or with `named = true` only one touching the computer (for a program
+that gained a monitor later, so it doesn't take another program's on the cable
+in an existing world). Give such a program a `<command> monitor [name|none]`
+command: `screen.choose(setting, args[2])` lists every monitor, saves the pick
+and returns it; then `os.queueEvent("<command>_monitor")` and call
+`refresh()` on that event so a running copy in another tab moves at once
+(smelter-computer does this).
 
 ```lua
 local display = screen.find({
@@ -82,7 +87,7 @@ local display = screen.find({
   minW = 53, minH = 12,       -- optional
   filter = function(name, m) return m.isColor() end, -- optional: which monitors will do
   setting = "smelter.monitor", -- the player's pick: 'set smelter.monitor monitor_3', or none
-  named = true,               -- optional: no monitor until that setting names one
+  named = true,               -- optional: unset, only a monitor touching the computer
   name = config.monitor,      -- optional: only this one (then filter is ignored)
   fallback = term.current(),  -- optional: drawn on while there's no monitor
 })

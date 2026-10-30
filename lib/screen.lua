@@ -29,15 +29,17 @@
 --                                    largest first; default { 1 }), minW / minH (size the scale must fit),
 --                                    fallback (drawn on when there's no monitor, e.g. term.current()),
 --                                    setting (a settings key the player sets to a monitor's name, below),
---                                    named (only a monitor that setting names: none while it's unset)
+--                                    named (while that setting is unset, only a monitor touching this computer,
+--                                    never one on the cable)
 --
 -- Every computer on a wired network sees every monitor on it, so programs
 -- sharing the storage cable could take each other's. With setting (e.g.
 -- "smelter.monitor"), the player picks one: 'set smelter.monitor monitor_3'
 -- (the name shows when its modem is right-clicked), or 'none' for no
--- monitor; unset, any free one is taken (none with named). It's read on
--- every refresh, so a change takes effect on the next peripheral event or
--- restart.
+-- monitor; unset, any free one is taken (with named, only one touching the
+-- computer). It's read on every refresh, so a change takes effect on the
+-- next peripheral event or restart. screen.choose(setting) asks the player
+-- to pick one from a list (a '<program> monitor' command).
 --   s.target, s.name                 what it draws on now (nil without a monitor or fallback), and the monitor's name
 --   s:setTarget(t)                   draw on another monitor from now on
 --   s:size()                         the screen's size now
@@ -46,6 +48,8 @@
 --   screen.wrap(text, w, most)       text in lines of up to w characters, broken at spaces (most: line limit)
 --   screen.tiles(t, w, top, bottom, tiles, minW)  a status board: a coloured tile per { title, text, bg, fg }
 --   screen.legend(t, x, y, w, { { colour, word }, ... })  what the tile colours mean, on one row
+--   screen.choose(setting, arg)      pick a monitor from every one on the network (arg: a name, number or
+--                                    'none' given on the command line); saves it, returns it or nil
 local screen = {}
 screen.__index = screen
 
@@ -73,6 +77,40 @@ function screen:size() return self.target.getSize() end
 
 ---------------------------------------------------------------- finding a monitor
 
+-- Lists every monitor this computer can see and saves the one the player
+-- picks (or 'none') in setting. arg skips the question. Returns the choice,
+-- or nil when it was left as it was.
+function screen.choose(setting, arg)
+  local names = {}
+  for _, n in ipairs(peripheral.getNames()) do
+    if peripheral.getType(n) == "monitor" then names[#names + 1] = n end
+  end
+  table.sort(names)
+  local now = settings.get(setting)
+  if not arg then
+    if #names == 0 then
+      print("I can't see a monitor. Put a wired modem on one, join it to my cable and right-click the modem so it turns red.")
+      return nil
+    end
+    print(("Monitors I can see (now: %s):"):format(now or "not picked"))
+    for i, n in ipairs(names) do
+      print(("  %d. %s%s%s"):format(i, n, onSide(n) and " (touching me)" or "", n == now and " <- this one" or ""))
+    end
+    print("Right-click a monitor's modem to see its name. Pick a number or name, 'none' for no monitor, Enter to keep it:")
+    write("> ")
+    arg = read()
+    if arg == "" then return nil end
+  end
+  local pick = names[tonumber(arg) or 0] or arg
+  if pick ~= "none" and not (peripheral.isPresent(pick) and peripheral.getType(pick) == "monitor") then
+    print(("%s isn't a monitor I can see."):format(pick))
+    return nil
+  end
+  settings.set(setting, pick)
+  settings.save()
+  return pick
+end
+
 function screen.find(opts)
   local s = setmetatable({ opts = opts or {} }, screen)
   if s.opts.setting then
@@ -91,9 +129,15 @@ function screen:wanted()
     local v = settings.get(o.setting)
     if v == "none" then return false end
     if type(v) == "string" and v ~= "" then return v end
-    if o.named then return false end
   end
   return o.name
+end
+
+local function onSide(name)
+  for _, side in ipairs(rs.getSides()) do
+    if side == name then return true end
+  end
+  return false
 end
 
 -- True when name is a monitor this screen may use.
@@ -102,6 +146,8 @@ function screen:fits(name)
   if not (name and peripheral.isPresent(name) and peripheral.getType(name) == "monitor") then return false end
   local want = self:wanted()
   if want ~= nil then return name == want end
+  -- not named yet: a monitor on the cable may be another program's
+  if o.named and o.setting and not onSide(name) then return false end
   return not o.filter or o.filter(name, peripheral.wrap(name)) and true or false
 end
 

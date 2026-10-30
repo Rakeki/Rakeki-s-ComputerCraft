@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an output chest under it; optional monitor (named with `set smelter.monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an output chest under it; optional monitor, touching it or on the cable (picked with `smelter monitor`)
 
 ## What it does
 
@@ -160,7 +160,8 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter glass 64 red           -- make 64 glass from red sand only
    smelter cancel stone           -- stop making stone
    smelter cancel                 -- stop every order
-   set smelter.monitor monitor_3  -- show it on that monitor, then reboot (see Things to know)
+   smelter monitor                -- pick the monitor for the status board from every one on the network
+   smelter monitor monitor_3      -- or name it straight away ('none': no status board)
    ```
 
 On the running smelter, **C** starts a charcoal order, **S** a stone order,
@@ -248,4 +249,4 @@ smelter chest remote           -- pick the ender chest (and, if you like, a retu
 - After `install update`, an older `config.lua` (kept as it was) has no
   cook list: the smelter then cooks the food listed above and keeps 64
   potatoes. Copy the `cook` and `keep` lists from the new one to change them.
-- **A status board.** Name a monitor for the smelter and it becomes a status board: a tile per furnace and Mekanism smelter, **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). Put a wired modem on the monitor, join it to the cable, right-click the modem to see its name, then `set smelter.monitor monitor_3` and reboot (`set smelter.monitor none` to stop). It never takes a monitor you haven't named, since the storage computer and others on the cable have their own. The full table, the orders and the C, S, G and X keys stay on the computer's screen.
+- **A status board.** A monitor touching the smelter is its status board straight away; one on the cable (put a wired modem on it and join it to the network) once you pick it with `smelter monitor`, which lists every monitor it can see (right-click a monitor's modem to see its name). A running smelter moves to it at once, no reboot (`smelter monitor none` to stop). It never takes a monitor on the cable you haven't picked, since the storage computer and others there have their own; until you do, the bottom line of its screen says so. The board has a tile per furnace and Mekanism smelter: **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). The full table, the orders and the C, S, G and X keys stay on the computer's screen.
