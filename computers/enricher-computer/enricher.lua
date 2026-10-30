@@ -382,7 +382,7 @@ if not net.open("any") then
   return
 end
 
-display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+display = screen.find({ setting = "enricher.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 term.clear()
 if errlog then errlog.init("enricher") end
 if report then report.init("enricher") end

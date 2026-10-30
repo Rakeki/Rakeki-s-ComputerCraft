@@ -343,7 +343,9 @@ Detailed guides live in `.claude/skills/`:
   event skips unchanged frames with `s:same(key)`. Monitors come from
   `screen.find` (it picks and scales them, and `s:refresh()` on `peripheral` /
   `peripheral_detach` follows them): never find, wrap or `setTextScale` a
-  monitor yourself. Add `screen` to the program's `libs` in programs.json.
+  monitor yourself. Pass `setting = "<command>.monitor"` so the player can
+  name the monitor (`set storage.monitor monitor_3`): every computer on a
+  cable sees every monitor on it. Add `screen` to the program's `libs` in programs.json.
 - **Status:** long-running programs call `report.init(role)`, `report.set(state, detail)`
   as they work, and run `parallel.waitForAny(main, report.loop)`; wrap `main` in
   `errlog.pcall` and report `"error"` on failure.

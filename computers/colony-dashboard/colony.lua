@@ -341,7 +341,7 @@ if not colony then
   return
 end
 
-display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+display = screen.find({ setting = "colony.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 announce()
 
 if report then report.init("colony dashboard") end

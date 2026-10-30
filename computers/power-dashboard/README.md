@@ -67,3 +67,4 @@ red when it's almost empty.
 - Without a monitor it draws on the computer's own screen.
 - The [fission guard](../fission-guard/README.md) can pause a reactor while
   the matrix is full; this dashboard only watches.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set power.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set power.monitor none` keeps it off monitors.

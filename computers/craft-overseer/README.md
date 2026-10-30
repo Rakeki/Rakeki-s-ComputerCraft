@@ -80,3 +80,4 @@ again.
   `overseer.lua`).
 - `storage test` on the storage computer says whether it found the overseer,
   and lists every crafting turtle and its chest.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set overseer.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set overseer.monitor none` keeps it off monitors.

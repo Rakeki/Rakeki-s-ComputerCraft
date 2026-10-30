@@ -15,8 +15,8 @@ local put, fit = screen.put, screen.fit
 -- On the first advanced (colour) monitor found, with the largest text that
 -- still fits the panel, else on this computer's screen.
 function ui.new()
-  local display = screen.find({ filter = function(_, m) return m.isColor() end, scales = { 1, 0.5 },
-    minW = MIN_W, minH = MIN_H, fallback = term.current() })
+  local display = screen.find({ setting = "projector.monitor", filter = function(_, m) return m.isColor() end,
+    scales = { 1, 0.5 }, minW = MIN_W, minH = MIN_H, fallback = term.current() })
   -- self.win is the window the panel being drawn goes into (set by draw)
   return setmetatable({ display = display, buttons = {} }, ui)
 end

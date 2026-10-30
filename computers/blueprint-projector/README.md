@@ -319,3 +319,4 @@ return plan
   computer starts again. Wearing the goggles is the only way to see it.
 - Every plan in `/plans/` appears on the monitor. One that has a mistake is
   skipped; `projector list` shows what's wrong with it.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set projector.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set projector.monitor none` keeps it off monitors.

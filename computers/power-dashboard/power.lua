@@ -342,7 +342,7 @@ end
 
 ---------------------------------------------------------------- start
 
-display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+display = screen.find({ setting = "power.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 announce()
 if SIGNAL_SIDE then redstone.setOutput(SIGNAL_SIDE, false) end
 

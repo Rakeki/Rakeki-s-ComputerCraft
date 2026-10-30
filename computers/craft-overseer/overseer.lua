@@ -315,7 +315,8 @@ end
 
 ---------------------------------------------------------------- screen
 
-local display = screen.find({ scales = MONITOR_SCALES, minW = 39, minH = 15, fallback = term.current() })
+local display = screen.find({ setting = "overseer.monitor", scales = MONITOR_SCALES, minW = 39, minH = 15,
+  fallback = term.current() })
 local put, fit = screen.put, screen.fit
 
 local function missingText(short)

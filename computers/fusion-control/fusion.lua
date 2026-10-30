@@ -357,7 +357,7 @@ end
 ---------------------------------------------------------------- start
 
 findReactor()
-display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+display = screen.find({ setting = "fusion.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 announce()
 if not reactor then
   print("No Fusion Reactor Logic Adapter or Reactor Port found yet.")

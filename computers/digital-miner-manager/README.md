@@ -79,3 +79,4 @@ and how many blocks are left.
 - A miner with an empty power buffer shows "no power" in red.
 - Without a monitor it draws on the computer's own screen; click instead of
   tapping.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set dminer.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set dminer.monitor none` keeps it off monitors.

@@ -331,7 +331,7 @@ end
 
 -- Both screens draw through lib/screen.lua, so they don't flash.
 local termScreen = screen.new(term.current()) -- this program's terminal (its own tab on an advanced computer)
-local monScreen = screen.find({ scales = { MONITOR_SCALE } }) -- the monitor's, if there is one
+local monScreen = screen.find({ setting = "storage.monitor", scales = { MONITOR_SCALE } }) -- the monitor's, if there is one
 
 local function drawTerminal()
   local t, w, h = termScreen:frame()

@@ -431,7 +431,7 @@ end
 ---------------------------------------------------------------- start
 
 findDevices()
-display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+display = screen.find({ setting = "fission.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 announce()
 if not reactor then
   print("No Fission Reactor Logic Adapter or Reactor Port found yet.")

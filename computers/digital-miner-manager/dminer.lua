@@ -407,7 +407,7 @@ local function touchLoop()
 end
 
 local function run()
-  display = screen.find({ scales = { MONITOR_SCALE }, fallback = term.current() })
+  display = screen.find({ setting = "dminer.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
   announce()
   setAutoEject()
   if report then report.init("digital miners") end

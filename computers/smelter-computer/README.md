@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an input chest under it
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an input chest under it; optional monitor (named with `set smelter.monitor`)
 
 ## What it does
 
@@ -157,6 +157,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter glass 64 red           -- make 64 glass from red sand only
    smelter cancel stone           -- stop making stone
    smelter cancel                 -- stop every order
+   set smelter.monitor monitor_3  -- show it on that monitor, then reboot (see Things to know)
    ```
 
 On the running smelter, **C** starts a charcoal order, **S** a stone order,
@@ -240,3 +241,4 @@ smelter chest remote           -- pick the ender chest (and, if you like, a retu
 - After `install update`, an older `config.lua` (kept as it was) has no
   cook list: the smelter then cooks the food listed above and keeps 64
   potatoes. Copy the `cook` and `keep` lists from the new one to change them.
+- **A monitor.** The smelter draws on the computer's own screen unless you name a monitor for it: put a wired modem on the monitor, join it to the cable, right-click the modem to see its name, then `set smelter.monitor monitor_3` and reboot (`set smelter.monitor none` to go back). It never takes a monitor you haven't named, since the storage computer and others on the cable have their own. The C, S, G and X keys still work on the computer.

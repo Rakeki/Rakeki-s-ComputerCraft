@@ -171,3 +171,4 @@ an **extra input chest**) if you'd rather the dust went home through that.
   III pickaxe. Take them out of `gems` in `config.lua` to keep those ores
   for that.
 - Without a monitor it draws on the computer's own screen.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set enricher.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set enricher.monitor none` keeps it off monitors.

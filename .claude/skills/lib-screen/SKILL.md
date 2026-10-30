@@ -60,11 +60,20 @@ each real change is sent to every player who can see the monitor.
 Never find, wrap or scale a monitor yourself: `screen.find` does it, so
 every program handles monitors coming and going the same way.
 
+Monitors on the wired network count too, so every computer on the storage
+cable sees every monitor on it. Always pass `setting = "<command>.monitor"`:
+the player names the monitor with `set <command>.monitor <name>` (`none` for
+no monitor), read again on every `refresh()`. Unset, the first free monitor
+is taken, or none with `named = true` (for a program that gained a monitor
+later, so it doesn't take another program's in an existing world).
+
 ```lua
 local display = screen.find({
   scales = { 1, 0.5 },        -- tried in order; the first that fits minW x minH wins (default { 1 })
   minW = 53, minH = 12,       -- optional
   filter = function(name, m) return m.isColor() end, -- optional: which monitors will do
+  setting = "smelter.monitor", -- the player's pick: 'set smelter.monitor monitor_3', or none
+  named = true,               -- optional: no monitor until that setting names one
   name = config.monitor,      -- optional: only this one (then filter is ignored)
   fallback = term.current(),  -- optional: drawn on while there's no monitor
 })

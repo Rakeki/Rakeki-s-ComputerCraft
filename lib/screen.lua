@@ -27,7 +27,17 @@
 --
 --   screen.find(opts)                opts: name (only this monitor), filter(name, monitor), scales (tried
 --                                    largest first; default { 1 }), minW / minH (size the scale must fit),
---                                    fallback (drawn on when there's no monitor, e.g. term.current())
+--                                    fallback (drawn on when there's no monitor, e.g. term.current()),
+--                                    setting (a settings key the player sets to a monitor's name, below),
+--                                    named (only a monitor that setting names: none while it's unset)
+--
+-- Every computer on a wired network sees every monitor on it, so programs
+-- sharing the storage cable could take each other's. With setting (e.g.
+-- "smelter.monitor"), the player picks one: 'set smelter.monitor monitor_3'
+-- (the name shows when its modem is right-clicked), or 'none' for no
+-- monitor; unset, any free one is taken (none with named). It's read on
+-- every refresh, so a change takes effect on the next peripheral event or
+-- restart.
 --   s.target, s.name                 what it draws on now (nil without a monitor or fallback), and the monitor's name
 --   s:setTarget(t)                   draw on another monitor from now on
 --   s:size()                         the screen's size now
@@ -62,15 +72,33 @@ function screen:size() return self.target.getSize() end
 
 function screen.find(opts)
   local s = setmetatable({ opts = opts or {} }, screen)
+  if s.opts.setting then
+    settings.define(s.opts.setting, { type = "string",
+      description = "The monitor this program draws on (its network name, e.g. monitor_3), or none." })
+  end
   s:refresh()
   return s
+end
+
+-- The monitor the player named for this screen (its setting, else opts.name),
+-- false for none at all, or nil for any.
+function screen:wanted()
+  local o = self.opts
+  if o.setting then
+    local v = settings.get(o.setting)
+    if v == "none" then return false end
+    if type(v) == "string" and v ~= "" then return v end
+    if o.named then return false end
+  end
+  return o.name
 end
 
 -- True when name is a monitor this screen may use.
 function screen:fits(name)
   local o = self.opts
   if not (name and peripheral.isPresent(name) and peripheral.getType(name) == "monitor") then return false end
-  if o.name then return name == o.name end
+  local want = self:wanted()
+  if want ~= nil then return name == want end
   return not o.filter or o.filter(name, peripheral.wrap(name)) and true or false
 end
 
@@ -82,9 +110,10 @@ function screen:refresh()
   if not o then return false end
   if self.name and self:fits(self.name) then return false end
   local name
-  if o.name then
-    if self:fits(o.name) then name = o.name end
-  else
+  local want = self:wanted()
+  if want then
+    if self:fits(want) then name = want end
+  elseif want == nil then
     local mon = peripheral.find("monitor", function(n) return self:fits(n) end)
     name = mon and peripheral.getName(mon)
   end

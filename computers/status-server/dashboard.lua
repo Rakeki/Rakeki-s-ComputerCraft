@@ -66,7 +66,8 @@ end
 -- On the first monitor found, with the largest text that still fits two
 -- columns of cards, else on this computer's screen.
 function dashboard.new()
-  local display = screen.find({ scales = { 1, 0.5 }, minW = CARD_W * 2 + 3, fallback = term.current() })
+  local display = screen.find({ setting = "server.monitor", scales = { 1, 0.5 }, minW = CARD_W * 2 + 3,
+    fallback = term.current() })
   -- self.win is the window the frame being drawn goes into (set by draw)
   return setmetatable({ display = display, page = 1, buttons = {} }, dashboard)
 end

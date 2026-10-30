@@ -51,8 +51,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `enricher-computer`.
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into
   a hidden window and shown in one go, and frames that haven't changed can be
-  skipped. `screen.find` picks the monitor, sets its text scale once and
-  follows monitors as they're added or removed. Used by `mine-server`,
+  skipped. `screen.find` picks the monitor (next to it or on the cable; the
+  player can name one with `set <program>.monitor <name>`), sets its text
+  scale once and follows monitors as they're added or removed. Used by `mine-server`,
   `status-server`, `blueprint-projector`, `storage-computer`,
   `craft-overseer`, `smelter-computer`, `cooker-computer`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,

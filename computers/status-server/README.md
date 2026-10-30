@@ -80,3 +80,7 @@ For a computer that never moves, add `posFrom = "fixed"` and it won't ask GPS.
 The computer needs a wireless or ender modem. Use ender modems for anything
 far away or underground: a wireless modem only reaches about 64 blocks at
 ground level.
+
+## Things to know
+
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set server.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set server.monitor none` keeps it off monitors.

@@ -440,3 +440,4 @@ the turtles and the smelter carry on without being changed.
   network's cable, so they work without a wireless modem.
 - Turtles' requests are handled one at a time, in the order they arrive; none
   are lost while it's busy with another.
+- **Which monitor.** It uses the first free monitor it finds, next to it or on its wired network (a wired modem on the monitor, joined by cable). When several computers share a cable, they can take each other's: give this one its own with `set storage.monitor monitor_3` (the name shows when you right-click the monitor's modem) and reboot. `set storage.monitor none` keeps it off monitors.

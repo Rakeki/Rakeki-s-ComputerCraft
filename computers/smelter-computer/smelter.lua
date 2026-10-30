@@ -589,24 +589,20 @@ end
 ---------------------------------------------------------------- screen
 
 -- Drawn through lib/screen.lua (a hidden window shown in one go), so it
--- doesn't flash.
-local display = screen.new(term.current())
+-- doesn't flash: on the computer's screen, or on the monitor named with
+-- 'set smelter.monitor <name>' (only then: the storage computer and others
+-- on the cable may have monitors of their own). The keys and their prompts
+-- stay on the computer.
+local display = screen.find({ setting = "smelter.monitor", named = true, scales = { 1, 0.5 }, minW = 40, minH = 12,
+  fallback = term.current() })
+local prompts = 0 -- prompts shown on the terminal, so it's drawn again after one
 local win
 local fitText = screen.fit
 
 local function put(x, y, text, fg, bg) screen.put(win, x, y, text, fg, bg) end
 
 local function draw()
-  local w, h
-  win, w, h = display:frame()
-  put(1, 1, (" "):rep(w), "white", "gray")
-  put(2, 1, "Smelter", "yellow", "gray")
   local stat = stock and ("fuel for %d items"):format(stock.fuel or 0) or "no storage yet"
-  put(w - #stat, 1, stat, "lightGray", "gray")
-  local fuelX = w - 12
-  put(2, 3, "Furnace", "yellow")
-  put(20, 3, "Smelting", "yellow")
-  put(fuelX, 3, "Fuel", "yellow")
   local lines = {}
   for _, o in ipairs(ORDERS) do
     local t = jobs[o.kind]
@@ -637,6 +633,20 @@ local function draw()
     list[#list + 1] = { m.title, "lightBlue", doing, colour,
       m.present and ("%d%% power"):format(math.floor((m.energy or 0) * 100 + 0.5)) or "-" }
   end
+  -- every event lands here: skip a frame that would look the same
+  local key = { stat, message[1], message[2], prompts, table.concat(lines, "/") }
+  for _, row in ipairs(list) do key[#key + 1] = table.concat(row, "/") end
+  if display:same(table.concat(key, "|")) then return end
+
+  local w, h
+  win, w, h = display:frame()
+  put(1, 1, (" "):rep(w), "white", "gray")
+  put(2, 1, "Smelter", "yellow", "gray")
+  put(w - #stat, 1, stat, "lightGray", "gray")
+  local fuelX = w - 12
+  put(2, 3, "Furnace", "yellow")
+  put(20, 3, "Smelting", "yellow")
+  put(fuelX, 3, "Fuel", "yellow")
   local rows = h - 6 - math.max(#lines, 1)
   for i = 1, math.min(rows, #list) do
     local row, y = list[i], 3 + i
@@ -756,12 +766,26 @@ local function cancelPrompt()
   say(cancelled(kind))
 end
 
+-- On a monitor, the computer's own screen says where to look and which
+-- keys work.
+local function termNote()
+  if not display.name then return end
+  promptScreen()
+  print(("The smelter is on monitor %s."):format(display.name))
+  print("Keys here: C charcoal, S stone, G glass, X cancel an order.")
+end
+
 local function uiLoop()
+  termNote()
   while true do
     draw()
     local event, a = os.pullEvent()
+    if event == "peripheral" or event == "peripheral_detach" then
+      if display:refresh() then termNote() end
+    end
     -- char, not key: read() in the prompt would otherwise get the "c" too
     a = event == "char" and a:lower()
+    if a == "c" or a == "s" or a == "g" or a == "x" then prompts = prompts + 1 end
     if a == "c" then
       charcoalPrompt()
     elseif a == "s" then
@@ -771,6 +795,7 @@ local function uiLoop()
     elseif a == "x" then
       cancelPrompt()
     end
+    if a == "c" or a == "s" or a == "g" or a == "x" then termNote() end
   end
 end
 
