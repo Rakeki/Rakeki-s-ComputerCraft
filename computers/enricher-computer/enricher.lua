@@ -155,9 +155,21 @@ local function round()
     return
   end
 
+  -- far away the dust goes home through the ender chest here, which needs
+  -- no answer from the storage computer: empty the output chests first, so
+  -- they never wait on it
+  work:reload()
+  local _, outStuck, outWhy, collected = nil, false, nil, false
+  if work.remote then
+    _, outStuck, outWhy = chambers:collect(machines, work:input(nil))
+    collected = true
+  end
+
   local reply, err = ask({ type = "stock" })
   if not reply or type(reply.counts) ~= "table" then
-    say("Storage not answering: is it running, on the same cable?", "orange")
+    say(outWhy and ("Couldn't move items: " .. outWhy)
+      or work.remote and "Storage not answering over the ender modem: is it running, with an ender modem too?"
+      or "Storage not answering: is it running, on the same cable?", outWhy and "red" or "orange")
     status("waiting", ("storage computer: %s"):format(err or "too old to answer"))
     return
   end
@@ -173,7 +185,7 @@ local function round()
 
   local unsure, problem = chambers:register(work.remote)
   -- the dust in the output chests goes home first, so they never fill up
-  local _, outStuck, outWhy = chambers:collect(machines, input)
+  if not collected then _, outStuck, outWhy = chambers:collect(machines, input) end
   if outWhy then
     problem = problem or outWhy
   elseif outStuck then

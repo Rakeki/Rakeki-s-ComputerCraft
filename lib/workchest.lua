@@ -102,6 +102,10 @@ function Work:setRemote(chest, back)
   return true
 end
 
+-- Read the saved chest again ('<program> chest' or the setup screen in
+-- another tab may have changed it), so remote and input are up to date.
+function Work:reload() readSaved(self) end
+
 -- stock: the storage computer's reply to 'stock', whose work field is the
 -- chest it has for this computer. Claims the saved chest again if it's
 -- been forgotten (the storage computer was set up again, or the chest's

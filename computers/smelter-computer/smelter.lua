@@ -288,10 +288,22 @@ local function round()
   furnaces = list
   jobs = readOrders()
 
+  -- far away the Mekanism smelters' output chests empty into the ender
+  -- chest here, which needs no answer from the storage computer (the
+  -- furnaces wait for it: their output counts towards orders)
+  work:reload()
+  local _, outStuck, outWhy, collected = nil, false, nil, false
+  if work.remote then
+    _, outStuck, outWhy = smelters:collect(meks, work:input(nil))
+    collected = true
+  end
+
   local reply, err = ask({ type = "stock" })
   if not reply or type(reply.counts) ~= "table" then
     -- an older storage program neither listens on the cable nor knows "stock"
-    say("Storage not answering: 'install update' on it.", "orange")
+    say(outWhy and ("Couldn't move items: " .. outWhy)
+      or work.remote and "Storage not answering over the ender modem: is it running, with an ender modem too?"
+      or "Storage not answering: 'install update' on it.", outWhy and "red" or "orange")
     status("waiting", ("storage computer: %s"):format(err or "too old to answer"))
     return
   end
@@ -420,7 +432,7 @@ local function round()
   local unsure, feedProblem = smelters:register(work.remote)
   problem = problem or feedProblem
   -- their output chests go home first, like the furnaces' output above
-  local _, outStuck, outWhy = smelters:collect(meks, input)
+  if not collected then _, outStuck, outWhy = smelters:collect(meks, input) end
   if outWhy then
     problem = problem or outWhy
   elseif outStuck then
