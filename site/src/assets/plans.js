@@ -6,6 +6,7 @@
 //   const plan = await PlanView.load(url)              // .json or .lua
 //   const plan = await PlanView.fromText(text, "x.json")
 //   PlanView.mount(holder, plan)
+//   PlanView.thumb(canvas, plan, { width, maxH, cut })   // one still picture (the plans page); cut: leave off the top layers
 (function () {
   const FENGARI = "https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js";
 
@@ -275,5 +276,20 @@ return enc(raw)`;
     return { draw };
   }
 
-  window.PlanView = { load, fromText, fromTable, mount, colourFor };
+  // One still picture of a plan, for a card: no sliders, turned a little.
+  // cut leaves off that many layers from the top, so an underground plan
+  // shows its rooms instead of its roof.
+  function thumb(canvas, plan, opts = {}) {
+    const types = plan.mats.map((m) => blockType(m.block));
+    const top = plan.h - (opts.cut || 0);
+    const w = new Voxel.World();
+    for (const b of plan.blocks) if (b.y < top) w.set(b.x, b.y, b.z, types[b.m]);
+    if (!w.m.size) return;
+    const bounds = [];
+    for (const x of [0, plan.w - 1]) for (const y of [0, top - 1]) for (const z of [0, plan.l - 1]) bounds.push([x, y, z]);
+    Voxel.render(canvas, w, { width: opts.width || 360, maxH: opts.maxH || 260, bounds, yaw: 20, spin: true,
+      detail: plan.blocks.length > 6000 ? 1 : undefined, pad: 0.04 });
+  }
+
+  window.PlanView = { load, fromText, fromTable, mount, thumb, colourFor };
 })();

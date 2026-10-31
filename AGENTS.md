@@ -52,6 +52,7 @@ site/                       The website and in-game installer
   src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal, monitor and setup screen, the factory's tabs (smelter, enricher, pots, essence) and board, cooker candy, colony, Mekanism fission, power, fusion, digital miners, build control, instabuild, remote terminal)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/plans.js       Plan viewer: loads a JSON plan (or a Lua one, run with fengari-web) like lib/plan.lua and draws it;
+                            plans/ lists every plan (a 3D picture each, PlanView.thumb; above ground / underground, search, sort),
                             each plan gets a page at plans/<name>/, and viewer/ shows a dropped or pasted plan
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)

@@ -76,7 +76,8 @@ fetches newer versions (your `config.lua` is kept), and `install remove <program
 uninstalls one (files another program still uses stay). Building plans for the
 projector and builder turtles live in [`plans/`](plans/): `install plans`
 lists them and `install plan <name>` adds one to a computer's `/plans`.
-Each has a page on the website with a 3D view, and the website's plan viewer
+The website's [plans page](https://rakeki.github.io/Rakeki-s-ComputerCraft/plans/)
+shows them all in 3D, above ground and underground; each has a page of its own, and the website's plan viewer
 shows any plan file you drop on it.
 
 ### Updates

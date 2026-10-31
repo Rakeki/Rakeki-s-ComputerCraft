@@ -310,6 +310,7 @@ for (const p of data.programs) {
 for (const pl of data.plans || []) {
   page("page.html", `plans/${pl.name}/index.html`, { KIND: "plan", NAME: pl.name, TITLE: esc(pl.title), DESC: esc(pl.tagline) });
 }
+page("page.html", "plans/index.html", { KIND: "plans", NAME: "", TITLE: "Plans", DESC: "Every building plan in 3D: houses, towers and underground bases for the blueprint projector, builder turtles and instabuild." });
 page("page.html", "viewer/index.html", { KIND: "viewer", NAME: "", TITLE: "Plan viewer", DESC: "See any building plan in 3D: drop in a JSON or Lua plan file." });
 for (const l of data.libraries) {
   page("page.html", `libraries/${l.name}/index.html`, { KIND: "library", NAME: l.name, TITLE: esc(l.title), DESC: esc(l.tagline) });

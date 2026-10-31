@@ -547,7 +547,7 @@
     main.innerHTML = `
       <section class="p-hero"><div class="wrap">
         <div>
-          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#plans">Plans</a> / ${esc(pl.title)}</div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}plans/">Plans</a> / ${esc(pl.title)}</div>
           <div class="p-title"><img class="icon" src="${ROOT}assets/floppy.svg" alt=""><h1>${esc(pl.title)}<small>plans/${esc(pl.file)}</small></h1></div>
           <p class="lead">${esc(pl.tagline)}</p>
           <div class="meta"><span class="pill">${esc(pl.size)}</span>${pl.hole ? `<span class="pill">hole ${esc(pl.hole)}</span>` : ""}<span class="pill">${pl.blocks.toLocaleString("en")} blocks</span><a class="pill" href="https://github.com/${SITE.repo}/blob/main/plans/${pl.file}">Source on GitHub</a></div>
@@ -571,6 +571,123 @@
     filesSection(pl.files, $("#files"), true);
   }
 
+  // Every plan on one page: a picture of each (drawn as its card scrolls
+  // into view: the Lua plans run in fengari), filters for above ground and
+  // underground, a search, a sort, and how a plan becomes a building.
+  function plansPage() {
+    document.body.style.setProperty("--c", cc("pink"));
+    const plans = SITE.plans || [];
+    const under = plans.filter((p) => p.hole);
+    const main = $("main");
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / Plans</div>
+          <div class="p-title"><img class="icon" src="${ROOT}assets/floppy.svg" alt=""><h1>Plans<small>/plans</small></h1></div>
+          <p class="lead">Buildings for the <a href="${progUrl("blueprint-projector")}">blueprint projector</a>, the <a href="${progUrl("builder-turtle")}">builder turtles</a> and <a href="${progUrl("instabuild")}">instabuild</a>: houses and towers to stand on the ground, and underground bases whose hole the <a href="${progUrl("excavate-turtle")}">excavator</a> digs first. Open one to turn it round and step through its layers.</p>
+          <div class="meta"><span class="pill">${plans.length} plans</span><span class="pill">${under.length} underground</span><span class="pill">${plans.reduce((n, p) => n + p.blocks, 0).toLocaleString("en")} blocks between them</span></div>
+        </div>
+        <div class="mc-panel install-panel">
+          <h3><img src="${ROOT}assets/floppy.svg" alt=""> Get one</h3>
+          ${field("install plans")}
+          <p>Lists them on the computer; <code>install plan &lt;name&gt;</code> puts one in <code>/plans</code>, and it updates on boot like a program. Have your own? <a href="${ROOT}viewer/">See it in the plan viewer</a>.</p>
+        </div>
+      </div></section>
+      <section class="block" style="padding-top:20px"><div class="wrap">
+        <div class="plan-tools">
+          <div class="filters" id="plan-filters"></div>
+          <input class="plan-search" type="search" placeholder="Find a plan" aria-label="Find a plan">
+          <select class="plan-sort" aria-label="Sort">
+            <option value="site">As listed</option><option value="small">Smallest first</option><option value="big">Biggest first</option><option value="name">A to Z</option>
+          </select>
+        </div>
+        <div class="plan-grid" id="plan-grid"></div>
+        <p class="plan-none" hidden>No plan matches that.</p>
+      </div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>From plan to building</small>How it goes</h2></div>
+        <div class="plan-uses four">
+          <div class="box"><h3>1. Install it</h3>${field("install plan cellar")}<p>Into <code>/plans</code> on the projector, build control or instabuild computer. They come with a few already.</p></div>
+          <div class="box"><h3>2. Underground? Dig first</h3>${field("excavate cellar")}<p>The <a href="${progUrl("excavate-turtle")}">excavator</a> digs the plan's hole, walls it in so it stays dry, and prints where the builder goes.</p></div>
+          <div class="box"><h3>3. See where it goes</h3>${field("projector cellar")}<p>The <a href="${progUrl("blueprint-projector")}">projector</a> shows it in the world; move and turn it from the monitor, then tap Build.</p></div>
+          <div class="box"><h3>4. Build it</h3>${field("build cellar 100 60 -40 north")}<p>Or send it to the builder turtles with <a href="${progUrl("build-control")}">build control</a> at a corner you type, or place it at once in creative with <a href="${progUrl("instabuild")}">instabuild</a>.</p></div>
+        </div>
+      </div></section>`;
+
+    const grid = $("#plan-grid");
+    const cards = plans.map((pl, i) => {
+      const card = h(`
+        <div class="lib-card plan-card" data-kind="${pl.hole ? "under" : "above"}">
+          <a class="plan-thumb" href="${planUrl(pl.name)}" aria-label="${esc(pl.title)} in 3D"><canvas></canvas><span class="loading">Drawing</span></a>
+          <h3><a href="${planUrl(pl.name)}">${esc(pl.title)}</a></h3>
+          <p>${esc(pl.tagline)}</p>
+          ${field(`install plan ${pl.name}`)}
+          <div class="meta"><span class="pill">${esc(pl.size)}</span>${pl.hole ? `<span class="pill">hole ${esc(pl.hole)}</span>` : ""}<span class="pill">${pl.blocks.toLocaleString("en")} blocks</span></div>
+        </div>`);
+      card._plan = pl;
+      card._order = i;
+      grid.append(card);
+      return card;
+    });
+
+    // each picture once its card comes near the screen, one at a time
+    let queue = Promise.resolve();
+    const draw = (card) => {
+      const pl = card._plan;
+      queue = queue.then(async () => {
+        const holder = $(".plan-thumb", card);
+        try {
+          const plan = await PlanView.load(`${ROOT}plans/${pl.file}`);
+          // an underground plan's roof hides its rooms: leave off its top layers
+          PlanView.thumb($("canvas", holder), plan, { width: holder.clientWidth || 360, maxH: 240, cut: pl.hole ? Math.min(2, plan.h - 1) : 0 });
+          $(".loading", holder).remove();
+        } catch (e) {
+          $(".loading", holder).textContent = "Couldn't draw it";
+        }
+      });
+    };
+    const seen = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { seen.unobserve(e.target); draw(e.target); }
+    }, { rootMargin: "300px" }) : null;
+    cards.forEach((c) => (seen ? seen.observe(c) : draw(c)));
+
+    // filters, search and sort
+    const filters = $("#plan-filters");
+    let kind = location.hash === "#underground" ? "under" : location.hash === "#above" ? "above" : "all";
+    const chip = (id, label, n) => `<button class="chip" data-kind="${id}" aria-pressed="${id === kind}">${esc(label)} <span class="count">${n}</span></button>`;
+    filters.innerHTML = chip("all", "All", plans.length) + chip("above", "Above ground", plans.length - under.length) + chip("under", "Underground", under.length);
+    const search = $(".plan-search", main), sort = $(".plan-sort", main);
+    const area = (p) => p.blocks;
+    function apply() {
+      const q = search.value.trim().toLowerCase();
+      const order = [...cards].sort((a, b) => {
+        const x = a._plan, y = b._plan;
+        if (sort.value === "small") return area(x) - area(y);
+        if (sort.value === "big") return area(y) - area(x);
+        if (sort.value === "name") return x.title.localeCompare(y.title);
+        return a._order - b._order;
+      });
+      let shown = 0;
+      for (const c of order) {
+        const p = c._plan;
+        const ok = (kind === "all" || c.dataset.kind === kind) && (!q || (p.title + " " + p.tagline + " " + p.name).toLowerCase().includes(q));
+        c.hidden = !ok;
+        if (ok) shown++;
+        grid.append(c);
+      }
+      $(".plan-none", main).hidden = shown > 0;
+      filters.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", b.dataset.kind === kind));
+    }
+    filters.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+      kind = b.dataset.kind;
+      history.replaceState(null, "", kind === "under" ? "#underground" : kind === "above" ? "#above" : location.pathname);
+      apply();
+    }));
+    search.addEventListener("input", apply);
+    sort.addEventListener("change", apply);
+    apply();
+  }
+
   // Any plan: drop or pick a file, or paste JSON, and see it.
   function viewerPage() {
     document.body.style.setProperty("--c", cc("pink"));
@@ -578,7 +695,7 @@
     main.innerHTML = `
       <section class="p-hero"><div class="wrap">
         <div>
-          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#plans">Plans</a> / Plan viewer</div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}plans/">Plans</a> / Plan viewer</div>
           <div class="p-title"><img class="icon" src="${ROOT}assets/floppy.svg" alt=""><h1>Plan viewer<small>JSON or Lua</small></h1></div>
           <p class="lead">See any building plan in 3D before it goes on a computer: drop in a plan file, or paste one. It's read the way the computers read it, so if it shows here, it loads there.</p>
           <div class="meta">${(SITE.plans || []).map((p) => `<button class="chip" data-plan="${esc(p.file)}">${esc(p.title)}</button>`).join(" ")}</div>
@@ -632,6 +749,7 @@
     else if (kind === "library") libraryPage(libByName[name]);
     else if (kind === "plan") planPage((SITE.plans || []).find((p) => p.name === name));
     else if (kind === "viewer") viewerPage();
+    else if (kind === "plans") plansPage();
     else home();
   };
   // fonts first, so canvases and terminals measure correctly
