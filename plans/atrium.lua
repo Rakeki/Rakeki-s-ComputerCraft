@@ -15,9 +15,10 @@
 -- from its north-west corner, y 0 its floor. The top is layer 28, one below
 -- the ceiling: the builder stands a block above what it places. Nothing is
 -- built above (29, 7), the builder turtle's home, or on (29, 6) and (30, 7),
--- its chests. Built inside the dug box, so "clear" is false. Change the box
--- here and excavate's ATRIUM_SIZE / BUILDER_HOME together.
-local atrium = { name = "Atrium", clear = false, blocks = {} }
+-- its chests. Built inside the dug box, so "clear" is false. hole is the
+-- size 'excavate atrium' digs and home that builder spot: excavate reads
+-- both from here, so change them with the plan.
+local atrium = { name = "Atrium", clear = false, hole = { 60, 60, 30 }, home = { x = 29, z = 7 }, blocks = {} }
 local function put(x, y, z, block) atrium.blocks[#atrium.blocks + 1] = { x, y, z, block } end
 
 local N = 59 -- far side of the box

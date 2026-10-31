@@ -495,6 +495,7 @@ pre.code, .readme pre {
 .plan-mats td:last-child { text-align: right; white-space: nowrap; }
 .plan-mats .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 1px solid #000; vertical-align: -1px; }
 .plan-uses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.plan-uses.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 900px) { .plan-uses { grid-template-columns: 1fr; } }
 .lib-card h3 a { color: inherit; }
 .drop { display: grid; gap: 4px; place-items: center; padding: 22px 12px; border: 2px dashed var(--line); border-radius: var(--radius); cursor: pointer; text-align: center; color: var(--muted); }

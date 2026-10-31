@@ -34,7 +34,9 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
   setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents (storage, enricher, smelter, cooker, essence)
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
-                            'install plan <name>' puts one in /plans, a program's "plans" field installs some with it
+                            'install plan <name>' puts one in /plans, a program's "plans" field installs some with it;
+                            underground ones (cellar, hideout, workshop, sanctum, atrium) also carry "hole" (the size
+                            'excavate <plan>' digs) and "home" (the builder's clear spot); programs.json's entry has "hole" too
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
 site/                       The website and in-game installer
@@ -187,7 +189,7 @@ Existing computers:
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
-| `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `atrium`: a 60x60x30 hole for `plans/atrium.lua` | nav, report, errlog, inv, files |
+| `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (cellar, hideout, workshop, sanctum, atrium) and prints its `home` for the builder | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
 | `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |

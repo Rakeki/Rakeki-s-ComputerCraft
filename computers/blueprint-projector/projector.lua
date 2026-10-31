@@ -75,6 +75,12 @@ local COLOR_WORDS = {
   { "mud", 0x8c6a4f }, { "dirt", 0x866043 }, { "grass", 0x5d9a3a }, { "leaves", 0x3f8a2f },
   { "hay", 0xc9a42a }, { "glass", 0xa8d8ea }, { "ice", 0x91b7fd }, { "snow", 0xf6fefe },
   { "water", 0x3f76e4 }, { "lava", 0xd96415 }, { "iron", 0xd8d8d8 }, { "gold", 0xf5cd3c },
+  { "oxidized", 0x4fa58a }, { "amethyst", 0x8d63c8 }, { "obsidian", 0x1e1530 }, { "pearlescent", 0xe6c6dc },
+  { "verdant", 0xd4e8b8 }, { "shroomlight", 0xf0a050 }, { "moss", 0x5a7a2c }, { "barrel", 0x86643a },
+  { "bookshelf", 0x7a5a32 }, { "crafting", 0x9c6a3a }, { "smithing", 0x3a3a46 }, { "cartography", 0x8a7050 },
+  { "fletching", 0xc9b27a }, { "enchanting", 0x7a2030 }, { "brewing", 0x8a8a6a }, { "cauldron", 0x3c3c40 },
+  { "campfire", 0xe08a2c }, { "candle", 0xe8dcb0 }, { "azalea", 0x5f8a30 }, { "fern", 0x4f7f30 }, { "poppy", 0xc0282a },
+  { "cornflower", 0x4a64c8 }, { "cane", 0x8cbf5a },
   { "copper", 0xc0704c }, { "lantern", 0xf2b84a }, { "torch", 0xf2c84a }, { "glowstone", 0xf8d58a },
   { "log", 0x6b5131 }, { "wood", 0x6b5131 }, { "planks", 0xb8945f },
 }

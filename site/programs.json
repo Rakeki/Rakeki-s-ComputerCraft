@@ -16,8 +16,9 @@
       "device": "turtle",
       "deviceLabel": "Mining turtle",
       "color": "orange",
-      "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or a 60×60×30 hole for the atrium plan.",
+      "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
+      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -29,7 +30,7 @@
         "Walks every wall, floor and ceiling block and fills caves, water and lava with cobblestone",
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
-        "Atrium mode digs the 60×60×30 hole the atrium plan fills",
+        "excavate <plan> digs the hole a plan asks for (cellar, hideout, workshop, sanctum, atrium) and prints where the builder goes and the build command",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -42,7 +43,8 @@
         ["excavate 30 40 12", "30 wide, 40 long, 12 high"],
         ["excavate 21 21 16 down", "dig downwards instead"],
         ["excavate deep", "shaft down, hole floor 10 above bedrock"],
-        ["excavate atrium", "a 60×60×30 hole: the atrium plan fills it"],
+        ["excavate cellar", "the 17×17×7 hole for the cellar plan; any plan name works"],
+        ["excavate sanctum deep", "the sanctum's 41×41×26 hole, 10 above bedrock"],
         ["excavate resume", "carry on after stopping it"],
         ["excavate here", "no GPS: you put it back on its start block"],
         ["excavate cancel", "forget the current job"]
@@ -50,7 +52,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate atrium, the atrium plan."]
+        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: cellar, hideout, workshop, sanctum or atrium."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
       "layouts": [
@@ -616,12 +618,12 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Plans", "6, plus install plan"],
+        ["Plans", "10, plus install plan"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
@@ -737,7 +739,7 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -788,7 +790,7 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
       "libs": ["plan", "files", "net", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1954,9 +1956,46 @@
       "name": "atrium",
       "file": "atrium.lua",
       "title": "Atrium",
-      "tagline": "Fills the box from excavate atrium: a pillared atrium with a gallery, split stairs and a garden pond, between two wings on two floors.",
+      "tagline": "Fills the hole from excavate atrium: a pillared atrium with a gallery, split stairs and a garden pond, between two wings on two floors.",
       "size": "60 × 60 × 29",
+      "hole": "60 × 60 × 30",
       "blocks": 7736
+    },
+    {
+      "name": "cellar",
+      "file": "cellar.lua",
+      "title": "Cellar",
+      "tagline": "One cosy room under dark oak beams: alcoves of storage, books, a work counter and a portal frame round a lit pool.",
+      "size": "17 × 17 × 6",
+      "hole": "17 × 17 × 7",
+      "blocks": 847
+    },
+    {
+      "name": "hideout",
+      "file": "hideout.lua",
+      "title": "Hideout",
+      "tagline": "A stone balcony over a fireplace, portal, brewing counter and planter; a library above, a timber wall of storage and a floor pool below.",
+      "size": "25 × 17 × 10",
+      "hole": "25 × 17 × 11",
+      "blocks": 1641
+    },
+    {
+      "name": "workshop",
+      "file": "workshop.lua",
+      "title": "Workshop",
+      "tagline": "A timber-framed hall with an L-shaped mezzanine on dark oak pillars, library, smithy and storage alcoves, and a raised garden bed.",
+      "size": "33 × 25 × 14",
+      "hole": "33 × 25 × 15",
+      "blocks": 3343
+    },
+    {
+      "name": "sanctum",
+      "file": "sanctum.lua",
+      "title": "Sanctum",
+      "tagline": "A deepslate hall: an amethyst tree on an island, waterfalls into its pool, copper-banded towers and a mossy path between soul lanterns.",
+      "size": "41 × 41 × 25",
+      "hole": "41 × 41 × 26",
+      "blocks": 7836
     },
     {
       "name": "factory",

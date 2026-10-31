@@ -13,8 +13,9 @@ its own; no server needed. GPS is optional but strongly recommended (see
 
 That's all it does: it builds nothing inside the hole. The inner walls, the
 decorative walls and every detail inside are for a
-[builder turtle](../builder-turtle/README.md) to build from a plan. The
-[atrium](#atrium) is one such plan, made for a 60×60×30 hole.
+[builder turtle](../builder-turtle/README.md) to build from a plan. Each
+[building plan](#building-plans) made for underground says the hole it needs,
+and `excavate <plan>` digs exactly that.
 
 Default size (`excavate` with no arguments): **21 wide × 21 long × 16 high**.
 You can give any size.
@@ -37,6 +38,7 @@ fuel, but then water and lava can get in.
 ## Files
 
 - `excavate.lua`: the program. Settings (sealing, deep-mode depth, refuel level) are at the top.
+- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
 - `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too, just without reporting.
@@ -63,8 +65,8 @@ fuel, but then water and lava can get in.
    excavate 30 40 12             -- 30 wide, 40 long, 12 high
    excavate 21 21 16 down        -- dig downwards instead (turtle at the top corner)
    excavate deep                 -- shaft down from the surface, hole floor 10 above bedrock
-   excavate atrium               -- a 60x60x30 hole for the atrium plan (see Atrium)
-   excavate atrium deep          -- the same, 10 above bedrock (down works too)
+   excavate cellar               -- the hole the cellar plan needs (see Building plans)
+   excavate sanctum deep         -- the sanctum's hole, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
    excavate here                 -- no GPS: "I've put you back on your start block", then carry on
    excavate cancel               -- forget the current job
@@ -77,6 +79,40 @@ out of fuel or cobblestone, it waits at the start until you fix it.
 A job started by an older version (the one with rooms, a ledge and stairs)
 carries on as just the hole: if it was already past the hall, it goes straight
 to sealing.
+
+## Building plans
+
+These plans fill a hole with everything inside it: wall linings, floors,
+inner walls, stairs, lighting and decoration. Each one says the hole it
+needs, and `excavate <plan>` digs exactly that size. They come with the
+excavator, so they're already in `/plans`.
+
+| Plan | Hole (W × L × H) | Blocks | Builder's spot | What's in it |
+|---|---|---|---|---|
+| [cellar](../../plans/cellar.lua) | 17 × 17 × 7 | 850 | 8 east, 3 south | One room: dark oak pillars and beams round alcoves of barrels, a library with an enchanting table, a work counter and a portal frame; hanging leaves, a pool lit by sea lanterns |
+| [hideout](../../plans/hideout.lua) | 25 × 17 × 11 | 1,640 | 12 east, 8 south | A stone balcony on spruce posts over a fireplace, portal frame, brewing counter and planter; a library up top; a timber wall of storage and a floor pool |
+| [workshop](../../plans/workshop.lua) | 33 × 25 × 15 | 3,340 | 17 east, 12 south | A timber-framed hall: an L-shaped mezzanine on dark oak pillars up to ceiling trusses, storage, library, smithy and brewing alcoves, a raised garden bed with sugar cane |
+| [sanctum](../../plans/sanctum.lua) | 41 × 41 × 26 | 7,840 | 20 east, 37 south | A deepslate hall: an amethyst tree on an island in a pool fed by two waterfalls, copper-banded towers with soul lanterns, a mossy mud brick path |
+| [atrium](../../plans/atrium.lua) | 60 × 60 × 30 | 7,740 | 29 east, 7 south | See [Atrium](#atrium) |
+
+1. Put the turtle in a corner of the hole-to-be as usual and run
+   `excavate <plan>` (add `down` or `deep` if you like). The hole is laid
+   out north-south and east-west to match the plan, whichever way the
+   turtle faces. Without GPS it asks which way it's facing.
+2. When it's done, with GPS it prints where to put the builder turtle and
+   the exact `build` command. The builder's spot is counted from the hole's
+   north-west corner, on its floor: put the builder there facing south, its
+   supply chest behind it and its spoil chest to its left, and run
+   `builder setup`. The plan never builds above that spot.
+3. On [build control](../build-control/README.md), run
+   `build <plan> <x> <y> <z>`: the hole's north-west corner, on its floor.
+
+The plans line the walls from the floor up, so the floor rises one block
+(tiles) and the walls come in one block. They stop one block below the
+ceiling, because the builder stands on top of what it places. Use one
+builder per plan: the plan keeps only one spot clear. Plants stand on
+moss, and nothing needs farmland. The portal frames are unlit obsidian;
+light them yourself.
 
 ## Atrium
 

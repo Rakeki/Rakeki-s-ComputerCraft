@@ -52,7 +52,12 @@ sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
 [Building in the sky](#building-in-the-sky)), an **atrium** (60×60, 29
 high, about 7,700 blocks): a pillared atrium between two wings, on two
-floors, for the box [`excavate atrium`](../excavate-turtle/README.md#atrium) digs, and **Turtle Works**
+floors, for the hole [`excavate atrium`](../excavate-turtle/README.md#atrium) digs; four
+more for underground, each for the hole `excavate <plan>` digs (see
+[Building plans](../excavate-turtle/README.md#building-plans)): a **cellar** (17×17, 6
+high, about 850 blocks), a **hideout** (25×17, 10 high, about 1,600), a
+**workshop** (33×25, 14 high, about 3,300) and a **sanctum** (41×41, 25
+high, about 7,800); and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)). `install plans` lists the

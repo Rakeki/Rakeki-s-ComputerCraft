@@ -28,7 +28,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [mine-turtle](computers/mine-turtle/README.md): AutoMine mining turtle (same code on every miner)
 - [status-server](computers/status-server/README.md): monitor dashboard showing every computer's status and what it's doing
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system
-- [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; or a 60×60×30 hole for the atrium plan
+- [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (cellar, hideout, workshop, sanctum, atrium)
 - [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides
 - [nether-tunnel-turtle](computers/nether-tunnel-turtle/README.md): standalone turtle that digs a sealed 3x3 tunnel through the Nether, patching holes and walling off lava
 - [village-turtle](computers/village-turtle/README.md): turtle that builds a themed village and keeps expanding it, picking buildings to suit the terrain

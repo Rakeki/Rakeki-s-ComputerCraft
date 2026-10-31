@@ -153,6 +153,12 @@ return enc(raw)`;
     ["mud", "#8c6a4f"], ["dirt", "#866043"], ["grass", "#5d9a3a"], ["leaves", "#3f8a2f"],
     ["hay", "#c9a42a"], ["glass", "#a8d8ea"], ["ice", "#91b7fd"], ["snow", "#f6fefe"],
     ["water", "#3f76e4"], ["lava", "#d96415"], ["iron", "#d8d8d8"], ["gold", "#f5cd3c"],
+    ["oxidized", "#4fa58a"], ["amethyst", "#8d63c8"], ["obsidian", "#1e1530"], ["pearlescent", "#e6c6dc"],
+    ["verdant", "#d4e8b8"], ["shroomlight", "#f0a050"], ["moss", "#5a7a2c"], ["barrel", "#86643a"],
+    ["bookshelf", "#7a5a32"], ["crafting", "#9c6a3a"], ["smithing", "#3a3a46"], ["cartography", "#8a7050"],
+    ["fletching", "#c9b27a"], ["enchanting", "#7a2030"], ["brewing", "#8a8a6a"], ["cauldron", "#3c3c40"],
+    ["campfire", "#e08a2c"], ["candle", "#e8dcb0"], ["azalea", "#5f8a30"], ["fern", "#4f7f30"], ["poppy", "#c0282a"],
+    ["cornflower", "#4a64c8"], ["cane", "#8cbf5a"],
     ["copper", "#c0704c"], ["lantern", "#f2b84a"], ["torch", "#f2c84a"], ["glowstone", "#f8d58a"], ["end_rod", "#f0ece0"],
     ["log", "#6b5131"], ["wood", "#6b5131"], ["planks", "#b8945f"],
   ];

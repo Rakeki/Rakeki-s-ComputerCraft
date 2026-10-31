@@ -4,7 +4,7 @@
 -- is built inside it: builder turtles do the inner walls and details.
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
---   excavate atrium [up|down|deep]   a 60x60x30 hole, for plans/atrium.lua
+--   excavate <plan> [up|down|deep]   the hole a plan in /plans needs (cellar, hideout, workshop, sanctum, atrium)
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel
@@ -17,9 +17,11 @@
 -- centred underneath it, with its floor ABOVE_BEDROCK layers above bedrock.
 -- The turtle comes back up the shaft to the chest.
 --
--- "atrium" is the size plans/atrium.lua fills (a centre atrium between two
--- wings, two floors) through build-control and a builder turtle. It prints
--- the build command when it's done.
+-- A plan name digs the hole that plan says it needs (its "hole" field: width
+-- east-west, length north-south, height), lined up with north whichever way
+-- the turtle faces, so build-control can fill it unturned. It prints where
+-- the builder turtle goes (the plan's "home") and the build command when
+-- it's done.
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
@@ -39,9 +41,8 @@ local SEAL_SPARE = 192 -- cobblestone carried while digging, for patching (3 slo
 local BEDROCK_TOP = -60
 local ABOVE_BEDROCK = 10
 
--- "atrium": the hole plans/atrium.lua fills. Change these and that plan together.
-local ATRIUM_SIZE = { 60, 60, 30 } -- width, length, height
-local BUILDER_HOME = { x = 29, z = 7 } -- a floor spot the plan never builds above, for the builder turtle
+-- Where 'excavate <plan>' looks for the plan, as the projector and build-control do.
+local PLAN_DIR = "/plans"
 
 -- Kept while digging for patching walls (only SEAL_SPARE of them).
 local PATCH_BLOCKS = { ["minecraft:cobblestone"] = true, ["minecraft:cobbled_deepslate"] = true }
@@ -59,6 +60,28 @@ for _, name in ipairs({
 }) do JUNK[name] = true end
 
 local job, plan
+
+-- The hole a building plan in PLAN_DIR asks for: { width, length, height }
+-- and the builder's home { x, z }, or nil and why.
+local function planHole(name)
+  local raw
+  if fs.exists(("%s/%s.lua"):format(PLAN_DIR, name)) then
+    local ok, p = pcall(dofile, ("%s/%s.lua"):format(PLAN_DIR, name))
+    if not ok then return nil, ("plan %s won't load: %s"):format(name, tostring(p)) end
+    raw = p
+  elseif fs.exists(("%s/%s.json"):format(PLAN_DIR, name)) then
+    local f = fs.open(("%s/%s.json"):format(PLAN_DIR, name), "r")
+    raw = textutils.unserialiseJSON(f.readAll())
+    f.close()
+  else
+    return nil, ("No plan called %s in %s. Install it: install plan %s"):format(name, PLAN_DIR, name)
+  end
+  local hole = type(raw) == "table" and raw.hole
+  if type(hole) ~= "table" or not (tonumber(hole[1]) and tonumber(hole[2]) and tonumber(hole[3])) then
+    return nil, ("Plan %s doesn't say what hole it needs (no \"hole\" in it)."):format(name)
+  end
+  return { tonumber(hole[1]), tonumber(hole[2]), tonumber(hole[3]) }, raw.home
+end
 
 ---------------------------------------------------------------- coordinates
 
@@ -482,21 +505,22 @@ local function run()
   nav.deleteFile(JOB_FILE)
   print("Excavation complete! The hole is dug and walled in.")
   report.set("done", "excavation complete")
-  if job.atrium then
+  if job.plan then
     -- the plan's north-west bottom corner is the hole's, on its floor
     local ax, _, az = toWorld({ x = 0, y = 0, z = 0 })
     local bx, _, bz = toWorld({ x = job.width - 1, y = 0, z = job.length - 1 })
     local x0, z0 = math.min(ax, bx), math.min(az, bz)
     local y0 = job.origin.y + plan.hole.y0
-    print("Now for the atrium plan. Put a builder turtle")
+    local home = job.home or { x = 0, z = 0 }
+    print(("Now for the %s plan. Put a builder turtle"):format(job.plan))
     if job.gps then
-      print(("at %d %d %d facing south, its chests behind"):format(x0 + BUILDER_HOME.x, y0, z0 + BUILDER_HOME.z))
+      print(("at %d %d %d facing south, its chests behind"):format(x0 + home.x, y0, z0 + home.z))
       print("and to its left, and run 'builder setup'. Then:")
-      print(("  build atrium %d %d %d"):format(x0, y0, z0))
+      print(("  build %s %d %d %d"):format(job.plan, x0, y0, z0))
     else
-      print(("%d east and %d south of the hole's north-west"):format(BUILDER_HOME.x, BUILDER_HOME.z))
+      print(("%d east and %d south of the hole's north-west"):format(home.x, home.z))
       print("corner, facing south, chests behind and left.")
-      print("Then 'build atrium <x> <y> <z>': that corner, on the floor.")
+      print(("Then 'build %s <x> <y> <z>': that corner, on the floor."):format(job.plan))
     end
   end
 end
@@ -535,6 +559,8 @@ if args[1] == "resume" or args[1] == "here" then
     job.v = JOB_VERSION
     save()
   end
+  -- an 'excavate atrium' job from before plans carried their own hole
+  if job.atrium and not job.plan then job.plan, job.home = "atrium", { x = 29, z = 7 } end
   buildPlan()
   if args[1] == "here" then
     -- the player has put the turtle back on its start block
@@ -553,30 +579,62 @@ elseif job then
   print("A job is already in progress. Run 'excavate resume' or 'excavate cancel'.")
   return
 else
-  -- numbers are width, length, height in that order; the mode word can go anywhere
-  local nums, dir, atrium = {}, "up", false
+  -- numbers are width, length, height in that order; the mode word and a
+  -- plan name can go anywhere
+  local nums, dir, planName = {}, "up", nil
   for _, a in ipairs(args) do
-    if tonumber(a) then nums[#nums + 1] = math.floor(tonumber(a)) elseif a == "atrium" then atrium = true else dir = a end
+    if tonumber(a) then
+      nums[#nums + 1] = math.floor(tonumber(a))
+    elseif a == "up" or a == "down" or a == "deep" then
+      dir = a
+    else
+      planName = a
+    end
   end
-  local defaults = atrium and ATRIUM_SIZE or { 21, 21, 16 }
-  local w, l, h = nums[1] or defaults[1], nums[2] or defaults[2], nums[3] or defaults[3]
-  if dir ~= "up" and dir ~= "down" and dir ~= "deep" or w < 1 or l < 1 or h < 1 then
+  local hole, home = { 21, 21, 16 }, nil
+  if planName then
+    local found, homeOrWhy = planHole(planName)
+    if not found then
+      print(homeOrWhy)
+      print("Usage: excavate [width] [length] [height] [up|down|deep]")
+      print("       excavate <plan> [up|down|deep]")
+      return
+    end
+    hole, home = found, homeOrWhy
+    if #nums > 0 then
+      print(("The %s plan needs a %dx%dx%d hole: leave the sizes out."):format(planName, hole[1], hole[2], hole[3]))
+      return
+    end
+  end
+  local w, l, h = nums[1] or hole[1], nums[2] or hole[2], nums[3] or hole[3]
+  if w < 1 or l < 1 or h < 1 then
     print("Usage: excavate [width] [length] [height] [up|down|deep]")
-    print("       excavate atrium [up|down|deep]")
+    print("       excavate <plan> [up|down|deep]")
     return
   end
-  if atrium and (w ~= ATRIUM_SIZE[1] or l ~= ATRIUM_SIZE[2] or h ~= ATRIUM_SIZE[3]) then
-    print(("The atrium plan fits a %dx%dx%d hole: leave the sizes out."):format(ATRIUM_SIZE[1], ATRIUM_SIZE[2], ATRIUM_SIZE[3]))
-    return
+  if not knowsPosition then
+    -- A plan's hole has to line up with north. Without GPS, ask which way that is.
+    local facing = "north"
+    if planName then
+      facing = nil
+      while not facing do
+        write("Which way am I facing (north, east, south, west)? ")
+        local answer = read():lower()
+        if nav.HEADINGS[answer] then facing = answer end
+      end
+    end
+    nav.setPosition(0, 0, 0, facing)
   end
-  if not knowsPosition then nav.setPosition(0, 0, 0, "north") end
   -- The turtle sits at the hole's corner, or above its middle in deep mode.
   -- The origin is the hole's corner, so shift it back from the turtle.
   local p, heading = nav.getPos(), nav.getHeading()
+  -- width runs to the turtle's right: east-west when it faces north or
+  -- south, north-south when it faces east or west; a plan's isn't turned
+  if planName and heading % 2 == 1 then w, l = l, w end
   local start = { x = 0, y = 0, z = 0 }
   if dir == "deep" then start = { x = math.floor(w / 2), y = 0, z = math.floor(l / 2) } end
   local f, r = DIRS[heading], DIRS[(heading + 1) % 4]
-  job = { v = JOB_VERSION, width = w, length = l, height = h, dir = dir, atrium = atrium or nil, phase = 0, cell = 0,
+  job = { v = JOB_VERSION, width = w, length = l, height = h, dir = dir, plan = planName, home = home, phase = 0, cell = 0,
     start = start, gps = hasGps,
     origin = { x = p.x - start.x * r.x - start.z * f.x, y = p.y, z = p.z - start.x * r.z - start.z * f.z, heading = heading } }
   print(hasGps and "GPS found: I'll check my position as I go."
@@ -604,7 +662,12 @@ else
   for phase = 0, plan.sealPhase do total = total + phaseSize(phase) end
   -- each trip to the chest goes up and down the shaft
   local fuel = math.floor(total * 1.3 + (total / 300) * 2 * depth + 2 * depth)
-  print(("Hole %dx%dx%d (%s)%s."):format(w, l, h, dir, atrium and ", for the atrium plan" or ""))
+  if planName then
+    print(("Hole %dx%dx%d (%s) for the %s plan: %d east-west, %d north-south."):format(hole[1], hole[2], hole[3], dir,
+      planName, hole[1], hole[2]))
+  else
+    print(("Hole %dx%dx%d (%s)."):format(w, l, h, dir))
+  end
   if SEAL_WALLS then print("Then I wall in every gap and dry it out.") end
   print(("Needs about %d fuel (have %s). I refuel from the chest"):format(fuel, tostring(turtle.getFuelLevel())))
   print("behind me, so put coal in it. Mined coal goes there too.")

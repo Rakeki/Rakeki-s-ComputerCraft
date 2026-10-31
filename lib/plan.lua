@@ -15,7 +15,11 @@
 -- row the north side, each row west to east; "." and " " are air. Or
 -- "blocks": [ [x, y, z, "minecraft:stone"], ... ] in place of legend and
 -- layers. "clear": false says it's built in the air, so builders don't dig
--- out its box first. A colour (a number, or "#rrggbb") is only for the
+-- out its box first. A plan for underground may say the hole it fills,
+-- "hole": [width, length, height] (x, z, y, from its north-west corner),
+-- and "home": { "x": 8, "z": 3 }, a floor spot it keeps clear for the
+-- builder turtle (facing south, chests behind and to its left): 'excavate
+-- <plan>' digs that hole. A colour (a number, or "#rrggbb") is only for the
 -- projection. A block may carry a state, as setblock takes it:
 -- "minecraft:spruce_stairs[facing=east]". Builder turtles face that way to
 -- place it (stairs climb towards it), and turning the plan turns it.
