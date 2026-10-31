@@ -176,8 +176,9 @@ saved in `/.installed_versions`. `set install.autoupdate false` turns it off.
 removes ones the new version dropped (never a file another installed program
 still lists).
 Plans from `plans/` are in the manifest as `plan:<name>` (not in `order`, so
-not in the program list): `install plan <name>` installs one into `/plans`
-and it updates on boot like a program.
+not in the program list): `install plan <name> ...` installs them into `/plans`
+(the plans page writes that command for the ones picked; picks stay in localStorage),
+and each updates on boot like a program.
 The installer downloads a version's files from `v/<version>/...` (the build
 copies them there), because GitHub Pages serves a cached copy of a file for
 up to 10 minutes after it changes (a `?query` doesn't get round it); the

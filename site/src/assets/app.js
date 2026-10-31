@@ -590,7 +590,7 @@
         <div class="mc-panel install-panel">
           <h3><img src="${ROOT}assets/floppy.svg" alt=""> Get one</h3>
           ${field("install plans")}
-          <p>Lists them on the computer; <code>install plan &lt;name&gt;</code> puts one in <code>/plans</code>, and it updates on boot like a program. Have your own? <a href="${ROOT}viewer/">See it in the plan viewer</a>.</p>
+          <p>Lists them on the computer; <code>install plan &lt;name&gt;</code> puts one in <code>/plans</code>, and it updates on boot like a program. Or tap <b>Pick</b> on the ones you want below for one command that installs them all. Have your own? <a href="${ROOT}viewer/">See it in the plan viewer</a>.</p>
         </div>
       </div></section>
       <section class="block" style="padding-top:20px"><div class="wrap">
@@ -604,6 +604,10 @@
         <div class="plan-grid" id="plan-grid"></div>
         <p class="plan-none" hidden>No plan matches that.</p>
       </div></section>
+      <div class="plan-tray mc-panel" hidden>
+        <div class="plan-tray-head"><b class="plan-tray-count"></b><div class="plan-tray-picks"></div><button class="chip plan-tray-clear">Clear</button></div>
+        <div class="plan-tray-cmd"></div>
+      </div>
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>From plan to building</small>How it goes</h2></div>
         <div class="plan-uses four">
@@ -619,6 +623,7 @@
       const card = h(`
         <div class="lib-card plan-card" data-kind="${pl.hole ? "under" : "above"}">
           <a class="plan-thumb" href="${planUrl(pl.name)}" aria-label="${esc(pl.title)} in 3D"><canvas></canvas><span class="loading">Drawing</span></a>
+          <button class="chip plan-pick" aria-pressed="false" aria-label="Pick ${esc(pl.title)}">Pick</button>
           <h3><a href="${planUrl(pl.name)}">${esc(pl.title)}</a></h3>
           <p>${esc(pl.tagline)}</p>
           ${field(`install plan ${pl.name}`)}
@@ -653,9 +658,42 @@
 
     // filters, search and sort
     const filters = $("#plan-filters");
-    let kind = location.hash === "#underground" ? "under" : location.hash === "#above" ? "above" : "all";
+    const HASHES = { under: "#underground", above: "#above", picked: "#picked" };
+    let kind = Object.keys(HASHES).find((k) => HASHES[k] === location.hash) || "all";
     const chip = (id, label, n) => `<button class="chip" data-kind="${id}" aria-pressed="${id === kind}">${esc(label)} <span class="count">${n}</span></button>`;
-    filters.innerHTML = chip("all", "All", plans.length) + chip("above", "Above ground", plans.length - under.length) + chip("under", "Underground", under.length);
+    filters.innerHTML = chip("all", "All", plans.length) + chip("above", "Above ground", plans.length - under.length) + chip("under", "Underground", under.length) + chip("picked", "Picked", 0);
+
+    // picking: the plans you want, kept in this browser, as one install command
+    const PICKS_KEY = "plans.picked";
+    let picked = new Set();
+    try { picked = new Set(JSON.parse(localStorage.getItem(PICKS_KEY) || "[]").filter((n) => plans.some((p) => p.name === n))); } catch {}
+    const tray = $(".plan-tray", main);
+    function showPicks() {
+      try { localStorage.setItem(PICKS_KEY, JSON.stringify([...picked])); } catch {}
+      const list = plans.filter((p) => picked.has(p.name));
+      for (const c of cards) {
+        const on = picked.has(c._plan.name);
+        c.classList.toggle("picked", on);
+        const b = $(".plan-pick", c);
+        b.setAttribute("aria-pressed", on);
+        b.textContent = on ? "Picked" : "Pick";
+      }
+      $('.chip[data-kind="picked"] .count', filters).textContent = list.length;
+      tray.hidden = !list.length;
+      document.body.classList.toggle("has-plan-tray", list.length > 0);
+      if (!list.length) return;
+      const blocks = list.reduce((n, p) => n + p.blocks, 0);
+      $(".plan-tray-count", tray).textContent = `${list.length} picked · ${blocks.toLocaleString("en")} blocks`;
+      $(".plan-tray-picks", tray).innerHTML = list.map((p) => `<button class="chip" data-unpick="${esc(p.name)}" aria-label="Remove ${esc(p.title)}">${esc(p.title)} ✕</button>`).join("");
+      $(".plan-tray-cmd", tray).innerHTML = field(`install plan ${list.map((p) => p.name).join(" ")}`);
+    }
+    const toggle = (name) => { picked.has(name) ? picked.delete(name) : picked.add(name); showPicks(); if (kind === "picked") apply(); };
+    cards.forEach((c) => $(".plan-pick", c).addEventListener("click", () => toggle(c._plan.name)));
+    tray.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-unpick]");
+      if (b) toggle(b.dataset.unpick);
+    });
+    $(".plan-tray-clear", tray).addEventListener("click", () => { picked.clear(); showPicks(); if (kind === "picked") apply(); });
     const search = $(".plan-search", main), sort = $(".plan-sort", main);
     const area = (p) => p.blocks;
     function apply() {
@@ -670,21 +708,23 @@
       let shown = 0;
       for (const c of order) {
         const p = c._plan;
-        const ok = (kind === "all" || c.dataset.kind === kind) && (!q || (p.title + " " + p.tagline + " " + p.name).toLowerCase().includes(q));
+        const ok = (kind === "all" || c.dataset.kind === kind || (kind === "picked" && picked.has(p.name))) && (!q || (p.title + " " + p.tagline + " " + p.name).toLowerCase().includes(q));
         c.hidden = !ok;
         if (ok) shown++;
         grid.append(c);
       }
       $(".plan-none", main).hidden = shown > 0;
+      $(".plan-none", main).textContent = kind === "picked" && !picked.size ? "Nothing picked yet: tap Pick on a plan you want." : "No plan matches that.";
       filters.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", b.dataset.kind === kind));
     }
     filters.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
       kind = b.dataset.kind;
-      history.replaceState(null, "", kind === "under" ? "#underground" : kind === "above" ? "#above" : location.pathname);
+      history.replaceState(null, "", HASHES[kind] || location.pathname);
       apply();
     }));
     search.addEventListener("input", apply);
     sort.addEventListener("change", apply);
+    showPicks();
     apply();
   }
 

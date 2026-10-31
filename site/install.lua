@@ -8,7 +8,7 @@
 --   install <program>                        same, once the installer is saved here
 --   install update                           reinstall everything installed here
 --   install plans                            list the building plans
---   install plan <name>                      put a plan in /plans (projector, build-control)
+--   install plan <name> [<name> ...]         put plans in /plans (projector, build-control)
 --   install remove <program>                 uninstall a program (also: install uninstall)
 --   install remove plan <name>               remove a plan
 --   install remove                           list what's installed here
@@ -178,6 +178,7 @@ local function listPlans(manifest)
   end
   print()
   print("Install one with: install plan <name>")
+  print("or several: install plan <name> <name> ...")
 end
 
 local function saveSelf()
@@ -459,7 +460,8 @@ elseif args[1] == "update" then
 elseif args[1] == "plans" or (args[1] == "plan" and not args[2]) then
   listPlans(manifest)
 elseif args[1] == "plan" then
-  install(manifest, "plan:" .. args[2], false)
+  -- several at once, as the website's plans page writes them
+  for i = 2, #args do install(manifest, "plan:" .. args[i], false) end
 else
   install(manifest, args[1], false)
 end
