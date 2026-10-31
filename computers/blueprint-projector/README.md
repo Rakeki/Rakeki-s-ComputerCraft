@@ -70,14 +70,15 @@ terraces, a mine depot and two grottos; and **Turtle Works**
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)).
 
-Fourteen more buildings are on the website's plans page, to install by
+Fifteen more builds are on the website's plans page, to install by
 name (`install plan castle`, `install plan teahouse windmill`): a
 **windmill**, a **lighthouse** with its keeper's cottage, a **smithy**, a
 two-storey **tavern**, a **chapel** with a bell tower, a **market**
 square, a **treehouse**, a **castle** (45×45, 31 high, about 8,200
 blocks), a **barn** and silo, a Japanese **teahouse** and garden, a
-**wizardtower**, a **greenhouse**, a modern **villa** and a Viking
-**longhouse**. A few hold water or lava, which the builders place from
+**wizardtower**, a **greenhouse**, a modern **villa**, a Viking
+**longhouse** and a **platform**: a raised square of moss on mossy
+stonework sides, 21×21 and 5 high, to build on. A few hold water or lava, which the builders place from
 buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
 forge (1 lava). `install plans` lists every

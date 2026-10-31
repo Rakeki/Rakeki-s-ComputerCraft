@@ -1992,6 +1992,14 @@
       "tagline": "A Viking hall under a great dark roof: painted shields along the walls, crossed gable beams, a long fire trench between benches and tables, and the chieftain's seat.",
       "size": "15 × 31 × 12",
       "blocks": 1159
+    },
+    {
+      "name": "platform",
+      "file": "platform.lua",
+      "title": "Mossy platform",
+      "tagline": "A raised square of moss to build on: old stonework sides of stone bricks and cobblestone, mossy and cracked, with panels standing out in staggered rows, a stone rim and a stair up the south side.",
+      "size": "23 × 27 × 6",
+      "blocks": 2508
     }
   ]
 }
