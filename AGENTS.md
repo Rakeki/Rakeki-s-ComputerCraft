@@ -194,6 +194,7 @@ Existing computers:
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
 | `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the twelve underground plans, bunker to fortress) and prints its `home` for the builder | nav, report, errlog, inv, files |
+| `level-turtle` | Standalone turtle: flattens an area into a solid building platform (clears everything above the ground it starts on in 3-high layers, up to open sky or a given height, then fills holes below with the dirt it dug, up to 8 deep) | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
 | `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |

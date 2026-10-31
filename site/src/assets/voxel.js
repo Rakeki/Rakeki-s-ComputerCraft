@@ -530,6 +530,40 @@
     return { world: w.rotated(2) };
   }
 
+  // Land leveller: a finished platform (scaled down from level 32 32) in
+  // rolling land. Hills inside were cut down to the platform (stone shows
+  // where they were deep), dips and the pond inside were filled with the dirt
+  // and cobblestone dug out of them; trees outside the area are untouched.
+  function level() {
+    const N = 14, EDGE = 5, LOW = -5;
+    const w = new World(), r = rand(32);
+    const inside = (x, z) => x >= 0 && x < N && z >= 0 && z < N;
+    const height = (x, z) => Math.round(1.6 * Math.sin(x * 0.45 + 1) + 1.4 * Math.cos(z * 0.38 - 0.6) + 0.8 * Math.sin((x + z) * 0.3));
+    for (let x = -EDGE; x < N + EDGE; x++) for (let z = -EDGE; z < N + EDGE; z++) {
+      // the start corner and the chest behind it sit on the platform's level
+      const h = x >= -1 && x <= 0 && z === -1 ? -1 : height(x, z) - 1;
+      const soil = (y) => y === h ? "grass" : y >= h - 2 ? "dirt" : "stone";
+      if (!inside(x, z)) {
+        for (let y = LOW; y <= h; y++) w.set(x, y, z, soil(y));
+        for (let y = h + 1; y <= -3; y++) w.set(x, y, z, "water"); // the pond outside
+        if (h >= -1 && r() < 0.05) {
+          const top = h + 4 + Math.floor(r() * 2);
+          for (let y = h + 1; y <= top; y++) w.set(x, y, z, "log");
+          for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let y = top - 1; y <= top + 1; y++) {
+            if ((dx || dz || y > top) && !inside(x + dx, z + dz) && !w.get(x + dx, y, z + dz)) w.set(x + dx, y, z + dz, "leaves");
+          }
+        }
+        continue;
+      }
+      for (let y = LOW; y <= -1; y++) {
+        if (y <= h) w.set(x, y, z, soil(y)); // cut down to here: dirt, or stone under a big hill
+        else w.set(x, y, z, r() < 0.6 ? "dirt" : "cobble"); // filled in
+      }
+    }
+    w.set(0, 0, 0, "turtle"); w.set(0, 0, -1, "chest");
+    return { world: w };
+  }
+
   // Crop farm: a 9x9 field with water in the middle, wheat, carrots and
   // potatoes in bands. Behind the turtle it's harvested and replanted.
   function cropfarm() {
@@ -764,7 +798,7 @@
     };
   }
 
-  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, crafter, builder, crate: crateScene,
+  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, level, crafter, builder, crate: crateScene,
     storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting

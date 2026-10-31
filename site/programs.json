@@ -181,6 +181,61 @@
       }
     },
     {
+      "name": "level-turtle",
+      "group": "building",
+      "title": "Land Leveller",
+      "command": "level",
+      "device": "turtle",
+      "deviceLabel": "Mining turtle",
+      "color": "lime",
+      "tagline": "Flattens an area into a solid building platform: cuts down hills and trees, fills dips, ponds and holes with the dirt it dug.",
+      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "stats": [
+        ["Size", "any x × z"],
+        ["Clears", "up to open sky"],
+        ["Fills", "8 deep"],
+        ["Server", "none needed"]
+      ],
+      "features": [
+        "The platform's height is the ground the turtle starts on",
+        "Cuts away everything above it in 3-high layers: hills, whole trees, leaves, grass, snow",
+        "With no height given, keeps going up until the sky is clear (up to 64)",
+        "Fills dips, ponds and holes below it with the dirt and stone it dug, up to 8 deep; deeper caves get an 8-block plug",
+        "Wood and loot go in the chest; spare dirt too, and it takes it back out when it needs more",
+        "Never burns the wood it chops; resumes after reboots, chunk unloads, or being picked up"
+      ],
+      "setup": [
+        "Stand the turtle on the ground in one corner of the area, at the height you want the platform, facing along one edge. The area runs forward and to the right.",
+        "Put a chest directly behind it with some coal in. Wood and loot go in there too.",
+        "Run the command. It prints the size and the fuel it needs, then gets to work."
+      ],
+      "commands": [
+        ["level 32 32", "32 to the right, 32 forward, cleared up until the sky is empty"],
+        ["level 48 24 10", "48 by 24, clearing only 10 blocks up"],
+        ["level resume", "carry on after stopping it"],
+        ["level here", "no GPS: you put it back on its start block"],
+        ["level cancel", "forget the current job"]
+      ],
+      "integrates": [
+        ["status-server", "Shows its progress, position and fuel on the dashboard."],
+        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
+        ["build-control", "Once the platform is down, send a plan to the builder turtles at its corner."]
+      ],
+      "render": { "kind": "voxel", "scene": "level", "caption": "A finished platform in rolling land: hills cut down to it, dips and the pond filled with dirt and cobblestone, trees outside left alone." },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "level 32 32", "cmd"],
+          ["GPS found: I'll check my position as I go.", "", "lime"],
+          ["Platform 32x32, clearing up until the sky is clear.", "", "white"],
+          ["Holes below get filled, up to 8 deep.", "", "white"],
+          ["Needs about 6476 fuel (have 5000). I refuel from the chest", "", "white"],
+          ["behind me, so put coal in it. Wood goes there too.", "", "white"],
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
+        ]
+      }
+    },
+    {
       "name": "village-turtle",
       "group": "building",
       "title": "Village Builder",

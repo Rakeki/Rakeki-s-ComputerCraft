@@ -10,6 +10,7 @@ local STATE_COLOR = {
   running = colors.lime, working = colors.lime, mining = colors.lime, digging = colors.lime,
   building = colors.lime, serving = colors.lime, sealing = colors.lime, farming = colors.lime,
   crafting = colors.lime, clearing = colors.lime, paving = colors.lime, surveying = colors.lime,
+  filling = colors.lime,
   restocking = colors.lightBlue, checking = colors.lightBlue, stuck = colors.orange,
   alert = colors.red,
   idle = colors.lightGray, starting = colors.lightGray, done = colors.green,
