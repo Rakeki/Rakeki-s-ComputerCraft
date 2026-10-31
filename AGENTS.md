@@ -187,7 +187,7 @@ Existing computers:
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
-| `excavate-turtle` | Standalone turtle: hall + rooms + ledge + stairs, or (`atrium`) an empty 60x60x30 box for `plans/atrium.lua` | nav, report, errlog, inv, files |
+| `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `atrium`: a 60x60x30 hole for `plans/atrium.lua` | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
 | `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |
 | `village-turtle` | Turtle that builds themed villages | nav, report, errlog, claim, inv, net, files |

@@ -296,7 +296,7 @@
     const comps = [
       { id: 7, label: "Miner-7", role: "auto miner", kind: "turtle", state: "mining", detail: "chunk -2,0 layer 12/40", pos: [-27, 41, 6], from: "tracked", fuel: 2210, limit: 20000 },
       { id: 12, label: "Miner-12", role: "auto miner", kind: "turtle", state: "unloading", detail: "at home", pos: [3, 64, 2], from: "tracked", fuel: 860, limit: 20000 },
-      { id: 21, label: "Excavator-21", role: "excavator", kind: "turtle", state: "digging", detail: "hall 43% (room 3/24)", pos: [140, -8, -61], from: "gps", fuel: 9840, limit: 20000 },
+      { id: 21, label: "Excavator-21", role: "excavator", kind: "turtle", state: "digging", detail: "digging, 43% overall", pos: [140, -8, -61], from: "gps", fuel: 9840, limit: 20000 },
       { id: 4, label: "AutoMine", role: "mine server", kind: "computer", state: "running", detail: "3 turtles, 9 queued", pos: [0, 65, -3], from: "fixed" },
       { id: 30, label: "Builder-30", role: "village builder", kind: "turtle", state: "waiting", detail: "needs 87 spruce_stairs", pos: [212, 70, 88], from: "gps", fuel: 4100, limit: 20000 },
       { id: 15, label: "GPS-1", role: "gps host", kind: "computer", state: "serving", detail: "GPS at 102, 310, -38", pos: [102, 310, -38], from: "fixed" },

@@ -16,31 +16,33 @@
       "device": "turtle",
       "deviceLabel": "Mining turtle",
       "color": "orange",
-      "tagline": "Carves a two-storey underground hall with 24 rooms, a walkway ledge and split staircases, or an empty 60×60×30 box for the atrium plan.",
+      "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or a 60×60×30 hole for the atrium plan.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
-        ["Hall", "21 × 21 × 16"],
-        ["Rooms", "24 on 2 floors"],
-        ["Fuel", "~16,000"],
+        ["Default hole", "21 × 21 × 16"],
+        ["Walls", "sealed, dry"],
+        ["Fuel", "~6,000"],
         ["Server", "none needed"]
       ],
       "features": [
-        "Seals every cave, ravine and lava gap it opens with cobblestone",
-        "Asks what you want the ledge and stairs built from",
-        "Deep mode digs a shaft down and builds the hall 10 above bedrock",
-        "Atrium mode digs an empty 60×60×30 box for builder turtles to fill with the atrium plan: an atrium between two wings, on two floors",
+        "Digs any size of hole: up, down, or deep under a shaft",
+        "Walks every wall, floor and ceiling block and fills caves, water and lava with cobblestone",
+        "Leaves the inside empty: inner walls and details are for the builder turtle",
+        "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
+        "Atrium mode digs the 60×60×30 hole the atrium plan fills",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
-        "Place the turtle at floor level in one corner of the hall-to-be. The hall grows forward and to the right.",
+        "Place the turtle at floor level in one corner of the hole-to-be. The hole grows forward and to the right.",
         "Put a chest directly behind it with some coal in. Loot goes in there too.",
-        "Run the command. It prints the layout and the fuel it needs, then gets to work."
+        "Run the command. It prints the size and the fuel it needs, then gets to work."
       ],
       "commands": [
-        ["excavate", "21×21×16 hall, digging up from the turtle"],
+        ["excavate", "21×21×16 hole, digging up from the turtle"],
+        ["excavate 30 40 12", "30 wide, 40 long, 12 high"],
         ["excavate 21 21 16 down", "dig downwards instead"],
-        ["excavate deep", "shaft down, hall floor 10 above bedrock"],
-        ["excavate atrium", "an empty 60×60×30 box, no rooms: the atrium plan fills it"],
+        ["excavate deep", "shaft down, hole floor 10 above bedrock"],
+        ["excavate atrium", "a 60×60×30 hole: the atrium plan fills it"],
         ["excavate resume", "carry on after stopping it"],
         ["excavate here", "no GPS: you put it back on its start block"],
         ["excavate cancel", "forget the current job"]
@@ -48,24 +50,23 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "After excavate atrium, a builder turtle sent the atrium plan from build control builds the atrium, its two wings, the walls, stairs and garden."]
+        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate atrium, the atrium plan."]
       ],
-      "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hall: rooms on two floors, the ledge and the stairs." },
+      "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
       "layouts": [
-        { "title": "Default hall", "scene": "excavate", "caption": "excavate: the 21×21×16 hall with 12 rooms on each floor, the ledge at the upper floor and split stairs on every wall." },
-        { "title": "Atrium", "scene": "excavateAtrium", "caption": "excavate atrium digs an empty 60×60×30 box; a builder turtle fills it with the atrium plan. A 24-wide atrium with a gallery on pillars, split stairs and a garden pond, between two wings with second floors. The builder lives on a clear spot at the north end with its two chests." }
+        { "title": "Default hole", "scene": "excavate", "caption": "excavate: the empty 21×21×16 hole, walled in and dry, ready for a builder turtle." },
+        { "title": "Atrium", "scene": "excavateAtrium", "caption": "excavate atrium digs a 60×60×30 hole; a builder turtle fills it with the atrium plan. A 24-wide atrium with a gallery on pillars, split stairs and a garden pond, between two wings with second floors. The builder lives on a clear spot at the north end with its two chests." }
       ],
       "terminal": {
         "device": "turtle",
         "lines": [
           ["> ", "excavate", "cmd"],
           ["GPS found: I'll check my position as I go.", "", "lime"],
-          ["Hall 21x21x16 (up), 24 rooms on 2 floors, ledge.", "", "white"],
-          ["Needs about 16000 fuel (have 5000). I refuel from the chest", "", "white"],
+          ["Hole 21x21x16 (up).", "", "white"],
+          ["Then I wall in every gap and dry it out.", "", "white"],
+          ["Needs about 6000 fuel (have 5000). I refuel from the chest", "", "white"],
           ["behind me, so put coal in it. Mined coal goes there too.", "", "white"],
-          ["When it's time to build I'll ask for 224 ledge blocks (slots 1-4)", "", "lightGray"],
-          ["and 88 stair blocks (slots 5-8).", "", "lightGray"],
-          ["Press Enter to start.", "", "yellow"]
+          ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
         ]
       }
     },

@@ -1,69 +1,50 @@
--- Standalone excavator (no server). Clears a hall, digs two floors of rooms
--- off its walls, then builds a ledge around the hall at the upper floor with
--- stairs up to it.
+-- Standalone excavator (no server). Digs out a box-shaped hole, then walks
+-- its edge and fills every gap in the walls, floor and ceiling (caves,
+-- ravines, water, lava) so the hole ends up dry and fully walled in. Nothing
+-- is built inside it: builder turtles do the inner walls and details.
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
---   excavate atrium [up|down|deep]   an empty 60x60x30 box, for plans/atrium.lua
+--   excavate atrium [up|down|deep]   a 60x60x30 hole, for plans/atrium.lua
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel
 --
--- Place the turtle in a corner of the area, facing along one edge. The hall
+-- Place the turtle in a corner of the area, facing along one edge. The hole
 -- runs forward (length), to the right (width), and up or down (height) from
 -- the turtle's block. Put a chest directly behind the turtle for loot.
 --
--- "deep" digs a shaft straight down from the turtle and builds the hall
+-- "deep" digs a shaft straight down from the turtle and digs the hole
 -- centred underneath it, with its floor ABOVE_BEDROCK layers above bedrock.
 -- The turtle comes back up the shaft to the chest.
 --
--- The layout is mirror-symmetric when the width and length are odd (rooms
--- line up evenly and every wall has a centre block for its middle door).
---
--- "atrium" digs just the box, ATRIUM_SIZE, with no rooms, ledge or stairs:
--- the atrium plan fills it (a centre atrium between two wings, two floors)
--- through build-control and a builder turtle. It prints the build command
--- when it's done.
+-- "atrium" is the size plans/atrium.lua fills (a centre atrium between two
+-- wings, two floors) through build-control and a builder turtle. It prints
+-- the build command when it's done.
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
 local JOB_FILE = "/.excavate_job"
+local JOB_VERSION = 2 -- jobs from before rooms, ledge and stairs were dropped have none
 
--- Layout. Heights are counted from the hall floor.
-local ROOM_WIDTH = 5 -- along the wall
-local ROOM_DEPTH = 10 -- away from the wall
-local ROOM_HEIGHT = 6
-local ROOM_GAP = 1 -- solid blocks between neighbouring rooms (a single wall)
-local WALL = 1 -- wall between the hall and each room
-local DOOR_HEIGHT = 3 -- 2 or 3; doorways are 1 wide
-local UPPER_FLOOR = 7 -- standing height of the upper floor (top of the ledge)
-local LEDGE_WIDTH = 3 -- walkway around the hall at the upper floor
-local STAIR_WIDTH = 2 -- split staircase on every wall, rising from its middle to both ends
-
--- After digging, walk the edge of the hall, rooms and doorways and fill any
--- gap in the walls, floor or ceiling (cave, ravine, water, lava) with
--- cobblestone. Adds several thousand moves (and fuel); set to false to skip.
+-- After digging, walk the edge of the hole (and the deep shaft) and fill any
+-- gap in the walls, floor or ceiling with cobblestone. Adds a few thousand
+-- moves (and fuel); set to false to skip, but then water can get in.
 local SEAL_WALLS = true
 local SEAL_SPARE = 192 -- cobblestone carried while digging, for patching (3 slots)
 
--- "deep" mode: hall floor goes at BEDROCK_TOP + ABOVE_BEDROCK.
+-- "deep" mode: hole floor goes at BEDROCK_TOP + ABOVE_BEDROCK.
 -- BEDROCK_TOP is -60 in Minecraft 1.18+ (use 4 for 1.17 and older).
 local BEDROCK_TOP = -60
 local ABOVE_BEDROCK = 10
 
--- "atrium": the box plans/atrium.lua fills. Change these and that plan together.
+-- "atrium": the hole plans/atrium.lua fills. Change these and that plan together.
 local ATRIUM_SIZE = { 60, 60, 30 } -- width, length, height
 local BUILDER_HOME = { x = 29, z = 7 } -- a floor spot the plan never builds above, for the builder turtle
 
 -- Kept while digging for patching walls (only SEAL_SPARE of them).
 local PATCH_BLOCKS = { ["minecraft:cobblestone"] = true, ["minecraft:cobbled_deepslate"] = true }
-
--- The ledge and stairs are built from blocks you choose. Before building, the
--- turtle goes home, empties out, and asks you to load these slots.
-local LEDGE_SLOTS = { 1, 4 } -- the ledge walkway (and the top steps, which are level with it)
-local STAIR_SLOTS = { 5, 8 } -- the stairs; real stair blocks work and are placed facing up the flight
-local STAIR_FLIP = false -- set to true if stair blocks come out facing the wrong way
 
 -- Fuel it tops up to from the chest behind the start (coal it has mined,
 -- or any fuel you put in there).
@@ -81,9 +62,9 @@ local job, plan
 
 ---------------------------------------------------------------- coordinates
 
--- Job coordinates are local to the hall's corner: x to the right, z forward,
+-- Job coordinates are local to the hole's corner: x to the right, z forward,
 -- y up. The turtle starts at job.start: the corner (0, 0, 0), or the middle
--- of the hall in deep mode.
+-- of the hole in deep mode.
 local DIRS = { [0] = { x = 0, z = -1 }, [1] = { x = 1, z = 0 }, [2] = { x = 0, z = 1 }, [3] = { x = -1, z = 0 } }
 
 local function toWorld(p)
@@ -103,164 +84,33 @@ local function goL(p) return nav.goTo(toWorld(p)) end
 
 ---------------------------------------------------------------- plan
 
+local function inBox(b, p)
+  return p.x >= b.x0 and p.x <= b.x1 and p.y >= b.y0 and p.y <= b.y1 and p.z >= b.z0 and p.z <= b.z1
+end
+
+local function inShaft(p)
+  return plan.shaftBottom and p.x == plan.start.x and p.z == plan.start.z and p.y > plan.hole.y1
+end
+
 local function buildPlan()
   local W, L, H = job.width, job.length, job.height
-  local F = 0 -- hall floor
+  local F = 0 -- hole floor
   if job.dir == "down" then F = -(H - 1) elseif job.dir == "deep" then F = job.floor end
   plan = {
-    hall = { x0 = 0, x1 = W - 1, y0 = F, y1 = F + H - 1, z0 = 0, z1 = L - 1 },
-    rooms = {},
-    builds = {}, -- { x, y, z } spots to stand on and place a block below
+    hole = { x0 = 0, x1 = W - 1, y0 = F, y1 = F + H - 1, z0 = 0, z1 = L - 1 },
     start = job.start or { x = 0, y = 0, z = 0 }, -- jobs saved before job.start existed
-    -- nothing is built at or above this height, so it's safe to fly across
-    flyY = F + UPPER_FLOOR,
-    symmetric = true,
   }
-  -- deep mode: a 1x1 shaft from the start block down into the hall
+  -- deep mode: a 1x1 shaft from the start block down into the hole
   if job.dir == "deep" then plan.shaftBottom = { x = plan.start.x, y = F + H - 1, z = plan.start.z } end
-  local half = math.floor(ROOM_WIDTH / 2)
-
-  -- n evenly spaced rooms centred along a wall of length len
-  local function along(len, make)
-    local n = math.floor((len + ROOM_GAP) / (ROOM_WIDTH + ROOM_GAP))
-    local spare = len - (n * ROOM_WIDTH + (n - 1) * ROOM_GAP)
-    if spare % 2 == 1 then plan.symmetric = false end
-    for i = 0, n - 1 do make(math.floor(spare / 2) + i * (ROOM_WIDTH + ROOM_GAP)) end
-  end
-
-  for _, level in ipairs(job.atrium and {} or { 0, UPPER_FLOOR }) do
-    local fy = F + level
-    local cy = fy + 1 -- travel height through doorways
-    -- door: wall cells from the hall outwards; hallSide: last hall cell; inner: first room cell
-    local function add(x0, x1, z0, z1, door, hallSide, inner)
-      table.insert(plan.rooms, {
-        box = { x0 = x0, x1 = x1, y0 = fy, y1 = fy + ROOM_HEIGHT - 1, z0 = z0, z1 = z1 },
-        door = door, hallSide = hallSide, inner = inner,
-      })
-    end
-    local function doorLine(fixed, axis, from, step)
-      local cells = {}
-      for i = 0, WALL - 1 do
-        local c = { y = cy }
-        c[axis] = from + i * step
-        c[axis == "x" and "z" or "x"] = fixed
-        cells[#cells + 1] = c
-      end
-      return cells
-    end
-
-    along(W, function(a) -- far wall (+z)
-      local dx = a + half
-      add(a, a + ROOM_WIDTH - 1, L + WALL, L + WALL + ROOM_DEPTH - 1, doorLine(dx, "z", L, 1),
-        { x = dx, y = cy, z = L - 1 }, { x = dx, y = cy, z = L + WALL })
-    end)
-    along(W, function(a) -- near wall (-z)
-      local dx = a + half
-      add(a, a + ROOM_WIDTH - 1, -WALL - ROOM_DEPTH, -WALL - 1, doorLine(dx, "z", -1, -1),
-        { x = dx, y = cy, z = 0 }, { x = dx, y = cy, z = -WALL - 1 })
-    end)
-    along(L, function(a) -- right wall (+x)
-      local dz = a + half
-      add(W + WALL, W + WALL + ROOM_DEPTH - 1, a, a + ROOM_WIDTH - 1, doorLine(dz, "x", W, 1),
-        { x = W - 1, y = cy, z = dz }, { x = W + WALL, y = cy, z = dz })
-    end)
-    along(L, function(a) -- left wall (-x)
-      local dz = a + half
-      add(-WALL - ROOM_DEPTH, -WALL - 1, a, a + ROOM_WIDTH - 1, doorLine(dz, "x", -1, -1),
-        { x = 0, y = cy, z = dz }, { x = -WALL - 1, y = cy, z = dz })
-    end)
-  end
-
-  -- ledge: a ring LEDGE_WIDTH wide around the hall, snaking row by row
-  local standY = F + UPPER_FLOOR
-  for z = 0, L - 1 do
-    for i = 0, W - 1 do
-      local x = z % 2 == 0 and i or W - 1 - i
-      if math.min(x, W - 1 - x, z, L - 1 - z) < LEDGE_WIDTH then
-        table.insert(plan.builds, { x = x, y = standY, z = z, mat = "ledge" })
-      end
-    end
-  end
-
-  -- Split staircase just inside the ledge on every wall: a landing at floor
-  -- level in the middle of the wall, with a flight rising to each end. Where
-  -- two flights meet in a corner the lower step wins, so every corner is
-  -- walkable from both sides.
-  local steps = UPPER_FLOOR
-  local heights = {} -- "x,z" -> step number (standing height above the floor)
-  local function step(x, z, k)
-    local key = x .. "," .. z
-    if not heights[key] or k < heights[key] then heights[key] = k end
-  end
-  local function fits(len) return math.floor((len - 1) / 2) - steps >= LEDGE_WIDTH end
-  plan.hasStairs = fits(W) and fits(L)
-  if plan.hasStairs then
-    local lowZ, highZ = math.floor((L - 1) / 2), math.ceil((L - 1) / 2)
-    local lowX, highX = math.floor((W - 1) / 2), math.ceil((W - 1) / 2)
-    for i = 0, STAIR_WIDTH - 1 do
-      for k = 1, steps do
-        -- left and right walls: flights run along z
-        for _, x in ipairs({ LEDGE_WIDTH + i, W - 1 - LEDGE_WIDTH - i }) do
-          step(x, highZ + k, k)
-          step(x, lowZ - k, k)
-        end
-        -- near and far walls: flights run along x
-        for _, z in ipairs({ LEDGE_WIDTH + i, L - 1 - LEDGE_WIDTH - i }) do
-          step(highX + k, z, k)
-          step(lowX - k, z, k)
-        end
-      end
-    end
-    -- Each step faces up the flight: towards the neighbour one step higher,
-    -- looking along the wall first. Steps with nothing higher beside them
-    -- (the top steps, level with the ledge, and the inside corner where two
-    -- flights meet) act as landings, so they're built from ledge blocks.
-    local function heightAt(x, z)
-      if math.min(x, W - 1 - x, z, L - 1 - z) < LEDGE_WIDTH then return steps end
-      return heights[x .. "," .. z] or 0
-    end
-    local SIDES = { [0] = { 0, 1 }, [1] = { 1, 0 }, [2] = { 0, -1 }, [3] = { -1, 0 } }
-    for z = 0, L - 1 do
-      for i = 0, W - 1 do
-        local x = z % 2 == 0 and i or W - 1 - i
-        local k = heights[x .. "," .. z]
-        if k then
-          local b = { x = x, y = F + k, z = z, mat = "ledge" }
-          local alongZ = x < LEDGE_WIDTH + STAIR_WIDTH or x > W - 1 - LEDGE_WIDTH - STAIR_WIDTH
-          for _, d in ipairs(alongZ and { 0, 2, 1, 3 } or { 1, 3, 0, 2 }) do
-            if heightAt(x + SIDES[d][1], z + SIDES[d][2]) == k + 1 then
-              b.mat, b.face = "stairs", d
-              break
-            end
-          end
-          table.insert(plan.builds, b)
-        end
-      end
-    end
-  end
-  -- atrium: no ledge or stairs, the plan builds its own
-  if job.atrium then plan.builds = {} end
-  plan.need = { ledge = 0, stairs = 0 }
-  for _, b in ipairs(plan.builds) do plan.need[b.mat] = plan.need[b.mat] + 1 end
 
   -- Cells on the edge of the dig, and which of their sides face solid ground
   -- that should be there. The seal phase visits them and fills any gaps.
   plan.seals = {}
   if SEAL_WALLS then
-    local hall = plan.hall
-    local function inBox(b, x, y, z)
-      return x >= b.x0 and x <= b.x1 and y >= b.y0 and y <= b.y1 and z >= b.z0 and z <= b.z1
-    end
+    local hole = plan.hole
     local function inside(x, y, z)
-      if inBox(hall, x, y, z) then return true end
-      if plan.shaftBottom and x == plan.start.x and z == plan.start.z and y > hall.y1 then return true end
-      for _, r in ipairs(plan.rooms) do
-        if inBox(r.box, x, y, z) then return true end
-        for _, d in ipairs(r.door) do
-          if d.x == x and d.z == z and y >= r.box.y0 and y < r.box.y0 + DOOR_HEIGHT then return true end
-        end
-      end
-      return false
+      local p = { x = x, y = y, z = z }
+      return inBox(hole, p) or inShaft(p)
     end
     -- horizontal sides as heading offsets from the job's forward direction
     local SIDES = { [0] = { 0, 1 }, [1] = { 1, 0 }, [2] = { 0, -1 }, [3] = { -1, 0 } }
@@ -273,35 +123,32 @@ local function buildPlan()
       if not inside(x, y - 1, z) then dirs[#dirs + 1] = "down" end
       if #dirs > 0 then table.insert(plan.seals, { x = x, y = y, z = z, dirs = dirs }) end
     end
-    -- top and bottom layers: every cell, snaking; layers between: just the rim
-    local function sealBox(b)
-      for y = b.y1, b.y0, -1 do
-        if y == b.y0 or y == b.y1 then
-          for z = b.z0, b.z1 do
-            for i = 0, b.x1 - b.x0 do
-              check((z - b.z0) % 2 == 0 and b.x0 + i or b.x1 - i, y, z)
-            end
-          end
-        else
-          for x = b.x0, b.x1 do check(x, y, b.z0) end
-          for z = b.z0 + 1, b.z1 do check(b.x1, y, z) end
-          if b.z1 > b.z0 then for x = b.x1 - 1, b.x0, -1 do check(x, y, b.z1) end end
-          if b.x1 > b.x0 then for z = b.z1 - 1, b.z0 + 1, -1 do check(b.x0, y, z) end end
-        end
-      end
+    -- The shaft first (below the start block, which sits among the chest
+    -- and the junk pile), so nothing pours down it into the hole.
+    if plan.shaftBottom then
+      for y = plan.start.y - 1, hole.y1 + 1, -1 do check(plan.start.x, y, plan.start.z) end
     end
-    sealBox(hall)
-    for _, r in ipairs(plan.rooms) do
-      for _, d in ipairs(r.door) do
-        for y = r.box.y0, r.box.y0 + DOOR_HEIGHT - 1 do check(d.x, y, d.z) end
+    -- Then the hole from the top down: top and bottom layers every cell,
+    -- snaking, layers between just the rim. The floor goes last, so any
+    -- water that ran down while sealing above is gone over once it's shut in.
+    for y = hole.y1, hole.y0, -1 do
+      if y == hole.y0 or y == hole.y1 then
+        for z = hole.z0, hole.z1 do
+          for i = 0, hole.x1 - hole.x0 do
+            check((z - hole.z0) % 2 == 0 and hole.x0 + i or hole.x1 - i, y, z)
+          end
+        end
+      else
+        for x = hole.x0, hole.x1 do check(x, y, hole.z0) end
+        for z = hole.z0 + 1, hole.z1 do check(hole.x1, y, z) end
+        if hole.z1 > hole.z0 then for x = hole.x1 - 1, hole.x0, -1 do check(x, y, hole.z1) end end
+        if hole.x1 > hole.x0 then for z = hole.z1 - 1, hole.z0 + 1, -1 do check(hole.x0, y, z) end end
       end
-      sealBox(r.box)
     end
   end
 
-  -- phase 0 is the hall, phases 1..#rooms are rooms, then sealing, then building
-  plan.sealPhase = #plan.rooms + 1
-  plan.buildPhase = #plan.rooms + 2
+  -- phase 0 digs the hole, phase 1 seals it
+  plan.sealPhase = 1
 end
 
 local function boxCells(b)
@@ -322,74 +169,18 @@ local function boxCell(b, i)
 end
 
 local function phaseSize(phase)
-  if phase == 0 then return boxCells(plan.hall) end
-  if phase == plan.sealPhase then return #plan.seals end
-  if phase == plan.buildPhase then return #plan.builds end
-  return boxCells(plan.rooms[phase].box) + 1 -- +1 for the doorway
+  if phase == 0 then return boxCells(plan.hole) end
+  return #plan.seals
 end
 
-local function inBox(b, p)
-  return p.x >= b.x0 and p.x <= b.x1 and p.y >= b.y0 and p.y <= b.y1 and p.z >= b.z0 and p.z <= b.z1
-end
-
-local function roomContaining(p)
-  for _, r in ipairs(plan.rooms) do
-    if inBox(r.box, p) then return r end
-    for _, d in ipairs(r.door) do
-      if d.x == p.x and d.z == p.z and math.abs(p.y - d.y) <= 1 then return r end
-    end
-  end
-end
-
--- The room and doorway cell (middle height) that p is standing in, if any.
-local function doorAt(p)
-  for _, r in ipairs(plan.rooms) do
-    for _, d in ipairs(r.door) do
-      if d.x == p.x and d.z == p.z and math.abs(p.y - d.y) <= 1 then return r, d end
-    end
-  end
-end
-
-local function inShaft(p)
-  return plan.shaftBottom and p.x == plan.start.x and p.z == plan.start.z and p.y > plan.hall.y1
-end
-
--- Move anywhere in the dig, going through doorways instead of through walls
--- and up and down the shaft instead of tunnelling a new one.
+-- Move anywhere in the dig, going up and down the shaft instead of
+-- tunnelling a new one.
 local function travel(t)
   local p = here()
   if inShaft(p) and inShaft(t) then return goL(t) end
-  if inShaft(p) then
-    goL(plan.shaftBottom)
-    p = here()
-  end
-  local dest = inShaft(t) and plan.shaftBottom or t
-
-  -- In a doorway: only move straight up or down within it, or step back to
-  -- its middle and leave sideways, so the wall above the door stays intact.
-  local doorRoom, door = doorAt(p)
-  if doorRoom then
-    local _, destDoor = doorAt(dest)
-    if destDoor == door then return goL(dest) end
-    goL(door)
-    if roomContaining(dest) == doorRoom and not destDoor then goL(doorRoom.inner) else goL(doorRoom.hallSide) end
-    p = here()
-  end
-
-  local from, to = roomContaining(p), roomContaining(dest)
-  if from ~= to then
-    if from then
-      goL(from.inner)
-      goL(from.hallSide)
-    end
-    if to then
-      goL(to.hallSide)
-      goL(to.inner)
-    end
-  end
-  local ok, err = goL(dest)
-  if dest ~= t then ok, err = goL(t) end
-  return ok, err
+  if inShaft(p) then goL(plan.shaftBottom) end
+  if inShaft(t) then goL(plan.shaftBottom) end
+  return goL(t)
 end
 
 ---------------------------------------------------------------- position checks
@@ -401,8 +192,7 @@ local gpsPos = nav.locate
 -- Somewhere the turtle is meant to be: inside the dig, in the shaft, or on its start block.
 local function onPlan(p)
   local s = plan.start
-  return inBox(plan.hall, p) or roomContaining(p) ~= nil or inShaft(p)
-    or (p.x == s.x and p.y == s.y and p.z == s.z)
+  return inBox(plan.hole, p) or inShaft(p) or (p.x == s.x and p.y == s.y and p.z == s.z)
 end
 
 -- If the turtle finds itself off its route (picked up and put down
@@ -464,9 +254,7 @@ local function refuelFromInventory(target) inv.refuel(target) end
 
 local function homeDistance()
   local p, s = here(), plan.start
-  local d = math.abs(p.x - s.x) + math.abs(p.y - s.y) + math.abs(p.z - s.z)
-  if roomContaining(p) then d = d + 2 * (ROOM_DEPTH + WALL + ROOM_WIDTH) end
-  return d + 50
+  return math.abs(p.x - s.x) + math.abs(p.y - s.y) + math.abs(p.z - s.z) + 50
 end
 
 local function faceChest() nav.face((job.origin.heading + 2) % 4) end
@@ -553,81 +341,6 @@ local function housekeeping()
   end
 end
 
--- The main item in a range of slots: its name and how many there are.
-local function rangeContents(range)
-  local name, count = nil, 0
-  for slot = range[1], range[2] do
-    local item = turtle.getItemDetail(slot)
-    if item then
-      name = name or item.name
-      if item.name == name then count = count + item.count end
-    end
-  end
-  return name, count
-end
-
-local function rangeCapacity(range) return (range[2] - range[1] + 1) * 64 end
-
--- Before building: get enough fuel to finish without going home (a trip home
--- could dig through the half-built ledge), empty out at the chest, and ask
--- the player which blocks to build with.
-local function prepareBuild()
-  -- the build route: up to the fly height, across, and down onto each spot
-  local fuelNeeded, at = 200, { x = plan.start.x, y = plan.flyY, z = plan.start.z }
-  for _, b in ipairs(plan.builds) do
-    fuelNeeded = fuelNeeded + math.abs(at.y - plan.flyY) + math.abs(at.x - b.x) + math.abs(at.z - b.z)
-      + math.abs(plan.flyY - b.y)
-    at = b
-  end
-  fuelNeeded = fuelNeeded + math.abs(plan.flyY - plan.start.y) + plan.hall.x1 + plan.hall.z1 + 2 * plan.hall.y1 - 2 * plan.hall.y0
-  if fuelLevel() < fuelNeeded then
-    refuelFromInventory(fuelNeeded)
-    if fuelLevel() < fuelNeeded then waitForFuel(fuelNeeded) end
-  end
-  reach(plan.start)
-  faceChest()
-  dropItems(function() return true end, turtle.drop)
-
-  local need = {
-    ledge = math.min(plan.need.ledge, rangeCapacity(LEDGE_SLOTS)),
-    stairs = math.min(plan.need.stairs, rangeCapacity(STAIR_SLOTS)),
-  }
-  while true do
-    local ledgeName, ledgeCount = rangeContents(LEDGE_SLOTS)
-    local stairName, stairCount = rangeContents(STAIR_SLOTS)
-    if ledgeCount >= need.ledge and stairCount >= need.stairs then
-      job.materials = { ledge = ledgeName, stairs = stairName }
-      save()
-      print(("Building the ledge with %s%s."):format(tostring(ledgeName),
-        need.stairs > 0 and (" and the stairs with " .. tostring(stairName)) or ""))
-      return
-    end
-    print("Ready to build the ledge and stairs. What should I build them with?")
-    print(("  Slots %d-%d: ledge blocks, %d needed (have %d)"):format(LEDGE_SLOTS[1], LEDGE_SLOTS[2], plan.need.ledge, ledgeCount))
-    if need.stairs > 0 then
-      print(("  Slots %d-%d: stair blocks, %d needed (have %d)"):format(STAIR_SLOTS[1], STAIR_SLOTS[2], plan.need.stairs, stairCount))
-      print("  Real stair blocks work: I'll face them up the stairs.")
-    end
-    print("Fill the slots, then press Enter.")
-    report.set("waiting", "needs blocks for the ledge and stairs")
-    read()
-  end
-end
-
--- Select the ledge or stair material the player chose.
-local function selectMaterial(mat)
-  local range = mat == "stairs" and STAIR_SLOTS or LEDGE_SLOTS
-  local want = job.materials and job.materials[mat]
-  for slot = range[1], range[2] do
-    local item = turtle.getItemDetail(slot)
-    if item and (not want or item.name == want) then
-      turtle.select(slot)
-      return true
-    end
-  end
-  return false
-end
-
 -- Select cobblestone for patching walls.
 local function selectPatchBlock()
   for slot = 1, 16 do
@@ -675,16 +388,13 @@ end
 
 local function progressText()
   local done, total = 0, 0
-  for phase = 0, plan.buildPhase do
+  for phase = 0, plan.sealPhase do
     local size = phaseSize(phase)
     total = total + size
     if phase < job.phase then done = done + size elseif phase == job.phase then done = done + job.cell end
   end
-  local name = job.phase == 0 and "hall"
-    or job.phase == plan.sealPhase and "sealing walls"
-    or job.phase == plan.buildPhase and "ledge and stairs"
-    or ("room %d/%d"):format(job.phase, #plan.rooms)
-  return ("%s, %d%% overall"):format(name, math.floor(done / total * 100))
+  local name = job.phase == 0 and "digging" or "sealing walls"
+  return ("%s, %d%% overall"):format(name, total > 0 and math.floor(done / total * 100) or 100)
 end
 
 -- Digging leaves water and lava source blocks behind. Turn them into
@@ -710,7 +420,6 @@ local function digCell(box, p)
   end
 end
 
--- Out of cobblestone mid-seal: go home and wait for more.
 -- Out of cobblestone mid-seal (a really big cave): go home and ask for more.
 local function restockBlocks()
   reach(plan.start)
@@ -720,7 +429,9 @@ local function restockBlocks()
   while not selectPatchBlock() do os.pullEvent("turtle_inventory") end
 end
 
--- Fill any gap on the outward sides of an edge cell.
+-- Fill any gap on the outward sides of an edge cell. Standing in the cell
+-- clears any water source in it; anything that isn't solid beside it
+-- (air, water, lava) gets a block.
 local function sealCell(s)
   if not reach(s) then return end
   for _, d in ipairs(s.dirs) do
@@ -733,7 +444,7 @@ local function sealCell(s)
       nav.face((job.origin.heading + d) % 4)
       detect, place = turtle.detect, turtle.place
     end
-    if not detect() then -- air or fluid where there should be a wall
+    if not detect() then
       if not selectPatchBlock() then
         restockBlocks()
         return sealCell(s)
@@ -746,85 +457,44 @@ end
 
 local function run()
   rejoin()
-  while job.phase <= plan.buildPhase do
-    if job.phase == plan.buildPhase and job.cell == 0 and #plan.builds > 0 then prepareBuild() end
+  while job.phase <= plan.sealPhase do
     local size = phaseSize(job.phase)
     while job.cell < size do
       if job.phase == 0 then
-        digCell(plan.hall, boxCell(plan.hall, job.cell))
-      elseif job.phase == plan.sealPhase then
-        sealCell(plan.seals[job.cell + 1])
-      elseif job.phase == plan.buildPhase then
-        -- fly across above everything built, then drop straight down onto the spot
-        local b = plan.builds[job.cell + 1]
-        if reach({ x = b.x, y = plan.flyY, z = b.z }) and goL(b) then
-          while not selectMaterial(b.mat) do
-            local range = b.mat == "stairs" and STAIR_SLOTS or LEDGE_SLOTS
-            print(("Out of %s blocks. Add more to slots %d-%d."):format(b.mat, range[1], range[2]))
-            report.set("waiting", "needs more " .. b.mat .. " blocks")
-            os.pullEvent("turtle_inventory")
-          end
-          -- stair blocks face the way the turtle faces, so face up the flight
-          if b.face then nav.face((job.origin.heading + b.face + (STAIR_FLIP and 2 or 0)) % 4) end
-          turtle.placeDown()
-        end
+        digCell(plan.hole, boxCell(plan.hole, job.cell))
       else
-        local room = plan.rooms[job.phase]
-        if job.cell == 0 then
-          -- open the doorway on the way in
-          reach(room.hallSide)
-          for _, d in ipairs(room.door) do
-            if goL(d) then
-              nav.digDown()
-              if DOOR_HEIGHT >= 3 then nav.digUp() end
-            end
-          end
-          goL(room.inner)
-        else
-          digCell(room.box, boxCell(room.box, job.cell - 1))
-        end
+        sealCell(plan.seals[job.cell + 1])
       end
       job.cell = job.cell + 1
       save()
       if job.cell % 20 == 0 then checkPosition() end
-      if job.phase ~= plan.buildPhase then housekeeping() end
+      housekeeping()
       if job.cell % 25 == 0 then print(progressText()) end
       -- only GPS jobs have real world coordinates; otherwise report.lua tries GPS itself
-      report.set(job.phase == plan.buildPhase and "building" or job.phase == plan.sealPhase and "sealing" or "digging",
-        progressText(), job.gps and { pos = nav.getPos() } or nil)
+      report.set(job.phase == 0 and "digging" or "sealing", progressText(), job.gps and { pos = nav.getPos() } or nil)
     end
     job.phase, job.cell = job.phase + 1, 0
     save()
   end
 
-  -- Get home without walking through the ledge or stairs: climb above them,
-  -- and if home is below them, come down the middle of the hall, where the
-  -- stairs have their landings, and walk along the floor from there.
-  local p = here()
-  goL({ x = p.x, y = math.max(p.y, plan.flyY), z = p.z })
-  if plan.start.y < plan.flyY then
-    local cx, cz = math.floor(job.width / 2), math.floor(job.length / 2)
-    goL({ x = cx, y = plan.flyY, z = cz })
-    goL({ x = cx, y = plan.hall.y0, z = cz })
-  end
   reach(plan.start)
   nav.face(job.origin.heading)
   nav.deleteFile(JOB_FILE)
-  print("Excavation complete!")
+  print("Excavation complete! The hole is dug and walled in.")
   report.set("done", "excavation complete")
   if job.atrium then
-    -- the plan's north-west bottom corner is the hall's, on its floor
+    -- the plan's north-west bottom corner is the hole's, on its floor
     local ax, _, az = toWorld({ x = 0, y = 0, z = 0 })
     local bx, _, bz = toWorld({ x = job.width - 1, y = 0, z = job.length - 1 })
     local x0, z0 = math.min(ax, bx), math.min(az, bz)
-    local y0 = job.origin.y + plan.hall.y0
+    local y0 = job.origin.y + plan.hole.y0
     print("Now for the atrium plan. Put a builder turtle")
     if job.gps then
       print(("at %d %d %d facing south, its chests behind"):format(x0 + BUILDER_HOME.x, y0, z0 + BUILDER_HOME.z))
       print("and to its left, and run 'builder setup'. Then:")
       print(("  build atrium %d %d %d"):format(x0, y0, z0))
     else
-      print(("%d east and %d south of the hall's north-west"):format(BUILDER_HOME.x, BUILDER_HOME.z))
+      print(("%d east and %d south of the hole's north-west"):format(BUILDER_HOME.x, BUILDER_HOME.z))
       print("corner, facing south, chests behind and left.")
       print("Then 'build atrium <x> <y> <z>': that corner, on the floor.")
     end
@@ -858,6 +528,13 @@ if args[1] == "resume" or args[1] == "here" then
     print("No job to resume.")
     return
   end
+  -- An older job was past the hall (rooms, sealing or the ledge): there are
+  -- no rooms or ledge now, so just seal the hole.
+  if job.v ~= JOB_VERSION then
+    if job.phase > 0 then job.phase, job.cell = 1, 0 end
+    job.v = JOB_VERSION
+    save()
+  end
   buildPlan()
   if args[1] == "here" then
     -- the player has put the turtle back on its start block
@@ -879,31 +556,28 @@ else
   -- numbers are width, length, height in that order; the mode word can go anywhere
   local nums, dir, atrium = {}, "up", false
   for _, a in ipairs(args) do
-    if tonumber(a) then nums[#nums + 1] = tonumber(a) elseif a == "atrium" then atrium = true else dir = a end
+    if tonumber(a) then nums[#nums + 1] = math.floor(tonumber(a)) elseif a == "atrium" then atrium = true else dir = a end
   end
   local defaults = atrium and ATRIUM_SIZE or { 21, 21, 16 }
   local w, l, h = nums[1] or defaults[1], nums[2] or defaults[2], nums[3] or defaults[3]
-  if dir ~= "up" and dir ~= "down" and dir ~= "deep" then
+  if dir ~= "up" and dir ~= "down" and dir ~= "deep" or w < 1 or l < 1 or h < 1 then
     print("Usage: excavate [width] [length] [height] [up|down|deep]")
     print("       excavate atrium [up|down|deep]")
     return
   end
   if atrium and (w ~= ATRIUM_SIZE[1] or l ~= ATRIUM_SIZE[2] or h ~= ATRIUM_SIZE[3]) then
-    print(("The atrium plan fits a %dx%dx%d box: leave the sizes out."):format(ATRIUM_SIZE[1], ATRIUM_SIZE[2], ATRIUM_SIZE[3]))
-    return
-  end
-  if h < UPPER_FLOOR + ROOM_HEIGHT then
-    print(("Height must be at least %d to fit two floors of rooms."):format(UPPER_FLOOR + ROOM_HEIGHT))
+    print(("The atrium plan fits a %dx%dx%d hole: leave the sizes out."):format(ATRIUM_SIZE[1], ATRIUM_SIZE[2], ATRIUM_SIZE[3]))
     return
   end
   if not knowsPosition then nav.setPosition(0, 0, 0, "north") end
-  -- The turtle sits at the hall's corner, or above its middle in deep mode.
-  -- The origin is the hall's corner, so shift it back from the turtle.
+  -- The turtle sits at the hole's corner, or above its middle in deep mode.
+  -- The origin is the hole's corner, so shift it back from the turtle.
   local p, heading = nav.getPos(), nav.getHeading()
   local start = { x = 0, y = 0, z = 0 }
   if dir == "deep" then start = { x = math.floor(w / 2), y = 0, z = math.floor(l / 2) } end
   local f, r = DIRS[heading], DIRS[(heading + 1) % 4]
-  job = { width = w, length = l, height = h, dir = dir, atrium = atrium or nil, phase = 0, cell = 0, start = start, gps = hasGps,
+  job = { v = JOB_VERSION, width = w, length = l, height = h, dir = dir, atrium = atrium or nil, phase = 0, cell = 0,
+    start = start, gps = hasGps,
     origin = { x = p.x - start.x * r.x - start.z * f.x, y = p.y, z = p.z - start.x * r.z - start.z * f.z, heading = heading } }
   print(hasGps and "GPS found: I'll check my position as I go."
     or "No GPS: working from my own position count only.")
@@ -918,38 +592,22 @@ else
     local floorY = BEDROCK_TOP + ABOVE_BEDROCK
     job.startY, job.floor = startY, floorY - startY
     if job.floor + h - 1 >= 0 then
-      print(("The turtle must be above Y %d for the hall to fit below it."):format(floorY + h - 1))
+      print(("The turtle must be above Y %d for the hole to fit below it."):format(floorY + h - 1))
       return
     end
     depth = startY - (floorY + h - 1)
-    print(("Shaft %d blocks down; hall floor at Y %d (%d above bedrock)."):format(depth, floorY, ABOVE_BEDROCK))
+    print(("Shaft %d blocks down; hole floor at Y %d (%d above bedrock)."):format(depth, floorY, ABOVE_BEDROCK))
   end
   buildPlan()
 
   local total = 0
-  for phase = 0, plan.buildPhase do total = total + phaseSize(phase) end
+  for phase = 0, plan.sealPhase do total = total + phaseSize(phase) end
   -- each trip to the chest goes up and down the shaft
   local fuel = math.floor(total * 1.3 + (total / 300) * 2 * depth + 2 * depth)
-  if atrium then
-    print(("Box %dx%dx%d (%s), no rooms: the atrium plan fills it."):format(w, l, h, dir))
-  else
-    print(("Hall %dx%dx%d (%s), %d rooms on 2 floors, ledge%s."):format(w, l, h, dir, #plan.rooms,
-      plan.hasStairs and " and stairs" or " (no room for stairs)"))
-  end
-  if not plan.symmetric then
-    print("Note: rooms can't be spaced evenly at this size, so the layout won't be")
-    print("perfectly symmetric. Odd sizes like 21 work best.")
-  end
+  print(("Hole %dx%dx%d (%s)%s."):format(w, l, h, dir, atrium and ", for the atrium plan" or ""))
+  if SEAL_WALLS then print("Then I wall in every gap and dry it out.") end
   print(("Needs about %d fuel (have %s). I refuel from the chest"):format(fuel, tostring(turtle.getFuelLevel())))
   print("behind me, so put coal in it. Mined coal goes there too.")
-  if atrium then
-    print("Build it afterwards with build-control.")
-  else
-    print(("When it's time to build I'll ask for %d ledge blocks (slots %d-%d)"):format(plan.need.ledge, LEDGE_SLOTS[1], LEDGE_SLOTS[2]))
-  end
-  if plan.need.stairs > 0 then
-    print(("and %d stair blocks (slots %d-%d)."):format(plan.need.stairs, STAIR_SLOTS[1], STAIR_SLOTS[2]))
-  end
   print("Chest goes directly behind me. Press Enter to start.")
   read()
   save()

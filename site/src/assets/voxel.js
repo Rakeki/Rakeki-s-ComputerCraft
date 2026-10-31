@@ -312,45 +312,23 @@
     return base;
   }
 
-  // Excavator: the default 21x21x16 hall, rooms 5 wide x 10 deep x 6 high,
-  // 3 per wall on two floors, a 3-wide ledge at the upper floor and split stairs.
+  // Excavator: the default 21x21x16 hole, empty, with cobblestone patches
+  // where it sealed caves in the walls and floor (the builder fills it).
   function excavate() {
-    const W = 21, H = 16, ROOM_D = 10, UPPER = 7, LEDGE = 3;
+    const W = 21, H = 16, EDGE = 4;
     const w = new World(), r = rand(21);
-    const lo = -ROOM_D - 2, hi = W + ROOM_D + 1;
+    const lo = -EDGE, hi = W + EDGE - 1;
     w.box(lo, hi, -1, H - 1, lo, hi, (x, y, z) => y === H - 1 ? "grass" : y >= H - 3 ? "dirt" : rock(r, y, y < 3));
     const air = (x0, x1, y0, y1, z0, z1) => w.box(x0, x1, y0, y1, z0, z1, null);
     air(0, W - 1, 0, H - 1, 0, W - 1);
-    // rooms: along each wall at 2..6, 8..12, 14..18; doorway in the middle
-    for (const floor of [0, UPPER]) {
-      for (const a of [2, 8, 14]) {
-        const mid = a + 2;
-        air(a, a + 4, floor, floor + 5, -ROOM_D - 1, -2); air(mid, mid, floor, floor + 2, -1, -1);
-        air(a, a + 4, floor, floor + 5, W + 1, W + ROOM_D); air(mid, mid, floor, floor + 2, W, W);
-        air(-ROOM_D - 1, -2, floor, floor + 5, a, a + 4); air(-1, -1, floor, floor + 2, mid, mid);
-        air(W + 1, W + ROOM_D, floor, floor + 5, a, a + 4); air(W, W, floor, floor + 2, mid, mid);
-      }
+    // sealed gaps: a cave through two walls and a hole in the floor
+    for (let i = 0; i < 4; i++) for (let y = 4 + (i % 2); y < 8 - (i === 3 ? 1 : 0); y++) {
+      w.set(-1, y, 6 + i, "cobble"); w.set(9 + i, y + 2, -1, "cobble");
     }
-    // ledge
-    for (let x = 0; x < W; x++) for (let z = 0; z < W; z++) {
-      if (Math.min(x, z, W - 1 - x, W - 1 - z) < LEDGE) w.set(x, UPPER - 1, z, "bricks");
-    }
-    // split stairs, 2 wide just inside the ledge, 7 steps from the middle to each corner
-    const mid = (W - 1) / 2;
-    for (let k = 1; k <= 7; k++) {
-      for (const along of [mid + 1 + k, mid - 1 - k]) {
-        for (const d of [LEDGE, LEDGE + 1]) {
-          for (let y = 0; y < k; y++) {
-            const m = y === k - 1 ? "planks" : "bricks";
-            w.set(along, y, d, m); w.set(along, y, W - 1 - d, m);
-            w.set(d, y, along, m); w.set(W - 1 - d, y, along, m);
-          }
-        }
-      }
-    }
+    for (const [x, z] of [[12, 13], [13, 13], [12, 14], [13, 14], [14, 14]]) w.set(x, -1, z, "cobble");
     // the turtle and its chest at the start corner
     w.set(0, 0, 0, "turtle"); w.set(-1, 0, 0, "chest"); air(-1, -1, 1, 1, 0, 0);
-    [[3, 3], [17, 3], [3, 17], [17, 17]].forEach(([x, z]) => w.set(x, UPPER, z, "torch"));
+    [[3, 3], [17, 3], [3, 17], [17, 17]].forEach(([x, z]) => w.set(x, 0, z, "torch"));
     // the quarter nearest the viewer is cut away (see mount) so you can see in
     return { world: w, cut: Math.floor(W / 2) };
   }
