@@ -98,6 +98,9 @@ local SERVICE_FORGET = 900 -- seconds without a status or a request before it's 
 local OVERSEER_PROTOCOL = "craft_overseer" -- a crafting overseer (computers/craft-overseer) takes the queue on this
 local OVERSEER_EVERY = 30 -- seconds between looks for a crafting overseer while there isn't one
 local OVERSEER_WAIT = 5 -- seconds to wait for the overseer to take the jobs
+local MACHINE_PROTOCOL = "factory" -- a factory computer takes machine jobs (infusing) on this
+local MACHINE_WAIT = 5 -- seconds to wait for it to take one
+local MACHINE_FORGET = 300 -- seconds a machine's recipes are kept after it last sent them
 -- Kinds of inventory a turtle may claim as its chest (matched against the
 -- peripheral type, e.g. "minecraft:chest"): never furnaces or hoppers.
 local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
@@ -126,6 +129,9 @@ local reserved = {}
 -- how many of each item asked for by a turtle are already being made.
 local craftQueue = {}
 local pendingCraft = {}
+-- Machines that run some recipes instead of the crafting turtle (the
+-- factory's infuser): via -> { id, at, key }.
+local makers = {}
 local planCount = 0
 local jobCount = 0
 local runId = os.epoch("utc") -- makes job ids unique across restarts (the overseer keeps its queue)
@@ -833,7 +839,6 @@ function orderCraft(name, count)
   end
   if not crafting then return false, "crafting.lua is missing: run 'install update'" end
   if not crafting.canMake(name) then return false, "no recipe for it" end
-  if not hasCrafter() then return false, "no crafter chest: start a crafting turtle against one on my network" end
   local stock, reach = planningStock(), reachNow()
   local jobs, why = crafting.plan(name, count, stock, reach), nil
   if not jobs then
@@ -843,6 +848,12 @@ function orderCraft(name, count)
     count, why = can, ("only enough to make %d"):format(can)
     jobs = crafting.plan(name, count, stock, reach)
     if not jobs then return false, "not enough to make it from" end
+  end
+  -- a plan only machines run (steel dust from the infuser) needs no crafting turtle
+  for _, job in ipairs(jobs) do
+    if not job.recipe.via and not hasCrafter() then
+      return false, "no crafter chest: start a crafting turtle against one on my network"
+    end
   end
   planCount = planCount + 1
   for _, job in ipairs(jobs) do
@@ -987,11 +998,63 @@ local function jobFinished(job, ok, why)
       local other = craftQueue[i]
       if other.plan == job.plan then
         if other.top then pendingCraft[other.name] = math.max(0, (pendingCraft[other.name] or 0) - other.top) end
+        -- a machine already making its part stops
+        local maker = other.recipe.via and other.sent and makers[other.recipe.via]
+        if maker then rednet.send(maker.id, { type = "cancel", job = other.id }, MACHINE_PROTOCOL) end
         table.remove(craftQueue, i)
       end
     end
   end
   os.queueEvent("storage_changed")
+  os.queueEvent("storage_craft") -- the steps that waited on it can go now
+end
+
+-- A job that has to wait: an earlier step of its plan (a machine's, for a
+-- crafting turtle's job; any, for a machine's) isn't done yet. The crafting
+-- turtles' own steps are run in order by whoever runs them.
+local function blocked(job)
+  for _, other in ipairs(craftQueue) do
+    if other == job then return false end
+    if other.plan == job.plan and (job.recipe.via or other.recipe.via) then return true end
+  end
+  return false
+end
+
+-- Hand each machine's jobs whose turn it is to the machine (the factory's
+-- infuser), which reports back with 'jobdone' like the overseer. A machine
+-- not heard from for a while is forgotten, with its recipes.
+local function runMachineJobs()
+  for via, maker in pairs(makers) do
+    if os.clock() - maker.at > MACHINE_FORGET then
+      makers[via] = nil
+      crafting.setMachine(via, {})
+      reachCache = nil
+    end
+  end
+  for _, job in ipairs(craftQueue) do
+    local via = job.recipe.via
+    if via and not job.sent and not blocked(job) then
+      local maker = makers[via]
+      if not maker then
+        jobFinished(job, false, "no factory computer can make it any more")
+        return -- the queue changed
+      end
+      local n = job.steps * job.recipe.count
+      local reply = net.ask(maker.id, MACHINE_PROTOCOL,
+        { type = via, job = job.id, make = job.name, count = n, grid = job.grid }, { wait = MACHINE_WAIT })
+      if reply and reply.ok then
+        job.sent = true
+        message = { ("Asked factory #%d to make %d %s."):format(maker.id, n, nameOf(job.name)), "lightBlue" }
+        os.queueEvent("storage_changed")
+      elseif reply then
+        jobFinished(job, false, reply.why or "the factory computer said no")
+        return
+      else
+        message = { ("Factory #%d didn't answer: %s waits."):format(maker.id, nameOf(job.name)), "orange" }
+        os.queueEvent("storage_changed")
+      end
+    end
+  end
 end
 
 -- The crafting overseer (computers/craft-overseer), if there is one: it
@@ -1008,15 +1071,17 @@ end
 -- Send the overseer the jobs it hasn't got yet. False if it didn't answer.
 local function handOver()
   local list = {}
+  local handed = {}
   for _, job in ipairs(craftQueue) do
-    if not job.sent then
+    if not job.sent and not job.recipe.via and not blocked(job) then
       list[#list + 1] = { id = job.id, plan = job.plan, name = job.name, steps = job.steps, count = job.recipe.count,
         grid = job.grid, top = job.top }
+      handed[#handed + 1] = job
     end
   end
   if #list == 0 then return true end
   if net.ask(overseerId, OVERSEER_PROTOCOL, { type = "jobs", jobs = list }, { wait = OVERSEER_WAIT }) then
-    for _, job in ipairs(craftQueue) do job.sent = true end
+    for _, job in ipairs(handed) do job.sent = true end
     message = { ("Gave the crafting overseer (#%d) %d crafts."):format(overseerId, #list), "lightBlue" }
     os.queueEvent("storage_changed")
     return true
@@ -1030,9 +1095,10 @@ end
 local function craftLoop()
   while true do
     checkSystemCrafts()
+    if rednet.isOpen() then runMachineJobs() end
     local unsent
     for _, job in ipairs(craftQueue) do
-      if not job.sent then unsent = job break end
+      if not job.sent and not job.recipe.via and not blocked(job) then unsent = job break end
     end
     if not (hasCrafter() and unsent) then
       local timer = os.startTimer(10)
@@ -1085,6 +1151,9 @@ end
 --   { type = "work", items } / { type = "work", seen } -> found through an ender chest, like "claim"
 --   { type = "fill", items = { [name] = n }, fuel = n, sweep } -> { re = "fill", sent, ready, fuel, error, nochest, swept }  (top it up;
 --                                                     sweep: first put away everything else in it, for one ender chest both ways)
+--   { type = "makes", via, recipes = { { make, count, rows, keys } } } -> { re, ok }  (a machine's recipes, e.g. the
+--                                                     factory's infuser: plans use them, and their jobs go to it)
+--   { type = "jobdone", job, ok, why }              -> { re, ok }  (from that machine too)
 -- From the crafting overseer, which runs the crafting queue when there is one:
 --   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
 --   { type = "load", crafter, grid, steps }         -> { re, steps (0: not loaded), error, missing = { [item] = n } }
@@ -1621,8 +1690,24 @@ local function handleRequest(from, msg)
     local chest = crafterChest(tonumber(msg.crafter))
     answer(from, msg, { re = "clear", ok = chest ~= nil and clearCrafter(chest) })
     os.queueEvent("storage_changed")
+  elseif type(msg) == "table" and msg.type == "makes" and type(msg.via) == "string" and type(msg.recipes) == "table" then
+    -- a factory computer: what its machines can make (sent again every so often)
+    if not crafting then
+      answer(from, msg, { re = "makes", ok = false, error = "crafting.lua is missing: run 'install update'" })
+    else
+      local key = textutils.serialize(msg.recipes)
+      local maker = makers[msg.via]
+      if not maker or maker.key ~= key or maker.id ~= from then
+        local n = crafting.setMachine(msg.via, msg.recipes)
+        reachCache = nil
+        if n > 0 then message = { ("Factory #%d can make %d things by %s."):format(from, n, msg.via), "lightBlue" } end
+      end
+      makers[msg.via] = #msg.recipes > 0 and { id = from, at = os.clock(), key = key } or nil
+      answer(from, msg, { re = "makes", ok = true })
+      os.queueEvent("storage_craft")
+    end
   elseif type(msg) == "table" and msg.type == "jobdone" then
-    -- the overseer finished (or gave up on) a job it was given
+    -- the overseer (or a factory computer) finished, or gave up on, a job it was given
     for _, job in ipairs(craftQueue) do
       if job.id == msg.job then
         jobFinished(job, msg.ok, msg.why)

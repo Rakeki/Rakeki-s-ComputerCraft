@@ -90,6 +90,28 @@ return {
     names = {},
   },
 
+  -- Mekanism metallurgic infusers: nothing is infused until it's requested.
+  infuser = {
+    -- More recipes, e.g. a mod's: make (count of it) from per of one of
+    -- from, with amount of an infusion type (carbon, redstone, diamond,
+    -- refined_obsidian, tin, gold, bio, fungi).
+    -- { title = "Bronze block", make = "mod:bronze_block", from = { "minecraft:copper_block" }, per = 1,
+    --   infuse = "tin", amount = 90 },
+    recipes = {},
+    -- Recipes not to offer (on the screen or to the storage computer), by what they make.
+    hide = {},
+    -- How many of an item to leave in storage, never infused or used to infuse.
+    keep = {},
+    -- Tell the storage computer what can be infused here, so its crafting
+    -- plans can have steel dust, alloys and circuits made. false: requests only.
+    offer = true,
+    -- Set each infuser's sides: Top to Input, Bottom to Output, the rest to
+    -- Extra, Auto-eject on (needs its security set to Public). false: you do.
+    setSides = true,
+    -- Names on the screen instead of "Infuser 1", by peripheral name.
+    names = {},
+  },
+
   -- Cobblemon cooking pots.
   cooker = {
     -- What a pot can make, by the name 'factory add pot' lists. make: the item

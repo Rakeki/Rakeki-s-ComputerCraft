@@ -1058,7 +1058,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters and enrichment chambers, Create crushers, washers and fans, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
+      "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters, enrichment chambers and infusers, Create crushers, washers and fans, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
       "replaces": ["smelter-computer", "enricher-computer", "cooker-computer", "essence-computer"],
       "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
       "keep": ["config.lua"],
@@ -1067,11 +1067,12 @@
         ["Mods","vanilla, Mekanism, Create, Cobblemon, Mystical Agriculture"],
         ["Computers","one, or one per room"],
         ["Found by itself","furnaces, botany pots"],
-        ["Orders","charcoal, stone, glass"]
+        ["Orders","charcoal, stone, glass, infusing"]
       ],
       "features": [
         "Furnaces, blast furnaces and smokers: ores, dust and food smelted and cooked, fuelled from the fuel chest; charcoal, stone and glass on order",
         "Mekanism Enrichment Chambers (2 dust per ore block, 4 per 3 raw ores) and Energized Smelters, fed through a hopper or barrel",
+        "Mekanism Metallurgic Infusers on request: steel, alloys, circuits, bronze and more, from +1 / +8 / +64 buttons on the Infuser tab or the monitor; the storage computer orders the infusing its crafts need, and a missing in-between step (enriched iron for steel) is made first",
         "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed",
         "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; a Candy page on the monitor",
         "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into",
@@ -1084,16 +1085,17 @@
       "setup": [
         "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
         "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves.",
-        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines, Create lines and cooking pots. Pick a work chest if you have many machines."
+        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines and cooking pots. Pick a work chest if you have many machines."
       ],
       "commands": [
         ["factory","start (runs on boot)"],
         ["factory setup","the setup screen on the monitor and the computer: machines, the chain, the work chest, the monitor; or tap Setup, or press F1"],
-        ["factory add crusher","add a machine: chamber, smelter (Mekanism), crusher, washer, fan, smokefan (Create) or pot (Cobblemon)"],
+        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan (Create) or pot (Cobblemon)"],
         ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
         ["factory remove 2","forget machine 2 (no number: list them)"],
         ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],
         ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone, glass and cancel)"],
+        ["factory infuse steel 64","ask the infusers for 64 steel dust (factory infuse lists the recipes; factory infuse cancel cancels)"],
         ["factory find iron","essence recipes for anything with iron in its name, and how many you can make"],
         ["factory make 64 iron ingot","order 64 iron ingots made from essence"],
         ["factory chest","pick the work chest (none: stop using one; remote: far away through an ender chest)"],
@@ -1111,6 +1113,7 @@
       "render": { "kind": "screen", "scene": "smelter", "caption": "The Smelter tab: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.", "more": [
         {"scene":"smelterBoard","caption":"The monitor is a status board: a tile per machine, lime idle, yellow working, orange flat out, red when it needs you (no fuel or power, output stuck, a Create line not moving, a pot not cooking)."},
         {"scene":"enricher","caption":"The Enricher tab: each chamber, crusher and washer, the ore it's on, how many are queued in it and its feeder, its power and what it's doing."},
+        {"scene":"infuser","caption":"The Infuser tab: each recipe, how many you can make from what is stored, and buttons to ask for more; what is asked for is listed under it (the storage computer orders too). Try the buttons."},
         {"scene":"cooker","caption":"The Pots tab: each cooking pot, what it makes, how many it has made and what it's doing."},
         {"scene":"cookerMonitor","caption":"The monitor's Candy page: each size in storage and in the pots, the exp it's worth, and what's left to make more XS from."},
         {"scene":"essence","caption":"The Essence tab: what the stored essence makes, how many you can make, and an order of 4 crafts of iron ingots."}
@@ -1479,10 +1482,10 @@
       "tagline": "Mekanism machines fed through a hopper or barrel (CC can't reach their slots): reads them and their feeders at once, sets their output side, registers barrel feeders with the storage computer and handles the add / remove commands. Also Create lines (crushing wheels, fans), which CC can't see at all: a feeder chest and an output chest.",
       "usage": "local mekfeed = require(\"lib.mekfeed\")\n\nlocal set = mekfeed.new({ name = \"smelter\", single = \"energizedSmelter\",\n  factory = \"SmeltingFactory\", what = \"energized smelter\", title = \"Smelter\",\n  ask = ask, tell = tell })\n\n-- each round:\nlocal machines = set:read()\nlocal unsure = set:register(work.remote)\nset:unstick(machines, input, function(m, item) end)\nfor _, m in ipairs(machines) do\n  if mekfeed.ready(m) and not unsure[m.entry.feeder] then\n    local n = mekfeed.space(m, \"minecraft:raw_iron\")\n    -- send n into m.entry.feeder, then mekfeed.added(m, name, sent)\n  end\nend",
       "api": [
-        ["mekfeed.new(opts)", "A set of machines saved in /.<name>_machines: single and factory are the peripheral types (factory a suffix after the tier), what / title for messages, names, setSides, ask, tell; lines = { \"crush\", \"wash\" } or { \"blast\", \"smoke\" } adds Create lines (kinds in mekfeed.LINES), pageTitle names the setup page."],
+        ["mekfeed.new(opts)", "A set of machines saved in /.<name>_machines: single and factory are the peripheral types (factory a suffix after the tier), what / title for messages, names, setSides, ask, tell; lines = { \"crush\", \"wash\" } or { \"blast\", \"smoke\" } adds Create lines (kinds in mekfeed.LINES), pageTitle names the setup page. For the infuser: extra = { title, hint } (a second feeder each, for the extra slot), sides (the side config to set), read(m, call) (more reads per machine), needOutput (an output chest must be picked)."],
         ["set:read()", "Every saved machine and its feeder, read side by side (each Mekanism call takes a tick), sides set once. Each: entry { machine, feeder }, title, slots, factory, present, inputs, outputs, energy, usage, feedOk, feedSize, feedList, feed, feedTotal."],
         ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
-        ["mekfeed.register(sets, remote)", "The same for several sets on one computer at once (the factory's smelter and enricher): the storage computer keeps one feeder list per computer, and each 'feeders' replaces it."],
+        ["mekfeed.register(sets, remote)", "The same for several sets on one computer at once (the factory's smelter, enricher and infuser): the storage computer keeps one feeder list per computer, and each 'feeders' replaces it."],
         ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
         ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, true if some didn't fit, why a move failed, and item -> how many of it moved (the smelter counts its orders with it)."],
         ["mekfeed.status(m, working)", "Status board colour and words: red (not on network, no feeder or output chest, no power, output full; a Create line: not moving), orange (working flat out: every slot busy and a stack waiting), yellow (working: says working), lime (idle)."],

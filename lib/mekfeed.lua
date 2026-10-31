@@ -29,14 +29,21 @@
 --
 -- More opts: cmd (the command in printed hints, default name), event (queued
 -- when the list changes, default name .. "_added"), taken(name) (another
--- computer's: left out of what can be added).
+-- computer's: left out of what can be added), sides (the item side config
+-- set on each machine, default { BOTTOM = "OUTPUT" }), extra (a second
+-- feeder for the machine's extra slot: { title, hint }, the Metallurgic
+-- Infuser's infusion items), needOutput (an output chest has to be picked:
+-- what comes out is counted), read(m, call) (more reads for each machine:
+-- a list of functions, run alongside the rest).
 --
--- Each machine: { n, entry = { machine, feeder, output (nil: none) }, title,
--- slots, factory, present, inputs[i], outputs[i] (each { name, count } or
--- nil), energy (0-1), usage, feedOk, feedSize, feedList (list()), feed
--- (name -> count), feedTotal, outOk (true without an output chest),
--- outList }. Mekanism runs each method on the game's main thread, one
--- tick per call, so every call runs side by side.
+-- Each machine: { n, entry = { machine, feeder, output (nil: none), extra },
+-- title, slots, factory, present, inputs[i], outputs[i] (each { name,
+-- count } or nil), energy (0-1), usage, feedOk, feedSize, feedList
+-- (list()), feed (name -> count), feedTotal, outOk (true without an output
+-- chest), outList; with opts.extra the same for the second feeder: extraOk,
+-- extraSize, extraList, extraFeed, extraTotal }. Mekanism runs each method
+-- on the game's main thread, one tick per call, so every call runs side by
+-- side.
 --
 -- A set can also hold Create lines (opts.lines = { "crush" } etc., kinds
 -- in mekfeed.LINES): Create's crushing wheels and fans aren't peripherals
@@ -183,7 +190,7 @@ end
 function Set:uses()
   local out = {}
   for _, entry in ipairs(self:entries()) do
-    for _, name in ipairs({ entry.machine or false, entry.feeder or false, entry.output or false }) do
+    for _, name in ipairs({ entry.machine or false, entry.feeder or false, entry.output or false, entry.extra or false }) do
       if name then out[#out + 1] = name end
     end
   end
@@ -222,6 +229,22 @@ local function readOne(m)
       m.feedTotal = m.feedTotal + item.count
     end
   end
+  if m.entry.extra then
+    jobs[#jobs + 1] = function()
+      local ok, list = pcall(peripheral.call, m.entry.extra, "list")
+      local okS, size = pcall(peripheral.call, m.entry.extra, "size")
+      m.extraOk = ok and type(list) == "table"
+      m.extraSize = okS and size or 0
+      m.extraList = m.extraOk and list or {}
+      for _, item in pairs(m.extraList) do
+        m.extraFeed[item.name] = (m.extraFeed[item.name] or 0) + item.count
+        m.extraTotal = m.extraTotal + item.count
+      end
+    end
+  end
+  if m.more then
+    for _, job in ipairs(m.more(m, call)) do jobs[#jobs + 1] = job end
+  end
   if m.entry.output then
     jobs[#jobs + 1] = function()
       local ok, list = pcall(peripheral.call, m.entry.output, "list")
@@ -232,19 +255,28 @@ local function readOne(m)
   parallel.waitForAll(table.unpack(jobs))
 end
 
--- Set the machine's bottom to Output and turn Auto-eject on, once. Only
--- works when its security is Public.
+-- Set the machine's item sides (opts.sides: its bottom to Output) and turn
+-- Auto-eject on, once. Only works when its security is Public.
+local SIDE_ORDER = { "TOP", "BOTTOM", "FRONT", "BACK", "LEFT", "RIGHT" }
 function Set:configure(m)
   local name = m.entry.machine
   if self.configured[name] ~= nil or self.opts.setSides == false then return end
-  local okM, mode = pcall(peripheral.call, name, "getMode", "ITEM", "BOTTOM")
-  if okM and mode ~= "OUTPUT" then okM = pcall(peripheral.call, name, "setMode", "ITEM", "BOTTOM", "OUTPUT") end
+  local sides = self.opts.sides or { BOTTOM = "OUTPUT" }
+  local okM = true
+  for _, side in ipairs(SIDE_ORDER) do
+    local want = sides[side]
+    if want and okM then
+      local ok, mode = pcall(peripheral.call, name, "getMode", "ITEM", side)
+      if ok and mode ~= want then ok = pcall(peripheral.call, name, "setMode", "ITEM", side, want) end
+      okM = ok
+    end
+  end
   local okE, ejecting = pcall(peripheral.call, name, "isEjecting", "ITEM")
   if okE and not ejecting then okE = pcall(peripheral.call, name, "setEjecting", "ITEM", true) end
   self.configured[name] = okM and okE
   if not self.configured[name] and self.opts.tell then
-    self.opts.tell(("Couldn't set %s's sides: make it Public, or set Bottom to Output and Auto-eject on by hand.")
-      :format(m.title), "orange")
+    self.opts.tell(("Couldn't set %s's sides: make it Public, or set %s and Auto-eject on by hand.")
+      :format(m.title, self.opts.sidesText or "Bottom to Output"), "orange")
   end
 end
 
@@ -265,7 +297,8 @@ function Set:read()
       list[i] = { n = i, entry = entry, title = titles[i],
         slots = tier and (FACTORY_SLOTS[tier] or 3) or 1, factory = tier ~= nil,
         present = peripheral.isPresent(entry.machine), inputs = {}, outputs = {}, feed = {}, feedList = {},
-        feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {} }
+        feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {},
+        extraOk = entry.extra == nil, extraSize = 0, extraList = {}, extraFeed = {}, extraTotal = 0, more = self.opts.read }
     end
   end
   local reads = {}
@@ -293,7 +326,9 @@ end
 
 -- Powered (a Create line: no power to read), with a feeder that answers:
 -- ready to be fed.
-function mekfeed.ready(m) return m.present and m.feedOk and (m.line ~= nil or (m.energy or 0) > 0) end
+function mekfeed.ready(m)
+  return m.present and m.feedOk and m.extraOk ~= false and (m.line ~= nil or (m.energy or 0) > 0)
+end
 
 -- How much more of an item the machine's input slots can take (an empty
 -- slot a stack, one holding the item the rest of its stack), less what's
@@ -361,6 +396,7 @@ function mekfeed.status(m, working)
   end
   if not m.present then return "red", "not on network" end
   if not m.feedOk then return "red", "no feeder" end
+  if m.extraOk == false then return "red", "no infusion feeder" end
   if not m.outOk then return "red", "no output chest" end
   if (m.energy or 0) <= 0 then return "red", "no power" end
   if mekfeed.full(m) then return "red", "output full" end
@@ -397,8 +433,8 @@ function mekfeed.register(sets, remote)
   for _, set in ipairs(sets) do
     for _, entry in ipairs(set:entries()) do
       -- whether or not its machine is there: a missing machine's barrel isn't storage either
-      for _, name in ipairs({ entry.feeder, entry.output or nil }) do
-        local t = peripheral.isPresent(name) and peripheral.getType(name)
+      for _, name in ipairs({ entry.feeder, entry.output or false, entry.extra or false }) do
+        local t = name and peripheral.isPresent(name) and peripheral.getType(name)
         if t and not isHopper(t) then list[#list + 1] = name end
       end
     end
@@ -506,8 +542,8 @@ function Set:list()
     if entry.line then
       print(("%d  %s: fed by %s, out to %s"):format(i, titles[i], entry.feeder, entry.output or "a storage input chest"))
     else
-      print(("%d  %s: %s, fed by %s, out to %s"):format(i, titles[i], entry.machine, entry.feeder,
-        entry.output or "the chest under it"))
+      print(("%d  %s: %s, fed by %s%s, out to %s"):format(i, titles[i], entry.machine, entry.feeder,
+        entry.extra and (" and " .. entry.extra) or "", entry.output or "the chest under it"))
     end
   end
 end
@@ -520,18 +556,21 @@ local function usedBy(list, skip)
       used[entry.feeder] = true
       if entry.machine then used[entry.machine] = true end
       if entry.output then used[entry.output] = true end
+      if entry.extra then used[entry.extra] = true end
     end
   end
   return used
 end
 
--- machine: its peripheral name, or a Create line's word ("crusher").
-function Set:add(machine, feeder, output)
+-- machine: its peripheral name, or a Create line's word ("crusher"). extra:
+-- the second feeder (opts.extra).
+function Set:add(machine, feeder, output, extra)
   local list = self:entries()
   local used = usedBy(list)
   local line = machine and self:lineWord(machine)
   local kind = line and LINES[line]
   local asking = not feeder -- an output chest is only asked for along with the feeder
+  local wantExtra = self.opts.extra and not line
   if not machine or not feeder then print("Right-click a modem to see its block's name.") end
   if line then
     machine = nil
@@ -566,15 +605,38 @@ function Set:add(machine, feeder, output)
     feeder = choose("Which? (Enter to cancel)", feeders)
     if not feeder then return end
   end
+  if wantExtra and not extra then
+    local extras = {}
+    for _, name in ipairs(findOnNetwork(isFeeder)) do
+      if not used[name] and not self:taken(name) and name ~= feeder
+        and (isHopper(peripheral.getType(name)) or freeChest(self, name)) then
+        extras[#extras + 1] = name
+      end
+    end
+    if #extras == 0 then
+      print(("Nothing free for its %s: %s"):format(self.opts.extra.title, self.opts.extra.hint))
+      return
+    end
+    print(("Its %s: %s"):format(self.opts.extra.title:upper(), self.opts.extra.hint))
+    extra = choose("Which? (Enter to cancel)", extras)
+    if not extra then return end
+  end
   if asking then
     local outs = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and not self:taken(name) and name ~= feeder and not isHopper(peripheral.getType(name))
-        and freeChest(self, name) then
+      if not used[name] and not self:taken(name) and name ~= feeder and name ~= extra
+        and not isHopper(peripheral.getType(name)) and freeChest(self, name) then
         outs[#outs + 1] = name
       end
     end
-    if #outs > 0 then
+    if self.opts.needOutput and #outs == 0 then
+      print("It needs an output chest under it (what it makes is counted there): an empty chest or barrel with a wired modem on it.")
+      return
+    elseif self.opts.needOutput then
+      print("Its OUTPUT chest or barrel, under it: what it makes goes here, is counted, then goes into storage.")
+      output = choose("Which? (Enter to cancel)", outs)
+      if not output then return end
+    elseif #outs > 0 then
       if kind then
         print(("Its OUTPUT chest: %s"):format(kind.out))
         print(self:far() and "Enter: none, it ends up in the ender chest itself."
@@ -589,10 +651,26 @@ function Set:add(machine, feeder, output)
       output = choose("Which?", outs)
     end
   end
-  if (machine and used[machine]) or used[feeder] or (output and used[output]) then print("That one is already added.") return end
-  if output == feeder then print("The feeder and the output chest have to be different chests.") return end
-  for _, name in ipairs({ machine or feeder, feeder, output }) do
+  if (machine and used[machine]) or used[feeder] or (output and used[output]) or (extra and used[extra]) then
+    print("That one is already added.")
+    return
+  end
+  if output == feeder or (extra and (extra == feeder or extra == output)) then
+    print("The feeders and the output chest have to be different chests.")
+    return
+  end
+  if self.opts.needOutput and not line and not output then print("It needs an output chest.") return end
+  if wantExtra and not extra then print(("It needs its %s."):format(self.opts.extra.title)) return end
+  for _, name in ipairs({ machine or feeder, feeder, output or feeder, extra or feeder }) do
     if not peripheral.isPresent(name) then print(name .. " isn't on the network.") return end
+  end
+  if extra then
+    local extraType = peripheral.getType(extra) or ""
+    if not isFeeder(extraType) then print(extra .. " isn't a hopper, barrel or chest.") return end
+    if not isHopper(extraType) and not freeChest(self, extra) then
+      print(extra .. " has items in it: empty it first (it might be a storage chest).")
+      return
+    end
   end
   if machine and not self:isMachine(peripheral.getType(machine) or "") then
     print(("%s isn't an %s."):format(machine, self.opts.what))
@@ -610,9 +688,10 @@ function Set:add(machine, feeder, output)
     if not freeChest(self, output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
   end
 
-  list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output }
+  list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output, extra = extra }
   self:save(list)
   local title = self:titles(list)[#list]
+  if extra then print(("Its %s: %s."):format(self.opts.extra.title, extra)) end
   if kind then
     print(("%s added, fed by %s."):format(title, feeder))
     print("A funnel or chute has to move its items into the machine; the computer can't see the machine itself.")
@@ -669,22 +748,44 @@ function Set:setupParts(ui)
       end })
     ui:say(kind and "Tap its feeder chest." or "Tap its hopper or barrel.")
   end
-  local function pickOutput(skip, current, feeder, kind, done)
+  -- the second feeder (opts.extra): a hopper or empty barrel, not its first feeder
+  local function pickExtra(skip, current, feeder, done)
     local u = used(skip)
-    local far = self:far()
-    local o = { title = "Pick its output chest",
-      hint = kind and (kind.out .. (far and " It goes home through the ender chest." or " It goes into storage from there."))
-        or far and "Under it: what it makes goes here, then home through the ender chest."
-        or "Under it: what it makes goes here, then into storage.",
-      names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
-      none = kind and (far and "(none: it ends up in the ender chest)" or "(none: it ends up in a storage input chest)")
-        or far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)",
+    ui:pickChest({ title = "Pick its " .. opts.extra.title, hint = opts.extra.hint,
+      names = findOnNetwork(isFeeder), current = current,
+      nothing = "Nothing free: a hopper into its side, or an empty barrel, with a wired modem on it.",
       roleOf = function(n)
         return u[n] and "another machine's" or n == feeder and "its feeder" or self:taken(n) and "in use" or nil
       end,
+      only = function(n, info)
+        return n == current or self:far() or isHopper(peripheral.getType(n) or "") or info.stacks == 0
+      end,
+      pick = function(n)
+        if u[n] or n == feeder or self:taken(n) then ui:say(("%s is taken."):format(n), "orange") return end
+        ui:back()
+        done(n)
+      end })
+    ui:say("Tap the hopper or barrel for its " .. opts.extra.title .. ".")
+  end
+  local function pickOutput(skip, current, feeder, kind, done, extra)
+    local u = used(skip)
+    local far = self:far()
+    local none = kind and (far and "(none: it ends up in the ender chest)" or "(none: it ends up in a storage input chest)")
+      or far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)"
+    local o = { title = "Pick its output chest",
+      hint = kind and (kind.out .. (far and " It goes home through the ender chest." or " It goes into storage from there."))
+        or opts.needOutput and "Under it: what it makes goes here and is counted, then goes into storage."
+        or far and "Under it: what it makes goes here, then home through the ender chest."
+        or "Under it: what it makes goes here, then into storage.",
+      names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
+      none = not (opts.needOutput and not kind) and none or nil,
+      roleOf = function(n)
+        return u[n] and "another machine's" or (n == feeder or n == extra) and "its feeder"
+          or self:taken(n) and "in use" or nil
+      end,
       only = function(n, info) return n == current or far or info.stacks == 0 end,
       pick = function(n)
-        if n and (u[n] or n == feeder or self:taken(n)) then ui:say(("%s is taken."):format(n), "orange") return end
+        if n and (u[n] or n == feeder or n == extra or self:taken(n)) then ui:say(("%s is taken."):format(n), "orange") return end
         ui:back()
         done(n)
       end }
@@ -720,7 +821,8 @@ function Set:setupParts(ui)
         local kind = e.line and (LINES[e.line] or LINES.crush)
         local function there(n) return peripheral.isPresent(n) and "lightGray" or "red" end
         local noOutput = self:far() and "none: the ender chest" or "none: a storage input chest"
-        return {
+        local extraTitle = opts.extra and opts.extra.title:gsub("^%l", string.upper)
+        local rows = {
           kind and { label = "Machine", value = "Create " .. kind.what, colour = "lightGray", dim = false }
             or { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
           { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
@@ -730,7 +832,7 @@ function Set:setupParts(ui)
             colour = e.output and there(e.output) or "gray",
             act = function()
               pickOutput(i, e.output, e.feeder, kind,
-                function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end)
+                function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end, e.extra)
             end },
           { label = "Remove it", colour = "red", act = function()
             local list = self:entries()
@@ -741,6 +843,13 @@ function Set:setupParts(ui)
               gone.output and " and output chest" or ""), "lime")
           end },
         }
+        if opts.extra and not kind then
+          table.insert(rows, 3, { label = extraTitle, value = e.extra or "none: add one",
+            colour = e.extra and there(e.extra) or "red", act = function()
+              pickExtra(i, e.extra, e.feeder, function(n) change(i, "extra", n, ("%s: %s."):format(extraTitle, n)) end)
+            end })
+        end
+        return rows
       end,
     }
   end
@@ -750,19 +859,26 @@ function Set:setupParts(ui)
     local kind = line and LINES[line]
     local function withMachine(machine)
       pickFeeder(nil, nil, kind, function(feeder)
-        pickOutput(nil, nil, feeder, kind, function(output)
-          local list = self:entries()
-          list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output }
-          self:save(list)
-          local title = self:titles(list)[#list]
-          if kind then
-            ui:say(("%s added. A funnel or chute has to move its items in."):format(title), "lime")
-          else
-            local hopper = isHopper(peripheral.getType(feeder) or "")
-            ui:say(("%s added.%s"):format(title, hopper and ""
-              or " A pipe has to move its items in: a logistical transporter set to pull, or a funnel."), "lime")
-          end
-        end)
+        local function withExtra(extra)
+          pickOutput(nil, nil, feeder, kind, function(output)
+            local list = self:entries()
+            list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output, extra = extra }
+            self:save(list)
+            local title = self:titles(list)[#list]
+            if kind then
+              ui:say(("%s added. A funnel or chute has to move its items in."):format(title), "lime")
+            else
+              local hopper = isHopper(peripheral.getType(feeder) or "")
+              ui:say(("%s added.%s"):format(title, hopper and ""
+                or " A pipe has to move its items in: a logistical transporter set to pull, or a funnel."), "lime")
+            end
+          end, extra)
+        end
+        if opts.extra and not kind then
+          pickExtra(nil, nil, feeder, withExtra)
+        else
+          withExtra(nil)
+        end
       end)
     end
     if kind then return withMachine(nil) end

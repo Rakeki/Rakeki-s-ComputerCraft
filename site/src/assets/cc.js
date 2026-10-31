@@ -784,7 +784,7 @@
   function factoryTabs(s, W, active) {
     s.fill(1, "gray");
     let x = 1;
-    for (const t of ["Smelter", "Enricher", "Pots", "Essence"]) {
+    for (const t of ["Smelter", "Enricher", "Infuser", "Pots", "Essence"]) {
       const label = ` ${t} `;
       s.put(x, 1, label, t === active ? "black" : "white", t === active ? "yellow" : "gray");
       x += label.length;
@@ -1512,6 +1512,99 @@
     return s;
   }
 
+  //---------------------------------------------------------------- infuser
+
+  // The factory's Infuser tab: same layout as computers/factory/infuse.lua.
+  // Each recipe with how many can be made and its request buttons, and the
+  // requests under it. The buttons work: a request is made a few at a time,
+  // and x cancels one.
+  function infuser(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const recipes = [
+      { title: "Steel dust", from: "enriched iron + carbon", can: 248 },
+      { title: "Enriched iron", from: "iron ingot + carbon", can: 320 },
+      { title: "Infused alloy", from: "copper ingot + redstone", can: 96 },
+      { title: "Reinforced alloy", from: "alloy infused + diamond", can: 12 },
+      { title: "Atomic alloy", from: "alloy reinforced + refined obsidian", can: 0 },
+      { title: "Basic circuit", from: "ingot osmium + redstone", can: 40 },
+      { title: "Bronze ingot", from: "3 copper ingot + tin", can: 0 },
+      { title: "Bronze dust", from: "3 dust copper + tin", can: 0 },
+      { title: "Gilded blackstone", from: "blackstone + gold", can: 0 },
+      { title: "Slime ball", from: "clay ball + bio", can: 18 },
+      { title: "Podzol", from: "dirt + bio", can: 64 },
+      { title: "Mycelium", from: "dirt + fungi", can: 0 },
+      { title: "Dirt", from: "sand + bio", can: 64 },
+      { title: "Mossy cobblestone", from: "cobblestone + bio", can: 64 },
+    ];
+    const requests = [
+      { title: "Steel dust", made: 22, count: 64, state: "on 2 infusers" },
+      { title: "Reinforced alloy", made: 0, count: 4, storage: true, state: "queued" },
+    ];
+    let msg = ["Sent 32 items to the infusers.", "lightGray"];
+
+    function step() {
+      const q = requests[0];
+      if (!q) return;
+      q.made = Math.min(q.count, q.made + 2);
+      q.state = "on 2 infusers";
+      if (q.made >= q.count) {
+        requests.shift();
+        msg = [`Made ${q.count} ${q.title}.`, "lime"];
+        if (requests[0]) requests[0].state = "on 1 infuser";
+      }
+    }
+
+    function draw() {
+      s.clear();
+      factoryTabs(s, W, "Infuser");
+      s.put(2, 2, "2 infusers, 2 working", "lightGray");
+      const bx = W - 16 + 1, canR = bx - 2, nameW = canR - 7;
+      s.put(2, 3, "Make", "yellow");
+      s.put(canR - 2, 3, "Can", "yellow");
+      s.put(bx, 3, "Request", "yellow");
+      const queueRows = Math.min(3, requests.length);
+      const rows = H - 4 - 2 - (queueRows > 0 ? queueRows + 1 : 0);
+      for (let i = 0; i < rows && i < recipes.length; i++) {
+        const r = recipes[i], y = 4 + i;
+        s.put(2, y, fitT(r.title, nameW), r.can > 0 ? "white" : "lightGray");
+        if (r.title.length + 2 < nameW) s.put(2 + r.title.length, y, fitT(" " + r.from, nameW - r.title.length), "gray");
+        const can = String(r.can);
+        s.put(canR - can.length + 1, y, can, r.can > 0 ? "lime" : "gray");
+        let x = bx;
+        for (const n of [1, 8, 64]) {
+          x = s.button(x, y, `+${n}`, "black", r.can > 0 ? "lightGray" : "gray", () => {
+            const q = requests.find((q) => q.title === r.title && !q.storage);
+            if (q) q.count += n; else requests.push({ title: r.title, made: 0, count: n, state: "queued" });
+            msg = [`Asked for ${n} ${r.title}.`, "lime"];
+          });
+        }
+      }
+      if (recipes.length > rows) s.put(W, 3 + rows, "v", "yellow");
+      if (queueRows > 0) {
+        const y = 4 + rows;
+        s.put(2, y, `Requests (${requests.length})`, "yellow");
+        requests.slice(0, queueRows).forEach((q, i) => {
+          const text = `${q.title} ${q.made}/${q.count}${q.storage ? " (storage)" : ""}: ${q.state}`;
+          s.put(2, y + 1 + i, fitT(text, W - 6), "white");
+          s.button(W - 3, y + 1 + i, "x", "white", "red", () => {
+            requests.splice(requests.indexOf(q), 1);
+            msg = ["Cancelled.", "lime"];
+          });
+        });
+      }
+      s.put(1, H - 1, fitT(msg[0], W), msg[1]);
+      s.put(1, H, fitT("Tap to request, x to cancel. Arrows scroll. Tab, F1: setup", W), "gray");
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 1500);
+    clickable(s, el, draw);
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- status boards
 
   // The factory's monitor: a tile per machine, like
@@ -1855,5 +1948,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, smelterBoard, remote, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild } };
 })();

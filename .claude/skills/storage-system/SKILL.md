@@ -58,6 +58,8 @@ supply:seen(r)
 | `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the factory's pot feed hoppers and chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
 | `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the factory's barrel and chest feeders (`lib/mekfeed.lua`; the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
+| `{ type = "makes", via, recipes = { { make, count, rows, keys } } }` | `ok`, `error` | a machine's recipes (the factory's infuser, `via = "infuse"`), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
+| `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine too, once it has made (or given up on) a job it was handed |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
@@ -86,7 +88,7 @@ Putting things away: drop them in the storage computer's **input chest**
 machines' output chests and botany pots; farms use it as their chest).
 
 The factory (`computers/factory`: one program, a part per kind of machine:
-`smelt.lua`, `enrich.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
+`smelt.lua`, `enrich.lua`, `infuse.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
 all of them) only ever `stock`, `send` / `fill` and empties into the input
 chest. Its essence part empties Hopper Botany Pots into the input chest
 itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
@@ -135,6 +137,14 @@ empties into storage each round (`set:collect`), or an extra input chest. The
 smelter part leaves alone the ores a lower-rank part takes (`f.leave`): the
 enricher here, or on another factory computer (`factory` protocol, `hello` →
 `stages` with `takes` = Lua patterns), and smelts the dust.
+The infuser part (rank 0) runs Metallurgic Infusers only on request: a file
+per request in `/.factory_infuse/` (its page's buttons, `factory infuse`, or
+the storage computer's `infuse` on the `factory` protocol, carrying `job`).
+Each infuser has two feeders (`opts.extra` in mekfeed: the infusion feeder
+goes in its Extra side) and needs an output chest, where what comes out is
+counted (`credit`). Its `takes` are the inputs and infusion items of open
+requests, so the smelter leaves them alone. A request whose input isn't
+stored but is infused here too gets a child request (`parent`).
 
 ## Crafting on request
 
@@ -159,6 +169,18 @@ fixes `pendingCraft` and drops the rest of a failed plan). Without an
 overseer, `craftLoop` runs jobs on one turtle itself. Never clear crafter
 chests from the storage computer while an overseer is about: a batch may be
 loaded.
+
+**Machine jobs.** A factory computer sends `makes` with its infuser's
+recipes as ordinary grids (input cells plus enough infusion items for one
+go), tagged `via`. Plans use them like any recipe, and their jobs have
+`job.recipe.via`: `runMachineJobs` (each `craftLoop` pass) sends each one whose
+turn it is to the maker (`factory` protocol, `{ type = via, job, make,
+count, grid }` → `ok` / `why`) and marks it `sent`; the factory answers with
+`jobdone`. `blocked(job)` holds back any job behind an unfinished machine
+job of its plan (and a machine job behind any earlier step), so `handOver`
+and the local crafter only take crafting jobs whose turn it is. A failed plan
+sends `cancel` for its machine jobs already handed out. A plan made only of
+machine jobs needs no crafting turtle.
 
 Recipes: `recipes.lua` (built in), `/.storage_recipes` (taught with
 `crafter learn`), and `pack_recipes.lua` (a modpack's crafting recipes from

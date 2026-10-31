@@ -11,7 +11,12 @@
 --   crafting.craftable(name, avail, max, reach) how many could be made from avail
 --   crafting.names()                every item it has a recipe for
 --   crafting.using(pattern)         every recipe with an ingredient matching a Lua pattern (essence)
+--   crafting.setMachine(via, list)  recipes a machine runs instead of a crafting turtle (the factory's
+--                                   infuser: via = "infuse"), replacing that machine's earlier ones
 --
+-- A machine's recipe looks like any other (a grid of what goes in for one
+-- go), so plans use it like one; its jobs carry recipe.via, and the storage
+-- computer hands them to the machine instead of the crafting turtle.
 -- reach (from crafting.reachable) is optional: with thousands of modded
 -- recipes, plans only try making ingredients that can be made at all,
 -- which keeps them quick. Work it out once and pass it to many plans.
@@ -53,11 +58,32 @@ end
 local function add(raw, first)
   local r, err = normalize(raw)
   if not r then return nil, err end
+  r.via = type(raw.via) == "string" and raw.via or nil
   local list = byMake[r.make] or {}
   byMake[r.make] = list
   if first then table.insert(list, 1, r) else list[#list + 1] = r end
   makeableCache = {}
   return r
+end
+
+-- The recipes a machine (via) can run, in place of the ones it sent last
+-- time; tried after the crafting recipes for the same item. How many it took.
+function crafting.setMachine(via, list)
+  for make, recipes in pairs(byMake) do
+    for i = #recipes, 1, -1 do
+      if recipes[i].via == via then table.remove(recipes, i) end
+    end
+    if #recipes == 0 then byMake[make] = nil end
+  end
+  local added = 0
+  for _, raw in ipairs(type(list) == "table" and list or {}) do
+    if type(raw) == "table" then
+      raw.via = via
+      if add(raw) then added = added + 1 end
+    end
+  end
+  makeableCache = {}
+  return added
 end
 
 function crafting.load(builtIn)
@@ -391,8 +417,9 @@ function crafting.using(pattern)
   for make, list in pairs(byMake) do
     for _, r in ipairs(list) do
       breathe()
+      local machine = r.via ~= nil -- a machine's: not one to craft from essence
       local found = false
-      for _, k in pairs(r.grid) do
+      for _, k in pairs(machine and {} or r.grid) do
         if hits(expandKey(k)) then found = true break end
       end
       if found then

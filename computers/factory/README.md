@@ -17,6 +17,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Furnaces, blast furnaces, smokers | vanilla | ores, dust and food [smelted and cooked](#smelting), with fuel from the fuel chest; charcoal, stone and glass on order |
 | Energized Smelters | [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism) | [smelt](#mekanism-smelters) like furnaces, faster and with no fuel |
 | Enrichment Chambers | Mekanism | [ores into dust](#enriching): 2 dust per ore block, 4 per 3 raw ores |
+| Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the storage computer orders them for its crafts too |
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
@@ -29,7 +30,7 @@ a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
 The computer's screen has a tab per part that's running (**Smelter**,
-**Enricher**, **Pots**, **Essence**): tap one, or press **Tab**. A
+**Enricher**, **Infuser**, **Pots**, **Essence**): tap one, or press **Tab**. A
 **monitor** is a status board you can read from across the room, a tile per
 machine:
 
@@ -40,7 +41,8 @@ machine:
 | Orange | flat out: a full stack in, or every slot busy |
 | Red | needs you: no fuel or power, output stuck, a Create line not moving, a pot not cooking, something missing (it says which) |
 
-With cooking pots, the monitor has a **Candy** page too (tap it at the top).
+With cooking pots, the monitor has a **Candy** page too (tap it at the top),
+and with infusers an **Infuse** page to request from.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -338,6 +340,63 @@ e.g. `["minecraft:iron_nugget"] = 18`, or turn this off with
 A washer shows **washing**, **idle** or in red **not moving**, the same as
 a crusher.
 
+## Infusing
+
+Runs Mekanism **Metallurgic Infusers** (and Infusing Factories), but only
+when something is asked for: unlike smelting and enriching, nothing in
+storage is infused by itself. Out of the box it knows Mekanism's recipes:
+
+| Request | Made from | Infused with |
+|---|---|---|
+| Steel dust | enriched iron | carbon (coal or charcoal) |
+| Enriched iron | iron ingot or iron dust | carbon |
+| Infused alloy | copper ingot | redstone |
+| Reinforced alloy | infused alloy | diamond (diamond dust) |
+| Atomic alloy | reinforced alloy | refined obsidian (its dust) |
+| Basic circuit | osmium ingot | redstone (2 a go) |
+| Bronze ingot / dust | 3 copper ingots / dust, makes 4 | tin (tin dust) |
+| Gilded blackstone | blackstone | gold (10 gold dust) |
+| Slime balls, podzol, dirt, mossy cobblestone and stone bricks (slabs, stairs, walls) | clay, dirt, sand, cobblestone, stone bricks | bio fuel |
+| Mycelium, crimson and warped nylium | dirt, netherrack, crimson nylium | mushrooms |
+
+Plain diamonds, gold ingots and obsidian don't go in: Mekanism only takes
+their dust (enrich them first) or enriched form. Carbon comes from coal,
+charcoal, their dust or blocks; the factory sends whichever wastes least.
+
+There are three ways to ask:
+
+- **Its page.** The **Infuser** tab (and the monitor's **Infuse** page)
+  lists every recipe with how many you can make from what's stored, and
+  **+1**, **+8** and **+64** buttons: tap one to ask for that many more.
+  What's asked for is listed underneath with how it's doing; tap **x** to
+  cancel one. Up / Down or the mouse wheel scroll the list.
+- **`factory infuse`** lists the recipes; `factory infuse steel 64` asks
+  for 64 steel dust, `factory infuse cancel` cancels.
+- **The storage computer.** It's told what this computer can infuse, so
+  when a craft needs steel dust or an alloy (a turtle's `prepare`, an
+  order, a recipe several steps deep) it plans the infusing as one of the
+  steps and asks the infuser for it. Its crafting turtle carries on with
+  the later steps once the infused items are in storage. Turn this off with
+  `offer = false` under `infuser` in `config.lua`.
+
+When what you ask for needs something that's infused too and none is
+stored (steel dust needs enriched iron), it asks for that first, by itself:
+64 steel dust from iron ingots is one request. The count shown already
+takes that into account.
+
+Each round it gives each idle infuser the oldest request it can work on,
+sends its feeder the input and its **infusion feeder** just enough coal,
+redstone and so on for it, and counts what comes out in its output chest
+towards the request before it goes into storage. An infuser holds one
+infusion type at a time; switching (carbon to redstone, say) empties what's
+left of the old one, a few points at most. The items a request is waiting
+on are left alone by the smelter, so your iron dust isn't smelted away
+underneath it.
+
+The tab shows each request (**on 1 infuser**, **waiting for** an item,
+**queued**), and the status board a tile per infuser, red when it has no
+power or feeder, or its output is stuck.
+
 ## Cooking pots
 
 Puts Cobblemon's **campfire cooking pots** to work. Out of the box they make
@@ -464,7 +523,7 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
-- `smelt.lua`, `enrich.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, cooking pots, botany pots)
+- `smelt.lua`, `enrich.lua`, `infuse.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, cooking pots, botany pots)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
@@ -523,6 +582,25 @@ factories):
 4. On the setup screen, **Machines**, tap **+ Add an enrichment chamber**
    (or **energized smelter**): tap the machine, then its feeder, then put
    any item in its output chest (or tap **List** to pick it from a list).
+
+### Infusers
+
+For each **Metallurgic Infuser** (or Infusing Factory):
+
+1. Place and power it, set its security to **Public** and put a **wired
+   modem** on it. The factory then sets its sides: top **Input**, bottom
+   **Output**, every other side **Extra** (where infusion items go in), and
+   Auto-eject on. (Not Public: set them yourself in its side config.)
+2. Its **feeder**, on top: a **hopper** pointing down into it, or an empty
+   barrel with a pipe into its top.
+3. Its **infusion feeder**, on any side: a **hopper** pointing sideways into
+   it, or an empty barrel with a pipe into a side.
+4. An **empty chest** (or barrel) **under** it: its **output chest**. It
+   needs one: what's made is counted there.
+5. Put a **wired modem** on each of them, joined to the storage network.
+6. On the setup screen, **Machines**, tap **+ Add an infuser**: tap the
+   infuser, its feeder, its infusion feeder, then put any item in its output
+   chest. Or type `factory add infuser`.
 
 ### Create only
 
@@ -594,6 +672,8 @@ factory setup                  -- the setup screen (in the running factory, on i
 factory add chamber            -- a Mekanism Enrichment Chamber: pick it, its feeder and output chest
 factory add chamber enrichmentChamber_0 minecraft:hopper_3 minecraft:chest_4   -- or name them: machine, feeder, output
 factory add smelter            -- a Mekanism Energized Smelter, the same way
+factory add infuser            -- a Metallurgic Infuser: pick it, its feeder, its infusion feeder and output chest
+factory add infuser metallurgicInfuser_0 minecraft:hopper_3 minecraft:hopper_4 minecraft:chest_6   -- or name them
 factory add crusher            -- a Create crushing line: pick its feeder and output chest
 factory add crusher minecraft:barrel_5 minecraft:chest_9   -- or name them: feeder, output
 factory add washer             -- a Create washing fan (water)
@@ -612,6 +692,9 @@ factory stone 512              -- make 512 stone from cobblestone
 factory glass 256              -- make 256 glass from sand (or red sand)
 factory glass 64 red           -- make 64 glass from red sand only
 factory cancel stone           -- stop making stone ('factory cancel': every order)
+factory infuse                 -- the infusing recipes, how many you can make, and what's asked for
+factory infuse steel 64        -- ask for 64 steel dust (by name, or the number 'factory infuse' lists)
+factory infuse cancel 2        -- cancel request 2 ('factory infuse cancel': all of them)
 factory find iron              -- essence recipes for anything with "iron" in its name, and how many you can make
 factory make 64 iron ingot     -- order 64 iron ingots made from essence
 factory chest                  -- pick the work chest from the empty chests on the network
@@ -632,7 +715,7 @@ A chest on the storage network that the storage computer fills for the
 factory in one go: each round the factory works out what every furnace and
 feeder needs, asks for all of it at once, and loads them from the chest
 itself. That's one request a round (one for the furnaces and smelters, one
-for the chambers and crushers) instead of one or two for every machine, so
+for the chambers and crushers, one for the infusers) instead of one or two for every machine, so
 the storage computer has more time for turtles, and with an ME or RS system
 the items don't go through the transfer chest. The cooking pots and botany
 pots don't use it.
@@ -776,7 +859,9 @@ botany pots over, and machines added there can be added again on the other.
   factory sets the **bottom to Output** and turns **Auto-eject** on, but
   only when the machine's security is Public. Otherwise do it by hand in
   its side config (the wrench tab, Items), or set `setSides = false` and
-  put the chest at whichever side is Output.
+  put the chest at whichever side is Output. An infuser gets more: top
+  Input, bottom Output and every other side Extra, so its infusion feeder
+  can go on any side but the top.
 - **Speed.** A chamber on its own enriches one ore every 10 seconds; speed
   upgrades make it much faster. A hopper keeps up with a fully upgraded
   chamber; for a fast Enriching Factory use a barrel and a transporter.

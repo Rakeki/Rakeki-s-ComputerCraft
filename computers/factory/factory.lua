@@ -5,6 +5,7 @@
 --     and smoking fans                      the smelter (smelt.lua)
 --   Mekanism enrichment chambers, Create crushing wheels and washing fans
 --                                           the enricher (enrich.lua)
+--   Mekanism metallurgic infusers           steel, alloys, circuits on request (infuse.lua)
 --   Cobblemon cooking pots                  exp candy (cook.lua)
 --   Hopper Botany Pots                      Mystical Agriculture essence (botany.lua)
 -- Furnaces and botany pots are found by themselves; the rest are added on
@@ -15,7 +16,8 @@
 --                                   the work chest and the monitor (in the running factory if there is one;
 --                                   or Setup on its monitor or screen, or F1)
 --   factory add <kind> [...]        add a machine: chamber, crusher, washer, smelter, fan, smokefan
---                                   ([machine] feeder [output]), or pot ([recipe feed output relay])
+--                                   ([machine] feeder [output]), infuser ([machine feeder extra output]),
+--                                   or pot ([recipe feed output relay])
 --   factory list                    every machine, its owner and what it is
 --   factory remove [n]              forget machine n (no number: list them)
 --   factory give <name|all> <id>    hand a furnace or botany pot (or all of them) to factory computer id
@@ -24,6 +26,8 @@
 --   factory stone <n>               make n stone from cobblestone
 --   factory glass <n> [red]         make n glass from sand (red: red sand only)
 --   factory cancel [charcoal|stone|glass]  stop an order (no name: all of them)
+--   factory infuse [what count]     the infusing recipes, or request count of one (by number or name)
+--   factory infuse cancel [n]       cancel infusing request n (no number: all of them)
 --   factory find <text>             essence recipes for items matching text, and how many you can make
 --   factory make <count> <text>     order count of an item made from essence (the first match)
 --   factory chest [name|none]       use an empty chest on the network as the work chest
@@ -64,10 +68,10 @@ local myId = os.getComputerID()
 
 ---------------------------------------------------------------- settings
 
--- config.lua has a table per part (smelter, enricher, cooker, essence). One
+-- config.lua has a table per part (smelter, enricher, infuser, cooker, essence). One
 -- from before the factory has its settings at the top: they're used for
 -- every part, as that computer only ran one of them.
-local SECTIONS = { "smelter", "enricher", "cooker", "essence" }
+local SECTIONS = { "smelter", "enricher", "infuser", "cooker", "essence" }
 local sectioned = false
 for _, s in ipairs(SECTIONS) do
   if type(config[s]) == "table" then sectioned = true end
@@ -186,6 +190,7 @@ end
 parts = {
   require("enrich").new(f),
   require("smelt").new(f),
+  require("infuse").new(f),
   require("cook").new(f),
   require("botany").new(f),
 }
@@ -348,7 +353,7 @@ local function round()
   end
   -- far away, everything goes home through the ender chest (or the return one)
   local useWork = work:check(reply) or work.remote
-  local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set }, work.remote)
+  local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set, byId.infuse.set }, work.remote)
   local r = { stock = reply, useWork = useWork, input = work:input(reply.input), unsure = unsure,
     feedProblem = feedProblem }
   -- in the chain's order, so a smelter sees what the enricher takes this round
@@ -416,8 +421,8 @@ local function draw()
     screen.put(win, 2, 3, "Nothing set up yet.", "white")
     local lines = {
       "Furnaces and botany pots on the cable are found by themselves.",
-      "Mekanism machines, Create crushers, washers and fans, and",
-      "Cobblemon cooking pots are added on the setup screen:",
+      "Mekanism machines (infusers too), Create crushers, washers,",
+      "fans and Cobblemon cooking pots are added on the setup screen:",
       "tap Setup, press F1, or type 'factory setup' in another tab.",
     }
     for i, line in ipairs(lines) do screen.put(win, 2, 4 + i, screen.fit(line, w - 2), "lightGray") end
@@ -535,7 +540,8 @@ end
 local function setupScreen(screens)
   local ui = setupui.new({ screens = screens, name = "factory" })
   local setParts = {
-    byId.smelt.set:setupParts(ui), byId.enrich.set:setupParts(ui), byId.cook.setupParts(ui),
+    byId.smelt.set:setupParts(ui), byId.enrich.set:setupParts(ui), byId.infuse.set:setupParts(ui),
+    byId.cook.setupParts(ui),
   }
 
   local function machinesPage()
@@ -568,7 +574,7 @@ local function setupScreen(screens)
         -- the + Add rows: Mekanism's first while there's a Mekanism machine here or on
         -- the cable, else Create's (a Create-only world); the pots last
         local anyMek = false
-        for _, set in ipairs({ byId.smelt.set, byId.enrich.set }) do
+        for _, set in ipairs({ byId.smelt.set, byId.enrich.set, byId.infuse.set }) do
           if #set:free() > 0 then anyMek = true end
           for _, e in ipairs(set:entries()) do
             if e.machine then anyMek = true end
@@ -679,6 +685,9 @@ local function uiLoop()
       tab = tapTab
     elseif tapBoard then
       boardPage = tapBoard
+    elseif bx and by > 1 and byId[boardPage] and byId[boardPage].monitorPage and byId[boardPage].monitorPage.touch then
+      -- a part's own monitor page (the infuser's request buttons)
+      if byId[boardPage].monitorPage.touch(bx, by) then board.last = nil end
     elseif event == "key" and ev[2] == keys.tab then
       local list = runningParts()
       for i, p in ipairs(list) do
@@ -731,6 +740,15 @@ local function netLoop()
         saveClaims()
         net.answer(from, PROTOCOL, msg, { ok = true })
         f.wake()
+      else
+        -- the storage computer ordering from a part (the infuser)
+        for _, p in ipairs(parts) do
+          local reply = p.request and p.request(from, msg)
+          if reply then
+            net.answer(from, PROTOCOL, msg, reply)
+            break
+          end
+        end
       end
     end
   end
@@ -741,24 +759,26 @@ end
 local KINDS = { -- 'factory add <kind>': which part and how
   chamber = { part = "enrich" }, crusher = { part = "enrich", line = true }, washer = { part = "enrich", line = true },
   smelter = { part = "smelt" }, fan = { part = "smelt", line = true }, smokefan = { part = "smelt", line = true },
-  pot = { part = "cook" },
+  infuser = { part = "infuse", extra = true }, pot = { part = "cook" },
 }
 
 -- Every machine added here, numbered for 'factory remove': { text, remove() }.
 local function listed()
   local out = {}
-  for _, id in ipairs({ "enrich", "smelt" }) do
+  for _, id in ipairs({ "enrich", "smelt", "infuse" }) do
     local set = byId[id].set
     local list = set:entries()
     local titles = set:titles(list)
     for i, e in ipairs(list) do
       local text = e.line and ("%s: fed by %s, out to %s"):format(titles[i], e.feeder, e.output or "a storage input chest")
-        or ("%s: %s, fed by %s, out to %s"):format(titles[i], e.machine, e.feeder, e.output or "the chest under it")
+        or ("%s: %s, fed by %s%s, out to %s"):format(titles[i], e.machine, e.feeder,
+          e.extra and (" and " .. e.extra) or "", e.output or "the chest under it")
       out[#out + 1] = { text = text, remove = function()
         local now = set:entries()
         table.remove(now, i)
         set:save(now)
-        return ("Forgot %s. Empty its feeder%s by hand."):format(e.machine or e.feeder, e.output and " and output chest" or "")
+        return ("Forgot %s. Empty its feeder%s%s by hand."):format(e.machine or e.feeder, e.extra and "s" or "",
+          e.output and " and output chest" or "")
       end }
     end
   end
@@ -779,6 +799,7 @@ if verb == "add" then
   if not kind then
     print("Usage: factory add <kind> ...")
     print("  chamber, smelter [machine feeder [output]]  (Mekanism)")
+    print("  infuser [machine feeder extra output]  (Mekanism)")
     print("  crusher, washer, fan, smokefan [feeder [output]]  (Create)")
     print("  pot [recipe feed output relay]  (Cobblemon)")
     return
@@ -788,6 +809,8 @@ if verb == "add" then
   refreshUses()
   if kind.part == "cook" then
     byId.cook.addCommand(args[3], args[4], args[5], args[6])
+  elseif kind.extra then
+    byId[kind.part].set:add(args[3], args[4], args[6], args[5])
   elseif kind.line then
     byId[kind.part].set:add(args[2], args[3], args[4])
   else
@@ -865,7 +888,8 @@ elseif verb then
     if p.command(args) then return end
   end
   print("Usage: factory [setup | add <kind> | list | remove [n] | give <name|all> <id> | relay <n> | charcoal <n> |")
-  print("  stone <n> | glass <n> | cancel | find <text> | make <n> <text> | chest [name|none|remote] | monitor]")
+  print("  stone <n> | glass <n> | cancel | infuse [what n | cancel] | find <text> | make <n> <text> |")
+  print("  chest [name|none|remote] | monitor]")
   return
 end
 

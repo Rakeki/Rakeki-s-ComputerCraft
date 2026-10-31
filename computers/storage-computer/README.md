@@ -173,6 +173,14 @@ between the turtles and shows the queue, and what each job is missing, on
 its monitor. The footer says "Gave the crafting overseer (#5) 4 crafts."
 Without an overseer the storage computer crafts on one turtle itself.
 
+With a [factory](../factory/README.md#infusing) running Mekanism
+Metallurgic Infusers, the storage computer knows what they make, so steel
+dust, alloys and circuits count as craftable too. A plan that needs one
+(reinforced alloy for a machine, say) has the infuser make it as one of its
+steps ("Asked factory #9 to make 4 Infused alloy."), and the crafting turtle
+takes the later steps once it's in storage. A plan that's all infusing
+needs no crafting turtle.
+
 You can ask for crafts on the terminal too, with the **Craftable** tab. It's
 off by default, because working out everything that could be made from a
 big store with a big modpack takes a long while. To turn it on, set
