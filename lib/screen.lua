@@ -75,6 +75,13 @@ function screen:size() return self.target.getSize() end
 
 ---------------------------------------------------------------- finding a monitor
 
+local function onSide(name)
+  for _, side in ipairs(rs.getSides()) do
+    if side == name then return true end
+  end
+  return false
+end
+
 -- Lists every monitor this computer can see and saves the one the player
 -- picks (or 'none') in setting. arg skips the question. Returns the choice,
 -- or nil when it was left as it was.
@@ -129,13 +136,6 @@ function screen:wanted()
     if type(v) == "string" and v ~= "" then return v end
   end
   return o.name
-end
-
-local function onSide(name)
-  for _, side in ipairs(rs.getSides()) do
-    if side == name then return true end
-  end
-  return false
 end
 
 -- True when name is a monitor this screen may use.

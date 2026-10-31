@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modems and networking cable to every chest (or to an ME Bridge / RS Bridge); optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../smelter-computer/README.md)
+- **Peripherals:** wired modems and networking cable to every chest (or to an ME Bridge / RS Bridge); optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../factory/README.md#smelting)
 
 ## What it does
 
@@ -14,7 +14,7 @@ turtle access on an **Applied Energistics 2** or **Refined Storage** system
 computer here talks to this computer the same way, so the
 [village builder](../village-turtle/README.md),
 [crafting turtle](../crafter-turtle/README.md) and
-[smelter](../smelter-computer/README.md) work with whichever you use, and
+[smelter](../factory/README.md#smelting) work with whichever you use, and
 keep working if you switch.
 
 With chests, every chest and barrel on the computer's wired network is
@@ -41,7 +41,7 @@ storage, except the ones you choose for:
   [crafting turtle](../crafter-turtle/README.md). The turtle finds it itself
   when it starts, so you can leave it blank. See [Crafting](#crafting).
 - **Fuel chest** (optional): where the coal and charcoal are kept, for the
-  [smelter's](../smelter-computer/README.md) furnaces and for turtles. See
+  [smelter's](../factory/README.md#smelting) furnaces and for turtles. See
   [Fuel](#fuel).
 
 The terminal shows every stored item with its count, biggest first. Type to
@@ -71,10 +71,8 @@ it can be tapped. It shows:
   again. Tap the search box again to close the keyboard; the search stays
   until you clear it.
 - the **services** working with the storage system, as a row of tiles over
-  the footer: the [smelter](../smelter-computer/README.md),
-  [enricher](../enricher-computer/README.md), crafting turtles, the
-  [cooker](../cooker-computer/README.md), the
-  [essence computer](../essence-computer/README.md) and anything else that
+  the footer: each [factory](../factory/README.md) computer, crafting
+  turtles and anything else that
   has asked it for items, near or far away. **Lime**
   working, **light grey** idle, **orange** waiting, **red** error, **grey**
   offline (no word from it for 30 seconds). Tap one to read what it's doing
@@ -219,7 +217,7 @@ when it starts.
 
 For the TRekt Mons pack the file is already made (8,400 recipes, 680 KB,
 Mystical Agriculture's essence recipes included, for the
-[essence computer](../essence-computer/README.md)).
+[essence computer](../factory/README.md#essence)).
 On the storage computer:
 
 ```
@@ -240,9 +238,9 @@ node tools/recipes.mjs pack_recipes.lua <the Minecraft version jar> <your mods f
 disk by default, so a file much bigger than about 700 KB won't fit next to
 the programs.
 Smelting isn't crafting: smooth sandstone, glass and the like aren't made
-on request. The [smelter](../smelter-computer/README.md) smelts ores and cooks raw food as they
+on request. The [smelter](../factory/README.md#smelting) smelts ores and cooks raw food as they
 come in, and anything else you add to its list. The
-[cooker](../cooker-computer/README.md) does the same with Cobblemon cooking
+[cooker](../factory/README.md#cooking-pots) does the same with Cobblemon cooking
 pots: exp candy from sculk and honeycomb, compressed up to XL.
 
 ### Fuel
@@ -254,7 +252,7 @@ ever put in it.
 
 The fuel chest still counts as part of the store: turtles that ask for coal
 or charcoal (the village builder does when it's low) get it from there, and
-it shows up in the search. The [smelter](../smelter-computer/README.md)
+it shows up in the search. The [smelter](../factory/README.md#smelting)
 fuels its furnaces from the fuel chest before coal kept anywhere else, and
 the charcoal it makes from spare logs comes back to it. A turtle parked
 next to the fuel chest can also take fuel straight from it; the storage
@@ -279,7 +277,7 @@ The setup screen offers it (**Store items in**) when it finds one. Then:
   furnaces and the crafting turtle's grid need. So those items pass through
   a **transfer chest**: any spare chest on the network, chosen in
   `storage setup`. Without one, the smelter and the crafting turtle can't be
-  loaded. A smelter with a [work chest](../smelter-computer/README.md#work-chest)
+  loaded. A smelter with a [work chest](../factory/README.md#work-chest)
   doesn't need it: the bridge sends its items straight into that chest.
 - The top line shows how full the system is: by bytes for AE2, by items for
   RS.
@@ -338,7 +336,7 @@ the plain ones.
 The chest wall plus everything that works with it, on the same cable:
 
 - the [crafting turtle](../crafter-turtle/README.md) facing its crafter chest
-- the [smelter](../smelter-computer/README.md): its computer and a row of
+- the [smelter](../factory/README.md#smelting): its computer and a row of
   furnaces, each furnace with a small wired modem
 - a fuel chest, for the furnaces and turtles
 - the [village builder's](../village-turtle/README.md) supply chest, with a
@@ -437,10 +435,9 @@ Open it with **Setup** at the top right of the monitor or the computer's
 screen, **F1** on the computer, or `storage setup` (or `storage config`) in
 a second tab (`bg storage setup` on an advanced computer): it opens in the
 running storage program, on its monitor and in its tab. The
-[smelter](../smelter-computer/README.md#the-setup-screen) and
-[enricher](../enricher-computer/README.md#the-setup-screen) open theirs the
-same ways and use the same keys; theirs save each change as you make it, so
-they have **Done** instead of Save and Cancel. What
+[factory](../factory/README.md#the-setup-screen) opens its own the
+same ways and uses the same keys; theirs save each change as you make it, so
+it has **Done** instead of Save and Cancel. What
 you save is used straight away, with no restart (except switching between
 chests and an ME or RS system: then reboot). With no storage program running
 (stopped with Ctrl+T) it opens where you typed it.
@@ -450,13 +447,12 @@ without the screen: `storage config fuel minecraft:chest_9`.
 
 ### Far-away workers
 
-**Far-away workers** (`storage config remote`, or on the setup screen): an
-[enricher](../enricher-computer/README.md#far-from-the-storage-system) or
-[smelter](../smelter-computer/README.md#far-from-the-storage-system) at another
-base works through an ender chest whose twin is on this cable. This looks
-for enrichers and smelters over the wireless or ender modem, shows which
+**Far-away workers** (`storage config remote`, or on the setup screen): a
+[factory computer](../factory/README.md#far-from-the-storage-system) at
+another base works through an ender chest whose twin is on this cable. This
+looks for factory computers over the wireless or ender modem, shows which
 ender chest each one has here, and lets you pick it (or `none`). Then, at
-that base, open the enricher's or smelter's setup screen and pick **Work
+that base, open the factory's setup screen and pick **Work
 chest**, **Far away**: it takes the one you picked here, with no search. A
 far computer that already works through an ender chest switches on its next
 round.
@@ -468,34 +464,35 @@ the turtles and the smelter carry on without being changed.
 
 ### Smelter and enricher
 
-Ores are handled by two optional computers on the storage system: the
-[smelter](../smelter-computer/README.md) (furnaces, Mekanism Energized
-Smelters, and Create fans blowing through lava or fire) and the
-[enricher](../enricher-computer/README.md) (Mekanism Enrichment Chambers:
-ore into dust, more ingots per ore; and Create crushing wheels: ore into
-crushed ore).
+Ores (and food, candy and essence) are handled by the optional
+[factory](../factory/README.md): one program on as many computers as you
+like, each running whichever machines it has. Its smelter has furnaces,
+Mekanism Energized Smelters and Create fans blowing through lava or fire;
+its enricher has Mekanism Enrichment Chambers (ore into dust, more ingots
+per ore) and Create crushing wheels and washing fans.
 
 | You have | What happens to ore in storage |
 |---|---|
 | Neither | It stays in storage. |
-| Smelter with furnaces | Smelted in the furnaces (blast furnaces first), fuelled from the fuel chest; raw food is cooked (smokers first). Charcoal, stone and glass orders. |
-| Smelter with Mekanism smelters only | Smelted in them, no fuel needed. Charcoal, stone and glass orders too, in those with an output chest (what comes out of it is counted). |
-| Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders in plain furnaces and Mekanism smelters with an output chest. |
-| Enricher, no smelter | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's a smelter. |
-| Enricher and smelter | While the enricher has a chamber set up, the smelter leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the enricher has been gone for 10 minutes, or has no chambers, the smelter smelts the ores itself. |
-| Create machines | The enricher's crushing wheels take the ores the chambers leave (or all of them, with no chambers) and the smelter waits for the crushed ores (or the enricher's washing fans wash them into nuggets and a byproduct, and the storage computer crafts the nuggets into ingots); its blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |
+| Furnaces | Smelted in the furnaces (blast furnaces first), fuelled from the fuel chest; raw food is cooked (smokers first). Charcoal, stone and glass orders. |
+| Mekanism smelters only | Smelted in them, no fuel needed. Charcoal, stone and glass orders too, in those with an output chest (what comes out of it is counted). |
+| Both | The Mekanism smelters take their pick first, the furnaces the rest; orders in plain furnaces and Mekanism smelters with an output chest. |
+| Chambers, nothing to smelt with | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's something to smelt it. |
+| Chambers and furnaces | While a chamber is set up, the smelting leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the factory computer with the chambers has been gone for 10 minutes, or has no chambers, the ores are smelted as they are. |
+| Create machines | Crushing wheels take the ores the chambers leave (or all of them, with no chambers) and smelting waits for the crushed ores (or washing fans wash them into nuggets and a byproduct, and the storage computer crafts the nuggets into ingots); blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |
 
-Each round the smelter asks the enricher which ores to leave, over rednet.
-On one cable that just works. If either one is far away, put an **ender
-modem** on both (or wireless modems in range), or they can't hear each
-other and the smelter smelts the ores itself.
+All of this can run on one factory computer, or be shared between several
+(each furnace and botany pot belongs to one of them, and each says which
+items its machines take). On one cable that just works. If one is far
+away, put an **ender modem** on each (or wireless modems in range), or they
+can't hear each other and the ores are smelted as they are.
 
-Either can be [far away](#far-away-workers), through an ender chest pair
-of its own: what it makes goes home through its ender chest. An enricher's
-dust then goes on to the smelter like any other dust, through the smelter's
-ender chest if it's far away too. Both at the same far base can share a
-cable there, with a different ender chest pair each (pick each one's on its
-setup screen and under Far-away workers here).
+A factory computer can be [far away](#far-away-workers), through an ender
+chest pair of its own: what it makes goes home through its ender chest.
+Dust from a far-away enricher then goes on to a smelter like any other
+dust. Two factory computers at the same far base can share a cable there,
+with a different ender chest pair each (pick each one's on its setup screen
+and under Far-away workers here).
 
 ## Things to know
 
@@ -511,15 +508,14 @@ setup screen and under Far-away workers here).
   footer says which chest is missing. A missing turtle's chest is forgotten,
   and the turtle finds it again the next time it asks for items.
 - `storage setup` keeps the chests turtles have found, and the
-  [smelter's](../smelter-computer/README.md#work-chest) and
-  [enricher's](../enricher-computer/README.md#work-chest) work chests,
+  [factory computers'](../factory/README.md#work-chest) work chests,
   unless you pick one of them for something else.
-- A **work chest** is a chest the smelter or enricher picks with `smelter
-  chest` / `enricher chest`: each round it fills that chest in one go and
-  they load their furnaces or hoppers from it, instead of asking for each
-  one in turn. It takes only an empty chest, and stops using it as storage.
-  `storage test` lists them. A smelter or enricher far away uses an ender
-  chest pair instead, found the way turtles find their chest.
+- A **work chest** is a chest a factory computer picks with `factory
+  chest`: each round it fills that chest in one go and the factory loads its
+  furnaces and feeders from it, instead of asking for each one in turn. It
+  takes only an empty chest, and stops using it as storage. `storage test`
+  lists them. A factory computer far away uses an ender chest pair instead,
+  found the way turtles find their chest.
 - **Ender chests** (EnderStorage and the like) on the network are never
   used as storage: they share their items with a chest somewhere else. A
   [remote terminal](../remote-terminal/README.md) at the other end of one
@@ -539,8 +535,8 @@ setup screen and under Far-away workers here).
   counted with the plain ones, and the bridge may send either. If such an
   item stays in the input chest, the system wouldn't take it: take it out by
   hand.
-- The [smelter](../smelter-computer/README.md) and the
-  [cooker](../cooker-computer/README.md) ask for things over the wired
+- The [smelter](../factory/README.md#smelting) and the
+  [cooker](../factory/README.md#cooking-pots) ask for things over the wired
   network's cable, so they work without a wireless modem.
 - Turtles' requests are handled one at a time, in the order they arrive; none
   are lost while it's busy with another.

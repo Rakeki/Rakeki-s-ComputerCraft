@@ -117,6 +117,12 @@ for (const program of data.programs) {
     next: nextSteps(program),
   };
   if (program.device === "turtle") manifest.programs[program.name].device = "turtle";
+  // programs it took the place of (programs.json "replaces"): a computer that
+  // has one installed updates to this, under the old name until its installer
+  // is new enough to rename it (alias)
+  for (const old of program.replaces || []) {
+    manifest.programs[old] = { ...manifest.programs[program.name], alias: program.name };
+  }
 }
 for (const plan of data.plans || []) {
   plan.files = [planFile(plan)];

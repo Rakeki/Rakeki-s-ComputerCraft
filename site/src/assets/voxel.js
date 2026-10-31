@@ -690,7 +690,7 @@
 
   //---------------------------------------------------------------- cooking pot layouts
 
-  // Example layouts for computers/cooker-computer (see its README's "Example
+  // Example layouts for computers/factory's cooking pots (see its README's "Example
   // layouts"). The pot sits on its campfire, raised one block so the output
   // hopper fits under it; the feed hopper points into its side, the redstone
   // block behind it touches neither hopper, and a comparator on its other

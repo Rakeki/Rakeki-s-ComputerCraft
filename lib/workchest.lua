@@ -1,5 +1,5 @@
 -- A work chest: one chest that the storage computer fills for one program
--- (the smelter, the enricher) in a single request, which the program then
+-- (the factory: its smelter and enricher) in a single request, which the program then
 -- shares out into its own furnaces or hoppers. One request a round instead
 -- of one per furnace or hopper, and with an ME or RS bridge the items skip
 -- the transfer chest. Whatever is left in it at the end of a round goes back
@@ -16,7 +16,8 @@
 -- chest), since the storage computer's own is out of reach.
 --
 --   local workchest = require("lib.workchest")
---   local work = workchest.new("smelter", ask)       -- remembers the chest in /.smelter_chest
+--   local work = workchest.new("factory", ask, { "smelter" }) -- remembers the chest in /.factory_chest
+--                                                     -- (taking over /.smelter_chest the first time)
 --   work:set("minecraft:chest_3")                     -- 'smelter chest <name>'; work:set(nil) stops using one
 --   work:setRemote("enderstorage:ender_chest_0")     -- far away: one ender chest both ways
 --   work:setRemote("enderstorage:ender_chest_0", "enderstorage:ender_chest_1") -- or supply and return chests
@@ -63,8 +64,15 @@ local function readSaved(self)
   if self.chest and not self.remote and isEnder(self.chest) then self.remote = true end
 end
 
-function workchest.new(name, ask)
+function workchest.new(name, ask, older)
   local self = setmetatable({ file = ("/.%s_chest"):format(name), ask = ask, list = {} }, Work)
+  -- a chest saved under an older program's name (the smelter, the enricher) carries on
+  if not fs.exists(self.file) then
+    for _, old in ipairs(older or {}) do
+      local saved = files.read(("/.%s_chest"):format(old))
+      if type(saved) == "table" and saved.chest and not fs.exists(self.file) then files.write(self.file, saved) end
+    end
+  end
   readSaved(self)
   return self
 end

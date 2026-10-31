@@ -1,6 +1,6 @@
 ---
 name: storage-system
-description: How programs get items from the storage system (the storage protocol, deliveries, crafting on request, fuel) and how storage-computer works inside (chest / ME / RS backends, fuel chest, crafter, smelter, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer, smelter-computer or cooker-computer.
+description: How programs get items from the storage system (the storage protocol, deliveries, crafting on request, fuel) and how storage-computer works inside (chest / ME / RS backends, fuel chest, crafter, smelter, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer or the factory.
 ---
 
 # The storage system
@@ -38,7 +38,7 @@ supply:seen(r)
 
 - `peer:ask` matches `re` **and** `id`, so a late reply to an earlier
   request is never taken for this one.
-- A program on the storage cable (smelter, cooker, overseer, crafter) uses
+- A program on the storage cable (factory, overseer, crafter) uses
   `{ open = "any" }`: the storage computer answers on all of its modems, so
   it needs no wireless.
 - nil means "no storage system" (the second value says why): carry on with
@@ -55,10 +55,10 @@ supply:seen(r)
 | `{ type = "work", items = list() }`, then `{ type = "work", seen }` | as `claim` | a far-away work chest's twin, found by probe (`claim.chest(ask, "work", side)`) |
 | `{ type = "fill", items = { [name] = n }, fuel = n, sweep = true or nil }` | `sent`, `ready`, `fuel`, `error`, `nochest`, `swept` | top the asker's work chest up to n of each and fuel for n smelts (what's in it counts), in one go; no crafting; `sweep` first puts away everything else in it (one ender chest both ways) |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
-| `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the cooker's pot feed hoppers, the enricher's chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
-| `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the enricher's and smelter's barrel and chest feeders (`lib/mekfeed.lua`; the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
+| `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the factory's pot feed hoppers and chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
+| `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the factory's barrel and chest feeders (`lib/mekfeed.lua`; the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
-| `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the essence computer (`uses` = its essence pattern); `crafting.using` |
+| `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
 
 The craft overseer's own requests (same protocol; only it sends these):
@@ -82,24 +82,27 @@ with `ready > 0` wins; see `STORAGE_FUEL` in builder.lua). Items with NBT
 is `"no recipe for it"`, `craftProblem` while `crafting` is non-empty.
 
 Putting things away: drop them in the storage computer's **input chest**
-(the smelter pushes furnace output there, the cooker its pots' output
-hoppers; farms use it as their chest).
+(the factory pushes furnace output there, and its pots' output hoppers,
+machines' output chests and botany pots; farms use it as their chest).
 
-The smelter and cooker only ever `stock`, `send` and empty into the input
-chest. The essence computer empties Hopper Botany Pots into the input chest
+The factory (`computers/factory`: one program, a part per kind of machine:
+`smelt.lua`, `enrich.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
+all of them) only ever `stock`, `send` / `fill` and empties into the input
+chest. Its essence part empties Hopper Botany Pots into the input chest
 itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
 through its bottom face, and only a hopper pot lets them be taken, so each pot
 stands on a full-block wired modem), and orders crafts with `prepare` set to
-stored + already crafting + wanted (`prepare` tops up to a total). The smelter's orders (`ORDERS` in smelter.lua: charcoal from logs into
+stored + already crafting + wanted (`prepare` tops up to a total). The smelter part's orders (`ORDERS` in smelt.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order, and into Mekanism smelters
 with an output chest (`forOrders`; `made` counts what `collect` empties out
-of it, before the orders are checked). The cooker can't see inside
+of it, before the orders are checked). The cooking pots part can't see inside
 a pot: a comparator into a redstone relay says how full it is, and it sends
 the feed hopper only what still fits.
-**Work chests** (`lib/workchest.lua`): the smelter and enricher can each name
-an empty chest on the cable (`smelter chest`, `enricher chest` → `work`,
-recorded in `setup.works[id]` and left out of storage). Each round they plan
+**Work chests** (`lib/workchest.lua`): a factory computer can name one
+empty chest on the cable (`factory chest` → `work`, recorded in
+`setup.works[id]` and left out of storage; its smelter and enricher parts
+share it, a `fill` each). Each round they plan
 every load as before but only note it down, ask for the lot with one
 `fill`, `work:move` it into each furnace slot or hopper, undo what didn't
 arrive, and `work:empty(input)` the rest back. `work:check(stock)` (after
@@ -121,14 +124,17 @@ Ender chests (type contains `ender`) are never storage in `chests.lua`.
 The remote terminal (`computers/remote-terminal`) claims an ender chest as
 its delivery chest before each `deliver` and reads `list` (`{ name, label,
 count }` for every plain item); items dropped in go home with the sweep.
-The enricher fills a feeder for each Mekanism Enrichment Chamber (CC
+The enricher part fills a feeder for each Mekanism Enrichment Chamber (CC
 can't reach a Mekanism machine's slots: its own peripheral hides them): a
 hopper on top, or a barrel a pipe pulls from into the chamber, which it
-registers with `feeders` so it isn't storage; and
-the chamber auto-ejects dust into its output chest under it, which the enricher
-empties into storage each round (`set:collect`), or an extra input chest. The smelter
-asks the enricher (`enricher` protocol, `takes` → Lua patterns) which ores to
-leave alone, and smelts the dust.
+registers with `feeders` so it isn't storage (`mekfeed.register` sends the
+smelter's and enricher's feeders in one list: each `feeders` replaces the
+computer's whole list); and
+the chamber auto-ejects dust into its output chest under it, which the factory
+empties into storage each round (`set:collect`), or an extra input chest. The
+smelter part leaves alone the ores a lower-rank part takes (`f.leave`): the
+enricher here, or on another factory computer (`factory` protocol, `hello` →
+`stages` with `takes` = Lua patterns), and smelts the dust.
 
 ## Crafting on request
 

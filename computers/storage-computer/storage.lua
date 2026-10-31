@@ -14,7 +14,7 @@
 -- an ME or RS system crafts from its own patterns first. An optional fuel
 -- chest holds the coal and charcoal: fuel that comes in is put there first,
 -- turtles asking for coal are served from it, and the smelter
--- (computers/smelter-computer) fuels its furnaces from it.
+-- (computers/factory) fuels its furnaces from it.
 --
 -- Turtles find their own chest: a village builder, builder or crafting turtle
 -- placed against a chest on this network tells me which one it is
@@ -87,10 +87,11 @@ local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest 
 local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle takes jobs on
 local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
-local WORKER_PROTOCOLS = { enricher = "enricher", smelter = "smelter" } -- far-away computers with a work chest host these
+-- far-away computers with a work chest host these (enricher and smelter: before they were the factory)
+local WORKER_PROTOCOLS = { factory = "factory", enricher = "enricher", smelter = "smelter" }
 local STATUS_PROTOCOL = "cc_status" -- lib/report.lua's broadcasts: the services' states for the monitor
 -- report roles shown on the monitor even before they've asked for anything
-local SERVICE_ROLES = { smelter = true, enricher = true, cooker = true, crafter = true, ["craft overseer"] = true,
+local SERVICE_ROLES = { factory = true, smelter = true, enricher = true, cooker = true, crafter = true, ["craft overseer"] = true,
   essence = true, crate = true, remote = true, ["digital miners"] = true }
 local SERVICE_QUIET = 30 -- seconds without a status before a service shows as offline
 local SERVICE_FORGET = 900 -- seconds without a status or a request before it's dropped from the monitor
@@ -1995,7 +1996,7 @@ local CONFIG = {
   { key = "crafter", what = "crafter chest" },
   { key = "fuel", what = "fuel chest" },
   { key = "transfer", what = "transfer chest (ME or RS only)" },
-  { key = "remote", what = "far-away enricher's or smelter's ender chest" },
+  { key = "remote", what = "far-away factory computer's ender chest" },
 }
 
 -- Every chest the setup s already uses for something, but not its storage.
@@ -2095,7 +2096,7 @@ end
 -- so its own end needs no probing (Work chest, Far away on its setup screen takes it).
 local function configRemote(s)
   s.works = s.works or {}
-  print("Looking for enrichers and smelters...")
+  print("Looking for factory computers...")
   local found, why = findWorkers()
   if not found then print(why) return false end
   if #found == 0 then
@@ -2154,7 +2155,7 @@ local SETTINGS = {
   { key = "crafter", what = "Crafter chest", hint = "In front of the crafting turtle (or let it find its own)." },
   { key = "fuel", what = "Fuel chest", hint = "Coal and charcoal for the smelter and the turtles." },
   { key = "transfer", what = "Transfer chest", bridge = true, hint = "Items for furnaces and the crafter pass through it." },
-  { key = "remote", what = "Far-away workers", hint = "Enrichers and smelters at another base, through an ender chest." },
+  { key = "remote", what = "Far-away workers", hint = "Factory computers at another base, through an ender chest." },
 }
 
 -- The chests turtles and computers claim themselves: picking one for
@@ -2238,7 +2239,7 @@ editSetup = function(s, kind, first)
 
   local found, why
   local function look()
-    ui:say("Looking for enrichers and smelters...", "lightBlue")
+    ui:say("Looking for factory computers...", "lightBlue")
     ui:draw()
     found, why = findWorkers()
     found = found or {}

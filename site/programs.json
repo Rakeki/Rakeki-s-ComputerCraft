@@ -878,10 +878,9 @@
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
         ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
         ["craft-overseer", "With several crafting turtles, takes the crafting queue and shares it between them."],
-        ["smelter-computer", "Loads ores, raw food and fuel into its furnaces when it asks; what's smelted comes back through the input chest, charcoal into the fuel chest."],
+        ["factory", "Loads its furnaces, Mekanism and Create feeders and cooking pots when it asks (or fills its work chest in one go); what's made comes back through the input chest, charcoal into the fuel chest, botany pots' essence too."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
-        ["essence-computer", "Empties Botany Pots of Mystical Agriculture essence into the input chest, and orders what the essence crafts into."],
         ["crate-turtle", "Keeps it stocked with a Creative Crate's item through the input chest."],
         ["status-server", "Reports how many items and slots are in use, and each delivery."]
       ],
@@ -1052,149 +1051,79 @@
       "terminal": null
     },
     {
-      "name": "smelter-computer",
+      "name": "factory",
       "group": "storage",
-      "title": "Smelter",
-      "command": "smelter",
+      "title": "Factory",
+      "command": "factory",
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Keeps the storage system's furnaces busy: smelts ores (and Mekanism dust and Create crushed ores) and cooks raw food as they come in, in furnaces, Mekanism smelters or Create fans, fuels the furnaces from the fuel chest, and burns spare logs into charcoal, cobblestone into stone or sand into glass on request.",
+      "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters and enrichment chambers, Create crushers, washers and fans, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
+      "replaces": ["smelter-computer", "enricher-computer", "cooker-computer", "essence-computer"],
       "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
-        ["Furnaces", "as many as you cable"],
-        ["Checks", "every 10 s"],
-        ["Fuel", "from the fuel chest"],
-        ["Orders", "charcoal, stone, glass"]
+        ["Mods","vanilla, Mekanism, Create, Cobblemon, Mystical Agriculture"],
+        ["Computers","one, or one per room"],
+        ["Found by itself","furnaces, botany pots"],
+        ["Orders","charcoal, stone, glass"]
       ],
       "features": [
-        "Smelts raw metals, ore blocks and ancient debris from storage by itself",
-        "Smelts Mekanism dust into ingots, and leaves the ores the enricher takes to it while it runs",
-        "Cooks raw meat, fish, potatoes and kelp too, in smokers first (keeps 64 potatoes for planting)",
-        "Shares the work out between furnaces, blast furnaces and smokers first",
-        "Mekanism Energized Smelters too: fed through a hopper or barrel, no fuel, first pick of what there is",
-        "Create fans too: a blasting fan (lava) smelts ores and dust, a smoking fan (fire) cooks food, each through a feeder chest and an output chest, no fuel",
-        "Fuels each furnace for what's in it, from the storage system's fuel chest",
-        "Optional work chest: the storage computer fills it once a round with everything the furnaces need, and the smelter loads them from it",
-        "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
-        "Press S to smelt cobblestone into stone, G to smelt sand into glass; the orders can run at once, in furnaces and Mekanism smelters",
-        "Smelted goods go back into storage through the input chest"
+        "Furnaces, blast furnaces and smokers: ores, dust and food smelted and cooked, fuelled from the fuel chest; charcoal, stone and glass on order",
+        "Mekanism Enrichment Chambers (2 dust per ore block, 4 per 3 raw ores) and Energized Smelters, fed through a hopper or barrel",
+        "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed",
+        "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; a Candy page on the monitor",
+        "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into",
+        "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
+        "Several factory computers share a cable: each furnace and botany pot belongs to one, and smelters leave the ores an enricher anywhere takes; the Chain page shows what happens where",
+        "One setup screen for everything: found machines and whose they are, + Add rows for each kind, output chests picked by dropping an item in",
+        "Optional work chest (one request a round), or far away through an ender chest; a tab per part on the computer, a tile per machine on the monitor",
+        "Replaces the smelter, enricher, cooker and essence computers: they update to it by themselves and keep their setup"
       ],
       "setup": [
-        "Put a wired modem on each furnace, blast furnace and smoker and join them to the storage network with cable. Right-click each modem.",
-        "Put this computer on the same network with a wired modem. On the storage computer, run storage setup and pick a fuel chest.",
-        "Optional: put an empty chest with a wired modem on the network as the work chest.",
-        "Optional: for each Mekanism Energized Smelter, set it Public, give it a hopper on top (or a barrel a pipe pulls from) and an empty output chest under it, all on the network. For each Create fan: an empty feeder chest with a funnel onto the belt past it, and an output chest at the belt's end, both on the network.",
-        "Install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or smelter setup) to pick the work chest and add the Mekanism smelters and Create fans. Change what gets smelted and cooked in config.lua."
+        "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
+        "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves.",
+        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines, Create lines and cooking pots. Pick a work chest if you have many machines."
       ],
       "commands": [
-        ["smelter", "start (runs on boot)"],
-        ["smelter setup", "the setup screen on the monitor and the computer: Mekanism smelters and Create fans, the work chest (here, far away or none) and the monitor; or tap Setup on the monitor or screen, or press F1"],
-        ["smelter add", "add a Mekanism Energized Smelter, its feeder (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
-        ["smelter add fan", "add a Create blasting fan (blowing through lava): its feeder chest (a funnel empties it onto the belt) and the output chest at the belt's end"],
-        ["smelter add smokefan", "the same for a smoking fan (fire): food only"],
-        ["smelter remove 1", "forget Mekanism smelter or fan 1 (no number: list them)"],
-        ["smelter chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
-        ["smelter chest remote", "furnaces at another base: one ender chest both ways (or a return one too)"],
-        ["smelter charcoal 256 spruce", "make 256 charcoal from spruce logs (or press C on the running smelter)"],
-        ["smelter stone 512", "make 512 stone from cobblestone (or press S)"],
-        ["smelter glass 256", "make 256 glass from sand or red sand (or press G)"],
-        ["smelter cancel stone", "stop an order; no name stops both (or press X)"],
-        ["smelter monitor", "pick the status board's monitor from every one on the network (or name it, or none); a running smelter moves to it at once"]
+        ["factory","start (runs on boot)"],
+        ["factory setup","the setup screen on the monitor and the computer: machines, the chain, the work chest, the monitor; or tap Setup, or press F1"],
+        ["factory add crusher","add a machine: chamber, smelter (Mekanism), crusher, washer, fan, smokefan (Create) or pot (Cobblemon)"],
+        ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
+        ["factory remove 2","forget machine 2 (no number: list them)"],
+        ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],
+        ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone, glass and cancel)"],
+        ["factory find iron","essence recipes for anything with iron in its name, and how many you can make"],
+        ["factory make 64 iron ingot","order 64 iron ingots made from essence"],
+        ["factory chest","pick the work chest (none: stop using one; remote: far away through an ender chest)"],
+        ["factory monitor","pick the monitor for the status board"]
       ],
       "integrates": [
-        ["storage-computer", "Holds the ores, raw food and the fuel chest, and loads the furnaces when the smelter asks, or fills its work chest in one go."],
-        ["workchest", "One request a round fills the work chest with every furnace's load and fuel."],
-        ["mekfeed", "Reads the Mekanism smelters, Create fans and their feeders, sets the smelters' sides and tells the storage computer which barrels are feeders."],
-        ["tree-farm-turtle", "Its logs pile up in storage: burn the spare ones into charcoal."],
-        ["village-turtle", "Gets its coal and charcoal from the fuel chest, through the storage system."],
-        ["enricher-computer", "Enriches ores into dust (or crushes them) first, for up to twice the ingots; the smelter smelts the dust and crushed ores."],
-        ["status-server", "Shows how many furnaces are smelting, and each finished charcoal, stone or glass order."]
+        ["storage-computer","Holds everything, loads the furnaces, feeders and pot hoppers (or fills the work chest in one go), and takes back what's made through its input chest; crafts washed nuggets and essence orders."],
+        ["workchest","One request a round fills the work chest with every furnace's and feeder's load and fuel."],
+        ["mekfeed","Reads the Mekanism machines, Create lines and their feeders, sets the machines' sides and tells the storage computer which barrels are feeders."],
+        ["crafter-turtle","Crafts the washers' nuggets back into ingots, and the essence orders."],
+        ["digital-miner-manager","Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the chambers."],
+        ["tree-farm-turtle","Its logs pile up in storage: burn the spare ones into charcoal."],
+        ["status-server","Shows what each factory computer is doing, and when a machine needs attention."]
       ],
-      "render": {
-        "kind": "screen",
-        "scene": "smelter",
-        "caption": "The smelter's screen: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.",
-        "more": [
-          { "scene": "smelterBoard", "caption": "A monitor (touching the smelter, else the first on the cable, or the one picked with smelter monitor) is a status board: a tile per furnace and Mekanism smelter, lime idle, yellow smelting, orange a full stack in, red when it needs you (no fuel or power, output stuck)." }
-        ]
-      },
-      "terminal": {
-        "device": "computer",
-        "lines": [
-          ["> ", "smelter charcoal 256 spruce", "cmd"],
-          ["Charcoal order saved: 256 from spruce.", "", "white"],
-          ["The smelter starts on it within 10 seconds, or when it's next started.", "", "white"]
-        ]
-      }
-    },
-    {
-      "name": "cooker-computer",
-      "group": "storage",
-      "title": "Cooking Pots",
-      "command": "cooker",
-      "device": "computer",
-      "deviceLabel": "Computer + wired modem",
-      "color": "purple",
-      "tagline": "Runs Cobblemon campfire pots for the storage system: makes exp candy from sculk and honeycomb, and compresses it up to XL.",
-      "libs": ["report", "errlog", "screen", "net", "files", "setupui"],
-      "keep": ["config.lua"],
-      "autostart": true,
-      "stats": [
-        ["Pots", "one per recipe"],
-        ["Per pot", "2 hoppers, comparator, relay"],
-        ["Cooks", "one every 5 s per pot"],
-        ["Recipes", "exp candy XS to XL"]
-      ],
-      "features": [
-        "Makes exp candy XS from sculk and honeycomb in storage",
-        "Compresses it: 6 XS into S, then 3 into M, L and XL, one pot per size",
-        "The storage computer fills each pot's feed hopper; the output hopper's candy goes back into storage",
-        "Reads each pot through a comparator and a redstone relay, and sends only what it has room for, so a hopper never spills into the wrong pot slot and jams it",
-        "Nothing to count or reset: open a pot and the cooker sees it next round. Says when a pot should be cooking but isn't (lid open, or jammed)",
-        "Optional monitor: every candy size in storage and in the pots, the exp it's all worth, and the sculk and honeycomb left",
-        "More pot recipes in config.lua"
-      ],
-      "setup": [
-        "Put a campfire pot on a lit campfire, a hopper pointing into its side, a hopper under it, and a comparator facing away from it into a redstone relay. Put a wired modem on each hopper and the relay, join them to the storage network and right-click the modems.",
-        "Power the pot with a redstone block (that shuts its lid), touching neither the hoppers, the comparator's sides nor the relay. Update the storage computer with install update.",
-        "Put this computer on the same network with a wired modem (and a monitor for the candy count), install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or cooker setup) and add each pot: what it makes, its feed and output hoppers and its relay."
-      ],
-      "commands": [
-        ["cooker", "start (runs on boot)"],
-        ["cooker setup", "the setup screen on the monitor and the computer: pots (add, change, remove) and the monitor; or tap Setup on the monitor or screen, or press F1"],
-        ["cooker add", "add a pot: what it makes, its feed and output hoppers, and its relay"],
-        ["cooker relay 2", "give pot 2 its relay (pots set up before relays were needed)"],
-        ["cooker remove 2", "forget pot 2 (no number: list the pots)"],
-        ["cooker monitor", "pick the candy monitor from every one on the network (or name it, or none); a running cooker moves to it at once"]
-      ],
-      "integrates": [
-        ["storage-computer", "Holds the sculk, honeycomb and candy, and fills the pots' feed hoppers when the cooker asks."],
-        ["status-server", "Shows how many pots are cooking, and when one is stuck."]
-      ],
-      "render": {
-        "kind": "screen",
-        "scene": "cooker",
-        "caption": "The cooker's screen: each pot, what it makes, how many it has made and what it's doing.",
-        "more": [
-          { "scene": "cookerMonitor", "caption": "The candy monitor: each size in storage and in the pots, the exp it's worth, and what's left to make more XS from." }
-        ]
-      },
+      "render": { "kind": "screen", "scene": "smelter", "caption": "The Smelter tab: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.", "more": [
+        {"scene":"smelterBoard","caption":"The monitor is a status board: a tile per machine, lime idle, yellow working, orange flat out, red when it needs you (no fuel or power, output stuck, a Create line not moving, a pot not cooking)."},
+        {"scene":"enricher","caption":"The Enricher tab: each chamber, crusher and washer, the ore it's on, how many are queued in it and its feeder, its power and what it's doing."},
+        {"scene":"cooker","caption":"The Pots tab: each cooking pot, what it makes, how many it has made and what it's doing."},
+        {"scene":"cookerMonitor","caption":"The monitor's Candy page: each size in storage and in the pots, the exp it's worth, and what's left to make more XS from."},
+        {"scene":"essence","caption":"The Essence tab: what the stored essence makes, how many you can make, and an order of 4 crafts of iron ingots."}
+      ] },
       "layouts": [
-        { "title": "One pot", "scene": "cookerOne", "caption": "A pot on its campfire, raised a block: the feed hopper points into its side, the output hopper sits under it, a redstone block behind it keeps the lid shut without touching either hopper, and a comparator on its other side reads it into the redstone relay beyond. The hoppers' and the relay's modems join the storage network's cable." },
-        { "title": "Candy chain", "scene": "cookerChain", "caption": "Five pots in a row, XS to XL, each set up like the single pot. XS candy goes back into storage through the input chest, then into the S pot, and so on up to XL." }
+        {"title":"One pot","scene":"cookerOne","caption":"A pot on its campfire, raised a block: the feed hopper points into its side, the output hopper sits under it, a redstone block behind it keeps the lid shut without touching either hopper, and a comparator on its other side reads it into the redstone relay beyond. The hoppers' and the relay's modems join the storage network's cable."},
+        {"title":"Candy chain","scene":"cookerChain","caption":"Five pots in a row, XS to XL, each set up like the single pot. XS candy goes back into storage through the input chest, then into the S pot, and so on up to XL."}
       ],
-      "terminal": {
-        "device": "computer",
-        "lines": [
-          ["> ", "cooker add exp_candy_s minecraft:hopper_3 minecraft:hopper_4 redstone_relay_0", "cmd"],
-          ["Pot 2 makes exp candy s from 6 exp candy xs.", "", "white"],
-          ["It starts cooking once it holds 321, and keeps up to 384 in it.", "", "white"],
-          ["Keep the pot powered with redstone (lid shut), but not the hoppers, comparator or relay.", "", "white"]
-        ]
-      }
+      "terminal": { "device": "computer", "lines": [
+        ["> ","factory charcoal 256 spruce","cmd"],
+        ["Charcoal order saved: 256 from spruce.","","white"],
+        ["The factory starts on it within 10 seconds, or when it's next started.","","white"]
+      ] }
     },
     {
       "name": "colony-dashboard",
@@ -1422,201 +1351,6 @@
       "terminal": null
     },
     {
-      "name": "enricher-computer",
-      "group": "storage",
-      "title": "Ore Enricher",
-      "command": "enricher",
-      "device": "computer",
-      "deviceLabel": "Computer + wired modem",
-      "color": "lightGray",
-      "tagline": "Feeds the storage system's ores into Mekanism Enrichment Chambers (2 dust per ore, 4 per 3 raw ores), Create crushing wheels and washing fans (no Mekanism needed), or both; the smelter turns the dust and crushed ores into ingots.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
-      "keep": ["config.lua"],
-      "autostart": true,
-      "stats": [
-        ["Ore block", "2 ingots"],
-        ["3 raw ores", "4 ingots"],
-        ["Raw ore block", "12 ingots"],
-        ["Per chamber", "an input and an output chest"]
-      ],
-      "features": [
-        "Keeps every Enrichment Chamber (and Enriching Factory) on the storage network fed with ores from storage",
-        "Iron, gold, copper, osmium, tin, lead and uranium: ores, raw ores and raw ore blocks, deepslate and nether ores too",
-        "Gem ores too: 2 diamonds, emeralds, coal or quartz, 12 redstone or lapis, 6 fluorite (configurable)",
-        "Raw ores always go in threes, so none are left over in a chamber",
-        "Optional work chest: the storage computer fills it once a round with the ores for every feeder",
-        "Hopper or barrel feeders: a barrel with a transporter pulling into the chamber keeps up with a fast Enriching Factory",
-        "Sets each chamber's bottom to Output with Auto-eject, so the dust drops into a storage input chest",
-        "The smelter never smelts those ores while the enricher runs: it waits for the dust and smelts that into ingots instead",
-        "Puts back anything that doesn't go into a chamber, and says when a chamber has no power or nowhere to put its dust",
-        "Create crushing wheels too: a feeder chest and an output chest each; chambers pick first, crushers take what's left, and Create's zinc and other ores no chamber takes",
-        "Create washing fans: crushed ores into 9 nuggets and a byproduct (redstone from iron, quartz from gold), and the storage computer crafts the nuggets back into ingots"
-      ],
-      "setup": [
-        "Set up the storage computer and the smelter, and install update both.",
-        "For each Enrichment Chamber: set its security to Public, put a wired modem on it, a feeder (a hopper on top pointing down, or an empty barrel with a transporter set to pull into the chamber) and an empty output chest under it, each with a wired modem, all on the storage network. The enricher empties the output chest into storage. For Create crushing wheels: an empty feeder chest with a funnel or chute onto the wheels, and an output chest they drop into, both on the network.",
-        "Optional: put an empty chest with a wired modem on the network as the work chest.",
-        "Put this computer on the same network with a wired modem, install and reboot. Open the setup screen (Setup on the monitor or screen, F1, or enricher setup): add each chamber and crushing line with its feeder and output chest, and pick the work chest."
-      ],
-      "commands": [
-        ["enricher", "start (runs on boot)"],
-        ["enricher setup", "the setup screen on the monitor and the computer: machines (chambers, crushers, washers: add, change, remove), the work chest (here, far away or none) and the monitor; or tap Setup on the monitor or screen, or press F1"],
-        ["enricher add", "add a chamber, its input (the hopper on top, or a barrel a pipe pulls from) and its output chest"],
-        ["enricher add washer", "add a Create washing fan (blowing through water): its feeder chest and the output chest at the belt's end"],
-        ["enricher add crusher", "add a Create crushing line: its feeder chest (a funnel or chute empties it onto the wheels) and the output chest it drops into"],
-        ["enricher remove 2", "forget machine 2 (no number: list them)"],
-        ["enricher chest", "pick the work chest from the empty chests on the network (none: stop using one)"],
-        ["enricher chest remote", "chambers at another base: one ender chest both ways (or a return one too)"],
-        ["enricher monitor", "pick the status board's monitor from every one on the network (or name it, or none); a running enricher moves to it at once"]
-      ],
-      "integrates": [
-        ["storage-computer", "Holds the ores, fills each chamber's hopper or barrel (or the enricher's work chest, in one go) when the enricher asks, leaves barrel feeders out of storage, and takes the dust back through an input chest."],
-        ["workchest", "One request a round fills the work chest with the ores for every feeder."],
-        ["mekfeed", "Reads the chambers, crushers and their feeders, sets the chambers' sides and tells the storage computer which barrels are feeders."],
-        ["smelter-computer", "Asks the enricher which ores to leave alone, and smelts the dust and crushed ores into ingots."],
-        ["digital-miner-manager", "Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the enricher."],
-        ["status-server", "Shows how many chambers, crushers and washers are working, and when one needs attention."]
-      ],
-      "render": {
-        "kind": "screen",
-        "scene": "enricher",
-        "caption": "The enricher's screen: each chamber, the ore it's on, how many are queued in it and its feeder, its power and what it's doing.",
-        "more": [
-          { "scene": "enricherBoard", "caption": "Its monitor is a status board: a tile per chamber, lime idle, yellow working, orange flat out (every slot busy, a stack waiting), red when it needs you (no power, output full, a chest missing)." }
-        ]
-      },
-      "terminal": {
-        "device": "computer",
-        "lines": [
-          ["> ", "enricher add enrichmentChamber_0 minecraft:barrel_1 minecraft:chest_4", "cmd"],
-          ["Chamber 1 added: enrichmentChamber_0, fed by minecraft:barrel_1.", "", "white"],
-          ["Something has to move its items into the machine: a logistical transporter set to pull, or a funnel.", "", "white"],
-          ["The storage computer stops using it as storage once the program is running.", "", "white"],
-          ["What it makes goes into minecraft:chest_4 (put it under the machine), and from there into storage.", "", "white"]
-        ]
-      }
-    },
-    {
-      "name": "essence-computer",
-      "group": "farming",
-      "title": "Essence Computer",
-      "command": "essence",
-      "device": "computer",
-      "deviceLabel": "Computer + wired modem",
-      "color": "purple",
-      "tagline": "Empties your Botany Pots of Mystical Agriculture essence into the storage system, and looks up what the essence crafts into so you can order it.",
-      "libs": [
-        "report",
-        "errlog",
-        "screen",
-        "net",
-        "setupui"
-      ],
-      "keep": [
-        "config.lua"
-      ],
-      "autostart": true,
-      "stats": [
-        [
-          "Pots",
-          "every Hopper Botany Pot"
-        ],
-        [
-          "Emptied",
-          "every 10 s"
-        ],
-        [
-          "Recipes",
-          "from the modpack"
-        ],
-        [
-          "8 iron essence",
-          "6 iron ingots"
-        ]
-      ],
-      "features": [
-        "Empties every Hopper Botany Pot on the storage network into the storage input chest, so no pot fills up and stops",
-        "Never touches the seed or soil: a pot shows a computer only its harvest",
-        "Recipes tab lists every recipe that uses essence: what it makes, what it takes, how many you can make, how many are stored",
-        "Type to search any recipe; with nothing typed it shows only what you have enough essence for",
-        "Pick a recipe, set how many and Order: the crafting turtle makes them into storage",
-        "Pots tab shows each pot's crop, what's left in it, and how much comes out an hour",
-        "essence find and essence make work from the command line too"
-      ],
-      "setup": [
-        "Set up the storage computer with a crafting turtle, and install update it.",
-        "Give the storage computer your modpack's recipes (pack_recipes.lua; get it again if it was made before the essence computer existed).",
-        "Stand each Hopper Botany Pot on a full-block wired modem joined to the storage network.",
-        "Put this computer on the same network with a wired modem, install and reboot."
-      ],
-      "commands": [
-        [
-          "essence",
-          "start (runs on boot)"
-        ],
-        [
-          "essence setup",
-          "the setup screen: the pots it found and what each needs, the recipes and the storage computer; or Setup on its screen, or F1"
-        ],
-        [
-          "essence find iron",
-          "recipes for anything with iron in its name, and how many you can make"
-        ],
-        [
-          "essence make 64 iron ingot",
-          "order 64 iron ingots"
-        ]
-      ],
-      "integrates": [
-        [
-          "storage-computer",
-          "Holds the essence, knows the recipes (from pack_recipes.lua) and plans each order."
-        ],
-        [
-          "crafter-turtle",
-          "Crafts the essence into what you ordered."
-        ],
-        [
-          "craft-overseer",
-          "Shares big orders between several crafting turtles."
-        ],
-        [
-          "status-server",
-          "Shows how many pots it's emptying, and when one needs attention."
-        ]
-      ],
-      "render": {
-        "kind": "screen",
-        "scene": "essence",
-        "caption": "The Recipes tab: what the stored essence makes, how many you can make, and an order of 4 crafts of iron ingots."
-      },
-      "terminal": {
-        "device": "computer",
-        "lines": [
-          [
-            "> ",
-            "essence find copper",
-            "cmd"
-          ],
-          [
-            "copper ingot       8 copper essence -> 6, can make 72",
-            "",
-            "white"
-          ],
-          [
-            "> ",
-            "essence make 48 copper ingot",
-            "cmd"
-          ],
-          [
-            "Crafting 48 copper ingot.",
-            "",
-            "lime"
-          ]
-        ]
-      }
-    },
-    {
       "name": "crate-turtle",
       "group": "storage",
       "title": "Creative Crate Tap",
@@ -1748,6 +1482,7 @@
         ["mekfeed.new(opts)", "A set of machines saved in /.<name>_machines: single and factory are the peripheral types (factory a suffix after the tier), what / title for messages, names, setSides, ask, tell; lines = { \"crush\", \"wash\" } or { \"blast\", \"smoke\" } adds Create lines (kinds in mekfeed.LINES), pageTitle names the setup page."],
         ["set:read()", "Every saved machine and its feeder, read side by side (each Mekanism call takes a tick), sides set once. Each: entry { machine, feeder }, title, slots, factory, present, inputs, outputs, energy, usage, feedOk, feedSize, feedList, feed, feedTotal."],
         ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
+        ["mekfeed.register(sets, remote)", "The same for several sets on one computer at once (the factory's smelter and enricher): the storage computer keeps one feeder list per computer, and each 'feeders' replaces it."],
         ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
         ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, true if some didn't fit, why a move failed, and item -> how many of it moved (the smelter counts its orders with it)."],
         ["mekfeed.status(m, working)", "Status board colour and words: red (not on network, no feeder or output chest, no power, output full; a Create line: not moving), orange (working flat out: every slot busy and a stack waiting), yellow (working: says working), lime (idle)."],
@@ -1755,7 +1490,9 @@
         ["mekfeed.space(m, name)", "The most of an item its feeder may be sent: room in the machine's input slots less what's waiting, and room in the feeder."],
         ["mekfeed.current(m)", "What's in its feeder, or in a single machine's slot: keep sending that. nil when it's free."],
         ["mekfeed.added(m, name, n)", "Note the feeder was sent n."],
-        ["set:command(args)", "'<program> add [machine feeder [output]]' (machine may be a Create line's word: crusher, washer, fan, smokefan) and 'remove <n>'; false if args is neither."]
+        ["set:command(args)", "'<program> add [machine feeder [output]]' (machine may be a Create line's word: crusher, washer, fan, smokefan) and 'remove <n>'; false if args is neither."],
+        ["set:setupParts(ui)", "The setup page's rows, for a page of your own: parts.entries() (a row per machine, tap to change it), parts.adds() (the + Add rows), parts.add(line). set:setupPage(ui) puts them on one page."],
+        ["set:uses() / set:free()", "Every peripheral its machines use; the machines on the network not added yet (here or, with opts.taken, by another computer)."]
       ],
       "notes": "The machine ejects what it makes out of its bottom into its output chest (emptied by collect, registered like a barrel feeder) or a storage input chest: read sets that side to Output with Auto-eject when the machine is Public. A barrel feeder needs something moving its items into the machine (a logistical transporter set to pull, a funnel), has to be empty when added, and isn't filled until the storage computer has taken it as a feeder (it stops being storage). Far away (remote) nothing is registered."
     },
@@ -1787,6 +1524,7 @@
           "ui:pickChest(o)",
           "A page of chests (o.names) with what's in each; o.pick(name) when one is tapped, o.none adds a (none) row, o.roleOf greys out used ones, o.only leaves some out."
         ],
+          ["ui:pickByDrop(o)", "Like pickChest, but the player drops any item into the chest they mean: every empty one of o.names is watched (page.tick, once a second) and the first to get something is o.pick(name); o.list() shows a plain list instead."],
         [
           "ui:monitorPage(setting, event)",
           "Pick the monitor a lib/screen.lua setting names, and queue event."
@@ -1806,7 +1544,7 @@
       "tagline": "A computer's work chest: the storage computer fills it in one request a round, and the program loads its own furnaces or hoppers from it, on the storage cable or far away through ender chests.",
       "usage": "local workchest = require(\"lib.workchest\")\n\n-- ask(msg): your request function on the \"storage\" protocol\nlocal work = workchest.new(\"smelter\", ask)\n\n-- each round, after asking for 'stock':\nlocal input = work:input(stock.input) -- far away: the ender chest itself (or the return one)\nif work:check(stock) or work.remote then\n  work:fill({ [\"minecraft:raw_iron\"] = 64 }, 64) -- items, and fuel for 64 smelts\n  work:move(\"minecraft:raw_iron\", \"minecraft:furnace_2\", 1, 64)\n  work:move(\"minecraft:coal\", \"minecraft:furnace_2\", 2, 8)\n  work:empty(input) -- the rest back into storage\nelse\n  -- no work chest (work.problem says why): 'send' to each furnace\nend",
       "api": [
-        ["workchest.new(name, ask)", "A work chest for this program; the chest's name is saved in /.<name>_chest."],
+        ["workchest.new(name, ask, older)", "A work chest for this program; the chest's name is saved in /.<name>_chest."],
         ["work:setRemote(chest, back)", "Far away: chest is the ender chest here; back (optional) a return one whose twin is a storage input chest. Without back, things go home through chest: each fill sweeps out what wasn't asked for. The storage computer finds the chest's twin by probe. Same answers as set."],
         ["work:input(stockInput)", "Where finished items go back: far away the ender chest itself (the next fill sweeps them home) or the return chest, else the storage input chest."],
         ["work:set(chest)", "Make this empty chest the work chest (nil: stop using one; its contents go back). True, false and why, or nil if nothing answered."],

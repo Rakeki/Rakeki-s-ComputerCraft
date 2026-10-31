@@ -57,8 +57,7 @@ each real change is sent to every player who can see the monitor.
 
 ### Status boards
 
-A monitor that only has to say how each machine is doing (the enricher, the
-smelter) is a status board: `screen.tiles(win, w, top, bottom, tiles)` with a
+A monitor that only has to say how each machine is doing (the factory) is a status board: `screen.tiles(win, w, top, bottom, tiles)` with a
 `{ title, text, bg, fg }` tile per machine, and `screen.legend(win, x, y, w,
 keys)` on the last row. The colours are always lime idle, yellow working,
 orange flat out / full, red needs you (white text); the detailed table stays
@@ -77,14 +76,14 @@ computer is taken first, else the first one on the cable. Give a program a `<com
 command: `screen.choose(setting, args[2])` lists every monitor, saves the pick
 and returns it; then `os.queueEvent("<command>_monitor")` and call
 `refresh()` on that event so a running copy in another tab moves at once
-(smelter-computer does this).
+(the factory does this).
 
 ```lua
 local display = screen.find({
   scales = { 1, 0.5 },        -- tried in order; the first that fits minW x minH wins (default { 1 })
   minW = 53, minH = 12,       -- optional
   filter = function(name, m) return m.isColor() end, -- optional: which monitors will do
-  setting = "smelter.monitor", -- the player's pick: 'set smelter.monitor monitor_3', or none
+  setting = "factory.monitor", -- the player's pick: 'set factory.monitor monitor_3', or none
   name = config.monitor,      -- optional: only this one (then filter is ignored)
   fallback = term.current(),  -- optional: drawn on while there's no monitor
 })
@@ -111,7 +110,7 @@ Why it's built this way (each of these made monitors flash):
   and keep UI state (page, selection) on that module, so a monitor moving
   doesn't mean making a new UI.
 
-A prompt that uses `read()` (smelter.lua's charcoal order) writes to the real
+A prompt that uses `read()` (the factory's charcoal order, smelt.lua) writes to the real
 terminal; the next `frame()` / `show()` draws over it cleanly.
 
 Related: [[new-computer]].

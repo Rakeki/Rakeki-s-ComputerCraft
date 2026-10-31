@@ -216,7 +216,7 @@
       excavate: [340, 540, 150, "excavate-turtle", "Excavator", "turtle", "orange"],
       strip: [540, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
       mob: [740, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
-      smelter: [920, 540, 150, "smelter-computer", "Smelter", "computer", "red"],
+      smelter: [920, 540, 150, "factory", "Factory", "computer", "red"],
       builder: [130, 540, 150, "builder-turtle", "Builders", "turtle", "pink"],
       overseer: [1100, 540, 160, "craft-overseer", "Craft Overseer", "computer", "orange"],
     };
@@ -246,7 +246,7 @@
     edges += line(curve(615, 248, 380, 352), P.brown, 3);
     // the storage system hands its crafting queue to the overseer (down the gap by the GPS deployer)
     edges += line("M750,248 L750,286 L1008,286 L1008,500 L1060,500 L1060,512", P.brown, 3);
-    // the storage system loads the smelter's furnaces (down the gap between the farms)
+    // the storage system loads the factory's furnaces and machines (down the gap between the farms)
     edges += line("M770,248 L770,272 L830,272 L830,470 L900,470 L900,512", P.red, 3);
     // farms drop their harvest into the storage system's input chest
     edges += line(curve(740, 352, 715, 248), P.green);

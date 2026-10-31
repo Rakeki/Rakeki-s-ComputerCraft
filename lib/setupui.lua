@@ -2,8 +2,7 @@
 -- tap one (or click it, or pick it with the arrow keys and Enter) to open
 -- its page, and chest lists that go a page at a time with what's in each
 -- chest beside it, so a big network is as easy to set up as a small one.
--- The storage computer, the enricher, the smelter, the cooker and the essence
--- computer build their setup on it.
+-- The storage computer and the factory build their setup on it.
 --
 --   local setupui = require("lib.setupui")
 --   local ui = setupui.new({ screens = { termScreen, monScreen } }) -- lib/screen.lua screens; the
@@ -15,7 +14,8 @@
 --   buttons = function(ui) return { { " Save ", "black", "lime", function() end }, ... } end, -- optional:
 --                                       -- else Back (Done on the first page)
 --   filter = true,                     -- typing on the terminal narrows the rows (label or value)
---   empty = function(row) end }        -- optional: an Empty button shows only the rows this passes
+--   empty = function(row) end,         -- optional: an Empty button shows only the rows this passes
+--   tick = function(ui) end }          -- optional: called every second while the page is open
 --
 --   ui:open(page) / ui:back()          -- go to a page, and back to the one before
 --                                       -- (on the terminal, Backspace goes back and a button's first
@@ -25,6 +25,9 @@
 --   ui:finish(result)                  -- close; run returns result
 --   ui:pickChest({ title, hint, names, current, none = "(none)", roleOf = f(name), only = f(name, info),
 --     pick = f(name) })                -- a page of chests with their contents; pick(nil) for none
+--   ui:pickByDrop({ title, hint, names, only, drop = "Put any item in it now.", none, list = f(),
+--     pick = f(name) })                -- the same, but the player drops an item into the one they mean
+--                                       -- (only empty ones are watched); list() shows a plain list instead
 --   ui:monitorPage(setting, event)     -- pick the monitor for a lib/screen.lua setting (queues event)
 --   setupui.contents(names)            -- name -> { stacks, top }: every chest's contents, read at once
 --   setupui.onNetwork(test)            -- names on the wired network (not touching this computer) whose type passes
@@ -236,8 +239,13 @@ function UI:run(page)
   self:open(page)
   while not self.done do
     local list = self:draw()
+    if self.page.tick and not self.tickTimer then self.tickTimer = os.startTimer(1) end
     local ev = { os.pullEvent() }
     local e, a = ev[1], ev[2]
+    if e == "timer" and a == self.tickTimer then
+      self.tickTimer = nil
+      if self.page.tick then self.page.tick(self) end
+    end
     if self.opts.onEvent then self.opts.onEvent(ev) end
     if self.opts.name then setupui.wanted(self.opts.name, ev) end
     local tapped
@@ -323,6 +331,56 @@ function UI:pickChest(o)
       return out
     end,
   })
+end
+
+-- Like pickChest, but the player shows which chest they mean by putting an
+-- item in it: every empty one of o.names (that o.only passes) is watched,
+-- and the first to get something is o.pick(name). o.list() offers the plain
+-- list instead (a List button), o.none a row for none (o.pick(nil)).
+function UI:pickByDrop(o)
+  local watching = {}
+  self:open({
+    title = o.title, hint = o.hint,
+    enter = function()
+      local info = setupui.contents(o.names)
+      watching = {}
+      for _, n in ipairs(o.names) do
+        local i = info[n]
+        if i and i.ok and i.stacks == 0 and (not o.only or o.only(n, i)) then watching[#watching + 1] = n end
+      end
+    end,
+    tick = function()
+      if #watching == 0 then return end
+      local info = setupui.contents(watching)
+      for _, n in ipairs(watching) do
+        if info[n] and info[n].stacks > 0 then
+          self:say(("Found it: %s."):format(n), "lime")
+          o.pick(n)
+          return
+        end
+      end
+    end,
+    rows = function()
+      local out = {
+        { label = o.drop or "Put any item in it now.", colour = "yellow" },
+        { label = #watching > 0 and ("Watching %d empty chests for it..."):format(#watching)
+          or "No empty chest to watch: tap List.", dim = true },
+      }
+      if o.none then out[#out + 1] = { label = o.none, act = function() o.pick(nil) end } end
+      return out
+    end,
+    buttons = function()
+      local b = { { " Back ", "black", "lightGray", function() self:back(); self:say("") end } }
+      if o.list then
+        b[#b + 1] = { " List ", "black", "lightGray", function()
+          self:back()
+          o.list()
+        end }
+      end
+      return b
+    end,
+  })
+  self:say("Waiting for an item...")
 end
 
 -- Pick the monitor a lib/screen.lua setting names: the first free one, none,

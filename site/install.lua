@@ -209,6 +209,11 @@ end
 
 local function install(manifest, name, updating)
   local program = manifest.programs[name]
+  -- 'install smelter-computer' installs what took its place
+  if program and program.alias and manifest.programs[program.alias] then
+    if not updating then say(("%s is part of %s now."):format(name, program.alias), colours.lightGrey) end
+    name, program = program.alias, manifest.programs[program.alias]
+  end
   if not program and name:sub(1, 5) == "plan:" then
     say(("There's no plan called '%s'."):format(name:sub(6)), colours.red)
     listPlans(manifest)
@@ -269,6 +274,33 @@ local function install(manifest, name, updating)
   return true
 end
 
+-- A program that another took the place of (the manifest gives it an alias,
+-- e.g. the smelter is part of the factory now) is recorded under the new
+-- name from now on: an install under the old name put the new one's files here.
+local function renameAliases(manifest)
+  local installed, versions, record = readInstalled(), readVersions(), readFiles()
+  local list, seen, changed = {}, {}, false
+  for _, name in ipairs(installed) do
+    local program = manifest.programs[name]
+    local new = program and program.alias
+    if new then
+      changed = true
+      versions[new] = versions[new] or versions[name]
+      record[new] = record[new] or record[name]
+      versions[name], record[name] = nil, nil
+      name = new
+    end
+    if not seen[name] then
+      seen[name] = true
+      list[#list + 1] = name
+    end
+  end
+  if not changed then return end
+  writeFile(INSTALLED_FILE, textutils.serialize(list))
+  writeFile(VERSIONS_FILE, textutils.serialize(versions))
+  writeFile(FILES_FILE, textutils.serialize(record))
+end
+
 -- On boot: update only the programs the website has a newer version of, and
 -- carry on quickly when it can't be reached.
 local function bootUpdate()
@@ -278,6 +310,8 @@ local function bootUpdate()
   write("Checking for updates... ")
   local manifest = loadManifest(BOOT_TIMEOUT, true)
   if not manifest then return say("couldn't reach the website, carrying on.", colours.lightGrey) end
+  renameAliases(manifest)
+  installed = readInstalled()
   local versions, stale = readVersions(), {}
   for _, name in ipairs(installed) do
     local program = manifest.programs[name]
@@ -415,6 +449,7 @@ if not manifest then return end
 if #args == 0 or args[1] == "list" then
   listPrograms(manifest)
 elseif args[1] == "update" then
+  renameAliases(manifest)
   local installed = readInstalled()
   if #installed == 0 then
     print("Nothing has been installed here yet.")

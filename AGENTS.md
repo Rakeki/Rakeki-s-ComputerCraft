@@ -25,14 +25,14 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
   claim.lua                 Tells the storage computer which of its chests is next to this turtle (delivery / crafter chest)
-  mekfeed.lua               Mekanism machines fed through a hopper or barrel (CC can't reach their slots): reads them, sets their output side, registers barrel feeders; also Create lines (crushing wheels, washing / blasting / smoking fans: a feeder and an output chest); enricher, smelter
-  workchest.lua             A computer's work chest: the storage computer fills it in one request a round, the program loads its machines from it (smelter, enricher), on the cable or far away through ender chests
+  mekfeed.lua               Mekanism machines fed through a hopper or barrel (CC can't reach their slots): reads them, sets their output side, registers barrel feeders; also Create lines (crushing wheels, washing / blasting / smoking fans: a feeder and an output chest); the factory
+  workchest.lua             A computer's work chest: the storage computer fills it in one request a round, the program loads its machines from it (the factory), on the cable or far away through ender chests
   net.lua                   Rednet: opening modems, requests with ids and deadlines, answers, cached lookups
   files.lua                 Crash-safe save files (temp file, then move); nav.writeFile etc. are these
   inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
   plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks); projector, build-control, instabuild
   crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
-  setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents (storage, enricher, smelter, cooker, essence)
+  setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents, chests picked by dropping an item in (storage, factory)
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
                             'install plan <name>' puts one in /plans, a program's "plans" field installs some with it;
                             underground ones (cellar, hideout, workshop, sanctum, atrium) also carry "hole" (the size
@@ -48,7 +48,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal, monitor and setup screen, smelter, cooker, colony, Mekanism fission, power, fusion, digital miners, enricher, essence, build control, instabuild, remote terminal)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal, monitor and setup screen, the factory's tabs (smelter, enricher, pots, essence) and board, cooker candy, colony, Mekanism fission, power, fusion, digital miners, build control, instabuild, remote terminal)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/plans.js       Plan viewer: loads a JSON plan (or a Lua one, run with fengari-web) like lib/plan.lua and draws it;
                             each plan gets a page at plans/<name>/, and viewer/ shows a dropped or pasted plan
@@ -124,6 +124,7 @@ One entry per program under `programs`, in the order they appear on the site:
 | `plans` | Plans (names from the `plans` list) installed into `/plans` with it |
 | `keep` | Files the installer never overwrites (player settings) |
 | `autostart` | `true` if `startup.lua` runs it, so the installer says "reboot" |
+| `replaces` | Optional: old program names this one took the place of. The build puts each in the manifest as an alias of it (`alias`), so a computer that has one installs this on its next update, and the installer records it under the new name |
 | `stats` | Four `[label, value]` pairs for the stat boxes |
 | `features`, `setup` | Short bullet points and numbered setup steps |
 | `commands` | `[command, what it does]` pairs |
@@ -204,16 +205,13 @@ Existing computers:
 | `remote-terminal` | Far-away storage terminal: searches the storage computer's items (`list`) and pulls them into a linked ender chest (its twin claimed as this computer's delivery chest through `lib/claim.lua`); items dropped in go home with the delivery sweep | screen, net, files, claim, report, errlog (if present) |
 | `crafter-turtle` | Crafty turtle that crafts for the storage system (recipes and planning live in storage-computer) | claim, net, report, errlog (if present) |
 | `craft-overseer` | Takes the storage computer's crafting queue and shares it between every crafting turtle; monitor shows the queue and what's missing | screen, net, files, report, errlog (if present) |
-| `smelter-computer` | Fills, fuels and empties the furnaces on the storage network, and feeds Mekanism Energized Smelters through a hopper or barrel and Create blasting / smoking fans through a feeder chest (`lib/mekfeed.lua`); charcoal orders feed the fuel chest, stone orders smelt cobblestone, glass orders sand; smelts Mekanism dust, and leaves the ores the enricher takes to it; optional work chest (one `fill` a round), or far away through ender chests | screen, net, files, workchest, claim, mekfeed, setupui, report, errlog (if present) |
-| `cooker-computer` | Runs Cobblemon cooking pots through a feed and an output hopper each (CC can't reach into a pot): exp candy, compressed up to XL; a comparator read through a redstone relay says how full each pot is, so it's fed only what fits and a hopper never overfills a slot (nothing is counted) | screen, net, files, setupui, report, errlog (if present) |
+| `factory` | Every machine that turns stored items into others, on as many computers as you like: furnaces, blast furnaces, smokers and Mekanism Energized Smelters and Create blasting / smoking fans (`smelt.lua`: ores, dust, food; charcoal, stone and glass orders), Mekanism Enrichment Chambers and Create crushing wheels and washing fans (`enrich.lua`; washed nuggets crafted with `prepare`), Cobblemon cooking pots (`cook.lua`: comparator through a redstone relay, so a pot never overfills; Candy monitor page) and Hopper Botany Pots (`botany.lua`: essence into storage, a recipe finder that orders with `prepare`). Furnaces and botany pots are found and claimed (`/.factory_claims`: the earliest claim wins between factory computers); Mekanism machines and Create lines go through `lib/mekfeed.lua`, one work chest for all (`lib/workchest.lua`), or far away through ender chests. Parts are ranked in a chain (enricher 1, smelter 2): a part leaves items a lower rank takes, here or on another factory computer (`factory` protocol). Replaces the smelter, enricher, cooker and essence computers (`replaces` in programs.json; their names install it, and stubs keep their commands) | screen, net, files, workchest, claim, mekfeed, setupui, report, errlog (if present) |
 | `colony-dashboard` | MineColonies monitor dashboard via Advanced Peripherals Colony Integrator | screen, report, errlog (if present) |
 | `fission-guard` | Mekanism fission reactor guard: SCRAMs on heat, damage, coolant, heated coolant or waste and latches until Reset; pauses while the Induction Matrix is full; monitor gauges and buttons | screen, files, report, errlog (if present) |
 | `power-dashboard` | Mekanism Induction Matrix monitor: stored, in/out, full/empty forecast, graph, turbines and energy cubes, low-power redstone signal | screen, report, errlog (if present) |
 | `fusion-control` | Mekanism fusion reactor panel: temperatures, fuel, water/steam, injection-rate buttons, warnings | screen, report, errlog (if present) |
 | `digital-miner-manager` | Every Mekanism Digital Miner on the wired network from one monitor (start/stop/reset, radius, Y, silk, filters); auto eject into the storage input chest | screen, report, errlog (if present) |
-| `essence-computer` | Empties Hopper Botany Pots (Mystical Agriculture) into the storage input chest; Recipes tab looks up what the stored essence crafts into (recipes from the storage computer, `recipes` request) and orders it with `prepare` | screen, net, setupui, report, errlog (if present) |
 | `crate-turtle` | Pulls endless items from a Create Creative Crate into a chest: keeps it full, sends n, keeps n in the chest, or keeps n in the storage system (`count`, chest = its input chest); resumable job, no fuel | files, net, report, errlog (if present) |
-| `enricher-computer` | Feeds ores from storage into Mekanism Enrichment Chambers (or Enriching Factories) through a feeder on each: a hopper on top, or a barrel a pipe pulls from (CC can't reach a Mekanism machine's slots); sets the bottom to Output with Auto-eject into its output chest, which it empties into storage (or a storage input chest); Create crushing wheels too (a feeder and an output chest; chambers pick first, crushers take the rest and zinc etc.), and Create washing fans (crushed ores into nuggets + byproduct; it has the storage computer craft the nuggets into ingots with `prepare`); dust and crushed ores go on to the smelter; optional work chest (one `fill` a round), or far away through ender chests | screen, net, files, workchest, claim, mekfeed, setupui, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the
@@ -224,7 +222,7 @@ inventing new ones.
 
 All over rednet on a wireless or ender modem, except chest-to-chest moves,
 which go over the storage system's wired network. The storage computer,
-smelter, cooker, enricher, crafter and craft overseer open every modem they have, so they
+factory, crafter and craft overseer open every modem they have, so they
 can also talk to each other over that network's cable. Requests carry an `id` that
 the reply repeats (and `re` = the request type), so a late reply is never
 taken for a newer one: `lib/net.lua` (`net.ask`, `net.answer`, `net.peer`)
@@ -238,11 +236,10 @@ reply field.
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector or build-control (both through `lib/crew.lua`) ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height; `clear = false` for a plan built in the air: don't dig out the box) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped, `need` = items it's waiting for or fetching while restocking/waiting; the projector's Now tab). One key per strip |
 | `village_crew` | village-turtle (helper) ↔ village-turtle (lead) | `join` → theme, origin, radius, seed, map, `lane`; `plot` → `i`, `j` (or `none`, `more`); `done` (plot, built entry, paved segments, topY); `alive` every 5 min. GPS on both |
-| `storage` | village-turtle, builder-turtle, crafter-turtle, smelter-computer, cooker-computer, enricher-computer, essence-computer, crate-turtle, remote-terminal → storage-computer | `list` (every plain item with its display name: remote-terminal), `count` (+ `need`), `prepare` (start crafting), `recipes` (every recipe using an item matching a pattern), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), from the overseer `crafters` / `load` / `clear` / `jobdone` / `problem`, `stock` (every count, the input and fuel chests, `work` = the asker's work chest, `workRemote` = it's an ender chest, so a far-away asker takes it as its twin without a probe), `send` (load a furnace's input or fuel slot, or a hopper: furnaces, hoppers and the asker's feeders only), `feeders` (these barrels feed my machines: not storage; the enricher and smelter), `work` (this empty chest is my work chest, or with `items` / `seen` find it through an ender chest like `claim`; none: stop, put its contents away: `lib/workchest.lua`), `fill` (top my work chest up to these items and fuel for n smelts, in one go) |
+| `storage` | village-turtle, builder-turtle, crafter-turtle, factory, crate-turtle, remote-terminal → storage-computer | `list` (every plain item with its display name: remote-terminal), `count` (+ `need`), `prepare` (start crafting), `recipes` (every recipe using an item matching a pattern), `deliver` (top up the turtle's own chest, else the shared delivery chest), `claim` (this chest next to me is mine: `lib/claim.lua`), `learn` (a recipe), from the overseer `crafters` / `load` / `clear` / `jobdone` / `problem`, `stock` (every count, the input and fuel chests, `work` = the asker's work chest, `workRemote` = it's an ender chest, so a far-away asker takes it as its twin without a probe), `send` (load a furnace's input or fuel slot, or a hopper: furnaces, hoppers and the asker's feeders only), `feeders` (these barrels feed my machines: not storage; the factory's enricher and smelter, sent together by `mekfeed.register`), `work` (this empty chest is my work chest, or with `items` / `seen` find it through an ender chest like `claim`; none: stop, put its contents away: `lib/workchest.lua`), `fill` (top my work chest up to these items and fuel for n smelts, in one go) |
 | `instabuild` | blueprint-projector → instabuild (`instabuild serve`) | `build` (name, `mats`, `blocks` = { x, y, z, m } in world coords, `area`) → `ok` / `why`; then `done` (`text`, `placed`) once it's in. Build goes here when an instabuild computer hosts the protocol (`set projector.instabuild false` skips it) |
 | `craft_overseer` | storage-computer → craft-overseer | `jobs` (each { id, plan, name, steps, count, grid, top }) → ack; the overseer then asks the storage computer (`storage` protocol) for `crafters`, `load`, `clear`, `stock`, and reports `jobdone` and `problem` |
-| `smelter` | storage-computer → smelter-computer | hosted only: `storage config remote` finds smelters (and enrichers, which host `enricher`) by `rednet.lookup` to pick their ender chest |
-| `enricher` | smelter-computer → enricher-computer | `takes` → `takes` (Lua patterns of the item ids it puts in its chambers, crushers or washers; empty while none is set up), so the smelter leaves those ores alone and waits for the dust; it keeps the last answer through missed ones. No enricher (or none heard for 10 min): the smelter smelts them |
+| `factory` | factory ↔ factory; storage-computer → factory | `hello` → `stages` (each running part: id, title, rank, `takes` = Lua patterns of the item ids its machines take, summary), `owns` (peripheral name → when it was claimed, 0 for machines added by hand: the earliest wins); `give` (let go of these names) and `take` (these are yours now) → `ok`. A part leaves items a lower-rank part takes (the enricher, rank 1, before the smelter, rank 2); a factory computer unheard for 10 min is forgotten. Hosted, so `storage config remote` finds factory computers (old `smelter` / `enricher` hosts too) by `rednet.lookup` to pick their ender chest |
 | `storage_crafter` | storage-computer or craft-overseer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |
 
 Rules that keep it from stalling:
@@ -270,12 +267,12 @@ Rules that keep it from stalling:
   ignore it): craft jobs carry the grid by item name, and the turtle reports
   what it made so a wrong craft is caught.
 - Only the storage computer takes items out of storage (it caches chest
-  contents); the smelter asks it to fill furnaces (the cooker, its pots'
-  feed hoppers; the enricher, its chambers' hoppers or barrel feeders) and only empties them (their output hoppers)
-  into the input chest itself.
-- A computer on the cable (smelter, enricher) may name a **work chest**
+  contents); the factory asks it to fill furnaces, pots' feed hoppers and
+  Mekanism / Create feeders, and only empties them (output slots, output
+  hoppers and chests, botany pots) into the input chest itself.
+- A computer on the cable (the factory) may name a **work chest**
   (`work`, `lib/workchest.lua`; `setup.works[computer id]`, never storage):
-  each round it plans every load, asks for all of it with one `fill`,
+  each round each part plans every load, asks for all of it with one `fill`,
   moves it into its machines with `pushItems`, and sends whatever is left
   back through the input chest, so nothing waits there unseen. A missing or
   refused work chest falls back to per-machine `send`. Only an empty chest

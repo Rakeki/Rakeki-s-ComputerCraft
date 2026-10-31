@@ -1,8 +1,8 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal and monitor, smelter, cooker, craft overseer, colony dashboard
-// and the Mekanism fission guard, power dashboard, fusion control, digital miner manager and enricher, the remote terminal,
-// the essence computer, build control on a pocket computer, and instabuild.
+// blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
+// and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
+// build control on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -684,8 +684,8 @@
       s.put(filled + 1, 2, bar.slice(filled), "white", "gray");
 
       // the services working with the storage system, coloured by state; tap one for what it is doing
-      const SERVICES = [["Crafter", "lime", "running", "crafted 64 iron bars"], ["Enricher", "lime", "running", "3 of 3 chambers enriching"],
-        ["Smelter", "lightGray", "idle", "0 of 6 furnaces smelting"], ["Cooker", "orange", "waiting", "a pot is out of sugar"]];
+      const SERVICES = [["Crafter", "lime", "running", "crafted 64 iron bars"], ["Factory", "lime", "running", "3 of 3 chambers working"],
+        ["Factory", "lightGray", "idle", "0 of 6 furnaces smelting"], ["Overseer", "orange", "waiting", "a job is missing sticks"]];
       if (!st.typing) {
         let x = 1;
         SERVICES.forEach(([name, colour, state, detail]) => {
@@ -777,9 +777,24 @@
     return s;
   }
 
+  //---------------------------------------------------------------- factory
+
+  // The factory's tab bar (computers/factory/factory.lua): a tab per part
+  // running, the one showing in yellow, Setup at the right.
+  function factoryTabs(s, W, active) {
+    s.fill(1, "gray");
+    let x = 1;
+    for (const t of ["Smelter", "Enricher", "Pots", "Essence"]) {
+      const label = ` ${t} `;
+      s.put(x, 1, label, t === active ? "black" : "white", t === active ? "yellow" : "gray");
+      x += label.length;
+    }
+    s.put(W - 6, 1, " Setup ", "black", "lightGray");
+  }
+
   //---------------------------------------------------------------- smelter
 
-  // The smelter's screen: same layout as computers/smelter-computer/smelter.lua.
+  // The factory's Smelter tab: same layout as computers/factory/smelt.lua.
   // Furnaces smelt down on their own and get reloaded from a pile of ores
   // (the smoker from a pile of raw food);
   // click the footer (or the order lines) to place a charcoal order, then a
@@ -848,11 +863,8 @@
 
     function draw() {
       s.clear();
-      s.fill(1, "gray");
-      s.put(2, 1, "Smelter", "yellow", "gray");
-      const stat = `fuel for ${st.fuel} items`;
-      s.put(W - 6, 1, " Setup ", "black", "lightGray");
-      s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
+      factoryTabs(s, W, "Smelter");
+      s.put(2, 2, `Fuel for ${st.fuel} items`, "lightGray");
       const fuelX = W - 12;
       s.put(2, 3, "Furnace", "yellow"); s.put(20, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
       furnaces.forEach((f, i) => {
@@ -865,7 +877,7 @@
       if (!lines.length) s.put(1, H - 2, fitT(" No orders. Board on monitor_3", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("C:charcoal  S:stone  G:glass  X:cancel  F1:setup", W), "gray");
+      s.put(1, H, fitT("C:charcoal S:stone G:glass X:cancel Tab F1:setup", W), "gray");
       const order = () => {
         if (!st.orders.length) {
           st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });
@@ -890,7 +902,7 @@
 
   //---------------------------------------------------------------- cooker
 
-  // The cooker's screen: same layout as computers/cooker-computer/cooker.lua.
+  // The factory's Pots tab: same layout as computers/factory/cook.lua.
   // The XS pot cooks steadily, the S pot fills to 321 XS candy and then
   // cooks, and the M and L pots wait for smaller candy.
   function cooker(el) {
@@ -923,9 +935,7 @@
 
     function draw() {
       s.clear();
-      s.fill(1, "gray");
-      s.put(2, 1, "Cooking pots", "yellow", "gray");
-      s.put(W - 6, 1, " Setup ", "black", "lightGray");
+      factoryTabs(s, W, "Pots");
       s.put(2, 3, "#", "yellow"); s.put(5, 3, "Makes", "yellow"); s.put(21, 3, "Made", "yellow"); s.put(29, 3, "Doing", "yellow");
       pots.forEach((p, i) => {
         const y = 4 + i;
@@ -935,7 +945,7 @@
         s.put(29, y, fitT(p.state, W - 29), p.colour);
       });
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      s.put(1, H, fitT("F1 or Setup: the setup screen", W), "gray");
+      s.put(1, H, fitT("Tab: next page  F1 or Setup: the setup screen", W), "gray");
       s.render();
     }
 
@@ -948,7 +958,7 @@
   //---------------------------------------------------------------- cooker monitor
 
   // The cooker's candy monitor: same layout as drawMonitor in
-  // computers/cooker-computer/cooker.lua. XS candy comes out of its pot and
+  // computers/factory/cook.lua. XS candy comes out of its pot and
   // gets compressed into S now and then.
   function cookerMonitor(el) {
     const W = 39, H = 12;
@@ -1450,7 +1460,7 @@
 
   //---------------------------------------------------------------- enricher
 
-  // The enricher's screen: same layout as computers/enricher-computer/enricher.lua.
+  // The factory's Enricher tab: same layout as computers/factory/enrich.lua.
   // Three chambers work through the ores in storage; the fourth has run out
   // of power.
   function enricher(el) {
@@ -1478,9 +1488,7 @@
 
     function draw() {
       s.clear();
-      s.fill(1, "gray");
-      s.put(2, 1, "Enrichment chambers", "yellow", "gray");
-      s.put(W - 6, 1, " Setup ", "black", "lightGray");
+      factoryTabs(s, W, "Enricher");
       [["Chamber", 2], ["Ore", 15], ["Queue", 29], ["Pwr", 35], ["Doing", 40]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
       rows.forEach((r, i) => {
         const y = 4 + i, pct = Math.round(r.power * 100);
@@ -1494,7 +1502,7 @@
       const total = list.reduce((n, [, c]) => n + c, 0);
       s.put(2, H - 2, fitT(`To enrich: ${total} (${list.map(([n, c]) => `${n} ${c}`).join(", ")})`, W - 2), "white");
       s.put(1, H - 1, fitT("Chamber 4: it has no power", W), "red");
-      s.put(1, H, fitT("F1 or Setup: the setup screen", W), "gray");
+      s.put(1, H, fitT("Tab: next page  F1 or Setup: the setup screen", W), "gray");
       s.render();
     }
 
@@ -1506,7 +1514,7 @@
 
   //---------------------------------------------------------------- status boards
 
-  // The monitor of the enricher and the smelter: a tile per machine, like
+  // The factory's monitor: a tile per machine, like
   // screen.tiles in lib/screen.lua (3 rows high, at least 12 wide, stretched
   // to fill), lime idle, yellow working, orange flat out, red needs you.
   function statusBoard(el, title, verb, legend, tiles, step) {
@@ -1543,22 +1551,15 @@
     return s;
   }
 
-  // Three chambers busy (the factory flat out), one out of power, one idle.
-  function enricherBoard(el) {
-    const tiles = [["Chamber 1", "iron ore", "yellow"], ["Chamber 2", "raw gold", "yellow"], ["Factory", "copper ore", "orange"],
-      ["Chamber 4", "no power", "red"], ["Chamber 5", "idle", "lime"]];
-    let t = 0;
-    return statusBoard(el, "Enricher", "working", [["lime", "idle"], ["yellow", "working"], ["orange", "flat out"], ["red", "help"]],
-      tiles, () => { t++; tiles[4] = t % 6 < 3 ? ["Chamber 5", "idle", "lime"] : ["Chamber 5", "lapis ore", "yellow"]; });
-  }
-
-  // Furnaces and a Mekanism smelter: one out of fuel.
+  // Everything one factory runs: furnaces (one out of fuel), a chamber, a
+  // crusher, a Mekanism smelter and a cooking pot.
   function smelterBoard(el) {
-    const tiles = [["blast furnace 0", "raw iron", "orange"], ["blast furnace 1", "raw gold", "yellow"], ["furnace 2", "oak log", "yellow"],
-      ["furnace 3", "no fuel", "red"], ["smoker 4", "idle", "lime"], ["Smelter 1", "iron dust", "orange"]];
+    const tiles = [["blast furnace 0", "raw iron", "orange"], ["furnace 1", "oak log", "yellow"], ["furnace 2", "no fuel", "red"],
+      ["smoker 3", "idle", "lime"], ["Chamber 1", "iron ore", "yellow"], ["Crusher 1", "zinc ore", "yellow"],
+      ["Smelter 1", "iron dust", "orange"], ["Pot 1", "cooking", "yellow"]];
     let t = 0;
-    return statusBoard(el, "Smelter", "smelting", [["lime", "idle"], ["yellow", "smelting"], ["orange", "full"], ["red", "help"]],
-      tiles, () => { t++; tiles[4] = t % 8 < 4 ? ["smoker 4", "idle", "lime"] : ["smoker 4", "beef", "yellow"]; });
+    return statusBoard(el, "Factory", "working", [["lime", "idle"], ["yellow", "working"], ["orange", "flat out"], ["red", "help"]],
+      tiles, () => { t++; tiles[3] = t % 8 < 4 ? ["smoker 3", "idle", "lime"] : ["smoker 3", "beef", "yellow"]; });
   }
 
   //---------------------------------------------------------------- remote terminal
@@ -1609,7 +1610,7 @@
   //---------------------------------------------------------------- essence computer
 
   // The essence computer's Recipes tab: same layout as
-  // computers/essence-computer/essence.lua. The pots keep adding essence, so
+  // computers/factory/botany.lua. The pots keep adding essence, so
   // the Can column creeps up; iron ingot is picked, with 4 crafts set.
   function essence(el) {
     const W = 51, H = 19;
@@ -1635,14 +1636,12 @@
 
     function draw() {
       s.clear();
-      s.fill(1, "gray");
+      factoryTabs(s, W, "Essence");
       const total = Object.values(ess).reduce((a, b) => a + b, 0);
-      s.put(2, 1, fitT(`Essence ${total} (${Object.keys(ess).length} kinds)`, W - 28), "yellow", "gray");
-      s.put(W - 24, 1, " Recipes ", "black", "yellow");
-      s.put(W - 14, 1, " Pots ", "white", "gray");
-      s.put(W - 6, 1, " Setup ", "black", "lightGray");
       s.put(1, 2, "Find: ", "yellow");
-      s.put(7, 2, fitT("", W - 7), "white", "gray");
+      s.put(7, 2, fitT("", W - 24), "white", "gray");
+      s.put(W - 16, 2, " Recipes ", "black", "yellow");
+      s.put(W - 6, 2, " Pots ", "white", "gray");
       [["Makes", 2], ["From", 21], ["  Can", W - 12], ["Stored", W - 6]].forEach(([t, x]) => s.put(x, 3, t, "yellow"));
       rows.forEach(([name, from, count, e, per], i) => {
         const y = 4 + i, bg = i === sel ? "gray" : "black";
@@ -1660,7 +1659,7 @@
       s.put(20, y, " Max ", "black", "lightGray");
       s.put(26, y, " Order ", "white", "green");
       s.put(1, H - 1, fitT("Crafting 24 iron ingot.", W), "lime");
-      s.put(1, H, fitT("Type to find, arrows pick + amount, Enter orders, F1 setup", W), "gray");
+      s.put(1, H, fitT(`Essence ${total} (${Object.keys(ess).length} kinds). Type to find, arrows, Enter orders`, W), "gray");
       s.render();
     }
 
@@ -1856,5 +1855,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, enricherBoard, smelterBoard, remote, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, smelterBoard, remote, essence, buildControl, instabuild } };
 })();

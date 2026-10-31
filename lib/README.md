@@ -14,10 +14,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `gps-deployer` (if present), `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
-  present), `craft-overseer` (if present), `smelter-computer` (if present),
-  `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
+  present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present), `crate-turtle` (if present),
+  `digital-miner-manager` (if present), `crate-turtle` (if present),
   `build-control` (if present), `remote-terminal` (if present) and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
@@ -26,10 +25,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector` (if present),
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
-  present), `craft-overseer` (if present), `smelter-computer` (if present),
-  `cooker-computer` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
+  present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `enricher-computer` (if present), `essence-computer` (if present), `crate-turtle` (if present),
+  `digital-miner-manager` (if present), `crate-turtle` (if present),
   `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
@@ -43,18 +41,19 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
   Also Create lines (crushing wheels, washing, blasting and smoking fans), which CC can't see at all: just a feeder
   chest and an output chest, kept topped up and shown red when the feeder stops going down.
-  Used by `enricher-computer` (chambers, crushers, washers) and `smelter-computer` (Mekanism smelters, fans).
+  Used by `factory` (its enricher's chambers, crushers and washers, and its smelter's Mekanism smelters and fans; `mekfeed.register` sends both sets' feeders at once).
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage
   computer](../computers/storage-computer/README.md), has it filled in one
   request a round, moves items from it into furnaces or feeders and sends the
   rest back through the input chest. Far away it's an ender chest, and things
-  go home through it too (or a return ender chest). Used by `smelter-computer` and
-  `enricher-computer`.
+  go home through it too (or a return ender chest). Used by `factory` (one
+  work chest for its smelter and enricher).
 - `setupui.lua`: setup screens on the monitor and the terminal at once: pages of
   settings, and chest lists a page at a time with what's in each chest, an Empty
-  filter and typed search. Used by `storage-computer`, `enricher-computer`, `smelter-computer`, `cooker-computer` and `essence-computer`
-  (with `mekfeed.lua`'s and `workchest.lua`'s setup pages).
+  filter and typed search. Used by `storage-computer` and `factory`
+  (with `mekfeed.lua`'s and `workchest.lua`'s setup pages); `ui:pickByDrop` picks a chest by
+  the item the player drops in it (the factory's output chests).
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into
   a hidden window and shown in one go, and frames that haven't changed can be
   skipped. `screen.find` picks the monitor (next to it or on the cable; the
@@ -62,16 +61,16 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   scale once and follows monitors as they're added or removed. `screen.tiles`
   draws a status board (a coloured tile per machine). Used by `mine-server`,
   `status-server`, `blueprint-projector`, `storage-computer`,
-  `craft-overseer`, `smelter-computer`, `cooker-computer`, `colony-dashboard`,
+  `craft-overseer`, `factory`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,
-  `digital-miner-manager`, `enricher-computer`, `essence-computer` and `remote-terminal`.
+  `digital-miner-manager` and `remote-terminal`.
 - `net.lua`: rednet the same way everywhere: opening wireless or every modem,
   asking another computer something with an id the answer repeats and a
   deadline (`net.ask`), answering (`net.answer`), and a cached lookup of the
   computer hosting a protocol (`net.peer`). Used by `village-turtle`,
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
-  `smelter-computer`, `cooker-computer`, `enricher-computer`, `essence-computer`,
+  `factory`,
   `crate-turtle` (for `crate stock`), `build-control`, `instabuild` and `remote-terminal`.
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
@@ -79,8 +78,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `excavate-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
-  `storage-computer`, `craft-overseer`, `smelter-computer`, `cooker-computer`,
-  `fission-guard`, `enricher-computer`, `crate-turtle`, `build-control`, `instabuild`,
+  `storage-computer`, `craft-overseer`, `factory`,
+  `fission-guard`, `crate-turtle`, `build-control`, `instabuild`,
   `remote-terminal` and `workchest.lua`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on

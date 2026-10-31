@@ -73,4 +73,4 @@ back), so it needs something stored.
 - Items you pulled and didn't take go home after 10 minutes. Things you
   drop in that match something you just pulled wait as long, too.
 - A smelter or enricher far from home can be fed through ender chests as
-  well: see the [smelter's work chest](../smelter-computer/README.md#work-chest).
+  well: see the [factory's work chest](../factory/README.md#work-chest).

@@ -221,7 +221,7 @@ faces (north unless you turn it).
 - **Furnaces.** Two lines of 16 furnaces on ports under a brick hood on the
   west side, with two chimneys outside (campfires on top, for the smoke),
   and a computer and a barrel on ports for the
-  [smelter](../smelter-computer/README.md) and its work chest.
+  [smelter](../factory/README.md#smelting) and its work chest.
 - **Crafting cells.** Four cells on the east side, each a barrel on a port
   (the crafter chest) with a green spot beside it for a
   [crafting turtle](../crafter-turtle/README.md), and a computer on a port
