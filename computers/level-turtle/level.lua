@@ -3,7 +3,8 @@
 -- stands on (hills, trees, leaves, snow, tall grass), then fills every dip,
 -- pond and hole below that level with the dirt and stone it dug up.
 --
---   level <x> <z> [y]     x blocks to the right, z forward, y high to clear (default: until the air is empty)
+--   level <x> <z> [y]     x blocks to the right, z forward, y high to clear (default: until the air is empty;
+--                         0: clear nothing, only fill holes)
 --   level resume
 --   level here            you put me back on my start block (no GPS): carry on from there
 --   level cancel
@@ -138,7 +139,7 @@ local gpsPos = nav.locate
 
 -- Somewhere the turtle is meant to be: over the area (or down a hole it's filling), or on its start block.
 local function onPlan(p)
-  return p.x >= 0 and p.x < plan.W and p.z >= 0 and p.z < plan.L and p.y >= 1 - FILL_DEPTH and p.y < plan.H
+  return p.x >= 0 and p.x < plan.W and p.z >= 0 and p.z < plan.L and p.y >= 1 - FILL_DEPTH and p.y < math.max(plan.H, 1)
 end
 
 -- If the turtle finds itself off its route (picked up and put down
@@ -493,7 +494,7 @@ local function run()
   report.set("done", "levelling complete")
 end
 
-local USAGE = "Usage: level <x> <z> [y]   (x to my right, z forward, y high to clear)"
+local USAGE = "Usage: level <x> <z> [y]   (x to my right, z forward, y high to clear; leave y out to clear up to open sky, 0 to only fill holes)"
 
 local args = { ... }
 if args[1] == "cancel" then
@@ -542,7 +543,7 @@ elseif job then
 else
   local w, l = tonumber(args[1]), tonumber(args[2])
   local h = args[3] and args[3] ~= "auto" and tonumber(args[3]) or nil
-  if not w or not l or w < 1 or l < 1 or (args[3] and args[3] ~= "auto" and (not h or h < 1)) then
+  if not w or not l or w < 1 or l < 1 or (args[3] and args[3] ~= "auto" and (not h or h < 0)) then
     print(USAGE)
     return
   end
@@ -559,7 +560,9 @@ else
   -- with no height given, guess a few layers: most land needs two or three
   local layers = h and plan.layers or 4
   local fuel = math.floor(plan.per * (layers + 1.5) * 1.15)
-  if h then
+  if h == 0 then
+    print(("Platform %dx%d, clearing nothing above it."):format(w, l))
+  elseif h then
     print(("Platform %dx%d, clearing %d high above it."):format(w, l, h))
   else
     print(("Platform %dx%d, clearing up until the sky is clear."):format(w, l))

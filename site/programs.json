@@ -212,6 +212,7 @@
       "commands": [
         ["level 32 32", "32 to the right, 32 forward, cleared up until the sky is empty"],
         ["level 48 24 10", "48 by 24, clearing only 10 blocks up"],
+        ["level 61 50 0", "clear nothing above, only fill the holes below"],
         ["level resume", "carry on after stopping it"],
         ["level here", "no GPS: you put it back on its start block"],
         ["level cancel", "forget the current job"]

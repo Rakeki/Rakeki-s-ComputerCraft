@@ -69,6 +69,8 @@ until you make room.
    level 32 32                   -- 32 to my right, 32 forward, clear up until the sky is empty
    level 48 24 10                -- 48 by 24, clear only 10 blocks up
    level 32 32 auto              -- same as leaving the height out
+   level 61 50 0                 -- clear nothing above, only fill the holes (it still digs through
+                                 -- anything in its way just above the ground)
    level resume                  -- carry on after stopping it
    level here                    -- no GPS: "I've put you back on your start block", then carry on
    level cancel                  -- forget the current job
