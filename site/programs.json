@@ -18,7 +18,7 @@
       "color": "orange",
       "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
-      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress"],
+      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -30,7 +30,7 @@
         "Walks every wall, floor and ceiling block and fills caves, water and lava with cobblestone",
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
-        "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress) and prints where the builder goes and the build command",
+        "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress, cavern) and prints where the builder goes and the build command",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -52,7 +52,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the twelve underground plans, from the bunker to the fortress."]
+        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the thirteen underground plans, from the bunker to the cavern."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
       "layouts": [
@@ -673,7 +673,7 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -794,7 +794,7 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -845,7 +845,7 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
       "libs": ["plan", "files", "net", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1862,6 +1862,15 @@
       "size": "27 × 61 × 14",
       "hole": "27 × 61 × 15",
       "blocks": 8388
+    },
+    {
+      "name": "cavern",
+      "file": "cavern.lua",
+      "title": "Cavern",
+      "tagline": "A whole cave made a base: a stair round a great stone pillar to a lookout, a bridge to a three-storey house, a lake with a waterfall and an island, giant mushrooms, farm terraces, a mine depot and two grottos.",
+      "size": "63 × 63 × 29",
+      "hole": "63 × 63 × 30",
+      "blocks": 18410
     },
     {
       "name": "factory",

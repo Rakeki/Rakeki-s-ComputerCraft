@@ -38,7 +38,7 @@ fuel, but then water and lava can get in.
 ## Files
 
 - `excavate.lua`: the program. Settings (sealing, deep-mode depth, refuel level) are at the top.
-- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`, `bunker.lua`, `burrow.lua`, `cloister.lua`, `greathall.lua`, `crossroads.lua`, `grandstair.lua`, `fortress.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
+- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`, `bunker.lua`, `burrow.lua`, `cloister.lua`, `greathall.lua`, `crossroads.lua`, `grandstair.lua`, `fortress.lua`, `cavern.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
 - `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too, just without reporting.
@@ -101,6 +101,7 @@ excavator, so they're already in `/plans`.
 | [crossroads](../../plans/crossroads.lua) | 45 × 45 × 10 | 6,800 | 8 east, 8 south | A base dug into a hill: a courtyard of moss under froglights with an enchanting table in a ring of shelves, four turf-roofed oak wings in a cross (bedroom, library, kitchen, workshop) two steps down, and sunken gardens with azalea trees and ponds between them |
 | [grandstair](../../plans/grandstair.lua) | 31 × 46 × 22 | 8,320 | 15 east, 30 south | An entrance hall: in through an arch onto a high landing, down a stone staircase between pillars with chiselled capitals and balconies, under dark oak beams and glowstone, to an aquarium window; a storeroom under the landing |
 | [fortress](../../plans/fortress.lua) | 27 × 61 × 15 | 8,390 | 13 east, 56 south | A Nether-style blackstone hall: lava channels under grates along the walls, guard alcoves with glowing panels, deepslate pillars and ribs with lava over grates in the ceiling, a portal dais between two lavafalls |
+| [cavern](../../plans/cavern.lua) | 63 × 63 × 30 | 18,410 | 22 east, 36 south | A whole cave made a base: rough rock walls of stone, tuff and dripstone with stalactites and glowstone overhead; a stair round a great stone pillar up to a lookout deck, and a bridge on stone piers to the roof terrace of a three-storey house (a hall with a fireplace and kitchen, bedrooms and a storeroom, a library, a tower); a lake fed by a waterfall, with a pier and a bridge to an azalea island; giant mushrooms; farm terraces; a mine depot with a track, ore heaps and a smithy; an amethyst grotto with an enchanting table and a blackstone grotto with a portal |
 
 1. Put the turtle in a corner of the hole-to-be as usual and run
    `excavate <plan>` (add `down` or `deep` if you like). The hole is laid
@@ -118,14 +119,15 @@ The plans line the walls from the floor up, so the floor rises one block
 (tiles) and the walls come in one block. They stop one block below the
 ceiling, because the builder stands on top of what it places. Use one
 builder per plan: the plan keeps only one spot clear. Plants stand on
-moss, and nothing needs farmland. The portal frames are unlit obsidian;
-light them yourself.
+moss (mushrooms on mycelium), and nothing needs farmland. The portal
+frames are unlit obsidian; light them yourself.
 
 Some plans need a few things from you:
 
 - **The way in.** The plans fill a sealed hole, so you dig your own
-  tunnel in. The bunker's corridor, the grand stair's arch over its landing
-  and the fortress's gate in its south wall open on the rock, ready for it;
+  tunnel in. The bunker's corridor, the grand stair's arch over its landing,
+  the fortress's gate in its south wall and the cavern's mine tunnel in its
+  east wall (the track runs into the rock) open on the rock, ready for it;
   the burrow's stair carries on up into the rock from the lounge, so dig on
   from its top step to the surface.
 - **Beds and armour stands** can't be placed by the turtle: bed spots are
@@ -134,11 +136,11 @@ Some plans need a few things from you:
   alcoves).
 - **Buckets.** Water and lava come from buckets in the supply chest. Most
   plans need a few dozen water buckets; the grand stair's aquarium takes
-  121 and the sanctum 216. The fortress takes 150 lava buckets for its
+  121, the sanctum 216 and the cavern's lake about 480. The fortress takes 150 lava buckets for its
   channels, ceiling pools and lavafalls: set `LAVA` at the top of
   `fortress.lua` to `"minecraft:magma_block"` to build it without. The
-  cloister's fountain
-  and the fortress's lavafalls pour on purpose; their basins hold them.
+  cloister's fountain, the fortress's lavafalls and the cavern's waterfall
+  pour on purpose; their basins hold them.
 - **The burrow's shaft.** The builder's home in the burrow is a one-block
   shaft through every floor beside the stair, fenced on each floor. Put a
   ladder in it once the building's done, or fence it over.

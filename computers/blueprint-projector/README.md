@@ -52,7 +52,7 @@ sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
 [Building in the sky](#building-in-the-sky)), an **atrium** (60×60, 29
 high, about 7,700 blocks): a pillared atrium between two wings, on two
-floors, for the hole [`excavate atrium`](../excavate-turtle/README.md#atrium) digs; eleven
+floors, for the hole [`excavate atrium`](../excavate-turtle/README.md#atrium) digs; twelve
 more for underground, each for the hole `excavate <plan>` digs (see
 [Building plans](../excavate-turtle/README.md#building-plans)): a **bunker** (23×15, 6
 high, about 1,300 blocks), a **cellar** (17×17, 6 high, about 850), a
@@ -61,8 +61,11 @@ about 3,300), a six-floor **burrow** (21×17, 30 high, about 4,600), a
 **cloister** (35×35, 9 high, about 4,500), a **great hall** (39×33, 13
 high, about 5,800), the **crossroads** (45×45, 9 high, about 6,800), a
 **sanctum** (41×41, 25 high, about 7,800), a **grand stair** (31×46, 21
-high, about 8,300) and a Nether-style **fortress** (27×61, 14 high, about
-8,400); and **Turtle Works**
+high, about 8,300), a Nether-style **fortress** (27×61, 14 high, about
+8,400) and a whole **cavern** (63×63, 29 high, about 18,400): rough rock
+walls, a stair round a great pillar up to a lookout, a bridge to a
+three-storey house, a lake with a waterfall, giant mushrooms, farm
+terraces, a mine depot and two grottos; and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)).
@@ -87,7 +90,7 @@ builder turtles without a projector.
 
 - `projector.lua`: the program: loads plans, works out the shapes and draws them. Tunables are at the top.
 - `ui.lua`: the monitor control panel
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`, and the underground ones from `bunker.lua` to `fortress.lua`); `install plan <name>` adds more
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`, and the underground ones from `bunker.lua` to `cavern.lua`); `install plan <name>` adds more
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.

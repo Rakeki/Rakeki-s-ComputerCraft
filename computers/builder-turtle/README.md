@@ -143,7 +143,7 @@ red) it says so and tries again 5 minutes later.
   whichever way the turtle happens to face. Logs always stand upright, and
   beds and other two-block things may need placing by hand.
 - **Building underground** (any of the underground plans, from the bunker to
-  the fortress, in the hole from
+  the cavern, in the hole from
   [`excavate <plan>`](../excavate-turtle/README.md#building-plans)): give the
   turtle a home inside the building, on a spot whose column the plan leaves
   empty. Each of those plans keeps one clear, and `excavate` prints where.

@@ -67,6 +67,8 @@ local COLOR_WORDS = {
   { "dark_oak", 0x4f3218 }, { "oak", 0xb8945f }, { "spruce", 0x72543a }, { "birch", 0xd7cb8d },
   { "jungle", 0xb88764 }, { "acacia", 0xba6337 }, { "mangrove", 0x773934 }, { "cherry", 0xe4b4a5 },
   { "bamboo", 0xd2bd5a }, { "crimson", 0x7e3a56 }, { "warped", 0x2b6963 },
+  { "dripstone", 0x866b5c }, { "mushroom", 0xcbc4b9 }, { "mycelium", 0x6f6265 }, { "podzol", 0x5b3d1d }, { "basalt", 0x575757 },
+  { "soul", 0x4bd3d9 }, { "rail", 0x8a7b62 }, { "coal", 0x262626 }, { "clay", 0xa0a6b3 },
   { "nether", 0x5a2a2e }, { "mossy", 0x6a7d4f }, { "cobblestone", 0x7a7a7a }, { "deepslate", 0x4d4d52 },
   { "blackstone", 0x2a2328 }, { "sandstone", 0xd8cb9b }, { "sand", 0xdbcfa3 }, { "gravel", 0x847f7e },
   { "andesite", 0x888889 }, { "diorite", 0xbcbcbc }, { "granite", 0x956755 }, { "tuff", 0x6c6d66 },

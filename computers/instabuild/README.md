@@ -32,7 +32,7 @@ same block along a row goes in with one `fill`.
 
 - `instabuild.lua`: the program
 - `startup.lua`: fetches any newer version from the website on boot, and goes back to serving the projector if it was
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`, and the underground ones from `bunker.lua` to `fortress.lua`)
+- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`, and the underground ones from `bunker.lua` to `cavern.lua`)
 - [`lib/plan.lua`](../../lib/plan.lua): loads plans and places them in the world (copy to `/lib/plan.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files, for the undo list (copy to `/lib/files.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers, for `instabuild serve` (copy to `/lib/net.lua`). Needed.

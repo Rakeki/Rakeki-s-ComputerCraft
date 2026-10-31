@@ -146,6 +146,8 @@ return enc(raw)`;
     ["dark_oak", "#4f3218"], ["oak", "#b8945f"], ["spruce", "#72543a"], ["birch", "#d7cb8d"],
     ["jungle", "#b88764"], ["acacia", "#ba6337"], ["mangrove", "#773934"], ["cherry", "#e4b4a5"],
     ["bamboo", "#d2bd5a"], ["crimson", "#7e3a56"], ["warped", "#2b6963"],
+    ["dripstone", "#866b5c"], ["mushroom", "#cbc4b9"], ["mycelium", "#6f6265"], ["podzol", "#5b3d1d"], ["basalt", "#575757"],
+    ["soul", "#4bd3d9"], ["rail", "#8a7b62"], ["coal", "#262626"], ["clay", "#a0a6b3"],
     ["nether", "#5a2a2e"], ["mossy", "#6a7d4f"], ["cobblestone", "#7a7a7a"], ["deepslate", "#4d4d52"],
     ["blackstone", "#2a2328"], ["sandstone", "#d8cb9b"], ["sand", "#dbcfa3"], ["gravel", "#847f7e"],
     ["andesite", "#888889"], ["diorite", "#bcbcbc"], ["granite", "#956755"], ["tuff", "#6c6d66"],

@@ -51,6 +51,7 @@ local ITEM_FOR = {
   ["minecraft:wall_torch"] = "minecraft:torch", ["minecraft:soul_wall_torch"] = "minecraft:soul_torch",
   ["minecraft:redstone_wire"] = "minecraft:redstone", ["minecraft:water"] = "minecraft:water_bucket",
   ["minecraft:lava"] = "minecraft:lava_bucket", ["minecraft:tripwire"] = "minecraft:string",
+  ["minecraft:sweet_berry_bush"] = "minecraft:sweet_berries",
 }
 local STACK = { ["minecraft:water_bucket"] = 1, ["minecraft:lava_bucket"] = 1 } -- items that stack below 64
 
