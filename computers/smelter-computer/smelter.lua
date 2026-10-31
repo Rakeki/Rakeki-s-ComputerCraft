@@ -44,15 +44,15 @@
 -- hopper or barrel like the enricher's chambers (lib/mekfeed.lua), and get
 -- first pick of what there is to smelt. They need no fuel, eject what they
 -- make into the chest under them (an output chest the smelter empties into
--- storage, or a storage input chest), and take no part in orders
--- (what they make isn't counted).
+-- storage, or a storage input chest). With an output chest they work on
+-- orders too, ahead of the furnaces: what's emptied from it is counted.
 --
 -- Create fans (bulk blasting through lava, bulk smoking through fire)
 -- aren't peripherals: a fan line is a feeder chest a funnel empties onto a
 -- belt past the fan, and the chest at the belt's end (lib/mekfeed.lua
 -- lines). They're loaded with the Mekanism smelters, blasting fans with
 -- ores and dust, smoking fans with food, and shown red when their feeder
--- stops going down. Like the Mekanism smelters they take no part in orders.
+-- stops going down. They take no part in orders.
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -287,6 +287,36 @@ end
 
 ---------------------------------------------------------------- a round
 
+-- A Mekanism smelter with an output chest the smelter empties can work on
+-- orders, since what comes out of that chest is counted. Not one that
+-- ejects straight into storage, nor a Create fan (blasting is ores only).
+local function forOrders(m) return not m.line and m.entry.output ~= nil end
+
+-- Count what came out of the output chests towards the orders.
+local function countMade(made)
+  for _, o in ipairs(ORDERS) do
+    local t = jobs[o.kind]
+    if t and made and made[o.made] then t.made = t.made + made[o.made] end
+  end
+end
+
+-- An order's input or what it makes is still in a Mekanism smelter: its
+-- feeder, its slots, or its output chest (stuck there, not counted yet).
+local function mekBusyWith(m, o)
+  if not forOrders(m) then return false end
+  for _, s in pairs(m.feedList) do
+    if o.isInput(s.name) then return true end
+  end
+  for i = 1, m.slots do
+    local a, b = m.inputs[i], m.outputs[i]
+    if (a and o.isInput(a.name)) or (b and b.name == o.made) then return true end
+  end
+  for _, s in pairs(m.outList) do
+    if s.name == o.made then return true end
+  end
+  return false
+end
+
 local function round()
   -- the furnaces first, so the screen shows them even while the storage
   -- computer isn't answering
@@ -313,11 +343,12 @@ local function round()
 
   -- far away the Mekanism smelters' output chests empty into the ender
   -- chest here, which needs no answer from the storage computer (the
-  -- furnaces wait for it: their output counts towards orders)
+  -- furnaces wait for it)
   work:reload()
-  local _, outStuck, outWhy, collected = nil, false, nil, false
+  local _, outStuck, outWhy, made, collected = nil, false, nil, nil, false
   if work.remote then
-    _, outStuck, outWhy = smelters:collect(meks, work:input(nil))
+    _, outStuck, outWhy, made = smelters:collect(meks, work:input(nil))
+    countMade(made)
     collected = true
   end
 
@@ -350,6 +381,17 @@ local function round()
       f.output.count = f.output.count - moved
       if f.output.count > 0 then blocked = true else f.output = nil end
     end
+  end
+  -- and the Mekanism smelters' and fans' output chests, before the orders
+  -- are checked below (what they made counts too)
+  if not collected then
+    _, outStuck, outWhy, made = smelters:collect(meks, input)
+    countMade(made)
+  end
+  if outWhy then
+    problem = problem or outWhy
+  elseif outStuck then
+    blocked = true
   end
 
   -- a fuelled furnace with room for its output whose input hasn't gone down
@@ -387,6 +429,9 @@ local function round()
       local burning = false
       for _, f in ipairs(furnaces) do
         if f.input and o.isInput(f.input.name) then burning = true end
+      end
+      for _, m in ipairs(meks) do
+        if mekBusyWith(m, o) then burning = true end
       end
       if t.made >= t.count or (not burning and (t.loaded >= t.count or not item)) then
         if t.made >= t.count then
@@ -451,17 +496,10 @@ local function round()
   local haveFuel = (stock.fuel or 0) > 0
 
   -- Mekanism smelters and Create fans first (faster, no fuel), through their
-  -- feeders; never for orders, since what they make goes into storage
-  -- uncounted. A blasting fan only takes ores, a smoking fan only food.
+  -- feeders; a Mekanism smelter with an output chest takes the orders
+  -- first (forOrders). A blasting fan only takes ores, a smoking fan only food.
   local unsure, feedProblem = smelters:register(work.remote)
   problem = problem or feedProblem
-  -- their output chests go home first, like the furnaces' output above
-  if not collected then _, outStuck, outWhy = smelters:collect(meks, input) end
-  if outWhy then
-    problem = problem or outWhy
-  elseif outStuck then
-    blocked = true
-  end
   smelters:unstick(meks, input, function(m, item)
     noSmelt["mek:" .. item.name] = true
     tell(("%s didn't go into %s: put it back. Is its hopper on top, or a pipe pulling from its barrel?")
@@ -476,22 +514,31 @@ local function round()
   for _, m in ipairs(meks) do
     if mekfeed.ready(m) and not unsure[m.entry.feeder] then
       local pick = mekfeed.current(m)
+      if not pick and forOrders(m) then
+        for _, item in ipairs(orderItems) do
+          if not pick and (want[item] or 0) > 0 and fits(m, item) then pick = item end
+        end
+      end
       if not pick then
         local most = 0
         for name, n in pairs(want) do
           if not byItem[name] and n > most and fits(m, name) then pick, most = name, n end
         end
       end
+      -- an order's item only into one whose output is counted
+      if pick and byItem[pick] and not forOrders(m) then pick = nil end
       local n = pick and math.min(mekfeed.space(m, pick), want[pick] or 0, 64) or 0
       if n > 0 and plan then
         mekPlan[#mekPlan + 1] = { m = m, name = pick, n = n }
         want[pick] = want[pick] - n
+        if byItem[pick] then byItem[pick].loaded = byItem[pick].loaded + n end
       elseif n > 0 then
         local r = ask({ type = "send", to = m.entry.feeder, items = { [pick] = n } })
         local got = r and r.sent and r.sent[pick] or 0
         if r and r.error then problem = r.error end
         mekfeed.added(m, pick, got)
         want[pick] = want[pick] - got
+        if byItem[pick] then byItem[pick].loaded = byItem[pick].loaded + got end
         if got > 0 then loaded, into = loaded + got, into + 1 end
       end
     end
@@ -601,6 +648,7 @@ local function round()
     for _, p in ipairs(mekPlan) do
       local got = work:move(p.name, p.m.entry.feeder, nil, p.n)
       mekfeed.added(p.m, p.name, got)
+      if byItem[p.name] then byItem[p.name].loaded = byItem[p.name].loaded - (p.n - got) end
       if got > 0 then loaded, into = loaded + got, into + 1 end
     end
     work:empty(input)
@@ -628,10 +676,14 @@ local function round()
   if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
     problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
-  -- orders only burn in plain furnaces: blast furnaces, smokers, Mekanism smelters and fans never take them
+  -- orders only burn in plain furnaces and Mekanism smelters with an output
+  -- chest: blast furnaces, smokers and fans never take them
   local plain = false
   for _, f in ipairs(furnaces) do
     if not f.blast and not f.smoker then plain = true end
+  end
+  for _, m in ipairs(meks) do
+    if forOrders(m) then plain = true end
   end
   if problem then
     say("Couldn't move items: " .. problem, "red")
@@ -641,7 +693,7 @@ local function round()
     say(work.remote and "The ender chest is full: smelted items are waiting in the furnaces."
       or "The storage input chest is full: smelted items are waiting in the furnaces.", "orange")
   elseif #orderItems > 0 and not plain then
-    say("Orders need a plain furnace (not a blast furnace or smoker): put one on the network.", "orange")
+    say("Orders need a plain furnace or a Mekanism smelter with an output chest: add one.", "orange")
   elseif work.problem then
     say(("Not using the work chest: %s."):format(work.problem), "orange")
   elseif unfuelled then

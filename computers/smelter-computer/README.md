@@ -65,12 +65,14 @@ output chest).
 
 - They get first pick of what there is to smelt or cook (they're faster and
   need no fuel); the furnaces take what's left.
-- They don't work on charcoal, stone or glass orders: what they make goes
-  straight into storage, so the smelter can't count it. Orders need at
-  least one plain furnace (blast furnaces and smokers can't take them
-  either); without one the footer says so.
+- With an output chest, they work on charcoal, stone and glass orders too,
+  ahead of the furnaces: the smelter counts what it empties out of that
+  chest. One that pushes straight into a storage input chest takes no
+  orders, since what it makes can't be counted. Orders need a plain furnace
+  or a Mekanism smelter with an output chest (blast furnaces and smokers
+  can't take them); without one the footer says so.
 - With only Mekanism smelters and no furnaces, it works the same, minus the
-  orders and the fuel.
+  fuel.
 - The smelter sets each one's bottom to **Output** with **Auto-eject** on,
   when its security is **Public**. Otherwise do it by hand, or set
   `setSides = false` in `config.lua`.
@@ -116,7 +118,8 @@ topped up to a stack.
 
 When there's far more of one kind of log than you want, burn it into
 charcoal. Press **C**, pick the logs from the list (the kind there's most of
-is first), and say how much charcoal to make. Plain furnaces work on the
+is first), and say how much charcoal to make. Plain furnaces and
+[Mekanism smelters](#mekanism-smelters) with an output chest work on the
 order before ores and food (blast furnaces and smokers can't burn logs), and the charcoal goes
 into the fuel chest, where it fuels the furnaces and
 [turtles](../storage-computer/README.md#fuel). The screen shows how far the
@@ -126,7 +129,7 @@ run out.
 ### Making stone
 
 Press **S** and say how much stone to make from the cobblestone in
-storage. It works like a charcoal order (plain furnaces only, carries on
+storage. It works like a charcoal order (plain furnaces and Mekanism smelters, carries on
 after a reboot, stops early if the cobblestone runs out), and the stone
 goes into storage.
 
@@ -135,12 +138,12 @@ goes into storage.
 Press **G** and say how much glass to make. It smelts sand and red sand,
 whichever there's more of, and carries on with the other when one runs
 out (`smelter glass <n> red` sticks to red sand). Like stone, it uses
-plain furnaces only (blast furnaces and smokers can't smelt sand), carries
+plain furnaces and Mekanism smelters (blast furnaces and smokers can't smelt sand), carries
 on after a reboot, and the glass goes into storage.
 
-All three orders can run at once: plain furnaces start on the charcoal
-first, then the stone, then the glass, and all of them come before ores and
-food.
+All three orders can run at once: Mekanism smelters (with an output chest)
+and plain furnaces start on the charcoal first, then the stone, then the
+glass, and all of them come before ores and food.
 
 The screen lists each furnace (blast furnaces in orange, smokers in pink), what's in it and its fuel, how much
 smelting the stored fuel is good for, and what it did last. With a

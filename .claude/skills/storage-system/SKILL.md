@@ -92,7 +92,9 @@ through its bottom face, and only a hopper pot lets them be taken, so each pot
 stands on a full-block wired modem), and orders crafts with `prepare` set to
 stored + already crafting + wanted (`prepare` tops up to a total). The smelter's orders (`ORDERS` in smelter.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
-into plain furnaces ahead of ores, in that order. The cooker can't see inside
+into plain furnaces ahead of ores, in that order, and into Mekanism smelters
+with an output chest (`forOrders`; `made` counts what `collect` empties out
+of it, before the orders are checked). The cooker can't see inside
 a pot: a comparator into a redstone relay says how full it is, and it sends
 the feed hopper only what still fits.
 **Work chests** (`lib/workchest.lua`): the smelter and enricher can each name

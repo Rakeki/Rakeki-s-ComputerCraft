@@ -1067,7 +1067,7 @@
         ["Furnaces", "as many as you cable"],
         ["Checks", "every 10 s"],
         ["Fuel", "from the fuel chest"],
-        ["Orders", "charcoal, stone"]
+        ["Orders", "charcoal, stone, glass"]
       ],
       "features": [
         "Smelts raw metals, ore blocks and ancient debris from storage by itself",
@@ -1079,7 +1079,7 @@
         "Fuels each furnace for what's in it, from the storage system's fuel chest",
         "Optional work chest: the storage computer fills it once a round with everything the furnaces need, and the smelter loads them from it",
         "Press C to burn a pile of unwanted logs into charcoal for the fuel chest",
-        "Press S to smelt cobblestone into stone, G to smelt sand into glass; the orders can run at once",
+        "Press S to smelt cobblestone into stone, G to smelt sand into glass; the orders can run at once, in furnaces and Mekanism smelters",
         "Smelted goods go back into storage through the input chest"
       ],
       "setup": [
@@ -1749,7 +1749,7 @@
         ["set:read()", "Every saved machine and its feeder, read side by side (each Mekanism call takes a tick), sides set once. Each: entry { machine, feeder }, title, slots, factory, present, inputs, outputs, energy, usage, feedOk, feedSize, feedList, feed, feedTotal."],
         ["set:register(remote)", "Tells the storage computer which barrels and chests are feeders ('feeders'). The feeders not to fill yet (name -> true) and why."],
         ["set:unstick(machines, input, putBack)", "An item sitting in a feeder over an empty, powered machine for a minute goes back to input; putBack(m, item) is told."],
-        ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, and true if some didn't fit."],
+        ["set:collect(machines, input)", "Empties each machine's output chest into input (the storage input chest, or far away the ender chest). How many moved, true if some didn't fit, why a move failed, and item -> how many of it moved (the smelter counts its orders with it)."],
         ["mekfeed.status(m, working)", "Status board colour and words: red (not on network, no feeder or output chest, no power, output full; a Create line: not moving), orange (working flat out: every slot busy and a stack waiting), yellow (working: says working), lime (idle)."],
         ["mekfeed.ready(m)", "Present, powered and its feeder answers."],
         ["mekfeed.space(m, name)", "The most of an item its feeder may be sent: room in the machine's input slots less what's waiting, and room in the feeder."],

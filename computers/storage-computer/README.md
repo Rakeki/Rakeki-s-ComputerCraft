@@ -479,8 +479,8 @@ crushed ore).
 |---|---|
 | Neither | It stays in storage. |
 | Smelter with furnaces | Smelted in the furnaces (blast furnaces first), fuelled from the fuel chest; raw food is cooked (smokers first). Charcoal, stone and glass orders. |
-| Smelter with Mekanism smelters only | Smelted in them, no fuel needed. No charcoal, stone or glass orders: those need a plain furnace. |
-| Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders only in plain furnaces. |
+| Smelter with Mekanism smelters only | Smelted in them, no fuel needed. Charcoal, stone and glass orders too, in those with an output chest (what comes out of it is counted). |
+| Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders in plain furnaces and Mekanism smelters with an output chest. |
 | Enricher, no smelter | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's a smelter. |
 | Enricher and smelter | While the enricher has a chamber set up, the smelter leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the enricher has been gone for 10 minutes, or has no chambers, the smelter smelts the ores itself. |
 | Create machines | The enricher's crushing wheels take the ores the chambers leave (or all of them, with no chambers) and the smelter waits for the crushed ores (or the enricher's washing fans wash them into nuggets and a byproduct, and the storage computer crafts the nuggets into ingots); its blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |

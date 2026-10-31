@@ -418,10 +418,11 @@ end
 
 -- Empty each machine's output chest into input (the storage input chest,
 -- or far away the ender chest). How many moved, true if some didn't fit,
--- and why when a move failed outright (e.g. input isn't on this cable).
+-- why when a move failed outright (e.g. input isn't on this cable), and
+-- item -> how many of it moved (the smelter counts its orders with it).
 function Set:collect(machines, input)
-  local moved, stuck, why = 0, false, nil
-  if not input then return 0, false end
+  local moved, stuck, why, byName = 0, false, nil, {}
+  if not input then return 0, false, nil, byName end
   for _, m in ipairs(machines) do
     if m.entry.output and m.outOk then
       for slot, item in pairs(m.outList) do
@@ -431,11 +432,12 @@ function Set:collect(machines, input)
         end
         n = ok and n or 0
         moved = moved + n
+        byName[item.name] = (byName[item.name] or 0) + n
         if n < item.count then stuck = true end
       end
     end
   end
-  return moved, stuck, why
+  return moved, stuck, why, byName
 end
 
 ---------------------------------------------------------------- commands
