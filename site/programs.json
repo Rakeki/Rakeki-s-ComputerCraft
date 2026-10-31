@@ -1812,6 +1812,118 @@
       "tagline": "A sawtooth-roofed factory hall wired under the floor: 12 turtle docks, sky docks, storage racks, furnaces, crafting cells and a control room.",
       "size": "61 × 50 × 23",
       "blocks": 15312
+    },
+    {
+      "name": "windmill",
+      "file": "windmill.lua",
+      "title": "Windmill",
+      "tagline": "An eight-sided stone and plaster mill with a stepped cap and four framed cloth sails, a loft stair and the miller's barrels inside.",
+      "size": "21 × 14 × 23",
+      "blocks": 760
+    },
+    {
+      "name": "lighthouse",
+      "file": "lighthouse.lua",
+      "title": "Lighthouse",
+      "tagline": "A red and white banded tower on a rocky outcrop, a spiral stair to a glass lamp room with a railed walkway, and the keeper's cottage.",
+      "size": "23 × 21 × 36",
+      "blocks": 1782
+    },
+    {
+      "name": "smithy",
+      "file": "smithy.lua",
+      "title": "Smithy",
+      "tagline": "A village blacksmith: a stone and timber shop and an open workshop round a brick forge with lava, a chimney, anvil and woodpile.",
+      "size": "17 × 14 × 13",
+      "blocks": 777
+    },
+    {
+      "name": "tavern",
+      "file": "tavern.lua",
+      "title": "Tavern",
+      "tagline": "A two-storey timber-framed inn: a bar, tables and a fireplace below, three guest rooms in the jettied upper floor, dormers and a chimney.",
+      "size": "19 × 16 × 19",
+      "blocks": 1474
+    },
+    {
+      "name": "chapel",
+      "file": "chapel.lua",
+      "title": "Chapel",
+      "tagline": "A stone village church with buttresses, stained-glass windows, a round window over the altar, pews, and a bell tower with a slate spire.",
+      "size": "13 × 32 × 29",
+      "blocks": 1600
+    },
+    {
+      "name": "market",
+      "file": "market.lua",
+      "title": "Market square",
+      "tagline": "A paved square round a roofed well: eight stalls under striped canopies with their wares, benches, lamp posts and a tree in each corner.",
+      "size": "27 × 27 × 9",
+      "blocks": 1289
+    },
+    {
+      "name": "treehouse",
+      "file": "treehouse.lua",
+      "title": "Treehouse",
+      "tagline": "A giant tree with roots and branches, a stair winding round the trunk up into a cabin on a railed deck high in the leaves.",
+      "size": "19 × 18 × 29",
+      "blocks": 1241
+    },
+    {
+      "name": "castle",
+      "file": "castle.lua",
+      "title": "Castle",
+      "tagline": "A curtain wall with a wall walk and battlements, four round towers with blue cone roofs, a gatehouse with a raised portcullis, a three-storey keep with a throne room, stables and a garden.",
+      "size": "45 × 45 × 31",
+      "blocks": 8170
+    },
+    {
+      "name": "barn",
+      "file": "barn.lua",
+      "title": "Barn and silo",
+      "tagline": "A red barn with white trim under a gambrel roof: horse stalls, a hayloft full of bales, a hoist over the loft door, a copper-domed silo and a paddock with a trough.",
+      "size": "30 × 23 × 24",
+      "blocks": 1948
+    },
+    {
+      "name": "teahouse",
+      "file": "teahouse.lua",
+      "title": "Tea house",
+      "tagline": "A Japanese-style house on a stone plinth with paper screens and a hipped slate roof, in a garden with a pond, a red bridge, stone lanterns, a cherry tree and bamboo.",
+      "size": "33 × 23 × 14",
+      "blocks": 1763
+    },
+    {
+      "name": "wizardtower",
+      "file": "wizardtower.lua",
+      "title": "Wizard tower",
+      "tagline": "A deepslate tower on an amethyst-studded mound under a bent purple witch's hat: a spiral stair round bookshelves, a balcony, a library and a study with an enchanting table.",
+      "size": "15 × 15 × 44",
+      "blocks": 1704
+    },
+    {
+      "name": "greenhouse",
+      "file": "greenhouse.lua",
+      "title": "Greenhouse",
+      "tagline": "A white-framed glasshouse with a pitched glass roof and a domed cross wing: raised beds of flowers, azaleas and bamboo, sugar cane along a water channel, and a fountain.",
+      "size": "21 × 33 × 19",
+      "blocks": 2073
+    },
+    {
+      "name": "villa",
+      "file": "villa.lua",
+      "title": "Villa",
+      "tagline": "A modern house of two white boxes and glass walls, the upper one running out over a terrace: open living room, bedroom and study, a roof garden, a pool with loungers and a fire pit.",
+      "size": "24 × 21 × 13",
+      "blocks": 1498
+    },
+    {
+      "name": "longhouse",
+      "file": "longhouse.lua",
+      "title": "Longhouse",
+      "tagline": "A Viking hall under a great dark roof: painted shields along the walls, crossed gable beams, a long fire trench between benches and tables, and the chieftain's seat.",
+      "size": "15 × 31 × 12",
+      "blocks": 1159
     }
   ]
 }

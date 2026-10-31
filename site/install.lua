@@ -172,11 +172,10 @@ local function listPlans(manifest)
   end
   table.sort(names)
   say("Building plans you can install:", colours.yellow)
-  for _, name in ipairs(names) do
-    write(("  %-18s"):format(name))
-    say(manifest.programs["plan:" .. name].title, colours.lightGrey)
-  end
-  print()
+  -- columns, a page at a time: there are too many for a line each
+  textutils.pagedTabulate(term.isColour() and colours.lightGrey or colours.white, names)
+  term.setTextColour(colours.white)
+  print("Pictures of each: " .. SITE .. "/plans/")
   print("Install one with: install plan <name>")
   print("or several: install plan <name> <name> ...")
 end

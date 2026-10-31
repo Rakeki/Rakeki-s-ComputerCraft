@@ -65,8 +65,20 @@ high, about 8,300) and a Nether-style **fortress** (27×61, 14 high, about
 8,400); and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
-[The factory](#the-factory)). `install plans` lists the
-plans on the website and `install plan <name>` adds one; your own go in
+[The factory](#the-factory)).
+
+Fourteen more buildings are on the website's plans page, to install by
+name (`install plan castle`, `install plan teahouse windmill`): a
+**windmill**, a **lighthouse** with its keeper's cottage, a **smithy**, a
+two-storey **tavern**, a **chapel** with a bell tower, a **market**
+square, a **treehouse**, a **castle** (45×45, 31 high, about 8,200
+blocks), a **barn** and silo, a Japanese **teahouse** and garden, a
+**wizardtower**, a **greenhouse**, a modern **villa** and a Viking
+**longhouse**. A few hold water or lava, which the builders place from
+buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
+pool (30), the market's well (9), the barn's trough (3) and the smithy's
+forge (1 lava). `install plans` lists every
+plan on the website and `install plan <name>` adds one; your own go in
 `/plans` too (see [Plans](#plans)). The same plans work with
 [build control](../build-control/README.md), which sends a plan to the
 builder turtles without a projector.

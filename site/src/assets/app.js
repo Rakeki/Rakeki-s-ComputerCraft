@@ -555,7 +555,11 @@
         <div class="mc-panel install-panel">
           <h3><img src="${ROOT}assets/floppy.svg" alt=""> Install</h3>
           ${field(`install plan ${pl.name}`)}
-          <p>Puts it in <code>/plans</code> on the computer, where the projector, build control and instabuild find it. It comes with all three already.</p>
+          <p>Puts it in <code>/plans</code> on the computer, where the projector, build control and instabuild find it. ${(() => {
+            // only some plans come with the programs; the rest are installed by name
+            const bundled = SITE.programs.filter((p) => (p.plans || []).includes(pl.name) && ["blueprint-projector", "build-control", "instabuild"].includes(p.name));
+            return bundled.length === 3 ? "It comes with all three already." : bundled.length ? `It comes with ${bundled.map((p) => esc(p.title)).join(" and ")} already.` : "";
+          })()}</p>
         </div>
       </div></section>
       <section class="block" style="padding-top:20px"><div class="wrap"><div id="plan-view"></div></div></section>
