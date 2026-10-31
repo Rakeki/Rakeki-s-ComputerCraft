@@ -45,6 +45,11 @@ add("ladder", 3, { "S S", "SSS", "S S" }, { S = mc("stick") })
 -- light
 add("torch", 4, { "C", "S" }, { C = { mc("coal"), mc("charcoal") }, S = mc("stick") })
 add("iron_nugget", 9, { "I" }, { I = mc("iron_ingot") })
+-- nuggets back into ingots (the enricher's Create washing fans make them)
+add("iron_ingot", 1, { "NNN", "NNN", "NNN" }, { N = mc("iron_nugget") })
+add("gold_ingot", 1, { "NNN", "NNN", "NNN" }, { N = mc("gold_nugget") })
+add("copper_ingot", 1, { "NNN", "NNN", "NNN" }, { N = "create:copper_nugget" })
+R[#R + 1] = { make = "create:zinc_ingot", count = 1, rows = { "NNN", "NNN", "NNN" }, keys = { N = "create:zinc_nugget" } }
 add("lantern", 1, { "NNN", "NTN", "NNN" }, { N = mc("iron_nugget"), T = mc("torch") })
 
 -- stone

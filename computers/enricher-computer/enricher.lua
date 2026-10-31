@@ -4,7 +4,13 @@
 -- give 4 and a raw ore block 12; the dust goes back into storage, and the
 -- smelter (computers/smelter-computer) smelts it into ingots: twice the
 -- ingots from ore blocks, a third more from raw ores. Gem ores come out as
--- gems (2 diamonds, 12 redstone, ...).
+-- gems (2 diamonds, 12 redstone, ...). Create crushing wheels work too
+-- (crushing lines): ore blocks give 1.75 crushed ores on average, raw ores 1
+-- (and XP nuggets), and they take Create's zinc and other mods' ores the
+-- chambers can't; the smelter smelts the crushed ores into ingots. Create
+-- washing fans (washers) wash crushed ores into 9 nuggets and a byproduct
+-- (redstone from iron, quartz from gold, ...), and the storage computer
+-- crafts the nuggets back into ingots.
 --
 --   enricher                        start (startup.lua runs this)
 --   enricher setup                  the setup screen, on the monitor and the terminal: chambers, the work
@@ -13,7 +19,11 @@
 --   enricher add [chamber feeder [output]]  add a chamber, what feeds it (the hopper on top, or a barrel
 --                                   or chest a pipe pulls from into it) and its output chest under it
 --                                   (asks for what's not given)
---   enricher remove <n>             forget chamber n (no number: list them)
+--   enricher add crusher [feeder [output]]  add a Create crushing line: the chest a funnel or chute
+--                                   empties onto its wheels, and the chest what it crushes ends up in
+--   enricher add washer [feeder [output]]   add a Create washing fan (blowing through water): the chest
+--                                   a funnel empties onto the belt past it, and the chest at the belt's end
+--   enricher remove <n>             forget chamber, crusher or washer n (no number: list them)
 --   enricher chest [name|none]      use an empty chest on the network as the work chest
 --                                   (no name: pick from a list; none: stop using one)
 --   enricher chest remote           far from the storage system: one ender chest both ways, or a return
@@ -33,8 +43,17 @@
 -- a storage input chest. This program sets that side to Output and turns
 -- Auto-eject on when the chamber's security is Public.
 --
--- While it's running, the smelter leaves the ores it enriches alone (it asks
--- on the 'enricher' protocol), and smelts the dust instead.
+-- A crushing line is only a feeder and an output chest to this program: CC
+-- can't see crushing wheels, so it keeps the feeder topped up and shows the
+-- line red when the feeder stops going down. Chambers are loaded first
+-- (more dust per ore); crushers take what's left (config.share), and the
+-- ores only they crush (zinc, silver, ...). Washers take every crushed ore,
+-- and once a minute the enricher asks the storage computer to craft each 9
+-- nuggets into an ingot ('prepare'), unless config.compact is false.
+--
+-- While it's running, the smelter leaves the ores it enriches or crushes
+-- (and, with a washer, the crushed ores) alone (it asks on the 'enricher'
+-- protocol), and smelts the dust and crushed ores instead.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local mekfeed = require("lib.mekfeed") -- Mekanism machines fed through a hopper or barrel
@@ -48,6 +67,7 @@ local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
 local ENRICHER_PROTOCOL = "enricher" -- the smelter asks which ores to leave alone on this
 local EVERY = 5 -- seconds between rounds of filling the feeders
 local REPLY_WAIT = 30 -- seconds to wait for the storage computer to answer (a busy one answers late)
+local COMPACT_EVERY = 60 -- seconds between asking the storage computer to craft the washers' nuggets into ingots
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
 local BOARD_SCALES = { 1, 0.5 } -- text sizes tried on the monitor, largest first
 local WIDE = 48 -- characters across from which the queue and power columns are shown
@@ -58,6 +78,19 @@ local GEMS = config.gems or { "coal", "diamond", "emerald", "lapis", "redstone",
 local KEEP = config.keep or {}
 local SET_SIDES = config.setSides ~= false
 local NAMES = config.names or {}
+-- Create crushing wheels also crush these metals' ores (none of them go into a chamber)
+local CRUSH_METALS = config.crushMetals or { "zinc", "silver", "nickel", "aluminum", "platinum", "quicksilver" }
+local SHARE = config.share ~= false -- crushers take the ores the chambers leave, not only the ones they can't take
+-- Gem ores Create crushes (fluorite isn't one)
+local CRUSH_GEMS = { coal = true, diamond = true, emerald = true, lapis = true, redstone = true, quartz = true }
+-- What washers take: Create's crushed ores
+local WASHES = config.washes or { "^create:crushed_raw_" }
+local COMPACT = config.compact ~= false -- with a washer, have the nuggets crafted into ingots
+-- Nuggets the washers make -> the ingot 9 of them craft into
+local NUGGETS = config.nuggets or {
+  ["minecraft:iron_nugget"] = "minecraft:iron_ingot", ["minecraft:gold_nugget"] = "minecraft:gold_ingot",
+  ["create:copper_nugget"] = "minecraft:copper_ingot", ["create:zinc_nugget"] = "create:zinc_ingot",
+}
 
 -- What goes in, as Lua patterns on item ids: ores of every kind above, and
 -- raw metals and their blocks. The smelter is sent these to leave alone.
@@ -69,11 +102,27 @@ for _, m in ipairs(METALS) do
 end
 for _, g in ipairs(GEMS) do TAKES[#TAKES + 1] = "[:_]" .. g .. "_ore$" end
 
+-- What crushing wheels take: the same ores and raw metals, more metals,
+-- and the gem ores Create has a recipe for.
+local CRUSHES = {}
+for _, list in ipairs({ METALS, CRUSH_METALS }) do
+  for _, m in ipairs(list) do
+    CRUSHES[#CRUSHES + 1] = "[:_]" .. m .. "_ore$"
+    CRUSHES[#CRUSHES + 1] = "^[%w_]+:raw_" .. m .. "$"
+    CRUSHES[#CRUSHES + 1] = "^[%w_]+:raw_" .. m .. "_block$"
+  end
+end
+for _, g in ipairs(GEMS) do
+  if CRUSH_GEMS[g] then CRUSHES[#CRUSHES + 1] = "[:_]" .. g .. "_ore$" end
+end
+
 local machines = {} -- what the screen shows: each chamber with its feeder and how it's doing
 local message = { "Looking for the storage computer...", "lightGray" }
 local news -- { text, colour, untilTime }: a put-back item, shown for a minute
 local waiting = {} -- item -> how many in storage to enrich, for the screen
-local taking = false -- chambers are set up, so the smelter should leave the ores alone and wait for the dust
+local taking = {} -- the patterns the smelter leaves alone: what the chambers, crushers and washers set up take
+local compactAt = -math.huge -- when the nuggets were last sent to be crafted
+local compactNote -- why nuggets aren't being crafted into ingots, for the screen
 local noEnrich = {} -- item -> true: found not to go into a chamber (until restart)
 
 ---------------------------------------------------------------- helpers
@@ -94,12 +143,16 @@ end
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
-local function takes(name)
-  for _, p in ipairs(TAKES) do
+local function matches(name, patterns)
+  for _, p in ipairs(patterns) do
     if name:find(p) then return true end
   end
   return false
 end
+
+local function takes(name) return matches(name, TAKES) end
+local function crushes(name) return matches(name, CRUSHES) end
+local function washes(name) return matches(name, WASHES) end
 
 -- Raw ores go in 3 at a time (3 make 4 dust); everything else 1 at a time.
 local function perOp(name)
@@ -122,38 +175,78 @@ end
 local work = workchest.new("enricher", ask)
 local chambers = mekfeed.new({ name = "enricher", single = "enrichmentChamber", factory = "EnrichingFactory",
   what = "enrichment chamber", title = "Chamber", names = NAMES, setSides = SET_SIDES, ask = ask, tell = tell,
-  far = function() return work.remote end })
+  far = function() return work.remote end, lines = { "crush", "wash" }, pageTitle = "Machines" })
 
 ---------------------------------------------------------------- choosing
 
 -- The item to send next: what's already in the feeder or (a chamber has
--- one slot) the chamber, else whatever there's most of.
-local function pickItem(m, avail)
+-- one slot) the chamber, else whatever there's most of that allowed(name).
+local function pickItem(m, avail, allowed)
   local current = mekfeed.current(m)
   if current then return current end
   local best, most = nil, 0
   for name, n in pairs(avail) do
-    if n >= perOp(name) and n > most and not noEnrich[name] then best, most = name, n end
+    if allowed(name) and n >= (m.line and 1 or perOp(name)) and n > most then best, most = name, n end
   end
   return best
+end
+
+-- Washing makes nuggets: once a minute, have the storage computer craft
+-- every 9 of them into an ingot. 'prepare' tops up to a total that counts
+-- what's already being made, so an ingot already being crafted is left be.
+local function compact(counts)
+  if os.clock() - compactAt < COMPACT_EVERY then return end
+  compactAt, compactNote = os.clock(), nil
+  for nugget, ingot in pairs(NUGGETS) do
+    local n = math.floor(((counts[nugget] or 0) - (KEEP[nugget] or 0)) / 9)
+    if n > 0 then
+      local now = ask({ type = "prepare", items = { [ingot] = 0 } })
+      local making = now and type(now.crafting) == "table" and now.crafting[ingot] or 0
+      if now and making == 0 then
+        local r = ask({ type = "prepare", items = { [ingot] = (counts[ingot] or 0) + n } })
+        local why = r and type(r.cantCraft) == "table" and r.cantCraft[ingot]
+        if why then
+          compactNote = ("%ss aren't crafted into ingots: %s"):format(nice(nugget), why)
+        elseif r and r.craftProblem then
+          compactNote = ("Crafting %ss into ingots: %s"):format(nice(nugget), r.craftProblem)
+        end
+      end
+    end
+  end
 end
 
 ---------------------------------------------------------------- a round
 
 local function round()
   machines = chambers:read()
+  local anyChamber, anyCrusher, anyWasher = false, false, false
+  for _, m in ipairs(machines) do
+    if m.line == "wash" then
+      anyWasher = true
+    elseif m.line then
+      anyCrusher = true
+    else
+      anyChamber = true
+    end
+  end
   -- set before anything that waits, so the smelter never asks mid-round
-  -- and hears "none"; a chamber that can't be loaded just now (no power,
-  -- storage not answering) still means the ores wait for it, as dust gives
-  -- more ingots
-  taking = #machines > 0
+  -- and hears "none"; a machine that can't be loaded just now (no power,
+  -- storage not answering) still means the ores wait for it, as dust and
+  -- crushed ores give more ingots
+  local leave = {}
+  for _, p in ipairs(anyChamber and TAKES or {}) do leave[#leave + 1] = p end
+  for _, p in ipairs(anyCrusher and CRUSHES or {}) do leave[#leave + 1] = p end
+  for _, p in ipairs(anyWasher and WASHES or {}) do leave[#leave + 1] = p end
+  taking = leave
   if #machines == 0 then
     local free = #chambers:free()
     say(free > 0 and ("%d chamber(s) on the network: tap Setup on the monitor, or 'enricher setup'."):format(free)
-      or "No chambers yet: put a wired modem on one, then 'enricher setup'.", "orange")
-    status("waiting", "no chambers")
+      or "Nothing set up yet: add a Create crushing line or washer (or a Mekanism chamber) in 'enricher setup'.", "orange")
+    status("waiting", "nothing set up")
     return
   end
+  local kinds = (anyChamber and 1 or 0) + (anyCrusher and 1 or 0) + (anyWasher and 1 or 0)
+  local noun = kinds > 1 and "machines" or anyWasher and "washers" or anyCrusher and "crushers" or "chambers"
 
   -- far away the dust goes home through the ender chest here, which needs
   -- no answer from the storage computer: empty the output chests first, so
@@ -178,8 +271,12 @@ local function round()
   local useWork = work:check(reply) or work.remote
   local input, avail = work:input(reply.input), {}
   for name, n in pairs(reply.counts) do
-    if takes(name) and n > (KEEP[name] or 0) then avail[name] = n - (KEEP[name] or 0) end
+    if ((anyChamber and takes(name)) or (anyCrusher and crushes(name)) or (anyWasher and washes(name)))
+      and n > (KEEP[name] or 0) then
+      avail[name] = n - (KEEP[name] or 0)
+    end
   end
+  if anyWasher and COMPACT then compact(reply.counts) end
   waiting = {}
   for name, n in pairs(avail) do waiting[name] = n end
 
@@ -197,18 +294,30 @@ local function round()
       :format(nice(item.name), m.title), "orange")
   end)
 
-  -- fill the feeders, chamber by chamber (they share what there is); with a
-  -- work chest each load is noted down and fetched for all at once below
+  -- fill the feeders, chambers first (more dust per ore), then the
+  -- crushers and washers (they share what there is); with a work chest
+  -- each load is noted down and fetched for all at once below
   local sent = 0
   local plan = useWork and {} or nil
+  local function forChamber(name) return takes(name) and not noEnrich[name] end
+  -- without config.share, only what no chamber would take while there are chambers
+  local function forCrusher(name) return crushes(name) and (SHARE or not anyChamber or not takes(name)) end
+  local allowed = { crush = forCrusher, wash = washes }
+  local order = {}
   for _, m in ipairs(machines) do
+    if not m.line then order[#order + 1] = m end
+  end
+  for _, m in ipairs(machines) do
+    if m.line then order[#order + 1] = m end
+  end
+  for _, m in ipairs(order) do
     m.item = nil
     if mekfeed.ready(m) and not unsure[m.entry.feeder] then
-      local name = pickItem(m, avail)
+      local name = pickItem(m, avail, m.line and allowed[m.line] or forChamber)
       m.item = name
       if name and (avail[name] or 0) > 0 then
         local n = math.min(mekfeed.space(m, name), avail[name], SEND_MAX)
-        local per = perOp(name)
+        local per = m.line and 1 or perOp(name)
         if per > 1 then n = n - (mekfeed.inputOf(m, name) + (m.feed[name] or 0) + n) % per end
         if n > 0 and plan then
           plan[#plan + 1] = { m = m, name = name, n = n }
@@ -245,7 +354,18 @@ local function round()
   for _, m in ipairs(machines) do
     local queued = mekfeed.inputOf(m) + (m.feedTotal or 0)
     m.queued = queued
-    if not m.present then
+    if m.line then
+      -- nothing on a Create line can be read but its feeder
+      local colour, text = mekfeed.status(m)
+      if colour == "red" then
+        m.state, m.colour = text, "red"
+      elseif queued > 0 then
+        m.state, m.colour = m.line == "wash" and "washing" or "crushing", "lime"
+        m.item = m.item or mekfeed.current(m)
+      else
+        m.state, m.colour = "idle", "gray"
+      end
+    elseif not m.present then
       m.state, m.colour = "not on network", "red"
     elseif not m.feedOk then
       m.state, m.colour = "no feeder", "red"
@@ -266,7 +386,11 @@ local function round()
     else
       m.state, m.colour = "idle", "gray"
     end
-    if m.colour == "red" then broken = broken + 1 elseif m.state == "enriching" then working = working + 1 end
+    if m.colour == "red" then
+      broken = broken + 1
+    elseif m.state == "enriching" or m.state == "crushing" or m.state == "washing" then
+      working = working + 1
+    end
   end
 
   -- far away without a far-away work chest, the storage computer can't see
@@ -285,13 +409,16 @@ local function round()
     say("Couldn't move items: " .. problem, "red")
   elseif work.problem then
     say(("Not using the work chest: %s."):format(work.problem), "orange")
+  elseif anyWasher and COMPACT and compactNote then
+    say(compactNote, "orange")
   elseif broken > 0 then
     local m
     for _, x in ipairs(machines) do
       if x.colour == "red" then m = m or x end
     end
     local why = {
-      ["no feeder"] = "its hopper or barrel isn't on the network",
+      ["no feeder"] = "its feeder isn't on the network",
+      ["not moving"] = "nothing goes through it: is it turning, and is the funnel taking from its feeder?",
       ["no output chest"] = "its output chest isn't on the network",
       ["no power"] = "it has no power",
       ["output full"] = "its dust isn't going anywhere: chest under it, Auto-eject on?",
@@ -300,17 +427,17 @@ local function round()
     say(("%s: %s"):format(m.title, why[m.state] or m.state), "red")
   elseif work.remote and noOutput then
     -- far away nothing else empties the chest under it
-    say(("%s has no output chest: pick the barrel under it (Setup, Chambers), unless the ender chest is under it.")
+    say(("%s has no output chest: pick the chest it puts things in (Setup, Machines), unless that's the ender chest.")
       :format(noOutput.title), "orange")
   elseif sent > 0 then
-    say(("Sent %d ores to the chambers."):format(sent))
+    say(("Sent %d ores to the %s."):format(sent, noun))
   elseif working == 0 then
     say("Nothing to enrich.")
   else
-    say(("Enriching in %d of %d chambers."):format(working, #machines))
+    say(("Working in %d of %d %s."):format(working, #machines, noun))
   end
   status(broken > 0 and "alert" or working > 0 and "running" or "idle",
-    ("%d of %d chambers enriching"):format(working, #machines))
+    ("%d of %d %s working"):format(working, #machines, noun))
 end
 
 ---------------------------------------------------------------- screen
@@ -351,9 +478,9 @@ local function draw()
   local doingX = wide and 40 or w - 11
   local oreW = (wide and 29 or doingX) - 16
   put(1, 1, (" "):rep(w), "white", "gray")
-  put(2, 1, fitText("Enrichment chambers", w - 9), "yellow", "gray")
+  put(2, 1, fitText("Enricher", w - 9), "yellow", "gray")
   put(w - 6, 1, " Setup ", "black", "lightGray")
-  put(2, 3, "Chamber", "yellow")
+  put(2, 3, "Machine", "yellow")
   put(14, 3, "Ore", "yellow")
   if wide then
     put(29, 3, "Queue", "yellow")
@@ -373,12 +500,16 @@ local function draw()
     if wide then
       put(29, y, fitText(tostring(m.queued or 0), 5), "white")
       local pct = math.floor((m.energy or 0) * 100 + 0.5)
-      put(35, y, fitText(pct .. "%", 4), pct < 10 and "red" or pct < 50 and "orange" or "lime")
+      if m.line then
+        put(35, y, "-", "gray") -- a Create line has no power to read
+      else
+        put(35, y, fitText(pct .. "%", 4), pct < 10 and "red" or pct < 50 and "orange" or "lime")
+      end
     end
     put(doingX, y, fitText(m.state or "...", w - doingX + 1), m.colour or "gray")
   end
   if #machines > rows then put(2, 4 + rows, ("...and %d more"):format(#machines - rows), "gray") end
-  if #machines == 0 then put(2, 4, "No chambers yet.", "gray") end
+  if #machines == 0 then put(2, 4, "No machines yet.", "gray") end
   for i, line in ipairs(footer) do
     put(i == 1 and 2 or 1, h - #footer + i, fitText(line[1], i == 1 and w - 2 or w), line[2])
   end
@@ -389,7 +520,7 @@ local function drawBoard()
   if not board.target then return end
   local tiles, working = {}, 0
   for _, m in ipairs(machines) do
-    local item = m.item or (m.inputs[1] and m.inputs[1].name)
+    local item = m.item or (m.inputs[1] and m.inputs[1].name) or mekfeed.current(m)
     local colour, text = mekfeed.status(m, item and nice(item))
     if colour == "yellow" or colour == "orange" then working = working + 1 end
     tiles[#tiles + 1] = { m.title, text, colour, colour == "red" and "white" or "black" }
@@ -406,7 +537,7 @@ local function drawBoard()
   if #count + 20 <= w then screen.put(win, w - #count - 8, 1, count, "lightGray", "gray") end
   local left = screen.tiles(win, w, 3, h - 3, tiles)
   if left > 0 then screen.put(win, 2, h - 2, ("...and %d more"):format(left), "gray") end
-  if #machines == 0 then screen.put(win, 2, 3, fitText("No chambers yet.", w - 2), "gray") end
+  if #machines == 0 then screen.put(win, 2, 3, fitText("No machines yet.", w - 2), "gray") end
   screen.put(win, 1, h - 1, fitText(message[1], w), message[2])
   screen.legend(win, 2, h, w - 2, LEGEND)
   board:show()
@@ -421,7 +552,7 @@ local function setupScreen(screens)
     title = "Enricher setup",
     rows = function()
       return {
-        { label = "Chambers", value = ("%d added"):format(#chambers:entries()),
+        { label = "Machines", value = ("%d added"):format(#chambers:entries()),
           act = function() ui:open(chambers:setupPage(ui)) end },
         { label = "Work chest", value = work:describe(), act = function() ui:open(work:setupPage(ui)) end },
         { label = "Monitor", value = setupui.monitorText("enricher.monitor"),
@@ -464,14 +595,14 @@ local function workLoop()
   end
 end
 
--- The smelter asks which ores to leave for the chambers; none while no
--- chamber is set up, so it smelts them as it always has.
+-- The smelter asks which ores to leave for the chambers, crushers and washers; none
+-- while nothing is set up, so it smelts them as it always has.
 local function netLoop()
   rednet.host(ENRICHER_PROTOCOL, os.getComputerLabel() or ("enricher-" .. os.getComputerID()))
   while true do
     local from, msg = rednet.receive(ENRICHER_PROTOCOL)
     if type(msg) == "table" and msg.type == "takes" then
-      net.answer(from, ENRICHER_PROTOCOL, msg, { takes = taking and TAKES or {} })
+      net.answer(from, ENRICHER_PROTOCOL, msg, { takes = taking })
     end
   end
 end
@@ -513,7 +644,7 @@ elseif args[1] == "setup" then
   print("Setup saved. The enricher uses it on its next round.")
   return
 elseif args[1] then
-  print("Usage: enricher [setup | add [chamber feeder [output]] | remove <n> | chest [name|none|remote] | monitor [name|none]]")
+  print("Usage: enricher [setup | add [chamber feeder [output]] | add crusher|washer [feeder [output]] | remove <n> | chest [name|none|remote] | monitor [name|none]]")
   return
 end
 

@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an output chest under it; optional monitor, touching it or on the cable (picked with `smelter monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; furnaces, blast furnaces and smokers on that network; optionally Mekanism Energized Smelters, each with a hopper or barrel feeding it and an output chest under it, and Create fans, each with a feeder chest and an output chest; optional monitor, touching it or on the cable (picked with `smelter monitor`)
 
 ## What it does
 
@@ -43,7 +43,11 @@ is running with a chamber set up, the smelter never smelts the ores it puts
 into its Enrichment Chambers (raw iron, iron ore, ...): it waits for them to
 come back as dust, which gives more ingots, even while a chamber is stuck
 for a while. Without an enricher, or once it's been gone for 10 minutes, the
-smelter smelts those ores itself, as before. Every combination (furnaces only, Mekanism
+smelter smelts those ores itself, as before. The same goes for the ores the
+enricher's [Create crushing wheels](../enricher-computer/README.md#create-crushing-wheels)
+take: the smelter waits for the crushed ores and smelts those, unless the enricher
+has a [washing fan](../enricher-computer/README.md#create-washing-fans), which
+takes the crushed ores instead. Every combination (furnaces only, Mekanism
 smelters, with or without the enricher, near or far away) is in
 [Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 
@@ -76,6 +80,37 @@ output chest).
   furnaces.
 - Something that doesn't go in within a minute is put back into storage and
   not tried in them again until the smelter restarts.
+
+### Create fans
+
+[Create](https://www.curseforge.com/minecraft/mc-mods/create) fans smelt
+too, with no fuel at all: an **encased fan blowing through lava** smelts
+what passes it on a belt (bulk blasting), and one **blowing through fire**
+cooks food (bulk smoking). The computer can't see a fan, so a **fan line**
+is two chests on the storage network:
+
+- a **feeder**: an empty chest or barrel with a funnel that puts its items
+  on the belt running past the fan.
+- an **output chest**: where the belt ends, through a funnel. The smelter
+  empties it into storage each round. Or end the belt at a storage input
+  chest and pick none.
+
+Add one on the [setup screen](#the-setup-screen) under **Smelters and
+fans** (**+ Add a Create blasting fan** or **smoking fan**), or with
+`smelter add fan` or `smelter add smokefan`. Each round its feeder is
+topped up to a stack.
+
+- A **blasting fan** takes what blast furnaces take: raw ores, ore blocks,
+  ancient debris, Mekanism dust and Create's crushed ores (from the
+  [enricher's crushers](../enricher-computer/README.md#create-crushing-wheels)).
+  A **smoking fan** takes only food.
+- They're loaded along with the Mekanism smelters, before the furnaces, and
+  like them take no part in charcoal, stone or glass orders.
+- On the screen they're listed in yellow with "Create" where the fuel would
+  be. Since the smelter can't see the fan, it goes by the feeder: red **not
+  moving: is the fan on?** when the feeder hasn't gone down for a minute
+  (the fan isn't turning, there's no lava or fire in front of it, or the
+  funnel isn't taking from the feeder). Nothing is put back: it just waits.
 
 ### Making charcoal
 
@@ -123,7 +158,7 @@ wireless modem it also reports to the [status server](../status-server/README.md
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
-- [`lib/mekfeed.lua`](../../lib/mekfeed.lua): Mekanism smelters and their feeders (copy to `/lib/mekfeed.lua`). Needed.
+- [`lib/mekfeed.lua`](../../lib/mekfeed.lua): Mekanism smelters, Create fans and their feeders (copy to `/lib/mekfeed.lua`). Needed.
 
 ## Setup
 
@@ -159,7 +194,9 @@ wireless modem it also reports to the [status server](../status-server/README.md
    smelter setup                  -- the setup screen (in the running smelter, on its monitor)
    smelter add                    -- or by typing: add a Mekanism smelter, its feeder (hopper or barrel) and output chest
    smelter add energizedSmelter_0 minecraft:hopper_4 minecraft:chest_9   -- or name them: smelter, input, output
-   smelter remove 1               -- forget Mekanism smelter 1 (no number: list them)
+   smelter add fan                -- a Create blasting fan (lava): pick its feeder and output chest
+   smelter add smokefan           -- a Create smoking fan (fire): food only
+   smelter remove 1               -- forget Mekanism smelter or fan 1 (no number: list them)
    smelter chest                  -- pick the work chest from the empty chests on the network
    smelter chest minecraft:chest_7  -- or name it straight away
    smelter chest none             -- stop using one (what's in it goes back into storage)
@@ -253,10 +290,12 @@ if there is one. It works like the
 
 - **Furnaces**: how many it found on the network (nothing to pick: every
   furnace, blast furnace and smoker on the cable is used).
-- **Mekanism smelters**: each with its feeder and output chest. Tap one to
-  change them or remove it; **+ Add an energized smelter** picks the
-  smelter, then its feeder (a hopper, or an empty barrel), then its output
-  chest (or none). Far away, set the work chest first: then chests that
+- **Smelters and fans**: each Mekanism smelter and Create fan with its
+  feeder and output chest. Tap one to change them or remove it; **+ Add an
+  energized smelter** picks the smelter, then its feeder (a hopper, or an
+  empty barrel), then its output chest (or none). **+ Add a Create blasting
+  fan** and **+ Add a Create smoking fan** pick the feeder, then the output
+  chest. Far away, set the work chest first: then chests that
   already have something in them are offered too, and the output chest is
   emptied into the ender chest, which takes the ingots home.
 - **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
@@ -304,4 +343,4 @@ smelter uses it straight away.
 - After `install update`, an older `config.lua` (kept as it was) has no
   cook list: the smelter then cooks the food listed above and keeps 64
   potatoes. Copy the `cook` and `keep` lists from the new one to change them.
-- **A status board.** A monitor is the smelter's status board straight away: one touching it first, else the first one on the cable (put a wired modem on it and join it to the network). If it picks the wrong one (another program's on the same cable), `smelter monitor` (or **Monitor** on the setup screen) lists every monitor it can see (right-click a monitor's modem to see its name) and the running smelter moves to the one you pick at once, no reboot (`smelter monitor none` for no board). The board has a tile per furnace and Mekanism smelter: **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). The full table, the orders and the C, S, G, X and F1 keys stay on the computer's screen.
+- **A status board.** A monitor is the smelter's status board straight away: one touching it first, else the first one on the cable (put a wired modem on it and join it to the network). If it picks the wrong one (another program's on the same cable), `smelter monitor` (or **Monitor** on the setup screen) lists every monitor it can see (right-click a monitor's modem to see its name) and the running smelter moves to the one you pick at once, no reboot (`smelter monitor none` for no board). The board has a tile per furnace, Mekanism smelter and Create fan: **lime** idle, **yellow** smelting, **orange** a full stack in, **red** when it needs you (items waiting with no fuel or power, or its output stuck). The full table, the orders and the C, S, G, X and F1 keys stay on the computer's screen.

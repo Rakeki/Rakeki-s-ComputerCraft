@@ -4,12 +4,19 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, an input (a hopper on top, or a barrel a pipe pulls from into it) and an output chest under it, all on that network; optional monitor
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; for each Enrichment Chamber, an input (a hopper on top, or a barrel a pipe pulls from into it) and an output chest under it, all on that network; for each Create crushing line, a feeder chest and an output chest on that network; optional monitor
 
 ## What it does
 
-Gets more ingots out of your ores with [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism)
-Enrichment Chambers. Every 5 seconds it fills each chamber's feeder with
+Runs your ore processing machines from the
+[storage system](../storage-computer/README.md):
+[Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism)
+Enrichment Chambers, [Create](https://www.curseforge.com/minecraft/mc-mods/create)
+crushing wheels and washing fans, or both. **No Mekanism?** Create works on
+its own: see [Create crushing wheels](#create-crushing-wheels),
+[Create washing fans](#create-washing-fans) and [Create only](#create-only).
+
+With Mekanism, it gets more ingots out of your ores with Enrichment Chambers. Every 5 seconds it fills each chamber's feeder with
 ores from the [storage system](../storage-computer/README.md). The chamber
 turns them into dust and pushes the dust out of its bottom into its
 **output chest**, which the enricher empties into storage each round (or
@@ -27,6 +34,10 @@ dust into ingots, like any other ore.
 
 Ore blocks come from silk touch, like a [Digital Miner](../digital-miner-manager/README.md)
 with **Silk** on. Deepslate and nether ores count too.
+
+[Create](https://www.curseforge.com/minecraft/mc-mods/create) **crushing
+wheels** work too, with or without chambers: see
+[Create crushing wheels](#create-crushing-wheels).
 
 Each chamber works on one kind of ore at a time, the one there's most of in
 storage, and its feeder is kept topped up to a stack. Raw ores always go in
@@ -47,12 +58,13 @@ the ores itself. Without a smelter the dust stays in storage. Every combination 
 Mekanism smelters, near or far away) is in
 [Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 
-The computer's screen lists each chamber with the ore it's on, how many are queued in
+The computer's screen lists each chamber and crusher with the ore it's on, how many are queued in
 it and its feeder, its power and what it's doing: **enriching**,
 **starting**, **idle**, **needs N more** (raw ores waiting for a third),
 or in red **no power**, **output full** (the dust has nowhere to go),
 **no output chest** or
-**no feeder**. Under the list it shows how much ore is waiting in storage.
+**no feeder**; a crusher shows **crushing**, **idle**, or in red **not
+moving** (see below). Under the list it shows how much ore is waiting in storage.
 
 A **monitor** is a status board you can read from across the room: a tile
 per chamber with its name and the ore it's on, coloured by how it's doing:
@@ -62,7 +74,7 @@ per chamber with its name and the ore it's on, coloured by how it's doing:
 | Lime | ready and idle |
 | Yellow | working |
 | Orange | flat out: every slot busy and a stack waiting |
-| Red | needs you: no power, output full, or its feeder or output chest missing (it says which) |
+| Red | needs you: no power, output full, a crusher or washer not moving, or its feeder or output chest missing (it says which) |
 
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -70,18 +82,21 @@ With a wireless modem it also reports to the
 ## Files
 
 - `enricher.lua`: the program
-- `config.lua`: which ores go in, how many to keep back, chamber names (kept when you update)
+- `config.lua`: which ores go in, which more metals the crushers take, washing and nuggets, how many to keep back, names (kept when you update)
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): remembers what feeds which chamber (copy to `/lib/files.lua`). Needed.
-- [`lib/mekfeed.lua`](../../lib/mekfeed.lua): reads the chambers and their feeders (copy to `/lib/mekfeed.lua`). Needed.
+- [`lib/mekfeed.lua`](../../lib/mekfeed.lua): reads the chambers, crushers and their feeders (copy to `/lib/mekfeed.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 
 ## Setup
+
+These steps are for Mekanism chambers. With only Create, see
+[Create only](#create-only) below.
 
 1. Set up the [storage system](../storage-computer/README.md) and the
    [smelter](../smelter-computer/README.md) first, and `install update` both
@@ -106,7 +121,7 @@ With a wireless modem it also reports to the
    network as the [work chest](#work-chest).
 7. Install and reboot. Then tap **Setup** at the top right of its monitor
    or screen, press **F1**, or run `enricher setup` in a second tab: the
-   [setup screen](#the-setup-screen). Under **Chambers**, add
+   [setup screen](#the-setup-screen). Under **Machines**, add
    each chamber: tap it, then its feeder, then its output chest. Pick the
    work chest under **Work chest**. Everything is saved as you go.
 
@@ -116,14 +131,47 @@ With a wireless modem it also reports to the
    enricher add enrichmentChamber_0 minecraft:barrel_1 minecraft:chest_4   -- or name them: chamber, input, output
    enricher add enrichmentChamber_0 minecraft:hopper_3   -- no output chest: the chest under it is a storage input chest
    enricher add enrichmentChamber_1 minecraft:barrel_2   -- a barrel a pipe empties into the chamber
-   enricher remove                  -- list the chambers
-   enricher remove 2                -- forget chamber 2
+   enricher add crusher             -- a Create crushing line: pick its feeder and output chest
+   enricher add crusher minecraft:barrel_5 minecraft:chest_9   -- or name them: feeder, output
+   enricher add washer              -- a Create washing fan: pick its feeder and output chest
+   enricher remove                  -- list the machines
+   enricher remove 2                -- forget number 2
    enricher chest                   -- pick the work chest from the empty chests on the network
    enricher chest none              -- stop using one (what's in it goes back into storage)
    enricher chest remote            -- far from home: one ender chest both ways (see below)
    enricher monitor                 -- pick the monitor for the status board ('none': no board)
-   edit config.lua                  -- which ores, how many to keep, names
+   edit config.lua                  -- which ores, crusher metals, sharing, washing, how many to keep, names
    ```
+
+### Create only
+
+No Mekanism needed. Per crushing line (a washing fan is set up the same
+way, see [Create washing fans](#create-washing-fans)):
+
+1. Set up the [storage system](../storage-computer/README.md) and the
+   [smelter](../smelter-computer/README.md) (it smelts the crushed ores; a
+   [blasting fan](../smelter-computer/README.md#create-fans) does it with no
+   fuel).
+2. Build the crushing wheels and power them. Put an **empty chest** (or
+   barrel) by them with a **funnel** or chute that drops its items onto the
+   wheels: the **feeder**.
+3. Under the wheels, catch what falls with a chute or funnel into another
+   **empty chest**: the **output chest**. (Or into a storage input chest,
+   and pick no output chest.)
+4. Put a **wired modem** on both chests and on this computer, all joined to
+   the storage network, and right-click each modem so it turns red.
+5. Install and reboot, open the setup screen (**Setup**, **F1** or
+   `enricher setup`), go to **Machines** and tap **+ Add a Create crushing
+   line**: tap its feeder, then its output chest. Or type
+   `enricher add crusher`.
+
+Several lines are fine; each gets a stack of ore at a time. With no
+chambers, the crushers take every ore in the list in `config.lua`, and the
+smelter waits for the crushed ores instead of smelting the raw ones.
+
+Crushing raw ores (what a Fortune pickaxe gives you) gives no more ingots
+on its own: 1 crushed ore is 1 ingot, plus XP nuggets. Add a **washing
+fan** and each crushed ore also gives a byproduct, like redstone from iron.
 
 ## Barrel feeders
 
@@ -141,6 +189,83 @@ with an upgraded Enriching Factory.
   it has said yes, those barrels aren't filled and the footer says why.
   Update the storage computer too (`install update`).
 - The work chest fills a barrel feeder the same way as a hopper.
+
+## Create crushing wheels
+
+A pair of Create crushing wheels can do the chambers' job,
+or help them. The computer can't see crushing wheels at all, so a
+**crushing line** is two chests on the storage network:
+
+- a **feeder**: an empty chest or barrel with a funnel (or a chute) that
+  drops its items onto the wheels.
+- an **output chest**: where the crushed ores end up, through a chute or
+  funnel under the wheels. The enricher
+  empties it into storage each round. Or let them fall into a storage input
+  chest and pick none.
+
+Add one on the [setup screen](#the-setup-screen) under **Machines**,
+**+ Add a Create crushing line**, or with `enricher add crusher`. Each round its feeder is topped up to a stack of ore. The
+crushed ores (and the XP nuggets and odd bits of cobblestone) go into
+storage, and the [smelter](../smelter-computer/README.md) smelts the crushed
+ores into ingots, in furnaces or a [blasting fan](../smelter-computer/README.md#create-fans).
+
+| Goes in | Crushed | Chamber instead |
+|---|---|---|
+| 1 ore block | 1.75 crushed ores on average → 1.75 ingots | 2 dust |
+| 1 raw iron (gold, copper, ...) | 1 crushed ore (and XP nuggets) → 1 ingot | 1.33 dust |
+| 1 block of raw iron | 9 crushed ores | 12 dust |
+| 1 diamond or emerald ore | 1.75 on average | 2 |
+| 1 redstone ore | 6.5 redstone on average | 12 |
+
+Coal, lapis and quartz ores crush with a bonus too. Crushers also take ores no chamber does: Create's **zinc**, and silver,
+nickel, aluminum, platinum and quicksilver from other mods (`crushMetals`
+in `config.lua`). Fluorite doesn't crush.
+
+With both, the chambers always get first pick, since they give more per
+ore, and the crushers take what's left over in storage, so more gets
+through. Set `share = false` in `config.lua` and, while there are
+chambers, the crushers only take the ores the chambers can't (zinc and so
+on).
+
+Since it can't see the wheels, the enricher works out how a line is doing
+from its feeder: **crushing** while ore is waiting in it, **idle** when
+it's empty, and in red **not moving** when the feeder hasn't gone down for
+a minute. Then check the wheels are turning (enough stress) and that the
+funnel is taking from the feeder. Nothing is put back: it just waits.
+
+## Create washing fans
+
+An encased fan **blowing through water** washes the crushed ores going past
+it on a belt into **9 nuggets and a byproduct**: that's Create's real bonus
+for raw ores. Like a crusher, a **washer** is two chests on the storage
+network: a **feeder** with a funnel that puts its items on the belt past
+the fan, and an **output chest** at the end of the belt (or a storage input
+chest, and pick none).
+
+Add one on the [setup screen](#the-setup-screen) under **Machines**, **+ Add
+a Create washing fan**, or with `enricher add washer`. While there's a
+washer, every crushed ore goes to it, and the
+[smelter](../smelter-computer/README.md) leaves crushed ores alone.
+
+| Crushed ore | Washed |
+|---|---|
+| crushed raw iron | 9 iron nuggets, 75% chance of a redstone |
+| crushed raw gold | 9 gold nuggets, 50% chance of a quartz |
+| others (copper, zinc, mods' metals) | 9 nuggets and their own byproduct |
+
+**Nuggets back into ingots.** Once a minute the enricher asks the storage
+computer to craft every 9 nuggets into an ingot, so you need its crafting
+set up: a [crafting turtle](../crafter-turtle/README.md), or the patterns in
+your ME or RS system. Iron, gold, Create copper and zinc nuggets are in the
+storage computer's built-in recipes (`install update` it); other mods'
+nuggets need their recipe (`crafter learn`, or a modpack's recipes) and a
+line in `nuggets` in `config.lua`. If the storage computer can't craft
+them, the footer says why. Keep some nuggets back with `keep` in
+`config.lua`, e.g. `["minecraft:iron_nugget"] = 18`, or turn this off
+with `compact = false`.
+
+A washer shows **washing**, **idle** or in red **not moving**, the same as
+a crusher.
 
 ## Work chest
 
@@ -202,10 +327,13 @@ if there is one. It works like the
 [storage computer's](../storage-computer/README.md#the-setup-screen) and the
 [smelter's](../smelter-computer/README.md#the-setup-screen):
 
-- **Chambers**: every chamber with its feeder and output chest. Tap one to
-  change its feeder or output chest, or remove it; **+ Add a chamber** picks
-  a chamber, then its feeder (a hopper, or an empty barrel), then its output
-  chest (or none, when a storage input chest is under it). Far away, set
+- **Machines**: every chamber, crushing line and washing fan with its
+  feeder and output chest. Tap one to change its feeder or output chest, or
+  remove it; **+ Add an enrichment chamber** picks a chamber, then its
+  feeder (a hopper, or an empty barrel), then its output chest (or none,
+  when a storage input chest is under it). **+ Add a Create crushing line**
+  and **+ Add a Create washing fan** pick the feeder, then the output chest.
+  With no Mekanism machine around, the Create ones come first. Far away, set
   the work chest first: then chests that already have something in them
   are offered too, and the output chest is emptied into the ender chest.
 - **Work chest**: a chest on this cable, **Far away**, or **None**. Far away

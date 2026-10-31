@@ -6,7 +6,9 @@
 -- order it also burns spare logs into charcoal, which ends up in the fuel
 -- chest, smelts cobblestone into stone and sand into glass. With an enricher
 -- (computers/enricher-computer) running, it leaves the ores that go into the
--- enrichment chambers alone and smelts their dust instead.
+-- enrichment chambers alone and smelts their dust instead. Create fans
+-- work too: a blasting fan (lava) smelts ores and dust, a smoking fan
+-- (fire) cooks food, neither needs fuel.
 --
 --   smelter                        start (startup.lua runs this)
 --   smelter charcoal <n> [wood]    make n charcoal from logs, e.g. 'smelter charcoal 256 spruce'
@@ -21,7 +23,10 @@
 --   smelter add [machine feeder [output]]  add a Mekanism Energized Smelter (or Smelting Factory), what
 --                                  feeds it (the hopper on top, or a barrel a pipe pulls from) and its
 --                                  output chest under it (asks for what's not given)
---   smelter remove <n>             forget Mekanism smelter n (no number: list them)
+--   smelter add fan [feeder [output]]       add a Create blasting fan (blowing through lava): the chest a
+--                                  funnel empties onto the belt past it, and the chest at the belt's end
+--   smelter add smokefan [feeder [output]]  the same for a smoking fan (through fire): food only
+--   smelter remove <n>             forget Mekanism smelter or fan n (no number: list them)
 --   smelter chest [name|none]      use an empty chest on the network as the work chest
 --                                  (no name: pick from a list; none: stop using one)
 --   smelter chest remote           far from the storage system: one ender chest both ways (or a return one too)
@@ -41,6 +46,13 @@
 -- make into the chest under them (an output chest the smelter empties into
 -- storage, or a storage input chest), and take no part in orders
 -- (what they make isn't counted).
+--
+-- Create fans (bulk blasting through lava, bulk smoking through fire)
+-- aren't peripherals: a fan line is a feeder chest a funnel empties onto a
+-- belt past the fan, and the chest at the belt's end (lib/mekfeed.lua
+-- lines). They're loaded with the Mekanism smelters, blasting fans with
+-- ores and dust, smoking fans with food, and shown red when their feeder
+-- stops going down. Like the Mekanism smelters they take no part in orders.
 --
 -- Needs a wired modem on the storage computer's network, furnaces joined to
 -- that network by wired modems too, and the storage computer
@@ -245,7 +257,8 @@ end
 local work = workchest.new("smelter", ask)
 local smelters = mekfeed.new({ name = "smelter", single = "energizedSmelter", factory = "SmeltingFactory",
   what = "energized smelter", title = "Smelter", names = config.names, setSides = config.setSides ~= false,
-  ask = ask, tell = tell, far = function() return work.remote end })
+  ask = ask, tell = tell, far = function() return work.remote end,
+  lines = { "blast", "smoke" }, pageTitle = "Smelters and fans" })
 
 local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
 
@@ -281,7 +294,7 @@ local function round()
   meks = smelters:read()
   if #list == 0 and #meks == 0 then
     furnaces = list
-    say("No furnaces on the network: join them to it with wired modems, or add a Mekanism smelter in 'smelter setup'.", "orange")
+    say("No furnaces on the network: join them to it with wired modems, or add a Mekanism smelter or Create fan in 'smelter setup'.", "orange")
     status("waiting", "no furnaces")
     return
   end
@@ -437,8 +450,9 @@ local function round()
   end
   local haveFuel = (stock.fuel or 0) > 0
 
-  -- Mekanism smelters first (faster, no fuel), through their feeders; never
-  -- for orders, since what they make goes into storage uncounted
+  -- Mekanism smelters and Create fans first (faster, no fuel), through their
+  -- feeders; never for orders, since what they make goes into storage
+  -- uncounted. A blasting fan only takes ores, a smoking fan only food.
   local unsure, feedProblem = smelters:register(work.remote)
   problem = problem or feedProblem
   -- their output chests go home first, like the furnaces' output above
@@ -454,13 +468,18 @@ local function round()
       :format(nice(item.name), m.title), "orange")
   end)
   local mekPlan = {}
+  local function fits(m, name)
+    if m.line == "blast" then return kinds[name] == "ore" end
+    if m.line == "smoke" then return kinds[name] == "food" end
+    return not noSmelt["mek:" .. name]
+  end
   for _, m in ipairs(meks) do
     if mekfeed.ready(m) and not unsure[m.entry.feeder] then
       local pick = mekfeed.current(m)
       if not pick then
         local most = 0
         for name, n in pairs(want) do
-          if not byItem[name] and n > most and not noSmelt["mek:" .. name] then pick, most = name, n end
+          if not byItem[name] and n > most and fits(m, name) then pick, most = name, n end
         end
       end
       local n = pick and math.min(mekfeed.space(m, pick), want[pick] or 0, 64) or 0
@@ -602,14 +621,14 @@ local function round()
     end
   end
   for _, m in ipairs(meks) do
-    if (m.usage or 0) > 0 then busy = busy + 1 end
+    if (m.usage or 0) > 0 or (m.line and m.feedTotal > 0 and not m.stalled) then busy = busy + 1 end
   end
   -- far away without a far-away work chest, the storage computer can't see
   -- the furnaces: say what to do
   if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
     problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
-  -- orders only burn in plain furnaces: blast furnaces, smokers and Mekanism smelters never take them
+  -- orders only burn in plain furnaces: blast furnaces, smokers, Mekanism smelters and fans never take them
   local plain = false
   for _, f in ipairs(furnaces) do
     if not f.blast and not f.smoker then plain = true end
@@ -673,7 +692,13 @@ local function draw()
   for _, m in ipairs(meks) do
     local queued, item = mekfeed.inputOf(m) + m.feedTotal, mekfeed.current(m)
     local doing, colour = item and ("%d %s"):format(queued, nice(item)) or "idle", item and "white" or "gray"
-    if not m.present then
+    local lineColour, lineText = mekfeed.status(m)
+    if m.line then
+      -- a Create fan: only its feeder can be read
+      if lineColour == "red" then
+        doing, colour = lineText == "not moving" and "not moving: is the fan on?" or lineText, "red"
+      end
+    elseif not m.present then
       doing, colour = "not on network", "red"
     elseif not m.feedOk then
       doing, colour = "no feeder", "red"
@@ -684,8 +709,8 @@ local function draw()
     elseif mekfeed.full(m) then
       doing, colour = "output full: chest under it?", "red"
     end
-    list[#list + 1] = { m.title, "lightBlue", doing, colour,
-      m.present and ("%d%% power"):format(math.floor((m.energy or 0) * 100 + 0.5)) or "-" }
+    list[#list + 1] = { m.title, m.line and "yellow" or "lightBlue", doing, colour,
+      m.line and "Create" or m.present and ("%d%% power"):format(math.floor((m.energy or 0) * 100 + 0.5)) or "-" }
   end
   -- every event lands here: skip a frame that would look the same
   local key = { stat, message[1], message[2], prompts, table.concat(lines, "/"), board.name or "" }
@@ -867,7 +892,7 @@ local function drawBoard()
   board:show()
 end
 
--- Mekanism smelters, the work chest and the monitor on one screen
+-- Mekanism smelters and Create fans, the work chest and the monitor on one screen
 -- (lib/setupui.lua), on screens (the terminal first). Each change is saved
 -- as it's made.
 local function setupScreen(screens)
@@ -878,7 +903,7 @@ local function setupScreen(screens)
     rows = function()
       return {
         { label = "Furnaces", value = ("%d on the network"):format(#findFurnaces()), colour = "gray" },
-        { label = "Mekanism smelters", value = ("%d added"):format(#smelters:entries()),
+        { label = "Smelters and fans", value = ("%d added"):format(#smelters:entries()),
           act = function() ui:open(smelters:setupPage(ui)) end },
         { label = "Work chest", value = work:describe(), act = function() ui:open(work:setupPage(ui)) end },
         { label = "Monitor", value = setupui.monitorText("smelter.monitor"),

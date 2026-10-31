@@ -40,6 +40,7 @@ return {
   -- the sides yourself.
   setSides = true,
   -- Names on the screen instead of "Smelter 1", by peripheral name,
-  -- e.g. ["energizedSmelter_0"] = "Left".
+  -- e.g. ["energizedSmelter_0"] = "Left". A Create fan goes by its feeder's
+  -- name, e.g. ["minecraft:barrel_3"] = "Lava fan".
   names = {},
 }

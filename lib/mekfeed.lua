@@ -13,7 +13,8 @@
 --     single = "energizedSmelter", factory = "SmeltingFactory", -- peripheral types
 --     what = "smelter", title = "Smelter",                -- for messages; "Smelter 1" on the screen
 --     names = config.names, setSides = true, ask = ask, tell = tell,
---     far = function() return work.remote end })         -- far from storage: chests with items in can be picked
+--     far = function() return work.remote end,           -- far from storage: chests with items in can be picked
+--     lines = { "blast", "smoke" }, pageTitle = "Smelters and fans" }) -- Create lines too (optional)
 --   local machines = set:read()                           -- every machine and its feeder, read at once
 --   local unsure, problem = set:register(work.remote)     -- tell the storage computer which barrels are feeders
 --   set:unstick(machines, input, function(m, item) ... end) -- put back what doesn't go in
@@ -28,6 +29,14 @@
 -- (name -> count), feedTotal, outOk (true without an output chest),
 -- outList }. Mekanism runs each method on the game's main thread, one
 -- tick per call, so every call runs side by side.
+--
+-- A set can also hold Create lines (opts.lines = { "crush" } etc., kinds
+-- in mekfeed.LINES): Create's crushing wheels and fans aren't peripherals
+-- at all, so a line is only its feeder (a funnel or chute empties it into
+-- the machine) and the chest what it makes ends up in. Its entry is
+-- { line = kind, feeder, output }, and as a machine it has line = kind,
+-- slots = 0, no energy, moving (its feeder went down or something came out
+-- since last round) and stalled (its feeder hasn't gone down for a minute).
 local files = require("lib.files") -- crash-safe save files
 
 local mekfeed = {}
@@ -36,10 +45,29 @@ local STACK = 64 -- items to a slot in a machine's input
 local STUCK_AFTER = 60 -- seconds an item may sit in a feeder over an empty machine before it's put back
 local FEEDERS_WAIT = 5 -- seconds to wait for the storage computer to take the barrel feeders
 local FEEDERS_RETRY = 60 -- seconds before asking again after it didn't
+local LINE_FILL = 64 -- items kept waiting in a Create line's feeder (opts.lineFill)
+local LINE_STUCK = 60 -- seconds a Create line's feeder may sit without going down before it shows as not moving
 -- Process slots in each tier of factory.
 local FACTORY_SLOTS = { basic = 3, advanced = 5, elite = 7, ultimate = 9 }
+-- Create lines: word (typed after 'add'), title (on the screen), what (in
+-- messages), feeds / out (what to pick as its feeder and output chest).
+local LINES = {
+  crush = { word = "crusher", title = "Crusher", what = "crushing line",
+    feeds = "The chest a funnel or chute empties onto its crushing wheels.",
+    out = "The chest what it crushes ends up in." },
+  wash = { word = "washer", title = "Washer", what = "washing fan",
+    feeds = "The chest a funnel empties onto the belt past the fan (blowing through water).",
+    out = "The chest at the end of the belt." },
+  blast = { word = "fan", title = "Blast fan", what = "blasting fan",
+    feeds = "The chest a funnel empties onto the belt past the fan (blowing through lava).",
+    out = "The chest at the end of the belt." },
+  smoke = { word = "smokefan", title = "Smoke fan", what = "smoking fan",
+    feeds = "The chest a funnel empties onto the belt past the fan (blowing through fire).",
+    out = "The chest at the end of the belt." },
+}
 
 mekfeed.STACK = STACK
+mekfeed.LINES = LINES
 
 local function isHopper(t) return t:find("hopper", 1, true) ~= nil end
 -- What can feed a machine: a hopper, or a barrel or chest a pipe pulls
@@ -80,7 +108,29 @@ function mekfeed.new(opts)
   self.names = opts.names or {}
   self.configured = {} -- machine -> true once its sides have been set (or tried)
   self.stuckSince = {} -- feeder -> { name, count, since }: an item not going into an empty machine
+  self.lineFeed = {} -- a Create line's feeder -> { total (after last round's filling), since (last moved) }
   return self
+end
+
+-- The Create line kind a word typed after 'add' names ("crusher"), if this set has it.
+function Set:lineWord(word)
+  for _, kind in ipairs(self.opts.lines or {}) do
+    if LINES[kind] and LINES[kind].word == word then return kind end
+  end
+  return nil
+end
+
+-- Each saved entry's title: its name from config, else "Chamber 2" or
+-- "Crusher 1", counted per kind.
+function Set:titles(list)
+  local out, count = {}, {}
+  for i, entry in ipairs(list) do
+    local kind = entry.line or ""
+    count[kind] = (count[kind] or 0) + 1
+    local title = entry.line and (LINES[entry.line] or LINES.crush).title or self.opts.title
+    out[i] = self.names[entry.machine or entry.feeder] or ("%s %d"):format(title, count[kind])
+  end
+  return out
 end
 
 function Set:isMachine(t)
@@ -107,7 +157,9 @@ end
 -- Machines on the network that aren't added yet.
 function Set:free()
   local used, out = {}, {}
-  for _, entry in ipairs(self:entries()) do used[entry.machine] = true end
+  for _, entry in ipairs(self:entries()) do
+    if entry.machine then used[entry.machine] = true end
+  end
   for _, name in ipairs(findOnNetwork(function(t) return self:isMachine(t) end)) do
     if not used[name] then out[#out + 1] = name end
   end
@@ -131,8 +183,10 @@ local function readOne(m)
       end
     end
   end
-  jobs[#jobs + 1] = function() m.energy = call("getEnergyFilledPercentage") end
-  jobs[#jobs + 1] = function() m.usage = call("getEnergyUsage") end
+  if not m.line then
+    jobs[#jobs + 1] = function() m.energy = call("getEnergyFilledPercentage") end
+    jobs[#jobs + 1] = function() m.usage = call("getEnergyUsage") end
+  end
   jobs[#jobs + 1] = function()
     local ok, list = pcall(peripheral.call, m.entry.feeder, "list")
     local okS, size = pcall(peripheral.call, m.entry.feeder, "size")
@@ -173,32 +227,55 @@ end
 -- Every saved machine with its feeder, read at once, and its sides set.
 function Set:read()
   local list = {}
-  for i, entry in ipairs(self:entries()) do
-    local t = peripheral.getType(entry.machine) or ""
-    local tier = t:match("^(%l+)" .. self.opts.factory .. "$")
-    list[i] = { n = i, entry = entry, title = self.names[entry.machine] or ("%s %d"):format(self.opts.title, i),
-      slots = tier and (FACTORY_SLOTS[tier] or 3) or 1, factory = tier ~= nil,
-      present = peripheral.isPresent(entry.machine), inputs = {}, outputs = {}, feed = {}, feedList = {},
-      feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {} }
+  local entries = self:entries()
+  local titles = self:titles(entries)
+  for i, entry in ipairs(entries) do
+    if entry.line then
+      -- a Create line: there's only its feeder to see
+      list[i] = { n = i, entry = entry, line = entry.line, title = titles[i], slots = 0, factory = false,
+        fill = self.opts.lineFill or LINE_FILL, present = peripheral.isPresent(entry.feeder), inputs = {},
+        outputs = {}, feed = {}, feedList = {}, feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {} }
+    else
+      local t = peripheral.getType(entry.machine) or ""
+      local tier = t:match("^(%l+)" .. self.opts.factory .. "$")
+      list[i] = { n = i, entry = entry, title = titles[i],
+        slots = tier and (FACTORY_SLOTS[tier] or 3) or 1, factory = tier ~= nil,
+        present = peripheral.isPresent(entry.machine), inputs = {}, outputs = {}, feed = {}, feedList = {},
+        feedTotal = 0, feedSize = 0, outOk = entry.output == nil, outList = {} }
+    end
   end
   local reads = {}
   for _, m in ipairs(list) do
     if m.present then reads[#reads + 1] = function() readOne(m) end end
   end
   if #reads > 0 then parallel.waitForAll(table.unpack(reads)) end
+  local now = os.clock()
   for _, m in ipairs(list) do
-    if m.present then self:configure(m) end
+    if m.line and m.present then
+      -- nothing on a Create line can be read: it's moving if its feeder has
+      -- gone down since it was filled last round, or something came out
+      local t = self.lineFeed[m.entry.feeder]
+      m.moving = (t ~= nil and m.feedTotal < t.total) or next(m.outList) ~= nil
+      if not t or m.moving or m.feedTotal == 0 then t = { since = now } end
+      t.total = m.feedTotal
+      self.lineFeed[m.entry.feeder], m.track = t, t
+      m.stalled = m.feedOk and m.feedTotal > 0 and now - t.since > LINE_STUCK
+    elseif m.present then
+      self:configure(m)
+    end
   end
   return list
 end
 
--- Powered, with a feeder that answers: ready to be fed.
-function mekfeed.ready(m) return m.present and m.feedOk and (m.energy or 0) > 0 end
+-- Powered (a Create line: no power to read), with a feeder that answers:
+-- ready to be fed.
+function mekfeed.ready(m) return m.present and m.feedOk and (m.line ~= nil or (m.energy or 0) > 0) end
 
 -- How much more of an item the machine's input slots can take (an empty
 -- slot a stack, one holding the item the rest of its stack), less what's
--- waiting in the feeder.
+-- waiting in the feeder. A Create line's feeder is kept at m.fill.
 function mekfeed.roomFor(m, name)
+  if m.line then return m.fill - m.feedTotal end
   local room = 0
   for i = 1, m.slots do
     local s = m.inputs[i]
@@ -251,6 +328,13 @@ end
 -- missing, output full), orange (working flat out), yellow (working), lime
 -- (ready and idle). working: what to say it's doing, e.g. the item.
 function mekfeed.status(m, working)
+  if m.line then
+    if not m.present or not m.feedOk then return "red", "no feeder" end
+    if not m.outOk then return "red", "no output chest" end
+    if m.stalled then return "red", "not moving" end
+    if m.feedTotal > 0 then return m.feedTotal >= STACK and "orange" or "yellow", working or "working" end
+    return "lime", "idle"
+  end
   if not m.present then return "red", "not on network" end
   if not m.feedOk then return "red", "no feeder" end
   if not m.outOk then return "red", "no output chest" end
@@ -265,6 +349,8 @@ end
 function mekfeed.added(m, name, n)
   m.feed[name] = (m.feed[name] or 0) + n
   m.feedTotal = m.feedTotal + n
+  -- next round's read checks the feeder went down from what it was left with
+  if m.track then m.track.total = m.track.total + n end
 end
 
 ---------------------------------------------------------------- the storage computer
@@ -313,7 +399,8 @@ function Set:unstick(machines, input, putBack)
     local _, item = next(m.feedList)
     local feeder = m.entry.feeder
     local s = self.stuckSince[feeder]
-    if item and mekfeed.inputOf(m) == 0 and (m.energy or 0) > 0 then
+    -- (a Create line that doesn't move shows red instead: most likely it isn't turning)
+    if item and not m.line and mekfeed.inputOf(m) == 0 and (m.energy or 0) > 0 then
       if s and s.name == item.name and m.feed[item.name] >= s.count then
         if now - s.since > STUCK_AFTER and input then
           for slot in pairs(m.feedList) do pcall(peripheral.call, feeder, "pushItems", input, slot) end
@@ -379,24 +466,42 @@ end
 
 function Set:list()
   local list = self:entries()
+  local titles = self:titles(list)
   if #list == 0 then print(("No %ss yet. Add one with '%s add'."):format(self.opts.what, self.opts.name)) end
   for i, entry in ipairs(list) do
-    print(("%d  %s: %s, fed by %s, out to %s"):format(i,
-      self.names[entry.machine] or ("%s %d"):format(self.opts.title, i), entry.machine, entry.feeder,
-      entry.output or "the chest under it"))
+    if entry.line then
+      print(("%d  %s: fed by %s, out to %s"):format(i, titles[i], entry.feeder, entry.output or "a storage input chest"))
+    else
+      print(("%d  %s: %s, fed by %s, out to %s"):format(i, titles[i], entry.machine, entry.feeder,
+        entry.output or "the chest under it"))
+    end
   end
 end
 
+-- Every chest or machine an entry uses (skip: that entry's index).
+local function usedBy(list, skip)
+  local used = {}
+  for i, entry in ipairs(list) do
+    if i ~= skip then
+      used[entry.feeder] = true
+      if entry.machine then used[entry.machine] = true end
+      if entry.output then used[entry.output] = true end
+    end
+  end
+  return used
+end
+
+-- machine: its peripheral name, or a Create line's word ("crusher").
 function Set:add(machine, feeder, output)
   local list = self:entries()
-  local used = {}
-  for _, entry in ipairs(list) do
-    used[entry.machine], used[entry.feeder] = true, true
-    if entry.output then used[entry.output] = true end
-  end
+  local used = usedBy(list)
+  local line = machine and self:lineWord(machine)
+  local kind = line and LINES[line]
   local asking = not feeder -- an output chest is only asked for along with the feeder
   if not machine or not feeder then print("Right-click a modem to see its block's name.") end
-  if not machine then
+  if line then
+    machine = nil
+  elseif not machine then
     local machines = self:free()
     if #machines == 0 then
       print(("No %s on the network that isn't added already. Put a wired modem on it, join it to the cable and right-click it.")
@@ -415,11 +520,13 @@ function Set:add(machine, feeder, output)
       if not used[name] and (isHopper(peripheral.getType(name)) or freeChest(self, name)) then feeders[#feeders + 1] = name end
     end
     if #feeders == 0 then
-      print(("Nothing free to feed it. Put a hopper on top of the %s, pointing down, or an empty barrel a pipe pulls from into it, with a wired modem on it joined to the cable.")
-        :format(self.opts.what))
+      print(kind and "Nothing free to feed it: an empty chest or barrel with a wired modem on it, joined to the cable."
+        or ("Nothing free to feed it. Put a hopper on top of the %s, pointing down, or an empty barrel a pipe pulls from into it, with a wired modem on it joined to the cable.")
+          :format(self.opts.what))
       return
     end
-    print("What FEEDS it: the hopper on top of it, pointing down, or the barrel a pipe pulls from into it:")
+    print(kind and ("What FEEDS it: %s"):format(kind.feeds)
+      or "What FEEDS it: the hopper on top of it, pointing down, or the barrel a pipe pulls from into it:")
     feeder = choose("Which? (Enter to cancel)", feeders)
     if not feeder then return end
   end
@@ -431,7 +538,11 @@ function Set:add(machine, feeder, output)
       end
     end
     if #outs > 0 then
-      if self:far() then
+      if kind then
+        print(("Its OUTPUT chest: %s"):format(kind.out))
+        print(self:far() and "Enter: none, it ends up in the ender chest itself."
+          or "Enter: none, it ends up in a storage input chest.")
+      elseif self:far() then
         print("Its OUTPUT chest or barrel, under it, where what it makes goes (sent home through the ender chest each round).")
         print("Enter: none, the ender chest itself is under it.")
       else
@@ -441,12 +552,12 @@ function Set:add(machine, feeder, output)
       output = choose("Which?", outs)
     end
   end
-  if used[machine] or used[feeder] or (output and used[output]) then print("That one is already added.") return end
+  if (machine and used[machine]) or used[feeder] or (output and used[output]) then print("That one is already added.") return end
   if output == feeder then print("The feeder and the output chest have to be different chests.") return end
-  for _, name in ipairs({ machine, feeder, output }) do
+  for _, name in ipairs({ machine or feeder, feeder, output }) do
     if not peripheral.isPresent(name) then print(name .. " isn't on the network.") return end
   end
-  if not self:isMachine(peripheral.getType(machine) or "") then
+  if machine and not self:isMachine(peripheral.getType(machine) or "") then
     print(("%s isn't an %s."):format(machine, self.opts.what))
     return
   end
@@ -462,9 +573,21 @@ function Set:add(machine, feeder, output)
     if not freeChest(self, output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
   end
 
-  list[#list + 1] = { machine = machine, feeder = feeder, output = output }
+  list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output }
   self:save(list)
-  print(("%s %d added: %s, fed by %s."):format(self.opts.title, #list, machine, feeder))
+  local title = self:titles(list)[#list]
+  if kind then
+    print(("%s added, fed by %s."):format(title, feeder))
+    print("A funnel or chute has to move its items into the machine; the computer can't see the machine itself.")
+    if output then
+      print(("What it makes has to end up in %s, and from there it goes into storage."):format(output))
+    else
+      print(self:far() and "What it makes has to end up in the ender chest, and goes home from there."
+        or "What it makes has to end up in a storage input chest (add it in 'storage setup').")
+    end
+    return
+  end
+  print(("%s added: %s, fed by %s."):format(title, machine, feeder))
   if not isHopper(feederType) then
     print("Something has to move its items into the machine: a logistical transporter set to pull, or a funnel.")
     print("The storage computer stops using it as storage once the program is running.")
@@ -480,27 +603,23 @@ end
 
 ---------------------------------------------------------------- the setup screen
 
--- A lib/setupui.lua page of the machines: tap one to change its feeder or
--- output chest or remove it, or add one (machine, then feeder, then output
--- chest). Saved as each change is made.
+-- A lib/setupui.lua page of the machines (and Create lines): tap one to
+-- change its feeder or output chest or remove it, or add one (machine,
+-- then feeder, then output chest; a line has no machine to pick). Saved as
+-- each change is made.
 function Set:setupPage(ui)
   local opts = self.opts
-  -- every chest another machine uses (skip: this machine's entry)
   local function used(skip)
-    local u = {}
-    for i, e in ipairs(self:entries()) do
-      if i ~= skip then
-        u[e.machine], u[e.feeder] = true, true
-        if e.output then u[e.output] = true end
-      end
-    end
-    return u
+    return usedBy(self:entries(), skip)
   end
-  local function pickFeeder(skip, current, done)
+  -- kind: the Create line's LINES entry, nil for a Mekanism machine
+  local function pickFeeder(skip, current, kind, done)
     local u = used(skip)
-    ui:pickChest({ title = "Pick its feeder", hint = "The hopper on top of it, or the barrel a pipe pulls from into it.",
+    ui:pickChest({ title = "Pick its feeder",
+      hint = kind and kind.feeds or "The hopper on top of it, or the barrel a pipe pulls from into it.",
       names = findOnNetwork(isFeeder), current = current,
-      nothing = "Nothing free: a hopper on top, or an empty barrel, with a wired modem on it.",
+      nothing = kind and "Nothing free: an empty chest or barrel, with a wired modem on it."
+        or "Nothing free: a hopper on top, or an empty barrel, with a wired modem on it.",
       roleOf = function(n) return u[n] and "another machine's" end,
       -- every storage chest is a barrel or chest too: only empty ones (far away, any)
       only = function(n, info)
@@ -511,16 +630,18 @@ function Set:setupPage(ui)
         ui:back()
         done(n)
       end })
-    ui:say("Tap its hopper or barrel.")
+    ui:say(kind and "Tap its feeder chest." or "Tap its hopper or barrel.")
   end
-  local function pickOutput(skip, current, feeder, done)
+  local function pickOutput(skip, current, feeder, kind, done)
     local u = used(skip)
     local far = self:far()
     ui:pickChest({ title = "Pick its output chest",
-      hint = far and "Under it: what it makes goes here, then home through the ender chest."
+      hint = kind and (kind.out .. (far and " It goes home through the ender chest." or " It goes into storage from there."))
+        or far and "Under it: what it makes goes here, then home through the ender chest."
         or "Under it: what it makes goes here, then into storage.",
       names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
-      none = far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)",
+      none = kind and (far and "(none: it ends up in the ender chest)" or "(none: it ends up in a storage input chest)")
+        or far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)",
       roleOf = function(n) return u[n] and "another machine's" or n == feeder and "its feeder" or nil end,
       only = function(n, info) return n == current or far or info.stacks == 0 end,
       pick = function(n)
@@ -528,7 +649,7 @@ function Set:setupPage(ui)
         ui:back()
         done(n)
       end })
-    ui:say("Tap the chest under it, or (none).")
+    ui:say(kind and "Tap the chest it ends up in, or (none)." or "Tap the chest under it, or (none).")
   end
   local function change(i, field, value, text)
     local list = self:entries()
@@ -541,52 +662,65 @@ function Set:setupPage(ui)
   local function machinePage(i)
     return {
       title = function()
-        local e = self:entries()[i]
-        return e and (self.names[e.machine] or ("%s %d"):format(opts.title, i)) or opts.title
+        local list = self:entries()
+        return list[i] and self:titles(list)[i] or opts.title
       end,
       rows = function()
         local e = self:entries()[i]
         if not e then return { { label = "Removed.", dim = true } } end
+        local kind = e.line and (LINES[e.line] or LINES.crush)
         local function there(n) return peripheral.isPresent(n) and "lightGray" or "red" end
+        local noOutput = self:far() and "none: the ender chest" or "none: a storage input chest"
         return {
-          { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
+          kind and { label = "Machine", value = "Create " .. kind.what, colour = "lightGray", dim = false }
+            or { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
           { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
-            pickFeeder(i, e.feeder, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
+            pickFeeder(i, e.feeder, kind, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
           end },
-          { label = "Output chest", value = e.output or (self:far() and "none: the ender chest" or "none: a storage input chest"),
+          { label = "Output chest", value = e.output or noOutput,
             colour = e.output and there(e.output) or "gray",
             act = function()
-              pickOutput(i, e.output, e.feeder, function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end)
+              pickOutput(i, e.output, e.feeder, kind,
+                function(n) change(i, "output", n, ("Output chest: %s."):format(n or "none")) end)
             end },
           { label = "Remove it", colour = "red", act = function()
             local list = self:entries()
             local gone = table.remove(list, i)
             self:save(list)
             ui:back()
-            ui:say(("Forgot %s. Empty its feeder%s by hand."):format(gone.machine, gone.output and " and output chest" or ""), "lime")
+            ui:say(("Forgot %s. Empty its feeder%s by hand."):format(gone.machine or gone.feeder,
+              gone.output and " and output chest" or ""), "lime")
           end },
         }
       end,
     }
   end
 
-  local function add()
+  -- line: a Create line kind to add, nil for a Mekanism machine
+  local function add(line)
+    local kind = line and LINES[line]
+    local function withMachine(machine)
+      pickFeeder(nil, nil, kind, function(feeder)
+        pickOutput(nil, nil, feeder, kind, function(output)
+          local list = self:entries()
+          list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output }
+          self:save(list)
+          local title = self:titles(list)[#list]
+          if kind then
+            ui:say(("%s added. A funnel or chute has to move its items in."):format(title), "lime")
+          else
+            local hopper = isHopper(peripheral.getType(feeder) or "")
+            ui:say(("%s added.%s"):format(title, hopper and ""
+              or " A pipe has to move its items in: a logistical transporter set to pull, or a funnel."), "lime")
+          end
+        end)
+      end)
+    end
+    if kind then return withMachine(nil) end
     local free = self:free()
     if #free == 0 then
       ui:say(("No %s on the network that isn't added: put a wired modem on it and right-click it."):format(opts.what), "orange")
       return
-    end
-    local function withMachine(machine)
-      pickFeeder(nil, nil, function(feeder)
-        pickOutput(nil, nil, feeder, function(output)
-          local list = self:entries()
-          list[#list + 1] = { machine = machine, feeder = feeder, output = output }
-          self:save(list)
-          local hopper = isHopper(peripheral.getType(feeder) or "")
-          ui:say(("%s %d added.%s"):format(opts.title, #list, hopper and ""
-            or " A pipe has to move its items in: a logistical transporter set to pull, or a funnel."), "lime")
-        end)
-      end)
     end
     if #free == 1 then return withMachine(free[1]) end
     ui:open({
@@ -601,25 +735,44 @@ function Set:setupPage(ui)
     })
   end
 
+  local function an(what) return what:find("^[aeiou]") and "an" or "a" end
   return {
-    title = opts.title .. "s",
-    hint = ("Each %s, its feeder and its output chest."):format(opts.what),
+    title = opts.pageTitle or (opts.title .. "s"),
+    hint = ("Each %s, its feeder and its output chest."):format(opts.lines and "machine" or opts.what),
     rows = function()
       local out = {}
-      for i, e in ipairs(self:entries()) do
-        local here = peripheral.isPresent(e.machine)
-        out[#out + 1] = { label = self.names[e.machine] or ("%s %d"):format(opts.title, i),
-          value = here and e.machine or (e.machine .. " (missing)"), colour = here and "lightGray" or "red",
-          act = function() ui:open(machinePage(i)) end }
+      local list = self:entries()
+      local titles = self:titles(list)
+      for i, e in ipairs(list) do
+        local here = peripheral.isPresent(e.machine or e.feeder)
+        local value = e.line and ("fed by " .. e.feeder) or e.machine
+        out[#out + 1] = { label = titles[i], value = here and value or (value .. " (missing)"),
+          colour = here and "lightGray" or "red", act = function() ui:open(machinePage(i)) end }
       end
-      out[#out + 1] = { label = ("+ Add %s %s"):format(opts.what:find("^[aeiou]") and "an" or "a", opts.what), colour = "lime", act = add }
+      local adds = { { label = ("+ Add %s %s"):format(an(opts.what), opts.what), colour = "lime",
+        act = function() add(nil) end } }
+      for _, line in ipairs(opts.lines or {}) do
+        local kind = LINES[line]
+        if kind then
+          adds[#adds + 1] = { label = ("+ Add a Create %s"):format(kind.what), colour = "lime",
+            act = function() add(line) end }
+        end
+      end
+      -- no Mekanism machine added or on the network (a Create-only world): the Create lines first
+      local anyMachine = #self:free() > 0
+      for _, e in ipairs(list) do
+        if e.machine then anyMachine = true end
+      end
+      if not anyMachine and #adds > 1 then table.insert(adds, table.remove(adds, 1)) end
+      for _, row in ipairs(adds) do out[#out + 1] = row end
       return out
     end,
   }
 end
 
--- '<program> add [machine feeder [output]]' and '<program> remove <n>': true if
--- args was one of them (and it's been done).
+-- '<program> add [machine feeder [output]]' (machine: a Create line's word
+-- too, e.g. 'add crusher') and '<program> remove <n>': true if args was one
+-- of them (and it's been done).
 function Set:command(args)
   if args[1] == "add" then
     self:add(args[2], args[3], args[4])
@@ -629,12 +782,13 @@ function Set:command(args)
     local n = tonumber(args[2] or "")
     if not n or not list[n] then
       self:list()
-      print(("Usage: %s remove <%s number>"):format(self.opts.name, self.opts.what))
+      print(("Usage: %s remove <number>"):format(self.opts.name))
       return true
     end
     local entry = table.remove(list, n)
     self:save(list)
-    print(("Forgot %s. Empty its feeder%s by hand."):format(entry.machine, entry.output and " and output chest" or ""))
+    print(("Forgot %s. Empty its feeder%s by hand."):format(entry.machine or entry.feeder,
+      entry.output and " and output chest" or ""))
     return true
   end
   return false

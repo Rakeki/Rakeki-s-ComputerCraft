@@ -469,9 +469,11 @@ the turtles and the smelter carry on without being changed.
 ### Smelter and enricher
 
 Ores are handled by two optional computers on the storage system: the
-[smelter](../smelter-computer/README.md) (furnaces, and Mekanism Energized
-Smelters) and the [enricher](../enricher-computer/README.md) (Mekanism
-Enrichment Chambers: ore into dust, more ingots per ore).
+[smelter](../smelter-computer/README.md) (furnaces, Mekanism Energized
+Smelters, and Create fans blowing through lava or fire) and the
+[enricher](../enricher-computer/README.md) (Mekanism Enrichment Chambers:
+ore into dust, more ingots per ore; and Create crushing wheels: ore into
+crushed ore).
 
 | You have | What happens to ore in storage |
 |---|---|
@@ -481,6 +483,7 @@ Enrichment Chambers: ore into dust, more ingots per ore).
 | Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders only in plain furnaces. |
 | Enricher, no smelter | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's a smelter. |
 | Enricher and smelter | While the enricher has a chamber set up, the smelter leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the enricher has been gone for 10 minutes, or has no chambers, the smelter smelts the ores itself. |
+| Create machines | The enricher's crushing wheels take the ores the chambers leave (or all of them, with no chambers) and the smelter waits for the crushed ores (or the enricher's washing fans wash them into nuggets and a byproduct, and the storage computer crafts the nuggets into ingots); its blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |
 
 Each round the smelter asks the enricher which ores to leave, over rednet.
 On one cable that just works. If either one is far away, put an **ender

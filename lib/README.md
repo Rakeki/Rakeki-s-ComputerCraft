@@ -41,7 +41,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   reach their slots): reads them and their feeders at once, sets their bottom
   to Output with Auto-eject, empties their output chests into storage, tells
   the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
-  Used by `enricher-computer` and `smelter-computer`.
+  Also Create lines (crushing wheels, washing, blasting and smoking fans), which CC can't see at all: just a feeder
+  chest and an output chest, kept topped up and shown red when the feeder stops going down.
+  Used by `enricher-computer` (chambers, crushers, washers) and `smelter-computer` (Mekanism smelters, fans).
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage
   computer](../computers/storage-computer/README.md), has it filled in one
