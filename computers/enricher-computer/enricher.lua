@@ -73,7 +73,7 @@ local machines = {} -- what the screen shows: each chamber with its feeder and h
 local message = { "Looking for the storage computer...", "lightGray" }
 local news -- { text, colour, untilTime }: a put-back item, shown for a minute
 local waiting = {} -- item -> how many in storage to enrich, for the screen
-local taking = false -- a chamber is ready and loading works, so the smelter should leave the ores alone
+local taking = false -- chambers are set up, so the smelter should leave the ores alone and wait for the dust
 local noEnrich = {} -- item -> true: found not to go into a chamber (until restart)
 
 ---------------------------------------------------------------- helpers
@@ -142,11 +142,11 @@ end
 
 local function round()
   machines = chambers:read()
-  local ready = 0
-  for _, m in ipairs(machines) do
-    if mekfeed.ready(m) then ready = ready + 1 end
-  end
-  taking = false
+  -- set before anything that waits, so the smelter never asks mid-round
+  -- and hears "none"; a chamber that can't be loaded just now (no power,
+  -- storage not answering) still means the ores wait for it, as dust gives
+  -- more ingots
+  taking = #machines > 0
   if #machines == 0 then
     local free = #chambers:free()
     say(free > 0 and ("%d chamber(s) on the network: tap Setup on the monitor, or 'enricher setup'."):format(free)
@@ -274,9 +274,6 @@ local function round()
   if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
     problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
   end
-  -- leave the ores to the smelter while they can't be loaded here, so they
-  -- don't sit in storage
-  taking = ready > 0 and not problem and not (work.remote and not work.active)
   local noOutput
   for _, m in ipairs(machines) do
     if not m.entry.output then noOutput = noOutput or m end
@@ -468,7 +465,7 @@ local function workLoop()
 end
 
 -- The smelter asks which ores to leave for the chambers; none while no
--- chamber is ready, so it smelts them as it always has.
+-- chamber is set up, so it smelts them as it always has.
 local function netLoop()
   rednet.host(ENRICHER_PROTOCOL, os.getComputerLabel() or ("enricher-" .. os.getComputerID()))
   while true do

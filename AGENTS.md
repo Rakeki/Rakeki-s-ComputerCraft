@@ -240,7 +240,7 @@ reply field.
 | `instabuild` | blueprint-projector → instabuild (`instabuild serve`) | `build` (name, `mats`, `blocks` = { x, y, z, m } in world coords, `area`) → `ok` / `why`; then `done` (`text`, `placed`) once it's in. Build goes here when an instabuild computer hosts the protocol (`set projector.instabuild false` skips it) |
 | `craft_overseer` | storage-computer → craft-overseer | `jobs` (each { id, plan, name, steps, count, grid, top }) → ack; the overseer then asks the storage computer (`storage` protocol) for `crafters`, `load`, `clear`, `stock`, and reports `jobdone` and `problem` |
 | `smelter` | storage-computer → smelter-computer | hosted only: `storage config remote` finds smelters (and enrichers, which host `enricher`) by `rednet.lookup` to pick their ender chest |
-| `enricher` | smelter-computer → enricher-computer | `takes` → `takes` (Lua patterns of the item ids it puts in its chambers; empty while no chamber is ready), so the smelter leaves those ores alone. No enricher: the smelter smelts them |
+| `enricher` | smelter-computer → enricher-computer | `takes` → `takes` (Lua patterns of the item ids it puts in its chambers; empty while no chamber is set up), so the smelter leaves those ores alone and waits for the dust; it keeps the last answer through missed ones. No enricher (or none heard for 10 min): the smelter smelts them |
 | `storage_crafter` | storage-computer or craft-overseer → crafter-turtle | `craft` (ingredients are in the crafter chest; `grid` = cell → item, and the turtle sorts by name, since barrels ignore slots), `ping`; replies `crafted` (`made`, `item` it made, `error`), `pong` |
 
 Rules that keep it from stalling:

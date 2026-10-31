@@ -39,9 +39,11 @@ or a modded food.
 
 With Mekanism, it also smelts **dust** (iron, gold, copper, osmium, tin,
 lead, uranium) into ingots. While the [enricher](../enricher-computer/README.md)
-is running, the ores it puts into its Enrichment Chambers are left to it, so
-they come back as dust and give more ingots. Without it, the smelter smelts
-those ores itself, as before. Every combination (furnaces only, Mekanism
+is running with a chamber set up, the smelter never smelts the ores it puts
+into its Enrichment Chambers (raw iron, iron ore, ...): it waits for them to
+come back as dust, which gives more ingots, even while a chamber is stuck
+for a while. Without an enricher, or once it's been gone for 10 minutes, the
+smelter smelts those ores itself, as before. Every combination (furnaces only, Mekanism
 smelters, with or without the enricher, near or far away) is in
 [Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 

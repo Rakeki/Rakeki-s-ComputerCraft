@@ -1441,7 +1441,7 @@
         "Optional work chest: the storage computer fills it once a round with the ores for every feeder",
         "Hopper or barrel feeders: a barrel with a transporter pulling into the chamber keeps up with a fast Enriching Factory",
         "Sets each chamber's bottom to Output with Auto-eject, so the dust drops into a storage input chest",
-        "The smelter leaves those ores alone while the enricher runs, and smelts the dust into ingots instead",
+        "The smelter never smelts those ores while the enricher runs: it waits for the dust and smelts that into ingots instead",
         "Puts back anything that doesn't go into a chamber, and says when a chamber has no power or nowhere to put its dust"
       ],
       "setup": [

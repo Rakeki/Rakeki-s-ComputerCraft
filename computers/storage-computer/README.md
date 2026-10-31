@@ -480,7 +480,7 @@ Enrichment Chambers: ore into dust, more ingots per ore).
 | Smelter with Mekanism smelters only | Smelted in them, no fuel needed. No charcoal, stone or glass orders: those need a plain furnace. |
 | Smelter with both | The Mekanism smelters take their pick first, the furnaces the rest; orders only in plain furnaces. |
 | Enricher, no smelter | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's a smelter. |
-| Enricher and smelter | While the enricher has a chamber with power that it can load, the smelter leaves those ores to it and smelts the dust instead (more ingots). If the enricher stops, or can't load its chambers, the smelter smelts the ores itself. |
+| Enricher and smelter | While the enricher has a chamber set up, the smelter leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the enricher has been gone for 10 minutes, or has no chambers, the smelter smelts the ores itself. |
 
 Each round the smelter asks the enricher which ores to leave, over rednet.
 On one cable that just works. If either one is far away, put an **ender

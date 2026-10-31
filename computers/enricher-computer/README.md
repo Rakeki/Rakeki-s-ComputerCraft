@@ -37,11 +37,13 @@ With a [work chest](#work-chest), the storage computer fills that chest once
 a round with the ores for every feeder, and the enricher fills the feeders
 from it, instead of asking for each feeder in turn.
 
-While the enricher has a chamber with power, the smelter leaves those ores
-alone and smelts the dust instead. When the enricher stops, or can't load
-its chambers (its screen says why in red), the smelter goes back to
-smelting the ores itself, so they never just sit in storage. Without a
-smelter the dust stays in storage. Every combination (furnaces only,
+While the enricher has a chamber set up, the smelter never smelts those
+ores (raw iron, iron ore, ...): it waits for the dust, which gives more
+ingots. That holds even while a chamber can't be loaded for a while (no
+power, storage not answering: its screen says why in red), so fix that
+and the ores move on. Only when the enricher has been gone for 10 minutes
+(stopped, or its chambers removed) does the smelter go back to smelting
+the ores itself. Without a smelter the dust stays in storage. Every combination (furnaces only,
 Mekanism smelters, near or far away) is in
 [Smelter and enricher](../storage-computer/README.md#smelter-and-enricher).
 

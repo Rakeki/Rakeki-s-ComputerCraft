@@ -63,6 +63,7 @@ local ENRICHER_PROTOCOL = "enricher" -- the enricher says which ores it takes on
 local SMELTER_PROTOCOL = "smelter" -- hosted, so 'storage config remote' can find this smelter
 local ENRICHER_WAIT = 3 -- seconds to wait for the enricher to answer
 local ENRICHER_RETRY = 60 -- seconds before looking for an enricher again after there was none
+local ENRICHER_FORGET = 600 -- seconds an enricher may go unanswered before its ores are smelted here after all
 local EVERY = 10 -- seconds between rounds of emptying and filling the furnaces
 local REPLY_WAIT = 5 -- seconds to wait for the storage computer to answer
 local LOAD_MIN = 8 -- fewest items put in an empty furnace at once (what one coal smelts)
@@ -248,11 +249,20 @@ local smelters = mekfeed.new({ name = "smelter", single = "energizedSmelter", fa
 
 local enricher = net.peer(ENRICHER_PROTOCOL, { open = "any", wait = ENRICHER_WAIT, retry = ENRICHER_RETRY })
 
--- The ores the enricher is putting into its chambers (patterns on item
--- ids), or none when there's no enricher or none of its chambers is ready.
+-- The ores the enricher puts into its chambers (patterns on item ids), or
+-- none when there's no enricher or it has no chambers. A missed answer (a
+-- busy enricher, a reboot) keeps the last list, so raw ores aren't smelted
+-- here in the meantime; only an enricher gone for ENRICHER_FORGET lets
+-- them go.
+local lastTakes, lastHeard = {}, -math.huge
 local function enricherTakes()
   local reply = enricher:ask({ type = "takes" })
-  return reply and type(reply.takes) == "table" and reply.takes or {}
+  if reply and type(reply.takes) == "table" then
+    lastTakes, lastHeard = reply.takes, os.clock()
+  elseif os.clock() - lastHeard > ENRICHER_FORGET then
+    lastTakes = {}
+  end
+  return lastTakes
 end
 
 local function leftFor(name, patterns)
