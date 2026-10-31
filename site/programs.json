@@ -18,7 +18,7 @@
       "color": "orange",
       "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
-      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium"],
+      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -30,7 +30,7 @@
         "Walks every wall, floor and ceiling block and fills caves, water and lava with cobblestone",
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
-        "excavate <plan> digs the hole a plan asks for (cellar, hideout, workshop, sanctum, atrium) and prints where the builder goes and the build command",
+        "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress) and prints where the builder goes and the build command",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -52,7 +52,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: cellar, hideout, workshop, sanctum or atrium."]
+        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the twelve underground plans, from the bunker to the fortress."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
       "layouts": [
@@ -618,7 +618,7 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -739,7 +739,7 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -790,7 +790,7 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
       "libs": ["plan", "files", "net", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "factory"],
+      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1741,6 +1741,69 @@
       "size": "41 × 41 × 25",
       "hole": "41 × 41 × 26",
       "blocks": 7836
+    },
+    {
+      "name": "bunker",
+      "file": "bunker.lua",
+      "title": "Bunker",
+      "tagline": "A first base: a stone corridor with eight rooms behind doors: storage, kitchen, bedroom, enchanting, farm, smithy, brewing and a portal frame.",
+      "size": "23 × 15 × 6",
+      "hole": "23 × 15 × 7",
+      "blocks": 1340
+    },
+    {
+      "name": "burrow",
+      "file": "burrow.lua",
+      "title": "Burrow",
+      "tagline": "Six floors deep on one stair: a lounge, a kitchen and storeroom, a farm over a glass-ceilinged bedroom, an enchanting room and a portal room.",
+      "size": "21 × 17 × 30",
+      "hole": "21 × 17 × 31",
+      "blocks": 4568
+    },
+    {
+      "name": "cloister",
+      "file": "cloister.lua",
+      "title": "Cloister",
+      "tagline": "Sixteen rooms round a mossy arcade and a garden court with cherry trees and a fountain pouring into its basin.",
+      "size": "35 × 35 × 9",
+      "hole": "35 × 35 × 10",
+      "blocks": 4515
+    },
+    {
+      "name": "greathall",
+      "file": "greathall.lua",
+      "title": "Great Hall",
+      "tagline": "Everything you need in one timber hall: twenty alcoves for a portal, ender chests, brewing, books, enchanting, armour and storage round a pool with a conduit.",
+      "size": "39 × 33 × 13",
+      "hole": "39 × 33 × 14",
+      "blocks": 5770
+    },
+    {
+      "name": "crossroads",
+      "file": "crossroads.lua",
+      "title": "Crossroads",
+      "tagline": "A base dug into a hill: a sunlit courtyard with an enchanting table, four turf-roofed oak wings in a cross, and sunken gardens between them.",
+      "size": "45 × 45 × 9",
+      "hole": "45 × 45 × 10",
+      "blocks": 6797
+    },
+    {
+      "name": "grandstair",
+      "file": "grandstair.lua",
+      "title": "Grand Stair",
+      "tagline": "An entrance hall: a stone staircase down from a high landing, between pillars and balconies under dark oak beams, to an aquarium window.",
+      "size": "31 × 46 × 21",
+      "hole": "31 × 46 × 22",
+      "blocks": 8317
+    },
+    {
+      "name": "fortress",
+      "file": "fortress.lua",
+      "title": "Fortress",
+      "tagline": "A Nether-style blackstone hall: lava channels under grates, guard alcoves with glowing panels, ribbed vaults with lava over the grates, a portal dais.",
+      "size": "27 × 61 × 14",
+      "hole": "27 × 61 × 15",
+      "blocks": 8388
     },
     {
       "name": "factory",

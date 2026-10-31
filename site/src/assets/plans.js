@@ -159,6 +159,9 @@ return enc(raw)`;
     ["fletching", "#c9b27a"], ["enchanting", "#7a2030"], ["brewing", "#8a8a6a"], ["cauldron", "#3c3c40"],
     ["campfire", "#e08a2c"], ["candle", "#e8dcb0"], ["azalea", "#5f8a30"], ["fern", "#4f7f30"], ["poppy", "#c0282a"],
     ["cornflower", "#4a64c8"], ["cane", "#8cbf5a"],
+    ["ochre", "#f0d27a"], ["magma", "#9a3b12"], ["pumpkin", "#d9822b"], ["melon", "#7da832"], ["berry", "#3d6b35"],
+    ["conduit", "#c7a76a"], ["ender", "#1f4a46"], ["chest", "#a2742f"], ["furnace", "#6e6e6e"], ["smoker", "#5a5048"],
+    ["lectern", "#a07a46"], ["anvil", "#444448"],
     ["copper", "#c0704c"], ["lantern", "#f2b84a"], ["torch", "#f2c84a"], ["glowstone", "#f8d58a"], ["end_rod", "#f0ece0"],
     ["log", "#6b5131"], ["wood", "#6b5131"], ["planks", "#b8945f"],
   ];

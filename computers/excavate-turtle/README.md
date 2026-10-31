@@ -38,7 +38,7 @@ fuel, but then water and lava can get in.
 ## Files
 
 - `excavate.lua`: the program. Settings (sealing, deep-mode depth, refuel level) are at the top.
-- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
+- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`, `bunker.lua`, `burrow.lua`, `cloister.lua`, `greathall.lua`, `crossroads.lua`, `grandstair.lua`, `fortress.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
 - `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too, just without reporting.
@@ -94,6 +94,13 @@ excavator, so they're already in `/plans`.
 | [workshop](../../plans/workshop.lua) | 33 × 25 × 15 | 3,340 | 17 east, 12 south | A timber-framed hall: an L-shaped mezzanine on dark oak pillars up to ceiling trusses, storage, library, smithy and brewing alcoves, a raised garden bed with sugar cane |
 | [sanctum](../../plans/sanctum.lua) | 41 × 41 × 26 | 7,840 | 20 east, 37 south | A deepslate hall: an amethyst tree on an island in a pool fed by two waterfalls, copper-banded towers with soul lanterns, a mossy mud brick path |
 | [atrium](../../plans/atrium.lua) | 60 × 60 × 30 | 7,740 | 29 east, 7 south | See [Atrium](#atrium) |
+| [bunker](../../plans/bunker.lua) | 23 × 15 × 7 | 1,340 | 11 east, 7 south | A first base: a stone corridor with eight rooms behind spruce doors: storage, a kitchen, a bedroom, an enchanting room, a sugar cane farm, a smithy, brewing and a portal frame |
+| [burrow](../../plans/burrow.lua) | 21 × 17 × 31 | 4,570 | 17 east, 15 south | Six floors on one stair that turns back at each: a lounge with a fireplace, a kitchen and storeroom, a farm along water channels, a bedroom under the channels' glass, an enchanting room, a portal room at the bottom |
+| [cloister](../../plans/cloister.lua) | 35 × 35 × 10 | 4,520 | 17 east, 13 south | Sixteen rooms (libraries, enchanting, brewing, a dormitory, kitchens, storerooms) round a mossy arcade, and a garden court with cherry trees and a fountain |
+| [greathall](../../plans/greathall.lua) | 39 × 33 × 14 | 5,770 | 19 east, 26 south | Everything you need in one timber hall: twenty alcoves (a portal, ender chests, brewing, libraries, enchanting, armour stand spots, storage, a smithy, a kitchen, a planter) round a pool with a conduit |
+| [crossroads](../../plans/crossroads.lua) | 45 × 45 × 10 | 6,800 | 8 east, 8 south | A base dug into a hill: a courtyard of moss under froglights with an enchanting table in a ring of shelves, four turf-roofed oak wings in a cross (bedroom, library, kitchen, workshop) two steps down, and sunken gardens with azalea trees and ponds between them |
+| [grandstair](../../plans/grandstair.lua) | 31 × 46 × 22 | 8,320 | 15 east, 30 south | An entrance hall: in through an arch onto a high landing, down a stone staircase between pillars with chiselled capitals and balconies, under dark oak beams and glowstone, to an aquarium window; a storeroom under the landing |
+| [fortress](../../plans/fortress.lua) | 27 × 61 × 15 | 8,390 | 13 east, 56 south | A Nether-style blackstone hall: lava channels under grates along the walls, guard alcoves with glowing panels, deepslate pillars and ribs with lava over grates in the ceiling, a portal dais between two lavafalls |
 
 1. Put the turtle in a corner of the hole-to-be as usual and run
    `excavate <plan>` (add `down` or `deep` if you like). The hole is laid
@@ -113,6 +120,28 @@ ceiling, because the builder stands on top of what it places. Use one
 builder per plan: the plan keeps only one spot clear. Plants stand on
 moss, and nothing needs farmland. The portal frames are unlit obsidian;
 light them yourself.
+
+Some plans need a few things from you:
+
+- **The way in.** The plans fill a sealed hole, so you dig your own
+  tunnel in. The bunker's corridor, the grand stair's arch over its landing
+  and the fortress's gate in its south wall open on the rock, ready for it;
+  the burrow's stair carries on up into the rock from the lounge, so dig on
+  from its top step to the surface.
+- **Beds and armour stands** can't be placed by the turtle: bed spots are
+  marked with pairs of red (or blue) carpet, armour stand spots with smooth
+  stone slabs (the great hall) or gilded blackstone (the fortress's guard
+  alcoves).
+- **Buckets.** Water and lava come from buckets in the supply chest. Most
+  plans need a few dozen water buckets; the grand stair's aquarium takes
+  121 and the sanctum 216. The fortress takes 150 lava buckets for its
+  channels, ceiling pools and lavafalls: set `LAVA` at the top of
+  `fortress.lua` to `"minecraft:magma_block"` to build it without. The
+  cloister's fountain
+  and the fortress's lavafalls pour on purpose; their basins hold them.
+- **The burrow's shaft.** The builder's home in the burrow is a one-block
+  shaft through every floor beside the stair, fenced on each floor. Put a
+  ladder in it once the building's done, or fence it over.
 
 ## Atrium
 

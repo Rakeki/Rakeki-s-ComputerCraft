@@ -4,7 +4,7 @@
 -- is built inside it: builder turtles do the inner walls and details.
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
---   excavate <plan> [up|down|deep]   the hole a plan in /plans needs (cellar, hideout, workshop, sanctum, atrium)
+--   excavate <plan> [up|down|deep]   the hole a plan in /plans needs (cellar, fortress, ...: any with a hole)
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel

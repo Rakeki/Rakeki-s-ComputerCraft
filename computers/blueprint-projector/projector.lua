@@ -81,6 +81,9 @@ local COLOR_WORDS = {
   { "fletching", 0xc9b27a }, { "enchanting", 0x7a2030 }, { "brewing", 0x8a8a6a }, { "cauldron", 0x3c3c40 },
   { "campfire", 0xe08a2c }, { "candle", 0xe8dcb0 }, { "azalea", 0x5f8a30 }, { "fern", 0x4f7f30 }, { "poppy", 0xc0282a },
   { "cornflower", 0x4a64c8 }, { "cane", 0x8cbf5a },
+  { "ochre", 0xf0d27a }, { "magma", 0x9a3b12 }, { "pumpkin", 0xd9822b }, { "melon", 0x7da832 }, { "berry", 0x3d6b35 },
+  { "conduit", 0xc7a76a }, { "ender", 0x1f4a46 }, { "chest", 0xa2742f }, { "furnace", 0x6e6e6e }, { "smoker", 0x5a5048 },
+  { "lectern", 0xa07a46 }, { "anvil", 0x444448 },
   { "copper", 0xc0704c }, { "lantern", 0xf2b84a }, { "torch", 0xf2c84a }, { "glowstone", 0xf8d58a },
   { "log", 0x6b5131 }, { "wood", 0x6b5131 }, { "planks", 0xb8945f },
 }
