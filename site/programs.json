@@ -1997,9 +1997,9 @@
       "name": "platform",
       "file": "platform.lua",
       "title": "Mossy platform",
-      "tagline": "A raised square of moss to build on, any size: old stonework sides of stone bricks and cobblestone, mossy and cracked, with panels standing out in staggered rows fitted to each side, and a stone rim. 21 × 21 and 5 high; set platform.size 31x25 (or 31x25x7) for another size.",
-      "size": "23 × 23 × 5",
-      "blocks": 2453
+      "tagline": "A raised square of moss to build on, any size: old stonework sides of stone bricks and cobblestone, mossy and cracked, where big blocks two high stand out in staggered rows over sunken bands, fitted to each side, under a stone rim. 21 × 21 and 5 high; set platform.size 31x25 (or 31x25x8) for another size.",
+      "size": "21 × 21 × 5",
+      "blocks": 2037
     }
   ]
 }

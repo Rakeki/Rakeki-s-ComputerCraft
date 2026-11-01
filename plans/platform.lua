@@ -3,19 +3,30 @@
 --
 -- Mossy platform: a raised square of moss to build on. Its sides are old
 -- stonework, stone and mossy stone bricks mixed with cobblestone and mossy
--- cobblestone, with raised panels standing out of the face in staggered
--- rows like big bricks. On top, a field of moss blocks inside a rim of the
--- same stone. Packed with dirt underneath. y 0 is the ground; x runs east,
--- z south.
+-- cobblestone: big blocks two high stand two out from the wall in rows,
+-- with a sunken band between the rows and gaps between the blocks, each row
+-- staggered from the one above like brickwork. Solid piers at the corners.
+-- Seen from the side, top to bottom:
+--
+--   B~~~~   B: the rim, two wide, then the moss
+--   WW#     W: a solid course under the rim
+--   BB#     a row of blocks, two high (or a gap between two of them)
+--   BB#
+--   ..#     a sunken band, then the next row of blocks...
+--
+-- Packed with dirt underneath. y 0 is the ground; x runs east, z south.
 --
 -- Any size: 'set platform.size 31x25' (wide x long) or '31x25x7' (and how
--- high, moss included), or one number for a square. The panels are fitted
--- to each side so every row ends cleanly. Without the setting (and on the
--- website) it's 21x21, 5 high.
+-- high, moss included), or one number for a square; the size is the whole
+-- footprint, blocks included. The blocks are fitted to each side so every
+-- row ends cleanly. Without the setting (and on the website) it's 21x21,
+-- 5 high.
 local DEFAULT_W, DEFAULT_L, DEFAULT_H = 21, 21, 5
-local MIN_SIDE, MAX_SIDE = 5, 128 -- how small and big a side can be
+local MIN_SIDE, MAX_SIDE = 9, 128 -- how small and big a side can be
 local MIN_H, MAX_H = 2, 32 -- how low and high it can be
-local PANEL, GAP = 3, 1 -- raised panels: about how long, and the gap between them
+local DEPTH = 2 -- how far the blocks stand out from the wall behind them
+local PANEL, GAP = 4, 1 -- the blocks: at least how long, and the gap between them
+local ROW, BAND = 2, 1 -- how high a row of blocks is, and the sunken band under it
 
 local function clamp(n, lo, hi) return math.max(lo, math.min(hi, math.floor(n))) end
 local function size()
@@ -28,7 +39,7 @@ local function size()
   return clamp(w, MIN_SIDE, MAX_SIDE), clamp(l, MIN_SIDE, MAX_SIDE), clamp(h, MIN_H, MAX_H)
 end
 local W, L, H = size() -- the platform on x 0..W-1, z 0..L-1, y 0..H-1
-local TOP = H - 1 -- the moss layer; the sides run from the ground up to it
+local TOP = H - 1 -- the moss layer and the rim
 
 local grid = {}
 local function set(x, y, z, block)
@@ -45,33 +56,19 @@ local function stone(x, y, z)
     or n < 0.95 and "mossy_cobblestone" or "cracked_stone_bricks"
 end
 
+---------------------------------------------------------------- fitting the blocks
 
----------------------------------------------------------------- the body
-
-for y = 0, TOP do
-  for z = 0, L - 1 do
-    for x = 0, W - 1 do
-      local edge = x == 0 or x == W - 1 or z == 0 or z == L - 1
-      if edge then set(x, y, z, stone(x, y, z))
-      elseif y == TOP then set(x, y, z, "moss_block")
-      else set(x, y, z, "dirt") end
-    end
-  end
-end
-
----------------------------------------------------------------- raised panels
-
--- The panels of one side, cells 1..n between its corners, as two rows of
--- { from, to } that lap like brickwork. The long row is as many panels as
--- fit at PANEL long or more, stretched so they fill the side exactly; the
--- other row's gaps fall in the middle of its panels, and a stub too short
+-- The blocks of one side, cells 1..n between its corner piers, as two rows
+-- of { from, to } that lap like brickwork. The long row is as many blocks
+-- as fit at PANEL long or more, stretched so they fill the side exactly; the
+-- other row's gaps fall in the middle of its blocks, and a stub too short
 -- at either end joins its neighbour (on a tiny side, one gap in the middle).
 local function fit(n)
   local k = math.max(1, math.floor((n + GAP) / (PANEL + GAP)))
   local room = n - (k - 1) * GAP
-  -- the extra cells go to the panels nearest the middle, in mirrored pairs,
+  -- the extra cells go to the blocks nearest the middle, in mirrored pairs,
   -- so the side reads the same from both ends; an odd one left over goes to
-  -- the middle panel, or widens the middle gap when there's none
+  -- the middle block, or widens the middle gap when there's none
   local lens, gaps, rem = {}, {}, room % k
   for j = 1, k do lens[j], gaps[j] = math.floor(room / k), GAP end
   local lo, hi = math.floor((k + 1) / 2), math.floor(k / 2) + 1
@@ -87,7 +84,7 @@ local function fit(n)
   local long, mids, at = {}, {}, 1
   for j = 1, k do
     long[j] = { at, at + lens[j] - 1 }
-    -- an even panel's middle leans away from the side's middle, mirrored; one
+    -- an even block's middle leans away from the side's middle, mirrored; one
     -- right on the side's middle gets a double gap. Whole numbers, or 5.0
     -- would end up in the block key
     local c = at + (lens[j] - 1) / 2
@@ -110,24 +107,58 @@ local function fit(n)
   return long, short
 end
 
--- the top row under the rim is always a long row, so every size looks alike
-local function panels(len, y, at)
-  local long, short = fit(len - 2)
-  for _, p in ipairs((TOP - 1 - y) % 2 == 0 and long or short) do
-    for i = p[1], p[2] do at(i) end
+-- which cells of a side 1..n hold a block, for the long and the short row
+local function cells(n)
+  local long, short = fit(n)
+  local function mark(runs)
+    local on = {}
+    for _, p in ipairs(runs) do for i = p[1], p[2] do on[i] = true end end
+    return on
   end
+  return { mark(long), mark(short) }
 end
-for y = 0, TOP - 1 do
-  panels(W, y, function(x)
-    set(x, y, -1, stone(x, y, -1))
-    set(x, y, L, stone(x, y, L))
-  end)
-  panels(L, y, function(z)
-    set(-1, y, z, stone(-1, y, z))
-    set(W, y, z, stone(W, y, z))
-  end)
+local ALONG_X, ALONG_Z = cells(W - 2 * DEPTH), cells(L - 2 * DEPTH)
+
+-- Which row of blocks layer y is in, counted down from the course under the
+-- rim (1 = long, 2 = short), or nil in a sunken band. The first row is long,
+-- so every size looks alike at the top.
+local function rowAt(y)
+  local k = (TOP - 2) - y
+  if k < 0 then return nil end
+  local period = ROW + BAND
+  if k % period >= ROW then return nil end
+  return math.floor(k / period) % 2 + 1
 end
 
+---------------------------------------------------------------- building it
+
+for z = 0, L - 1 do
+  for x = 0, W - 1 do
+    local dx, dz = math.min(x, W - 1 - x), math.min(z, L - 1 - z) -- in from the sides
+    local d = math.min(dx, dz)
+    for y = 0, TOP do
+      local block
+      if y == TOP then
+        block = d < DEPTH and stone(x, y, z) or "moss_block"
+      elseif y == TOP - 1 then
+        block = d <= DEPTH and stone(x, y, z) or "dirt"
+      elseif d > DEPTH then
+        block = "dirt"
+      elseif d == DEPTH or (dx < DEPTH and dz < DEPTH) then
+        block = stone(x, y, z) -- the wall behind the blocks, and the corner piers
+      else
+        local row = rowAt(y)
+        local on
+        if row then
+          if dz < DEPTH then on = ALONG_X[row][x - DEPTH + 1]
+          else on = ALONG_Z[row][z - DEPTH + 1] end
+        end
+        if on then block = stone(x, y, z) end
+      end
+      if block then set(x, y, z, block) end
+    end
+  end
+end
 
 local platform = { name = ("Mossy platform %dx%d"):format(W, L), blocks = {} }
 for k, block in pairs(grid) do

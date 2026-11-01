@@ -78,9 +78,9 @@ square, a **treehouse**, a **castle** (45×45, 31 high, about 8,200
 blocks), a **barn** and silo, a Japanese **teahouse** and garden, a
 **wizardtower**, a **greenhouse**, a modern **villa**, a Viking
 **longhouse** and a **platform**: a raised square of moss on mossy
-stonework sides to build on, 21×21 and 5 high or any size you set first
-(`set platform.size 31x25`, or `31x25x7` for 7 high; the side panels are
-fitted to it). A few hold water or lava, which the builders place from
+stonework sides (big blocks standing out in staggered rows), 21×21 and 5
+high or any size you set first (`set platform.size 31x25`, or `31x25x8`
+for 8 high; the blocks are fitted to it). A few hold water or lava, which the builders place from
 buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
 forge (1 lava). `install plans` lists every
