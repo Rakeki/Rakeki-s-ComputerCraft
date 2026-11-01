@@ -239,8 +239,14 @@ local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
       if n > bestN and crafting.matches(key, item) then best, bestN = item, n end
     end
     if bestN < need then
+      -- make the rest: of the item there's most of first, then any other
+      -- that fits (2 spruce planks stored but only oak logs: oak planks)
+      local tries = best and { best } or {}
+      for _, item in ipairs(makeable(key)) do
+        if item ~= best then tries[#tries + 1] = item end
+      end
       local made = false
-      for _, item in ipairs(best and { best } or makeable(key)) do
+      for _, item in ipairs(tries) do
         if planItem(item, need - math.max(0, avail[item] or 0), avail, jobs, depth + 1, visiting, reach) then
           best, made = item, true
           break
