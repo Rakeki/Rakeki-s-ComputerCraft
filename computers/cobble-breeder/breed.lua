@@ -401,38 +401,31 @@ local function eggsWaiting()
   return eggs
 end
 
--- Every Pokemon of a trainer's sent out within SCAN_RANGE of this computer,
--- with its uuid key, nearest first. Pastured ones have no data to read, so
--- they're never in it; wild ones (no original trainer) are left out. Also
--- returns what was skipped, as text for the screen: wild ones by name, and
--- any data it couldn't read (logged in full to /errors.log).
+-- Every Pokemon out within SCAN_RANGE of this computer, with its uuid key,
+-- nearest first. Pastured ones have no data to read, so they're never in
+-- it. Wild ones are kept too: there's no reliable owner in the data (older
+-- catches have no original trainer), and only a Pokemon whose uuid turns up
+-- in the pasture is ever used. Also returns what was skipped, as text for
+-- the screen: data it couldn't read (logged in full to /errors.log).
 local function scanNearby()
   local x, y, z = commands.getBlockPosition()
   local _, out = commands.exec(("execute as @e[type=cobblemon:pokemon,x=%d,y=%d,z=%d,distance=..%d,sort=nearest] run data get entity @s Pokemon")
     :format(x, y, z, SCAN_RANGE))
-  local found, wild, unread = {}, {}, 0
+  local found, unread = {}, 0
   for _, line in ipairs(out or {}) do
     local data = line:match("has the following entity data: (.*)$")
     local ok, t = false, "no data in the answer"
     if data then ok, t = pcall(parseSnbt, data) end
     if ok and type(t) == "table" and type(t.UUID) == "table" then
-      local trainer = tostring(t.PokemonOriginalTrainerType or "none"):lower()
       local mon = monFromSave(t)
-      if trainer == "none" then
-        wild[#wild + 1] = nice(mon.species)
-      else
-        mon.from, mon.at = "scan", os.epoch("utc")
-        found[#found + 1] = { uuid = uuidKey(t.UUID), mon = mon }
-      end
+      mon.from, mon.at = "scan", os.epoch("utc")
+      found[#found + 1] = { uuid = uuidKey(t.UUID), mon = mon }
     elseif not line:find("[Ff]ound no elements") then -- a pastured one: nothing to read, as expected
       unread = unread + 1
       if errlog then errlog.warn("Scan couldn't read a Pokemon: " .. tostring(t), { line = line:sub(1, 600) }) end
     end
   end
-  local skipped = {}
-  if #wild > 0 then skipped[#skipped + 1] = "skipped wild " .. table.concat(wild, ", ") end
-  if unread > 0 then skipped[#skipped + 1] = ("couldn't read %d (see /errors.log)"):format(unread) end
-  return found, table.concat(skipped, "; ")
+  return found, unread > 0 and ("couldn't read %d (see /errors.log)"):format(unread) or ""
 end
 
 ---------------------------------------------------------------- a round

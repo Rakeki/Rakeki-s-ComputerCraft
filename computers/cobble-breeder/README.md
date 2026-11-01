@@ -110,9 +110,10 @@ edit config.lua                     -- what counts as better, shiny eggs, a natu
   it to be the egg it kept. The card says "(from egg)". If you put in a
   different one, Scan it so the numbers are right.
 - **Scan** reads your Pokémon sent out within 8 blocks of the computer
-  (`scanRange` in `config.lua`). Wild ones nearby are skipped by name. A
-  Pokémon whose data it couldn't read is counted on screen, and its data is
-  saved in `/errors.log`.
+  (`scanRange` in `config.lua`). Wild ones nearby get scanned too, which is
+  harmless: only a Pokémon that's in the pasture is ever used. A Pokémon
+  whose data it couldn't read is counted on screen, and its data is saved
+  in `/errors.log`.
 - **Hatching.** Kept eggs hatch in the incubator. With a PC Upgrade they go
   to your PC, so look for the one with the IVs on the monitor (the summary
   screen shows IVs). Several kept eggs can be waiting: the monitor always
