@@ -6,8 +6,10 @@
 -- each size in storage and in the pots, and the exp it's all worth.
 --
 -- CC can't reach into a pot, so every pot has, on the network: a feed hopper
--- pointing into its side, which the storage computer fills; an output hopper
--- under it, emptied into the storage computer's input chest; and a
+-- pointing into its side, which the storage computer fills (or, with a work
+-- chest, the factory from it: then the storage computer needn't see it); an
+-- output hopper under it, emptied into the storage computer's input chest
+-- (far away, the ender chest); and a
 -- comparator reading the pot into a redstone relay, which says how full it
 -- is. Redstone power keeps the pot's lid shut, and it only cooks with the
 -- lid shut.
@@ -298,7 +300,9 @@ function M.new(f)
     end
     stock = r.stock.counts
     -- the cooked candy goes into storage, never near here: the input chest
-    local input, avail = r.stock.input, {}
+    -- (far away, the work chest's way home)
+    local input, avail = r.input or r.stock.input, {}
+    local work = f.work
     for name, n in pairs(stock) do avail[name] = math.max(0, n - (KEEP[name] or 0)) end
 
     -- what's cooked goes back through the input chest
@@ -316,17 +320,25 @@ function M.new(f)
     end
 
     -- fill the feed hoppers, pot by pot (two pots making the same thing share
-    -- what there is, first one first)
+    -- what there is, first one first): with a work chest, what every pot
+    -- needs comes in one fill and is moved into the hoppers from there (the
+    -- storage computer needn't see the hoppers); else the storage computer
+    -- sends to each hopper itself
     local sent, oldReplies = 0, false
+    local loads = {} -- with a work chest: { p, steps }, the steps taken as sent until the fill comes
     for _, p in ipairs(pots) do
       if p.recipe and p.feedOk and p.outOk and p.level then
         local firstGot
+        local steps = {}
         for _, step in ipairs(plan(p, avail)) do
           local name, n, slot = step[1], step[2], step[3]
           -- never more of the others than the first item got
           if firstGot then n = math.min(n, firstGot) end
           local got = 0
-          if n > 0 then
+          if n > 0 and r.useWork then
+            steps[#steps + 1] = { name, n, slot }
+            got = n
+          elseif n > 0 then
             local reply = f.ask({ type = "send", to = p.entry.feed, slot = slot, items = { [name] = n } })
             got = reply and type(reply.sent) == "table" and reply.sent[name] or 0
             if reply and reply.error then
@@ -335,12 +347,44 @@ function M.new(f)
             end
             if not reply then problem = "the storage computer didn't answer while loading pot " .. p.n end
           end
-          p.hopper[name] = (p.hopper[name] or 0) + got
           avail[name] = math.max(0, (avail[name] or 0) - got)
+          if not r.useWork then
+            p.hopper[name] = (p.hopper[name] or 0) + got
+            sent = sent + got
+          end
+          if slot == 1 then firstGot = got end
+        end
+        if #steps > 0 then loads[#loads + 1] = { p = p, steps = steps } end
+      end
+    end
+    if r.useWork and #loads > 0 then
+      local items = {}
+      for _, l in ipairs(loads) do
+        for _, s in ipairs(l.steps) do items[s[1]] = (items[s[1]] or 0) + s[2] end
+      end
+      local reply, why = work:fill(items, 0)
+      if not reply then
+        problem = why
+      elseif reply.error and not reply.nochest then
+        problem = reply.error
+      end
+      for _, l in ipairs(loads) do
+        local firstGot
+        for _, s in ipairs(l.steps) do
+          local name, n, slot = s[1], s[2], s[3]
+          -- the first item stays ahead of the others, as above
+          if firstGot then n = math.min(n, firstGot) end
+          local got = n > 0 and work:move(name, l.p.entry.feed, slot, n) or 0
+          l.p.hopper[name] = (l.p.hopper[name] or 0) + got
           sent = sent + got
           if slot == 1 then firstGot = got end
         end
       end
+      work:empty(input)
+    end
+    -- far away without a work chest the storage computer can't see the hoppers
+    if problem and not work.chest and problem:find("network", 1, true) then
+      problem = problem .. ". Not on the storage cable? Setup, Work chest"
     end
 
     -- how each pot is doing, for the screen

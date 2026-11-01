@@ -651,6 +651,13 @@ For each pot:
 The storage computer has to be up to date (`install update`): older ones
 only load furnaces, not hoppers.
 
+Without a [work chest](#work-chest) the storage computer fills each feed
+hopper itself, so the hoppers must be on **its** cable. If the footer says a
+hopper "isn't a furnace, hopper or your feeder on my network", the storage
+computer can't see it: join the hopper's modem to the storage cable (and
+right-click it), or give the factory a work chest, which loads the hoppers
+from the factory's own cable.
+
 ### Botany pots
 
 Use **Hopper Botany Pots**: a plain pot doesn't let its harvest be taken
@@ -717,8 +724,9 @@ feeder needs, asks for all of it at once, and loads them from the chest
 itself. That's one request a round (one for the furnaces and smelters, one
 for the chambers and crushers, one for the infusers) instead of one or two for every machine, so
 the storage computer has more time for turtles, and with an ME or RS system
-the items don't go through the transfer chest. The cooking pots and botany
-pots don't use it.
+the items don't go through the transfer chest. The cooking pots use it too
+(their feed hoppers are filled from it, so the storage computer doesn't need
+to see them); the botany pots don't.
 
 - It has to be **empty** when you pick it, and it can't be the input,
   output, fuel or transfer chest, a turtle's chest or another computer's
@@ -769,8 +777,9 @@ there's no search.
 - The factory computers tell each other what they take over rednet, so a
   far-away one needs an ender modem for the others to hear it (or a smelter
   at home smelts the ores it would take).
-- Cooking pots and botany pots can't be far away: they go through the
-  storage input chest.
+- Cooking pots can be far away too: their feed hoppers are filled from the
+  ender chest, and what's cooked goes home through it. Botany pots can't:
+  they go through the storage input chest.
 
 If you'd rather send things home separately, `factory chest remote` also
 lets you pick a second, **return** ender chest, whose twin at home is an
