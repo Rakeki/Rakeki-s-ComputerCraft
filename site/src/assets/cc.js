@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
 // the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
-// build control and the turtle finder on a pocket computer, and instabuild.
+// the cannon feeder, build control and the turtle finder on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1812,6 +1812,72 @@
     return s;
   }
 
+  //---------------------------------------------------------------- cannon feeder
+
+  // The cannon feeder: same layout as computers/cannon-feeder/cannon.lua.
+  // The cannon uses up what's in the chest and the feeder tops it up; the
+  // mossy walls are crafted on the way, the lanterns wait for iron nuggets.
+  function cannon(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const start = () => [
+      ["stone bricks", 340, 128], ["mossy stone brick wall", 48, 0], ["spruce planks", 210, 128],
+      ["spruce stairs", 96, 64], ["spruce log", 64, 64], ["glass pane", 40, 40], ["lantern", 12, 0],
+      ["cobblestone", 180, 128], ["stone brick stairs", 72, 64],
+    ].map(([name, need, sent]) => ({ name, need, sent, chest: sent }));
+    let items = start(), t = 0, powder = 32, message = ["Starting...", "lightGray"];
+
+    function step() {
+      t++;
+      if (t % 60 === 0) { items = start(); powder = 32; }
+      let total = 0;
+      for (const it of items) {
+        if (it.chest > 0) it.chest = Math.max(0, it.chest - 3 - (it.name.length % 4)); // the cannon places them
+        const left = it.need - it.sent;
+        const crafted = it.name === "mossy stone brick wall" && t % 60 > 8;
+        if (left > 0 && it.chest < 64 && it.name !== "lantern" && (it.name !== "mossy stone brick wall" || crafted)) {
+          const n = Math.min(left, 128 - it.chest);
+          it.sent += n; it.chest += n; total += n;
+        }
+      }
+      powder = powder > 8 ? powder - 1 : 32;
+      message = total > 0 ? [`Sent ${total} items.`, "lightBlue"] : ["1 kind of item can't be had right now: see the list.", "orange"];
+    }
+
+    function state(it) {
+      if (it.sent >= it.need) return it.chest > 0 ? ["in chest", "lime"] : ["done", "lime"];
+      if (it.chest > 0) return [`${it.chest} in chest`, "white"];
+      if (it.name === "mossy stone brick wall") return ["crafting", "lightBlue"];
+      if (it.name === "lantern") return ["can't: no Iron Nugget stored, and no way to make it", "red"];
+      return ["waiting", "gray"];
+    }
+
+    function draw() {
+      const need = items.reduce((a, it) => a + it.need, 0), sent = items.reduce((a, it) => a + Math.min(it.sent, it.need), 0);
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Schematicannon", "yellow", "gray");
+      const head = `${sent} / ${need} sent`;
+      s.put(W - head.length, 1, head, "lightGray", "gray");
+      s.put(2, 2, `Chest: front   gunpowder ${powder}`, "gray");
+      items.forEach((it, i) => {
+        const [text, colour] = state(it);
+        let right = `${Math.min(it.sent, it.need)}/${it.need}  ${text}`;
+        const most = Math.floor(W * 0.6);
+        if (right.length > most) right = right.slice(0, most);
+        s.put(2, 4 + i, fitT(it.name, W - right.length - 3), "white");
+        s.put(W - right.length, 4 + i, right, colour);
+      });
+      s.put(1, H, fitT(message[0], W), message[1]);
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 900);
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- essence computer
 
   // The essence computer's Recipes tab: same layout as
@@ -2133,5 +2199,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild, finder } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, cannon, essence, buildControl, instabuild, finder } };
 })();
