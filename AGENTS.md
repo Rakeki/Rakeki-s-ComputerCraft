@@ -192,7 +192,7 @@ Existing computers:
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `turtle-finder` | Pocket computer: lists every turtle heard on `cc_status`, nearest first, and points a big arrow at the one picked (relative to the way you last walked, or a compass), with distance, height and what it is doing; remembers last known positions | screen, net, files, errlog (if present) |
-| `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
+| `gps-deployer` | Turtle that builds a 4-computer GPS constellation; `gps-deploy satellite` spreads the hosts wider and builds a satellite round each (hull, antenna dish, solar wings, lights) | nav, inv, files, report, errlog (if present) |
 | `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the thirteen underground plans, bunker to cavern) and prints its `home` for the builder | nav, report, errlog, inv, files |
 | `level-turtle` | Standalone turtle: flattens an area into a solid building platform (clears everything above the ground it starts on in 3-high layers, up to open sky or a given height, then fills holes below with the dirt it dug, up to 8 deep) | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |

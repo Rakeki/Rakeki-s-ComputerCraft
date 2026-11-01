@@ -751,34 +751,42 @@
       "device": "turtle",
       "deviceLabel": "Mining turtle",
       "color": "purple",
-      "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on.",
+      "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on; optionally wraps each host in a satellite.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Hosts", "4"],
         ["Height", "as high as it can"],
-        ["Fuel", "~750"],
+        ["Fuel", "~750 (~3,000 with satellites)"],
         ["Range", "unlimited with ender modems"]
       ],
       "features": [
         "Finds the build limit itself, whatever the modpack",
         "Hosts label themselves and restart gps host on boot",
+        "Optional satellites: a hull round each computer, antenna dish, solar wings and lights",
         "Tests the new GPS when it lands",
-        "Re-run after a problem: finished hosts are skipped"
+        "Re-run after a problem: finished hosts and blocks are skipped"
       ],
       "setup": [
-        "Load the turtle: 4 computers, 4 modems, a disk drive, a floppy disk and fuel.",
+        "Load the turtle: 4 computers, 4 modems, a disk drive, a floppy disk and fuel (plus the satellite blocks for gps-deploy satellite).",
         "Place it somewhere with open sky above it.",
         "Run the command and enter its X, Y, Z and facing from F3."
       ],
       "commands": [
         ["gps-deploy", "build as high as possible"],
-        ["gps-deploy 200", "build at a lower height"]
+        ["gps-deploy 200", "build at a lower height"],
+        ["gps-deploy satellite", "hosts spread wider, each built into a satellite"],
+        ["gps-deploy satellite 200", "satellites at a lower height"]
       ],
       "integrates": [
         ["mine-turtle", "Every turtle here uses GPS to find and check its position."],
         ["status-server", "Hosts appear on the dashboard as \"gps host\"."]
       ],
       "render": { "kind": "voxel", "scene": "gps", "caption": "The four hosts high above the start, one raised so they're not all in one plane." },
+      "layouts": [
+        { "title": "Plain hosts", "scene": "gps", "caption": "gps-deploy: four bare computers with modems on top, one raised 6 blocks." },
+        { "title": "Satellite", "scene": "gpsSatellite", "caption": "One satellite from gps-deploy satellite: the computer inside a 3×3×3 iron hull, the modem in its top under an end-rod antenna and a slab dish, daylight-detector solar wings on iron bars, sea lanterns at the tips and underneath." },
+        { "title": "Satellite constellation", "scene": "gpsSatellites", "caption": "gps-deploy satellite: the four satellites, 19 blocks apart, the fourth 9 higher." }
+      ],
       "terminal": {
         "device": "turtle",
         "lines": [

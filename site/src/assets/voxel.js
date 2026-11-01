@@ -68,6 +68,13 @@
     redblock: { c: "#b3261e", tex: "noise", amt: 0.14 },
     comparator: { c: "#a7a7a7", top: "#bdb3ad", tex: "noise", amt: 0.05, box: [0, 1, 0, 0.14, 0, 1], clear: true },
     relay: { c: "#9b9b9b", tex: "ore", ore: "#d42a2a", amt: 0.05 }, // CC: Tweaked redstone relay
+    // GPS satellites
+    ironblock: { c: "#d8d8d8", top: "#e6e6e6", tex: "noise", amt: 0.05 },
+    solar: { c: "#a6834d", top: "#3f5288", tex: "noise", amt: 0.1, box: [0, 1, 0, 0.375, 0, 1], clear: true }, // daylight detector
+    bars: { c: "#9a9a9a", tex: "flat", box: [0, 1, 0.42, 0.58, 0.42, 0.58], clear: true }, // iron bars along x
+    sealantern: { c: "#cfe6dc", tex: "noise", amt: 0.12, glow: true },
+    slab: { c: "#e8e2d6", tex: "noise", amt: 0.04, box: [0, 1, 0, 0.5, 0, 1], clear: true },
+    endrod: { c: "#f4efe6", tex: "flat", box: [0.4, 0.6, 0, 1, 0.4, 0.6], clear: true, glow: true },
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 
@@ -477,6 +484,45 @@
     return { world: w, hosts, animate: true };
   }
 
+  // One GPS satellite around the host at x, y, z, as gps-deploy.lua's
+  // satelliteBlocks(): a 3x3x3 hull round the computer, the modem in its top,
+  // an end-rod antenna in a ring of slabs, solar wings on iron-bar spines with
+  // a sea lantern at each tip, and one underneath.
+  function satellite(w, x, y, z) {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) w.set(x + dx, y + dy, z + dz, "ironblock");
+    w.set(x, y, z, "computer"); w.set(x, y + 1, z, "modem");
+    w.set(x, y + 2, z, "endrod"); w.set(x, y + 3, z, "endrod");
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) w.set(x + dx, y + 2, z + dz, "slab");
+    w.set(x, y - 2, z, "sealantern");
+    for (const s of [1, -1]) {
+      for (let d = 2; d <= 7; d++) w.set(x + s * d, y, z, "bars");
+      for (let d = 4; d <= 7; d++) { w.set(x + s * d, y, z - 1, "solar"); w.set(x + s * d, y, z + 1, "solar"); }
+      w.set(x + s * 8, y, z, "sealantern");
+    }
+  }
+
+  // A single satellite close up.
+  function gpsSatellite() {
+    const w = new World();
+    satellite(w, 0, 0, 0);
+    return {
+      world: w,
+      labels: [[0, 5, 0, "antenna in a slab dish", "#f0f0f0"], [6, 1.6, 0, "solar wing", "#99b2f2"],
+        [0, -2.6, 0, "computer inside the hull", "#dede6c"]],
+    };
+  }
+
+  // gps-deploy satellite: the four satellites, spread wider than plain hosts.
+  function gpsSatellites() {
+    const H = 14;
+    const w = new World(), r = rand(5);
+    w.box(-3, 38, -3, -1, -3, 26, (x, y) => (y === -1 ? "grass" : y === -2 ? "dirt" : rock(r, y, false)));
+    w.set(0, 0, 0, "turtle");
+    const hosts = [[9, H, 4, "GPS-1"], [28, H, 4, "GPS-2"], [9, H, 22, "GPS-3"], [18, H + 9, 13, "GPS-4"]];
+    for (const [x, y, z] of hosts) satellite(w, x, y, z);
+    return { world: w, hosts, animate: true };
+  }
+
   // AutoMine: three chunks, queued / being mined / mined out, plus a miner in transit.
   function automineScene() {
     const D = 13, w = new World(), r = rand(16);
@@ -798,7 +844,7 @@
     };
   }
 
-  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, automine: automineScene, treefarm, cropfarm, level, crafter, builder, crate: crateScene,
+  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, gpsSatellite, gpsSatellites, automine: automineScene, treefarm, cropfarm, level, crafter, builder, crate: crateScene,
     storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting
