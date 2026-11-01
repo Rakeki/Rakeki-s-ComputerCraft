@@ -68,7 +68,7 @@ The craft overseer's own requests (same protocol; only it sends these):
 | Request | Reply fields | Use |
 |---|---|---|
 | `{ type = "crafters" }` | `crafters` (turtle id → its chest, present ones only), `shared` (`setup.crafter`) | which turtles can take a job |
-| `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest |
+| `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest; when short, the storage computer orders what's `missing` (beyond `pendingCraft`), since a plan counts on stock a delivery can take before its step runs |
 | `{ type = "clear", crafter = id }` | `ok` | empty its chest back into storage |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | → `jobFinished` (fixes `pendingCraft`, drops the rest of a failed plan) |
 | `{ type = "problem", text }` | `ok` | why crafting is stuck (nil: it isn't); shown to turtles as `craftProblem` |

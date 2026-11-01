@@ -1693,6 +1693,21 @@ local function handleRequest(from, msg)
     else
       local steps, why, missing = loadCrafter(chest, msg.grid, math.max(1, math.min(64, math.floor(tonumber(msg.steps) or 1))))
       answer(from, msg, { re = "load", steps = steps, error = why, missing = missing })
+      -- planned with ingredients that have gone since (a delivery took them):
+      -- have them made, or the job waits for something no one is making
+      if steps == 0 and type(missing) == "table" then
+        for item, n in pairs(missing) do
+          local more = n - (pendingCraft[item] or 0)
+          if more > 0 then
+            local made, whyNot = orderCraft(item, more)
+            if made then
+              message = { ("A craft ran short of %s: making %d."):format(nameOf(item), made), "lightBlue" }
+            elseif whyNot then
+              message = { ("A craft ran short of %s: %s."):format(nameOf(item), whyNot), "orange" }
+            end
+          end
+        end
+      end
     end
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "clear" then

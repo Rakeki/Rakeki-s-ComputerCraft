@@ -33,6 +33,9 @@ The monitor (or the computer's own screen, without one) shows:
   line under it saying what, e.g. "needs 3 iron ingot, 2 stick".
 - The last thing that happened, at the bottom.
 
+A job can come up short when something else (a builder, the cannon feeder)
+took ingredients it was counting on: the storage computer then has those
+made too, as a new job, and the short one tries again every 15 seconds.
 A job that stays short of ingredients for 10 minutes is given up on, along
 with the rest of its order, and the storage computer is told why. A turtle
 that stops answering is left out (its job goes to another) until it answers
