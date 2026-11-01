@@ -401,25 +401,38 @@ local function eggsWaiting()
   return eggs
 end
 
--- Every Pokemon sent out within SCAN_RANGE of this computer, with its uuid
--- key. Pastured ones have no data to read, so they're never in it.
+-- Every Pokemon of a trainer's sent out within SCAN_RANGE of this computer,
+-- with its uuid key, nearest first. Pastured ones have no data to read, so
+-- they're never in it; wild ones (no original trainer) are left out. Also
+-- returns what was skipped, as text for the screen: wild ones by name, and
+-- any data it couldn't read (logged in full to /errors.log).
 local function scanNearby()
   local x, y, z = commands.getBlockPosition()
-  local _, out = commands.exec(("execute as @e[type=cobblemon:pokemon,x=%d,y=%d,z=%d,distance=..%d] run data get entity @s Pokemon")
+  local _, out = commands.exec(("execute as @e[type=cobblemon:pokemon,x=%d,y=%d,z=%d,distance=..%d,sort=nearest] run data get entity @s Pokemon")
     :format(x, y, z, SCAN_RANGE))
-  local found = {}
+  local found, wild, unread = {}, {}, 0
   for _, line in ipairs(out or {}) do
     local data = line:match("has the following entity data: (.*)$")
-    if data then
-      local ok, t = pcall(parseSnbt, data)
-      if ok and type(t) == "table" and type(t.UUID) == "table" then
-        local mon = monFromSave(t)
+    local ok, t = false, "no data in the answer"
+    if data then ok, t = pcall(parseSnbt, data) end
+    if ok and type(t) == "table" and type(t.UUID) == "table" then
+      local trainer = tostring(t.PokemonOriginalTrainerType or "none"):lower()
+      local mon = monFromSave(t)
+      if trainer == "none" then
+        wild[#wild + 1] = nice(mon.species)
+      else
         mon.from, mon.at = "scan", os.epoch("utc")
         found[#found + 1] = { uuid = uuidKey(t.UUID), mon = mon }
       end
+    elseif not line:find("[Ff]ound no elements") then -- a pastured one: nothing to read, as expected
+      unread = unread + 1
+      if errlog then errlog.warn("Scan couldn't read a Pokemon: " .. tostring(t), { line = line:sub(1, 600) }) end
     end
   end
-  return found
+  local skipped = {}
+  if #wild > 0 then skipped[#skipped + 1] = "skipped wild " .. table.concat(wild, ", ") end
+  if unread > 0 then skipped[#skipped + 1] = ("couldn't read %d (see /errors.log)"):format(unread) end
+  return found, table.concat(skipped, "; ")
 end
 
 ---------------------------------------------------------------- a round
@@ -515,19 +528,20 @@ local function round()
   takeManual()
   if wantScan then
     wantScan = false
-    local found = scanNearby()
+    local found, skipped = scanNearby()
     local names = {}
     for _, f in ipairs(found) do
       state.mons[f.uuid] = f.mon
       names[#names + 1] = describe(f.mon)
     end
     dirty = true
+    local extra = skipped ~= "" and (" (" .. skipped .. ")") or ""
     if #found == 0 then
-      say(("Nothing to scan: send a Pokemon out within %d blocks of the computer."):format(SCAN_RANGE), "orange")
+      say(("Nothing to scan: send your Pokemon out within %d blocks of the computer.%s"):format(SCAN_RANGE, extra), "orange")
     else
-      say("Scanned " .. table.concat(names, ", "), "lime")
-      log("Scanned " .. table.concat(names, ", "))
+      say("Scanned " .. table.concat(names, ", ") .. extra, "lime")
     end
+    log("Scan: " .. (#found > 0 and table.concat(names, ", ") or "nothing") .. extra)
   end
 
   local now, why = pastured()
@@ -955,9 +969,10 @@ local function addManual(entries)
 end
 
 local function scanCommand()
-  local found = scanNearby()
+  local found, skipped = scanNearby()
+  if skipped ~= "" then print("Scan: " .. skipped) end
   if #found == 0 then
-    return print(("No Pokemon out within %d blocks of me. Send your breeder out next to the computer."):format(SCAN_RANGE))
+    return print(("None of your Pokemon are out within %d blocks of me. Send your breeder out next to the computer."):format(SCAN_RANGE))
   end
   for _, f in ipairs(found) do print("Scanned " .. describe(f.mon)) end
   addManual(found)
