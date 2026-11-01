@@ -34,7 +34,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
   setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents, chests picked by dropping an item in (storage, factory)
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
-                            'install plan <name>' puts one in /plans, a program's "plans" field installs some with it;
+                            'install plan <name>' puts one in /plans (no program comes with any: install it, then the plans);
                             underground ones (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads,
                             sanctum, atrium, grandstair, fortress, cavern) also carry "hole" (the size 'excavate <plan>' digs)
                             and "home" (the builder's clear spot); programs.json's entry has "hole" too
@@ -123,7 +123,6 @@ One entry per program under `programs`, in the order they appear on the site:
 | `device`, `deviceLabel` | `"turtle"` or `"computer"`, and the label shown on the card |
 | `color` | CC colour name for its accent (`orange`, `lime`, `lightBlue`, ...) |
 | `libs` | Modules from `lib/` the installer adds |
-| `plans` | Plans (names from the `plans` list) installed into `/plans` with it |
 | `keep` | Files the installer never overwrites (player settings) |
 | `autostart` | `true` if `startup.lua` runs it, so the installer says "reboot" |
 | `replaces` | Optional: old program names this one took the place of. The build puts each in the manifest as an alias of it (`alias`), so a computer that has one installs this on its next update, and the installer records it under the new name |

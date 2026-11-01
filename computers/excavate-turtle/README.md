@@ -38,7 +38,7 @@ fuel, but then water and lava can get in.
 ## Files
 
 - `excavate.lua`: the program. Settings (sealing, deep-mode depth, refuel level) are at the top.
-- `/plans/cellar.lua`, `hideout.lua`, `workshop.lua`, `sanctum.lua`, `atrium.lua`, `bunker.lua`, `burrow.lua`, `cloister.lua`, `greathall.lua`, `crossroads.lua`, `grandstair.lua`, `fortress.lua`, `cavern.lua`: the [building plans](#building-plans), installed with it; `excavate <plan>` reads the hole size from them.
+- `/plans/<plan>.lua`: a [building plan](#building-plans) you've installed (`install plan cellar`); `excavate <plan>` reads the hole size from it. None come with the excavator.
 - `startup.lua`: resumes an unfinished job after a reboot or chunk reload (first it fetches any newer version from the website)
 - [`lib/nav.lua`](../../lib/nav.lua): movement and position tracking (copy to `/lib/nav.lua`)
 - [`lib/report.lua`](../../lib/report.lua): reports progress to the status server (copy to `/lib/report.lua`). It works without a modem too, just without reporting.
@@ -84,8 +84,10 @@ to sealing.
 
 These plans fill a hole with everything inside it: wall linings, floors,
 inner walls, stairs, lighting and decoration. Each one says the hole it
-needs, and `excavate <plan>` digs exactly that size. They come with the
-excavator, so they're already in `/plans`.
+needs, and `excavate <plan>` digs exactly that size. Install the ones you
+want on the excavator first (`install plan cellar fortress`) so it can read
+the size, and on the projector, build control or instabuild computer that
+builds it.
 
 | Plan | Hole (W × L × H) | Blocks | Builder's spot | What's in it |
 |---|---|---|---|---|
@@ -103,7 +105,8 @@ excavator, so they're already in `/plans`.
 | [fortress](../../plans/fortress.lua) | 27 × 61 × 15 | 8,390 | 13 east, 56 south | A Nether-style blackstone hall: lava channels under grates along the walls, guard alcoves with glowing panels, deepslate pillars and ribs with lava over grates in the ceiling, a portal dais between two lavafalls |
 | [cavern](../../plans/cavern.lua) | 63 × 63 × 30 | 18,410 | 22 east, 36 south | A whole cave made a base: rough rock walls of stone, tuff and dripstone with stalactites and glowstone overhead; a stair round a great stone pillar up to a lookout deck, and a bridge on stone piers to the roof terrace of a three-storey house (a hall with a fireplace and kitchen, bedrooms and a storeroom, a library, a tower); a lake fed by a waterfall, with a pier and a bridge to an azalea island; giant mushrooms; farm terraces; a mine depot with a track, ore heaps and a smithy; an amethyst grotto with an enchanting table and a blackstone grotto with a portal |
 
-1. Put the turtle in a corner of the hole-to-be as usual and run
+1. Install the plan on the turtle (`install plan <plan>`), put it in a
+   corner of the hole-to-be as usual and run
    `excavate <plan>` (add `down` or `deep` if you like). The hole is laid
    out north-south and east-west to match the plan, whichever way the
    turtle faces. Without GPS it asks which way it's facing.
@@ -112,8 +115,8 @@ excavator, so they're already in `/plans`.
    north-west corner, on its floor: put the builder there facing south, its
    supply chest behind it and its spoil chest to its left, and run
    `builder setup`. The plan never builds above that spot.
-3. On [build control](../build-control/README.md), run
-   `build <plan> <x> <y> <z>`: the hole's north-west corner, on its floor.
+3. On [build control](../build-control/README.md), with the plan installed
+   there too, run `build <plan> <x> <y> <z>`: the hole's north-west corner, on its floor.
 
 The plans line the walls from the floor up, so the floor rises one block
 (tiles) and the walls come in one block. They stop one block below the

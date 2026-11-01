@@ -44,7 +44,10 @@ The first time it runs, the building appears 2 blocks south of the
 projector, sitting on the projector's level. Where it is, which way it faces,
 the plan and the view are saved, so a reboot puts it straight back.
 
-It comes with seventeen plans, in the `/plans` folder: a **cottage** (7×7, 8
+It doesn't come with any plans: install the ones you want into `/plans` by
+name after the projector (`install plan cottage`, `install plan castle
+teahouse windmill`), or pick them on the website's plans page, which writes
+the command for you; `install plans` lists them all. There's a **cottage** (7×7, 8
 high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
 high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
 a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
@@ -68,10 +71,7 @@ three-storey house, a lake with a waterfall, giant mushrooms, farm
 terraces, a mine depot and two grottos; and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
-[The factory](#the-factory)).
-
-Fifteen more builds are on the website's plans page, to install by
-name (`install plan castle`, `install plan teahouse windmill`): a
+[The factory](#the-factory)); and a
 **windmill**, a **lighthouse** with its keeper's cottage, a **smithy**, a
 two-storey **tavern**, a **chapel** with a bell tower, a **market**
 square, a **treehouse**, a **castle** (45×45, 31 high, about 8,200
@@ -84,8 +84,7 @@ of blocks), 21×21 and 11 high or any size you type after it:
 31x25x8` once). A few hold water or lava, which the builders place from
 buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
-forge (1 lava). `install plans` lists every
-plan on the website and `install plan <name>` adds one; your own go in
+forge (1 lava). Your own go in
 `/plans` too (see [Plans](#plans)). The same plans work with
 [build control](../build-control/README.md), which sends a plan to the
 builder turtles without a projector.
@@ -94,7 +93,7 @@ builder turtles without a projector.
 
 - `projector.lua`: the program: loads plans, works out the shapes and draws them. Tunables are at the top.
 - `ui.lua`: the monitor control panel
-- `plans/`: the plans it comes with (`cottage.json`, `watchtower.json`, `pagoda.lua`, `skystation.lua`, `factory.lua`, and the underground ones from `bunker.lua` to `cavern.lua`); `install plan <name>` adds more
+- `/plans/`: the plans you've installed (`install plan <name>`); none come with it
 - `startup.lua`: starts the projector on boot and restarts it if it ever stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): optional, reports what it's showing to the status server (copy to `/lib/report.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.

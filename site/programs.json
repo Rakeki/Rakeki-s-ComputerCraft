@@ -18,7 +18,6 @@
       "color": "orange",
       "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
-      "plans": ["cellar", "hideout", "workshop", "sanctum", "atrium", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -721,12 +720,11 @@
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
       "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
         ["Views", "whole, layer, outline"],
-        ["Plans", "10, plus install plan"],
+        ["Plans", "install plan <name>"],
         ["Shapes", "up to 1,000"]
       ],
       "features": [
@@ -736,13 +734,13 @@
         "Top-down map of the layer, and the blocks it needs in three tabs: this layer, the whole build, and what the builder turtles are waiting for now",
         "Follows a village turtle and projects the building it's working on",
         "Tap Build and builder turtles build it right where it's shown, split between up to 4 of them",
-        "Comes with a sky station: 63 wide, 98 high, raised into the sky and built in the air",
-        "And Turtle Works: a factory hall wired up under the floor, with docks for the turtles"
+        "Builds in the sky too: the sky station plan is 63 wide, 98 high and built in the air",
+        "Or Turtle Works: a factory hall wired up under the floor, with docks for the turtles"
       ],
       "setup": [
         "Place an advanced computer with a Spatial Projector beside it and an advanced monitor touching it.",
         "Right-click the projector with Spatial Goggles to bind them, and wear them.",
-        "Install and reboot: the cottage appears 2 blocks south of the projector.",
+        "Install it, then a plan or two (install plan cottage), and reboot: the first plan appears 2 blocks south of the projector.",
         "Tap the arrows on the monitor to pick a plan, then move it into place."
       ],
       "commands": [
@@ -843,7 +841,6 @@
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
       "libs": ["plan", "crew", "net", "files", "report", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -861,7 +858,7 @@
       "setup": [
         "Set up the builder turtles first, each on its home block with its chests.",
         "Install this on any computer or pocket computer with a wireless or ender modem.",
-        "Get a plan if it's not there yet: install plan <name> (install plans lists them).",
+        "Install the plans you want: install plan <name> (install plans lists them; none come with it).",
         "Run build <plan> <x> <y> <z> [facing], check the box it prints, and press y."
       ],
       "commands": [
@@ -895,7 +892,6 @@
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
       "libs": ["plan", "files", "net", "errlog"],
-      "plans": ["cottage", "watchtower", "pagoda", "skystation", "atrium", "cellar", "hideout", "workshop", "sanctum", "bunker", "burrow", "cloister", "greathall", "crossroads", "grandstair", "fortress", "cavern", "factory"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -911,7 +907,7 @@
       ],
       "setup": [
         "In a creative world: /give @s computercraft:computer_command, and place it anywhere.",
-        "Install this on it. More plans: install plan <name>.",
+        "Install this on it, then the plans you want: install plan <name>.",
         "Run instabuild <plan> <x> <y> <z> [facing], check the box it prints, and press y.",
         "Or, with a modem: run instabuild serve, place the plan with the blueprint projector and tap Build there."
       ],

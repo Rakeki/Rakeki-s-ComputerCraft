@@ -198,13 +198,31 @@ local function removeDropped(manifest, name, program)
       for _, dest in ipairs(record[other] or {}) do others[dest] = true end
     end
   end
+  -- Plans a program used to come with stay, recorded as installed plans
+  -- from now on, so a player's plans don't vanish when the program updates.
+  local planOf = {}
+  for key, other in pairs(manifest.programs) do
+    if key:sub(1, 5) == "plan:" then
+      for _, file in ipairs(other.files) do planOf[file.dest] = key end
+    end
+  end
+  local adopted = {}
   for _, dest in ipairs(record[name] or {}) do
-    if not now[dest] and not others[dest] and fs.exists(dest) then fs.delete(dest) end
+    if not now[dest] and not others[dest] and fs.exists(dest) then
+      if planOf[dest] then
+        record[planOf[dest]] = { dest }
+        adopted[#adopted + 1] = planOf[dest]
+      else
+        fs.delete(dest)
+      end
+    end
   end
   local list = {}
   for _, file in ipairs(program.files) do list[#list + 1] = file.dest end
   record[name] = list
   writeFile(FILES_FILE, textutils.serialize(record))
+  -- no version saved for them, so the next update fetches each plan's latest
+  for _, key in ipairs(adopted) do markInstalled(key) end
 end
 
 local function install(manifest, name, updating)

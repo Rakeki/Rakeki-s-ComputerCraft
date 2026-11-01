@@ -68,19 +68,14 @@ function programFiles(program) {
   for (const lib of program.libs) {
     files.push({ src: `lib/${lib}.lua`, dest: `lib/${lib}.lua`, lines: lineCount(path.join(ROOT, "lib", `${lib}.lua`)), lib: true });
   }
-  // plans it comes with (programs.json "plans"), into /plans
-  for (const name of program.plans || []) {
-    const plan = planByName[name];
-    if (!plan) throw new Error(`${program.name}: no plan called ${name} in programs.json "plans"`);
-    files.push(planFile(plan));
-  }
+  // no program comes with plans: the player installs the ones they want
+  if (program.plans) throw new Error(`${program.name}: programs don't install plans; drop its "plans" field`);
   return files;
 }
 
 // Plans (plans/, listed under "plans" in programs.json) install into /plans
 // with 'install plan <name>': each is in the manifest as "plan:<name>", so it
 // updates on boot like a program, but isn't in the program list.
-const planByName = Object.fromEntries((data.plans || []).map((pl) => [pl.name, pl]));
 function planFile(plan) {
   return { src: `plans/${plan.file}`, dest: `plans/${plan.file}`, lines: lineCount(path.join(ROOT, "plans", plan.file)), plan: true };
 }

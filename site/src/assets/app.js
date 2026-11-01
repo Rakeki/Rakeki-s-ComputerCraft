@@ -555,11 +555,7 @@
         <div class="mc-panel install-panel">
           <h3><img src="${ROOT}assets/floppy.svg" alt=""> Install</h3>
           ${field(`install plan ${pl.name}`)}
-          <p>Puts it in <code>/plans</code> on the computer, where the projector, build control and instabuild find it. ${(() => {
-            // only some plans come with the programs; the rest are installed by name
-            const bundled = SITE.programs.filter((p) => (p.plans || []).includes(pl.name) && ["blueprint-projector", "build-control", "instabuild"].includes(p.name));
-            return bundled.length === 3 ? "It comes with all three already." : bundled.length ? `It comes with ${bundled.map((p) => esc(p.title)).join(" and ")} already.` : "";
-          })()}</p>
+          <p>Puts it in <code>/plans</code> on the computer, where the projector, build control and instabuild find it. Install the program first; no program comes with plans.</p>
         </div>
       </div></section>
       <section class="block" style="padding-top:20px"><div class="wrap"><div id="plan-view"></div></div></section>
@@ -615,7 +611,7 @@
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>From plan to building</small>How it goes</h2></div>
         <div class="plan-uses four">
-          <div class="box"><h3>1. Install it</h3>${field("install plan cellar")}<p>Into <code>/plans</code> on the projector, build control or instabuild computer. They come with a few already.</p></div>
+          <div class="box"><h3>1. Install it</h3>${field("install plan cellar")}<p>Into <code>/plans</code> on the projector, build control or instabuild computer, once the program is installed.</p></div>
           <div class="box"><h3>2. Underground? Dig first</h3>${field("excavate cellar")}<p>The <a href="${progUrl("excavate-turtle")}">excavator</a> digs the plan's hole, walls it in so it stays dry, and prints where the builder goes.</p></div>
           <div class="box"><h3>3. See where it goes</h3>${field("projector cellar")}<p>The <a href="${progUrl("blueprint-projector")}">projector</a> shows it in the world; move and turn it from the monitor, then tap Build.</p></div>
           <div class="box"><h3>4. Build it</h3>${field("build cellar 100 60 -40 north")}<p>Or send it to the builder turtles with <a href="${progUrl("build-control")}">build control</a> at a corner you type, or place it at once in creative with <a href="${progUrl("instabuild")}">instabuild</a>.</p></div>
