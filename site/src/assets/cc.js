@@ -1814,39 +1814,44 @@
 
   //---------------------------------------------------------------- cannon feeder
 
-  // The cannon feeder: same layout as computers/cannon-feeder/cannon.lua.
-  // The cannon uses up what's in the chest and the feeder tops it up; the
-  // mossy walls are crafted on the way, the lanterns wait for iron nuggets.
+  // The cannon feeder: same layout as computers/cannon-feeder/cannon.lua,
+  // with a Block Reader on the cannon. Each block the cannon asks for joins
+  // the list and is kept topped up; the mossy walls it waits for are crafted
+  // on the way, then it waits for lanterns, which need iron nuggets.
   function cannon(el) {
-    const W = 51, H = 19;
+    const W = 51, H = 19, TOTAL = 1062;
     const s = new Screen(W, H, el);
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
-    const start = () => [
-      ["stone bricks", 340, 128], ["mossy stone brick wall", 48, 0], ["spruce planks", 210, 128],
-      ["spruce stairs", 96, 64], ["spruce log", 64, 64], ["glass pane", 40, 40], ["lantern", 12, 0],
-      ["cobblestone", 180, 128], ["stone brick stairs", 72, 64],
-    ].map(([name, need, sent]) => ({ name, need, sent, chest: sent }));
-    let items = start(), t = 0, powder = 32, message = ["Starting...", "lightGray"];
+    // name, the tick the cannon first asks for it, the tick storage has it (never for lanterns)
+    const ASKS = [["stone bricks", 0, 0], ["spruce planks", 0, 0], ["spruce stairs", 0, 0], ["cobblestone", 0, 0],
+      ["glass pane", 0, 0], ["mossy stone brick wall", 3, 10], ["lantern", 22, Infinity]];
+    let items, t, placed, powder, message;
+    const reset = () => { items = []; t = 0; placed = 0; powder = 32; message = ["Starting...", "lightGray"]; };
+    reset();
+    const missing = () => ASKS.find(([, ask, have]) => t >= ask && t < have && ask > 0);
 
     function step() {
       t++;
-      if (t % 60 === 0) { items = start(); powder = 32; }
+      if (t > 40) reset();
+      const waitFor = missing();
+      for (const [name, ask] of ASKS) {
+        if (t >= ask && !items.find((it) => it.name === name)) items.push({ name, sent: 0, chest: 0 });
+      }
       let total = 0;
       for (const it of items) {
-        if (it.chest > 0) it.chest = Math.max(0, it.chest - 3 - (it.name.length % 4)); // the cannon places them
-        const left = it.need - it.sent;
-        const crafted = it.name === "mossy stone brick wall" && t % 60 > 8;
-        if (left > 0 && it.chest < 64 && it.name !== "lantern" && (it.name !== "mossy stone brick wall" || crafted)) {
-          const n = Math.min(left, 128 - it.chest);
-          it.sent += n; it.chest += n; total += n;
-        }
+        if (!waitFor && it.chest > 0) { const n = Math.min(it.chest, 3 + (it.name.length % 4)); it.chest -= n; placed += n; }
+        const [, , have] = ASKS.find(([n]) => n === it.name);
+        if (t >= have && it.chest < 64) { const n = 128 - it.chest; it.sent += n; it.chest += n; total += n; }
       }
+      placed = Math.min(placed, TOTAL);
       powder = powder > 8 ? powder - 1 : 32;
-      message = total > 0 ? [`Sent ${total} items.`, "lightBlue"] : ["1 kind of item can't be had right now: see the list.", "orange"];
+      const w = missing();
+      if (w && w[0] === "lantern") message = ["The cannon waits for lantern: no Iron Nugget stored, and no way to make it.", "red"];
+      else if (w) message = [`The cannon waits for ${w[0]}: crafting it.`, "lightBlue"];
+      else message = total > 0 ? [`Sent ${total} items.`, "lightBlue"] : ["", "lightGray"];
     }
 
     function state(it) {
-      if (it.sent >= it.need) return it.chest > 0 ? ["in chest", "lime"] : ["done", "lime"];
       if (it.chest > 0) return [`${it.chest} in chest`, "white"];
       if (it.name === "mossy stone brick wall") return ["crafting", "lightBlue"];
       if (it.name === "lantern") return ["can't: no Iron Nugget stored, and no way to make it", "red"];
@@ -1854,21 +1859,23 @@
     }
 
     function draw() {
-      const need = items.reduce((a, it) => a + it.need, 0), sent = items.reduce((a, it) => a + Math.min(it.sent, it.need), 0);
+      const w = missing();
       s.clear();
       s.fill(1, "gray");
       s.put(2, 1, "Schematicannon", "yellow", "gray");
-      const head = `${sent} / ${need} sent`;
+      const head = `${placed} / ${TOTAL} placed`;
       s.put(W - head.length, 1, head, "lightGray", "gray");
-      s.put(2, 2, `Chest: front   gunpowder ${powder}`, "gray");
+      s.put(2, 2, w ? `Cannon: waiting for ${w[0]}` : "Cannon: placing", w ? "orange" : "lightBlue");
+      s.put(2, 3, `Chest: front   gunpowder ${powder}`, "gray");
       items.forEach((it, i) => {
         const [text, colour] = state(it);
-        let right = `${Math.min(it.sent, it.need)}/${it.need}  ${text}`;
+        let right = `${it.sent} sent  ${text}`;
         const most = Math.floor(W * 0.6);
         if (right.length > most) right = right.slice(0, most);
-        s.put(2, 4 + i, fitT(it.name, W - right.length - 3), "white");
-        s.put(W - right.length, 4 + i, right, colour);
+        s.put(2, 5 + i, fitT(it.name, W - right.length - 3), w && w[0] === it.name ? "orange" : "white");
+        s.put(W - right.length, 5 + i, right, colour);
       });
+      if (items.length === 0) s.put(2, 5, "Nothing yet: items join as the cannon asks.", "gray");
       s.put(1, H, fitT(message[0], W), message[1]);
       s.render();
     }

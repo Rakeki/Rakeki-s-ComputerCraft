@@ -4,31 +4,47 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** a chest touching both this computer and the Create Schematicannon, on the storage cable (or an ender chest whose twin is); a monitor (optional)
+- **Peripherals:** a chest touching both this computer and the Create Schematicannon, on the storage cable (or an ender chest whose twin is); an Advanced Peripherals Block Reader facing the cannon (optional: it fetches what the cannon asks for by itself); a monitor (optional)
 
 ## What it does
 
 Feeds a Create **Schematicannon** from your [storage
 system](../storage-computer/README.md). The cannon takes its blocks, and its
 gunpowder, from any chest touching it. This computer keeps that chest topped
-up with everything on its list until the whole amount of each has been sent:
+up through the storage computer. It learns what to send in two ways, and you
+can use either or both:
 
-- You give it the list: each item and how many (`cannon add stone_bricks 340`),
-  or every block a building plan from `/plans` uses (`cannon plan cottage`).
-  The amounts are the ones on the cannon's material list.
+- **From the cannon itself**, with an Advanced Peripherals **Block Reader**
+  facing it. CC can't ask the cannon anything, but the Block Reader reads its
+  block data, which names the item it's stuck waiting for. That item is sent
+  at once, and from then on it's kept topped up while the cannon works, so
+  the cannon stops only once for each kind of block. When the cannon says
+  it's finished, those items come off the list and what's left goes home.
+- **From a list you give it:** each item and how many
+  (`cannon add stone_bricks 340`), or every block a building plan from
+  `/plans` uses (`cannon plan cottage`), with the amounts from the cannon's
+  material list. Each is sent until the whole amount has gone, so the
+  cannon has it before it asks and never stops for it.
+
+How the chest is kept:
+
 - Every 5 seconds it asks the storage computer to top the chest up. Each item
   gets a fair share of the chest (up to 2 stacks), never more than is still
   to be sent, so the cannon always has some of everything to hand.
 - Anything storage hasn't got but can make is crafted on the way, with the
   crafting turtles (or the craft overseer), the same as a builder turtle's
   order.
-- It keeps 32 gunpowder in the chest while there's anything left to send.
+- It keeps 32 gunpowder in the chest while there's anything left to send,
+  and whenever the cannon says it's out.
 - Once everything is sent it stops. What the cannon didn't use stays in the
   chest while it's on the list; take it off the list (or clear it) and the
   storage computer puts it away within 10 minutes.
 
-The monitor (or the computer's screen) shows how much has been sent in all,
-the chest and its gunpowder, and each item: sent of needed, and whether it's
+The monitor (or the computer's screen) shows the cannon's progress (blocks
+placed of all, with a Block Reader; otherwise how much has been sent) and what
+it's doing (placing, waiting for an item, out of gunpowder, finished), the
+chest and its gunpowder, and each item: sent of needed (or how many were sent,
+for one the cannon asked for; the one it's waiting for is orange), and whether it's
 *in chest*, *crafting*, *none stored*, *can't* (and why: no recipe, or what
 the recipe needs that isn't there) or *done*.
 
@@ -64,8 +80,14 @@ A double chest holds 54 kinds.
    Don't pick the chest in `storage setup`: the storage computer finds it by
    itself.
 3. Install this program and reboot. The footer says what it's waiting for.
-4. Load a schematic into the cannon, read its material list, and put the
-   same on this computer's list. Then start the cannon.
+4. **With a Block Reader** (Advanced Peripherals): put it against the cannon,
+   facing it, and touching this computer (or on its wired network). Load a
+   schematic and start the cannon; that's all. The screen says "Cannon:
+   placing" once it can see it.
+
+   **Without one**, or so the cannon never stops to wait: read the cannon's
+   material list and put the same on this computer's list, then start the
+   cannon.
 
    ```
    cannon                       -- start (startup.lua does this on boot)
@@ -75,7 +97,7 @@ A double chest holds 54 kinds.
    cannon plan cottage          -- add every block the plan /plans/cottage uses
    cannon list                  -- the list, and how much of each is sent
    cannon again                 -- send it all again (the same build once more)
-   cannon clear                 -- forget the list
+   cannon clear                 -- forget the list (and what the cannon asked for)
    cannon chest                 -- pick the chest, if it touches more than one
    ```
 
@@ -84,10 +106,14 @@ A double chest holds 54 kinds.
 
 ## Things to know
 
-- CC can't read the cannon or its schematic, so the list is yours to type.
-  The cannon's own material list (or the checklist it prints) has the
-  counts.
-- It counts what it has sent, not what the cannon used. Take items out of
+- CC can't ask the cannon anything or read its schematic. The Block Reader
+  only shows the item it's waiting for right now, so with a Block Reader
+  alone the cannon stops once for each new kind of block while that's
+  fetched (a few seconds, longer if it has to be crafted). A typed list
+  avoids that.
+- With several Block Readers about, it uses the one facing a
+  Schematicannon; `set cannon.reader <name>` picks one.
+- For the typed list, it counts what it has sent, not what the cannon used. Take items out of
   the chest yourself and it won't send them again: add them back with
   `cannon add`.
 - `cannon plan` counts blocks, and a few items place two (doors, beds, tall
