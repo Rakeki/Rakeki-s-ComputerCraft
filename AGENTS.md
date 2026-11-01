@@ -49,7 +49,7 @@ site/                       The website and in-game installer
   src/page.html             Template for every program and library page
   src/404.html              Not-found page
   src/assets/app.js         Builds the pages from programs.json
-  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal, monitor and setup screen, the factory's tabs (smelter, enricher, infuser, pots, essence) and board, cooker candy, colony, Mekanism fission, power, fusion, digital miners, build control, instabuild, remote terminal)
+  src/assets/cc.js          CC terminal mock-ups (typing demo, AutoMine map, dashboard, projector panel, storage terminal, monitor and setup screen, the factory's tabs (smelter, enricher, infuser, pots, essence) and board, cooker candy, colony, Mekanism fission, power, fusion, digital miners, build control, turtle finder, instabuild, remote terminal)
   src/assets/voxel.js       Isometric block renders of each program's build
   src/assets/plans.js       Plan viewer: loads a JSON plan (or a Lua one, run with fengari-web) like lib/plan.lua and draws it;
                             plans/ lists every plan (a 3D picture each, PlanView.thumb; above ground / underground, search, sort),
@@ -191,6 +191,7 @@ Existing computers:
 | `mine-server` | AutoMine server: hands out chunks, planning map | report, errlog, screen, net, files |
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
+| `turtle-finder` | Pocket computer: lists every turtle heard on `cc_status`, nearest first, and points a big arrow at the one picked (relative to the way you last walked, or a compass), with distance, height and what it is doing; remembers last known positions | screen, net, files, errlog (if present) |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation | nav, inv, files, report, errlog (if present) |
 | `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the thirteen underground plans, bunker to cavern) and prints its `home` for the builder | nav, report, errlog, inv, files |
 | `level-turtle` | Standalone turtle: flattens an area into a solid building platform (clears everything above the ground it starts on in 3-high layers, up to open sky or a given height, then fills holes below with the dirt it dug, up to 8 deep) | nav, report, errlog, inv, files |
@@ -235,7 +236,7 @@ reply field.
 
 | Protocol | From → to | Messages |
 |---|---|---|
-| `cc_status` | everything → status-server, storage-computer | `lib/report.lua` broadcasts state, detail, position, fuel; the storage computer shows the services working with it (anyone that sent a `storage` request, or a service role) on its monitor |
+| `cc_status` | everything → status-server, storage-computer, turtle-finder | `lib/report.lua` broadcasts state, detail, position, fuel; the storage computer shows the services working with it (anyone that sent a `storage` request, or a service role) on its monitor |
 | `automine` | mine-turtle ↔ mine-server | jobs, progress; `hello` and `status` carry the miner's `home` (where it was placed, its own chest behind it: it unloads, refuels and idles there; the server never mines a home chunk); the turtle retries until answered |
 | `village_plan` | village-turtle → blueprint-projector | `plan` (every block, world coords if GPS), `progress` (stage, layer); the projector sends `request` on start |
 | `projector_build` | blueprint-projector or build-control (both through `lib/crew.lua`) ↔ builder-turtle | `build` (key, name, `mats`, `blocks` = { x, y, z, m } in world coords; with several turtles also `area` = the whole building's box, `part` = this turtle's strip x0/x1/z0/z1, `lane` = extra cruise height; `clear = false` for a plan built in the air: don't dig out the box) → `accepted` / `busy` / `refused`; `stop`, `status` (an idle turtle answers `idle`); the turtle sends `progress` (stage clear/build/restocking/waiting/done/stopped, done, total, y, skipped, `need` = items it's waiting for or fetching while restocking/waiting; the projector's Now tab). One key per strip |

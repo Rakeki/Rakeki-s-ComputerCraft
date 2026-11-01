@@ -27,6 +27,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [mine-server](computers/mine-server/README.md): AutoMine server; assigns chunks to miners and shows a chunk-planning map
 - [mine-turtle](computers/mine-turtle/README.md): AutoMine mining turtle (same code on every miner)
 - [status-server](computers/status-server/README.md): monitor dashboard showing every computer's status and what it's doing
+- [turtle-finder](computers/turtle-finder/README.md): pocket computer that finds a lost turtle: lists every turtle it hears, nearest first, and points an arrow to the one you pick
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system
 - [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (thirteen of them, from a small bunker to a whole cave made a base)
 - [level-turtle](computers/level-turtle/README.md): standalone turtle that flattens an area into a solid building platform: cuts down hills and trees, fills dips, ponds and holes with the dirt it dug

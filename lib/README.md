@@ -28,7 +28,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
   `digital-miner-manager` (if present), `crate-turtle` (if present),
-  `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present), `cobble-breeder` (if present) and the computer template.
+  `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present), `cobble-breeder` (if present), `turtle-finder` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
@@ -66,7 +66,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `status-server`, `blueprint-projector`, `storage-computer`,
   `craft-overseer`, `factory`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,
-  `digital-miner-manager`, `remote-terminal` and `cobble-breeder`.
+  `digital-miner-manager`, `remote-terminal`, `cobble-breeder` and `turtle-finder`.
 - `net.lua`: rednet the same way everywhere: opening wireless or every modem,
   asking another computer something with an id the answer repeats and a
   deadline (`net.ask`), answering (`net.answer`), and a cached lookup of the
@@ -74,7 +74,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
   `factory`,
-  `crate-turtle` (for `crate stock`), `build-control`, `instabuild` and `remote-terminal`.
+  `crate-turtle` (for `crate stock`), `build-control`, `instabuild`, `remote-terminal` and `turtle-finder`.
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
   `writeFile` / `readFile` / `deleteFile` are these. Used by
@@ -83,7 +83,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer`, `factory`,
   `fission-guard`, `crate-turtle`, `build-control`, `instabuild`,
-  `remote-terminal`, `cobble-breeder` and `workchest.lua`.
+  `remote-terminal`, `cobble-breeder`, `turtle-finder` and `workchest.lua`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,

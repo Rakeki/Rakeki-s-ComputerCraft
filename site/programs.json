@@ -662,6 +662,88 @@
       "terminal": null
     },
     {
+      "name": "turtle-finder",
+      "group": "network",
+      "title": "Turtle Finder",
+      "command": "finder",
+      "device": "computer",
+      "deviceLabel": "Pocket computer + wireless or ender modem",
+      "color": "lime",
+      "tagline": "Lost a turtle? Lists every turtle it hears, nearest first, and points a big arrow straight at the one you pick.",
+      "libs": [
+        "screen",
+        "net",
+        "files",
+        "errlog"
+      ],
+      "stats": [
+        [
+          "Finds",
+          "anything with lib/report.lua"
+        ],
+        [
+          "Needs",
+          "GPS + a modem"
+        ],
+        [
+          "Arrow",
+          "8 directions, up and down"
+        ],
+        [
+          "Remembers",
+          "last known spots"
+        ]
+      ],
+      "features": [
+        "Every turtle heard, nearest first, with its distance and direction",
+        "A big arrow pointing the way you last walked, or a compass with north up",
+        "How far away, which direction, how far above or below you, and its coordinates",
+        "What it is doing: stuck, waiting, clearing, out of fuel",
+        "Green, yellow or red by how fresh its position is",
+        "Remembers where it last heard each one, even after you close it"
+      ],
+      "setup": [
+        "Put a wireless or ender modem on a pocket computer.",
+        "Install it, stand somewhere with GPS, and run finder.",
+        "Pick a turtle with the arrow keys and Enter, or run finder <name>.",
+        "Walk a few blocks the way you are looking, then open the pocket computer: the arrow points at the turtle."
+      ],
+      "commands": [
+        [
+          "finder",
+          "every turtle heard, nearest first; Enter follows one"
+        ],
+        [
+          "finder <name or id>",
+          "follow the one whose label has that in it"
+        ],
+        [
+          "finder all",
+          "list every computer, not just turtles"
+        ]
+      ],
+      "integrates": [
+        [
+          "report",
+          "Every program that reports its status is findable: that message carries its GPS position."
+        ],
+        [
+          "gps-deployer",
+          "Both you and the turtle need GPS for the arrow."
+        ],
+        [
+          "status-server",
+          "Listens to the same messages; the finder is the version you carry."
+        ]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "finder",
+        "caption": "On an advanced pocket computer: the list of turtles heard, then the arrow to a lost leveller."
+      },
+      "terminal": null
+    },
+    {
       "name": "gps-deployer",
       "group": "network",
       "title": "GPS Deployer",

@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
 // the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
-// build control on a pocket computer, and instabuild.
+// build control and the turtle finder on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -1914,6 +1914,79 @@
     return s;
   }
 
+  //---------------------------------------------------------------- turtle finder
+
+  // computers/turtle-finder/finder.lua on an advanced pocket computer: the
+  // list of turtles heard, then the arrow to a lost leveller as you walk
+  // towards it.
+  function finder(el) {
+    const W = 26, H = 20;
+    const s = new Screen(W, H, el);
+    const UP = ["....#....", "...###...", "..#####..", ".#######.", "#########", "...###...", "...###...", "...###...", "...###..."];
+    const UPRIGHT = ["...######", "....#####", ".....####", "....#####", "...###.##", "..###...#", ".###.....", "###......", ".#......."];
+    const turn = (r) => r.map((_, i) => r.map((__, c) => r[r.length - 1 - c][i]).join(""));
+    const ARROW = [];
+    for (let o = 0; o < 8; o++) { let r = o % 2 ? UPRIGHT : UP; for (let k = 0; k < Math.floor(o / 2); k++) r = turn(r); ARROW.push(r); }
+    const DIRS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+    const SHORT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const turtles = [
+      { name: "Leveller-12", x: 412, y: 81, z: -233, age: "4s ago", state: "stuck: Stuck at 412,81,-233" },
+      { name: "Excavator-7", x: 60, y: 40, z: 30, age: "8s ago" },
+      { name: "Builder-3", x: -20, y: 70, z: 15, age: "2s ago" },
+    ];
+    let me = { x: 100, y: 70, z: 20 }, facing = null, tick = 0;
+    const bearing = (dx, dz) => ((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360;
+    const oct = (d) => Math.floor(((d + 22.5) % 360) / 45) % 8;
+    function draw() {
+      s.clear();
+      const t = turtles[0];
+      if (tick < 4) {
+        s.put(1, 1, fitT(" Finder: turtles (3)", W), "white", "gray");
+        const rows = turtles.map((c) => ({ c, d: Math.hypot(c.x - me.x, c.z - me.z) })).sort((a, b) => a.d - b.d);
+        rows.forEach(({ c, d }, i) => {
+          const where = `${Math.round(d)} ${SHORT[oct(bearing(c.x - me.x, c.z - me.z))]}`;
+          const bg = c === t ? "blue" : "black";
+          s.put(1, 2 + i, fitT(" " + c.name, W), "lime", bg);
+          s.put(W - where.length, 2 + i, where, "white", bg);
+        });
+        s.put(1, H - 1, fitT(`You: ${me.x} ${me.y} ${me.z}`, W), "lightGray");
+        s.put(1, H, fitT(" Enter go  Tab kind  Q quit", W), "white", "gray");
+      } else {
+        s.put(1, 1, fitT(" " + t.name, W), "white", "gray");
+        const dx = t.x - me.x, dz = t.z - me.z, dy = t.y - me.y, d = Math.hypot(dx, dz), deg = bearing(dx, dz);
+        const rel = facing === null ? deg : (deg - facing + 360) % 360;
+        const ax = Math.floor((W - 18) / 2) + 1;
+        ARROW[oct(rel)].forEach((line, r) => [...line].forEach((ch, c) => { if (ch === "#") s.put(ax + c * 2, 3 + r, "  ", "white", "lime"); }));
+        if (facing === null) s.put(ax + 8, 2, "N", "white");
+        const lines = [
+          [`${Math.round(d)} blocks ${DIRS[oct(deg)]}`, "white"],
+          [Math.abs(dy) <= 1 ? "About your height" : `${Math.abs(dy)} blocks ${dy > 0 ? "above" : "below"} you`, "white"],
+          [`At ${t.x} ${t.y} ${t.z}`, "lightGray"],
+          ["stuck: Stuck at 412,81,", "yellow"], ["-233 (blocked)", "yellow"],
+          [`Heard ${t.age}`, "lime"],
+          [facing === null ? "Walk a few blocks to aim" : "Arrow: the way you walked", "lightGray"],
+        ];
+        lines.forEach(([text, c], i) => s.put(2, 13 + i, text.slice(0, W - 1), c));
+        s.put(1, H, fitT(" ← list  C compass  Q quit", W), "white", "gray");
+      }
+      s.render();
+    }
+    setInterval(() => {
+      tick++;
+      if (tick >= 4) {
+        // walking north-east-ish towards it, turning as the player goes
+        const walks = [null, 0, 45, 45, 90, 45];
+        facing = walks[Math.min(walks.length - 1, Math.floor((tick - 4) / 2))];
+        if (facing !== null) { me = { x: me.x + Math.round(Math.sin(facing * Math.PI / 180) * 6), y: me.y, z: me.z - Math.round(Math.cos(facing * Math.PI / 180) * 6) }; }
+      }
+      if (tick > 18) { tick = 0; me = { x: 100, y: 70, z: 20 }; facing = null; }
+      draw();
+    }, 1000);
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- instabuild
 
   // computers/instabuild/instabuild.lua on a command computer: the sky
@@ -2060,5 +2133,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild, finder } };
 })();
