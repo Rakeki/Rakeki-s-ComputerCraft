@@ -19,7 +19,7 @@
 --   c:start()       -- or os.queueEvent(crew.START) from a UI handler
 --   c:stop()        -- or os.queueEvent(crew.STOP); asked twice, gives up on silent turtles
 --   c:run()         -- the loop: hears the turtles and hands out waiting strips (in parallel with the rest)
---   c.build, c:note(), c:lowY(), c:needs()
+--   c.build, c:note(), c:waiting(), c:lowY(), c:needs()
 local net = require("lib.net")
 
 local crew = {}
@@ -155,6 +155,33 @@ function Crew:needs()
   end
   table.sort(out, function(a, b) return a.builder < b.builder end)
   return out
+end
+
+-- One line saying what the builders are stuck waiting for, or nil when none
+-- is: "Waiting for stone bricks (64), tuff (20)", summed over the builders.
+-- One waiting for something that isn't a block (fuel) adds its note.
+function Crew:waiting()
+  local items, names, other = {}, {}, {}
+  for _, p in ipairs(self.build and self.build.parts or {}) do
+    if p.builder and not p.finished and p.stage == "waiting" then
+      if p.need and next(p.need) then
+        for item, n in pairs(p.need) do
+          if not items[item] then names[#names + 1] = item end
+          items[item] = (items[item] or 0) + n
+        end
+      elseif p.note then
+        other[#other + 1] = ("%s (#%s)"):format((p.note:gsub("^needs ", "")), tostring(p.builder))
+      end
+    end
+  end
+  if #names == 0 and #other == 0 then return nil end
+  table.sort(names)
+  local words = {}
+  for _, item in ipairs(names) do
+    words[#words + 1] = ("%s (%d)"):format((item:gsub("^.-:", ""):gsub("_", " ")), items[item])
+  end
+  for _, text in ipairs(other) do words[#words + 1] = text end
+  return "Waiting for " .. table.concat(words, ", ")
 end
 
 -- The lowest layer (world y) any builder is building, or nil.

@@ -512,7 +512,8 @@ local function model()
   for i, id in ipairs(ids) do if id == state.plan then index = i end end
   return {
     plan = plan, index = index, planCount = #ids, state = state, facing = FACING[state.turn % 4],
-    status = status, note = note or (state.build and builders:note()) or (plan.village and villageNote()),
+    -- what the builders are stuck on beats how far they are, so it isn't missed
+    status = status, note = note or (state.build and (builders:waiting() or builders:note())) or (plan.village and villageNote()),
     map = map, counts = counts, building = state.build ~= nil, canBuild = not plan.village,
     countTitle = title, page = page,
   }

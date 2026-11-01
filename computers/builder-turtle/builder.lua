@@ -598,7 +598,9 @@ local function waitForItem(item, want)
     takeFront(function(x) return x == item end, want, function() return count(item) end)
     if count(item) > 0 then break end
     if not said then
-      print(("Out of %s. Put some in the chest behind my home block."):format(shortName(item)))
+      if term.isColour() then term.setTextColour(colours.orange) end
+      print(("Waiting for %s (%d): put some in the chest behind my home block."):format(shortName(item), want))
+      term.setTextColour(colours.white)
       status("waiting", "needs " .. shortName(item))
       sendProgress("waiting", "needs " .. shortName(item), { [item] = want })
       said = true
@@ -608,6 +610,7 @@ local function waitForItem(item, want)
       local event, value = os.pullEvent()
     until event == "turtle_inventory" or (event == "timer" and value == timer)
   end
+  if said then print(("Got %s. Carrying on."):format(shortName(item))) end
   nav.face(home.heading)
   return true
 end

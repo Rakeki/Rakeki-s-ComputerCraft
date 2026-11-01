@@ -35,8 +35,10 @@ The turtle then:
 
 If it runs out of a block, it asks a [storage system](../storage-computer/README.md)
 for more (if there's one in range), and otherwise waits for you to put some
-in the supply chest, saying what it needs on its screen, on the projector
-and on the [status server](../status-server/README.md).
+in the supply chest. It says what it's waiting for in orange on its screen
+("Waiting for stone bricks (64)"), and the projector's monitor, build
+control and the [status server](../status-server/README.md) show the same
+line, added up over every builder.
 
 ### Several builders
 

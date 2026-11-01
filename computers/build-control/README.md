@@ -80,6 +80,10 @@ first to see what it needs. A plan that takes no size ignores it.
 
 ## Things to know
 
+- When a builder runs out of a block and none comes from the storage
+  system, a line of its own says so, in orange: "Waiting for stone bricks
+  (64), tuff (20)", added up over every builder. Put them in a builder's
+  supply chest (or the storage system) and it carries on.
 - Ctrl+T stops following, not building: the turtles carry on. `build
   watch`, or a reboot, picks it up again; it needs to be running for strips
   that are still waiting to be handed out.

@@ -37,6 +37,10 @@ Under the buttons, the monitor shows a top-down map of the current layer
   and the blocks it's waiting for or fetching right now (in orange), so you
   know what to put in its supply chest.
 
+While a builder is stuck waiting for blocks, the orange line under the
+buttons says which and how many, added up over every builder: "Waiting
+for stone bricks (64), tuff (20)".
+
 Tap a tab to switch. In Whole view, the layer buttons choose how high to
 show the building.
 

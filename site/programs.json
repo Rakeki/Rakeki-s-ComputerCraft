@@ -1855,7 +1855,8 @@
         ["crew.new(opts)", "job() (the building in world coords), build (saved progress), save(build), tell(text), optional changed() and finished(text)."],
         ["c:start(), c:stop()", "Split the job between the builders in range (up to 4, busy ones too: their strips wait); call them off (twice gives up on silent ones). Or queue crew.START / crew.STOP."],
         ["c:run()", "The loop: hears progress and hands out strips still waiting. Run it alongside the rest."],
-        ["c.build, c:note(), c:lowY()", "The build in progress (nil when done), a line on how it's going, and the lowest layer being built."]
+        ["c.build, c:note(), c:lowY()", "The build in progress (nil when done), a line on how it's going, and the lowest layer being built."],
+        ["c:waiting()", "A line saying what the builders are stuck waiting for, added up over every builder (\"Waiting for stone bricks (64), tuff (20)\"), or nil."]
       ],
       "notes": "Talks to builder turtles on the projector_build protocol. The blueprint projector and build-control both use it, so a building goes up the same way from either."
     }

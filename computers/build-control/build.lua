@@ -82,7 +82,7 @@ local function watch()
   if not net.open() then error("Needs a wireless or ender modem to hear the builder turtles.", 0) end
   print(("Following the builders of %s. Ctrl+T leaves them building;"):format(builders.build.name))
   print("'build watch' picks it up again.")
-  local said
+  local said, saidWaiting
   parallel.waitForAny(function() builders:run() end, function()
     while not done do
       if builders.build then
@@ -91,6 +91,20 @@ local function watch()
           print(text)
           status("building", text)
           said = text
+        end
+        -- what they're stuck on gets a line of its own, so it isn't missed
+        local waiting = builders:waiting()
+        if waiting ~= saidWaiting then
+          if waiting then
+            if term.isColour() then term.setTextColour(colours.orange) end
+            print(waiting .. ": put some in a builder's supply chest, or the storage system.")
+            term.setTextColour(colours.white)
+            status("waiting", waiting)
+          elseif saidWaiting then
+            print("The builders have what they were waiting for.")
+            status("building", said)
+          end
+          saidWaiting = waiting
         end
       end
       local timer = os.startTimer(5)
