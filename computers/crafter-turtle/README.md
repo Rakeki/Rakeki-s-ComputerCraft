@@ -70,6 +70,13 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
    every 5 minutes, and if the storage computer isn't running yet it keeps
    trying until it is.
 
+   **Far from the storage system**, with a [craft
+   overseer](../craft-overseer/README.md#far-from-the-storage-system) there
+   that has an ender chest: put the turtle's barrel on the overseer's cable
+   instead of the storage cable, and give the turtle an ender modem. It asks
+   the overseer first, which finds its barrel the same way, and says "The
+   craft overseer uses my chest (...)".
+
    ```
    crafter                   -- start (startup.lua does this on boot)
    crafter learn             -- teach the storage system a recipe (see below)

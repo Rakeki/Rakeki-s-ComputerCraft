@@ -61,7 +61,7 @@ supply:seen(r)
 | `{ type = "makes", via, recipes = { { make, count, rows, keys } } }` | `ok`, `error` | a machine's recipes (the factory's infuser, `via = "infuse"`), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine too, once it has made (or given up on) a job it was handed |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
-| `{ type = "claim", role = "delivery" or "crafter", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand |
+| `{ type = "claim", role = "delivery", "crafter" or "hub", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand; `hub` is a far-away overseer's ender chest twin, kept in `setup.crafters[overseer id]` |
 
 The craft overseer's own requests (same protocol; only it sends these):
 
@@ -169,6 +169,18 @@ fixes `pendingCraft` and drops the rest of a failed plan). Without an
 overseer, `craftLoop` runs jobs on one turtle itself. Never clear crafter
 chests from the storage computer while an overseer is about: a batch may be
 loaded.
+
+**Hub** (`overseer hub`, setting `overseer.hub`): an overseer far from the
+storage system has an ender chest on its own cable, and each crafting
+turtle's barrel on that cable. It claims the twin with role `hub` (the
+storage computer keeps it as `setup.crafters[overseer id]`, but never takes
+the overseer for a crafting turtle), then `load` / `clear` with
+`crafter = its own id`, and moves each batch between the ender chest and
+the turtle's barrel itself, one batch at a time (`withHub`). Turtles
+`claim` on `craft_overseer` first (the overseer probes its own cable with
+an item from the ender chest, borrowed from storage by a one-item `load`;
+`/.overseer_barrels`), then on `storage`; whichever took the chest is asked
+first next time.
 
 **Machine jobs.** A factory computer sends `makes` with its infuser's
 recipes as ordinary grids (input cells plus enough infusion items for one

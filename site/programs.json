@@ -1211,7 +1211,7 @@
       "deviceLabel": "Advanced computer + monitor + modems",
       "color": "orange",
       "tagline": "Shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor.",
-      "libs": ["screen", "report", "errlog", "net", "files"],
+      "libs": ["screen", "report", "errlog", "net", "files", "claim"],
       "autostart": true,
       "stats": [
         ["Turtles", "up to 8 at once"],
@@ -1224,16 +1224,20 @@
         "Steps of one order run in turn; different orders run side by side",
         "Monitor lists every turtle, the queue, and what each job is short of",
         "Moves a job to another turtle when one stops answering",
+        "Far from the storage system: one pair of ender chests for every crafting turtle, each batch passed on to the turtle's barrel",
         "Keeps its queue across reboots"
       ],
       "setup": [
         "Put an advanced computer on the storage cable with a wired modem (and a wireless modem if the crafting turtles use wireless). A monitor is optional.",
         "Set up crafting turtles, each with its own chest in front of it on the storage cable.",
-        "Install and reboot: the storage computer hands it the next crafts."
+        "Install and reboot: the storage computer hands it the next crafts.",
+        "Far away: an ender chest on its own cable (the twin on the storage cable), each turtle's barrel on that cable too, an ender modem, then overseer hub."
       ],
       "commands": [
         ["overseer", "start (runs on boot)"],
-        ["overseer clear", "forget the queue"]
+        ["overseer clear", "forget the queue"],
+        ["overseer hub [name]", "use the ender chest on its cable for crafting turtles far from the storage system"],
+        ["overseer hub off", "stop using it"]
       ],
       "integrates": [
         ["storage-computer", "Plans the crafts and hands them over; loads each turtle's chest when the overseer asks."],

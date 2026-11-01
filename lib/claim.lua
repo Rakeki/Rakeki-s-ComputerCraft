@@ -12,8 +12,11 @@
 -- askStorage(msg) is the program's own request function: it sends msg on
 -- the "storage" protocol with an id and returns the matching reply, or nil
 -- (see the storage-system skill). role is "delivery" (the storage computer
--- sends this turtle's orders there), "crafter" (the crafting turtle's chest) or
--- "work" (a far-away computer's work chest, through an ender chest: lib/workchest.lua).
+-- sends this turtle's orders there), "crafter" (the crafting turtle's chest),
+-- "hub" (a far-away craft overseer's ender chest, which it passes on to its
+-- turtles' barrels) or "work" (a far-away computer's work chest, through an
+-- ender chest: lib/workchest.lua). side may be a peripheral's network name.
+-- A craft overseer with a hub answers "claim" too, for barrels on its cable.
 --
 -- How it finds the chest: the turtle sends what its chest holds. If that's
 -- the chest the storage computer already has for it, that's that. Otherwise

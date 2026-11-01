@@ -13,13 +13,24 @@
 --   overseer          start (startup.lua runs this)
 --   overseer clear    forget the queue (after a mix-up; the storage computer
 --                     stops waiting for those crafts when it restarts)
+--   overseer hub [name]  use the ender chest on my cable (or the one named) as
+--                     the hub for crafting turtles far from the storage system
+--   overseer hub off  stop using it
 --
 -- Needs a modem that reaches the storage computer (a wired modem on its
 -- cable) and the crafting turtles (wireless, or wired if they're on the
 -- cable too). It opens every modem it has.
+--
+-- Far from the storage system: put an ender chest on this computer's own
+-- cable, its twin on the storage cable, and each crafting turtle's barrel
+-- on this cable too (the hub). The storage computer loads the twin, this
+-- computer moves each batch on to the turtle's barrel and the results back,
+-- one batch through the ender chest at a time. Turtles here ask this computer
+-- which barrel is theirs (the "claim" request, like the storage computer's).
 local screen = require("lib.screen") -- flicker-free drawing on the monitor and terminal
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local claim = require("lib.claim") -- tells the storage computer which chest is my ender chest's twin
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -27,6 +38,11 @@ local OVERSEER_PROTOCOL = "craft_overseer" -- the storage computer hands over jo
 local STORAGE_PROTOCOL = "storage" -- loading and clearing crafter chests, stock counts
 local CRAFT_PROTOCOL = "storage_crafter" -- the crafting turtles take crafts on this
 local QUEUE_FILE = "/.overseer_queue" -- the queue, kept across reboots
+local BARRELS_FILE = "/.overseer_barrels" -- turtle id -> its barrel on my cable (hub only)
+local HUB_SETTING = "overseer.hub" -- names the ender chest, when there's more than one on my cable
+local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" } -- what a turtle's barrel can be
+local HUB_CLAIM_EVERY = 300 -- seconds between checks that the storage computer still has my ender chest
+local CLAIM_IDLE = 30 -- seconds a turtle finding its barrel may go quiet before I take my item back
 local MAX_CRAFTERS = 8 -- most crafting turtles used at once
 local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
 local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
@@ -43,8 +59,13 @@ local KEEP_DONE = 5 -- finished jobs still listed, newest first
 local queue = { jobs = {} }
 local done = {} -- the last few finished jobs, for the screen: { name, n, ok, why }
 local outbox = {} -- jobdone reports the storage computer hasn't taken yet
-local crafters = {} -- turtle id -> { chest, online, job, note }
+local crafters = {} -- turtle id -> { chest, online, job, note, hub = true for a barrel on my cable }
 local stock -- item -> count, from the storage computer
+-- the ender chest on my cable: name, ready once the storage computer has
+-- its twin, why not, busy while a batch passes through it
+local hub = { busy = false }
+local barrels = {} -- turtle id -> its barrel on my cable (saved in BARRELS_FILE)
+local MY_ID = os.getComputerID() -- the storage computer keeps the ender chest's twin as my crafter chest
 -- the storage computer, over the cable or by wireless
 local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = STORAGE_WAIT })
 local message = { "Starting...", "lightGray" }
@@ -115,6 +136,286 @@ local function failPlan(job, why)
   save()
 end
 
+---------------------------------------------------------------- the hub
+
+local function isInventory(name)
+  local ok, yes = pcall(peripheral.hasType, name, "inventory")
+  return ok and yes
+end
+
+local function isEnder(name)
+  local t = peripheral.getType(name)
+  return t ~= nil and t:find("ender", 1, true) ~= nil
+end
+
+local function enderChests()
+  local found = {}
+  for _, name in ipairs(peripheral.getNames()) do
+    if isEnder(name) and isInventory(name) then found[#found + 1] = name end
+  end
+  return found
+end
+
+-- One batch at a time passes through the ender chest: everything that
+-- puts something in it or takes something out runs inside withHub.
+local function withHub(fn)
+  while hub.busy do os.pullEvent("overseer_hub") end
+  hub.busy = true
+  local res = table.pack(pcall(fn))
+  hub.busy = false
+  os.queueEvent("overseer_hub")
+  if not res[1] then error(res[2], 0) end
+  return table.unpack(res, 2, res.n)
+end
+
+-- Have the storage computer put away whatever is in the ender chest.
+local function clearHub() askStorage({ type = "clear", crafter = MY_ID }, LOAD_WAIT) end
+
+-- Move everything from one inventory on my cable to another. Returns
+-- whether it all went, and whether anything did.
+local function moveAll(from, to)
+  local ok, list = pcall(peripheral.call, from, "list")
+  if not ok then return false, false end
+  local all, moved = true, false
+  for slot, item in pairs(list) do
+    local okM, n = pcall(peripheral.call, from, "pushItems", to, slot)
+    n = okM and n or 0
+    if n > 0 then moved = true end
+    if n < item.count then all = false end
+  end
+  return all, moved
+end
+
+-- Put a turtle's barrel away through the ender chest (in withHub).
+local function emptyBarrel(barrel)
+  for _ = 1, 3 do
+    local all, moved = moveAll(barrel, hub.name)
+    if moved then clearHub() end
+    if all then return true end
+  end
+  return false
+end
+
+-- Have the storage computer load the ender chest with a batch, then move
+-- it into the turtle's barrel. Returns the storage computer's answer, as
+-- for a chest on its own cable.
+local function loadBarrel(barrel, grid, steps)
+  return withHub(function()
+    if not emptyBarrel(barrel) then return { steps = 0, error = "the turtle's barrel won't empty: is storage full?" } end
+    local r = askStorage({ type = "load", crafter = MY_ID, grid = grid, steps = steps }, LOAD_WAIT)
+    if r and (r.steps or 0) == 0 and tostring(r.error):find("has no chest here", 1, true) then
+      hub.ready, hub.nextClaim = false, 0 -- the storage computer forgot my ender chest: claim it again
+    end
+    if r and (r.steps or 0) > 0 and not moveAll(hub.name, barrel) then
+      moveAll(barrel, hub.name)
+      clearHub()
+      return { steps = 0, error = "the turtle's barrel didn't take all the ingredients" }
+    end
+    return r
+  end)
+end
+
+-- Tell the storage computer which chest on its cable is my ender chest's
+-- twin (it drops an item into each one it could be until it turns up here).
+local function claimHub()
+  if not peripheral.isPresent(hub.name) then
+    hub.ready, hub.why = false, ("my ender chest %s isn't on my cable"):format(hub.name)
+    hub.nextClaim = os.clock() + 60
+    return
+  end
+  local ok, why = withHub(function() return claim.chest(askStorage, "hub", hub.name) end)
+  hub.ready = ok == true
+  if ok then
+    hub.why, hub.nextClaim = nil, os.clock() + HUB_CLAIM_EVERY
+  else
+    hub.why = ok == false and ("the storage computer can't find my ender chest's twin: " .. why)
+      or "no storage computer answered about my ender chest"
+    hub.nextClaim = os.clock() + 60
+  end
+end
+
+---------------------------------------------------------------- turtles finding their barrel
+
+-- A crafting turtle here asks which barrel on my cable is in front of it,
+-- the way turtles ask the storage computer (lib/claim.lua): I put one item
+-- from the ender chest in each barrel it could be until it sees it arrive.
+local claims = {} -- turtle id -> { candidates, i, at = barrel the item is in, marker, last }
+
+local function claimable(name)
+  if name == hub.name or isEnder(name) or not isInventory(name) then return false end
+  local t = peripheral.getType(name) or ""
+  for _, kind in ipairs(CLAIM_TYPES) do
+    if t:find(kind, 1, true) then return true end
+  end
+  return false
+end
+
+local function sameItems(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  local n = 0
+  for slot, it in pairs(a) do
+    local other = b[slot]
+    if type(other) ~= "table" or other.name ~= it.name or other.count ~= it.count then return false end
+    n = n + 1
+  end
+  for _ in pairs(b) do n = n - 1 end
+  return n == 0
+end
+
+-- A barrel a turtle is crafting from right now: no probe item goes in it.
+local function inUse(name)
+  for _, c in pairs(crafters) do
+    if c.hub and c.chest == name and c.job then return true end
+  end
+  return false
+end
+
+-- Take the probe item back into the ender chest.
+local function takeMarker(c)
+  if not c.at then return end
+  local at, marker = c.at, c.marker
+  c.at = nil
+  withHub(function()
+    local ok, list = pcall(peripheral.call, at, "list")
+    for slot, item in pairs(ok and list or {}) do
+      if item.name == marker then
+        pcall(peripheral.call, at, "pushItems", hub.name, slot, 1)
+        return
+      end
+    end
+  end)
+end
+
+-- Put one item the barrel doesn't hold into it (in withHub), borrowed from
+-- storage if the ender chest has none. Its name, or nil and why.
+local function probeInto(barrel, has)
+  local function pick()
+    local ok, list = pcall(peripheral.call, hub.name, "list")
+    for slot, item in pairs(ok and list or {}) do
+      if not has[item.name] then return slot, item.name end
+    end
+  end
+  local slot, marker = pick()
+  if not slot then
+    local want
+    for name, n in pairs(stock or {}) do
+      if n > 0 and not has[name] then want = name break end
+    end
+    if not want then return nil, "the storage system is empty: I need one item to find your barrel with" end
+    local r = askStorage({ type = "load", crafter = MY_ID, grid = { want }, steps = 1 }, LOAD_WAIT)
+    if not (r and (r.steps or 0) > 0) then return nil, "the storage computer couldn't lend me an item to find your barrel with" end
+    slot, marker = pick()
+    if not slot then return nil, "the item the storage computer lent me didn't arrive" end
+  end
+  local ok, n = pcall(peripheral.call, hub.name, "pushItems", barrel, slot, 1)
+  if ok and n and n > 0 then return marker end
+end
+
+local function endClaim(from)
+  claims[from] = nil
+  withHub(clearHub)
+end
+
+local function nextProbe(from, c)
+  c.last = os.clock()
+  while c.i < #c.candidates do
+    c.i = c.i + 1
+    local name = c.candidates[c.i]
+    local ok, list = pcall(peripheral.call, name, "list")
+    if ok and not inUse(name) then
+      local has = {}
+      for _, item in pairs(list) do has[item.name] = true end
+      local marker, why = withHub(function() return probeInto(name, has) end)
+      if marker then
+        c.at, c.marker = name, marker
+        return { probe = marker }
+      elseif why then
+        endClaim(from)
+        return { ok = false, error = why }
+      end
+    end
+  end
+  endClaim(from)
+  if barrels[from] then
+    barrels[from] = nil
+    files.write(BARRELS_FILE, barrels)
+  end
+  return { ok = false, error = "your barrel isn't on my cable" }
+end
+
+--   { type = "claim", role = "crafter", items = its list() } -> { ok, chest } / { probe = item } / { ok = false, error }
+--   { type = "claim", role, seen = true or false }           -> the same answers
+local function claimBarrel(from, msg)
+  if not hub.name then return { ok = false, error = "I have no ender chest of my own: use the storage cable" } end
+  if not hub.ready then return { ok = false, error = hub.why or "the storage computer hasn't found my ender chest yet" } end
+  local c = claims[from]
+  if msg.seen ~= nil then
+    if not c then return { ok = false, error = "I lost track of where I was: try again" } end
+    takeMarker(c)
+    if not msg.seen then return nextProbe(from, c) end
+    local name = c.candidates[c.i]
+    endClaim(from)
+    for id, b in pairs(barrels) do
+      if b == name then barrels[id] = nil end
+    end
+    barrels[from] = name
+    files.write(BARRELS_FILE, barrels)
+    say(("Crafting turtle #%d's barrel is %s."):format(from, name), "lime")
+    return { ok = true, chest = name }
+  end
+  if c then
+    takeMarker(c)
+    endClaim(from)
+  end
+  -- the barrel I already have for it, if it still holds what the turtle sees
+  local mine = barrels[from]
+  if mine then
+    local ok, list = pcall(peripheral.call, mine, "list")
+    if ok and sameItems(list, msg.items) then return { ok = true, chest = mine } end
+  end
+  -- every barrel it could be: those holding just what the turtle sees
+  -- first (often only one), other turtles' barrels last
+  local taken = {}
+  for id, b in pairs(barrels) do
+    if id ~= from then taken[b] = true end
+  end
+  local candidates, rank = {}, {}
+  for _, name in ipairs(peripheral.getNames()) do
+    if claimable(name) then
+      local ok, list = pcall(peripheral.call, name, "list")
+      if ok then
+        candidates[#candidates + 1] = name
+        rank[name] = (sameItems(list, msg.items) and 0 or 2) + (taken[name] and 1 or 0)
+      end
+    end
+  end
+  table.sort(candidates, function(a, b)
+    if rank[a] ~= rank[b] then return rank[a] < rank[b] end
+    return a < b
+  end)
+  c = { candidates = candidates, i = 0 }
+  claims[from] = c
+  return nextProbe(from, c)
+end
+
+-- Claims from turtles here, beside netLoop (a claim can wait its turn at
+-- the ender chest, and the storage computer's jobs mustn't wait for it).
+local function claimLoop()
+  while true do
+    local from, msg = rednet.receive(OVERSEER_PROTOCOL, 5)
+    if from and type(msg) == "table" and msg.type == "claim" then
+      net.answer(from, OVERSEER_PROTOCOL, msg, claimBarrel(from, msg))
+    end
+    -- a turtle that went quiet mid-search: take my item back
+    for id, c in pairs(claims) do
+      if os.clock() - (c.last or 0) > CLAIM_IDLE then
+        takeMarker(c)
+        endClaim(id)
+      end
+    end
+  end
+end
+
 ---------------------------------------------------------------- what's missing
 
 -- Going down the queue, what each job still needs from storage beyond
@@ -162,7 +463,12 @@ local function runJob(id, job)
   os.queueEvent("overseer_changed")
   while job.left > 0 do
     local want = math.min(job.left, 64, math.floor(MAX_BATCH_OUTPUT / job.count))
-    local r = askStorage({ type = "load", crafter = id, grid = job.grid, steps = want }, LOAD_WAIT)
+    local r
+    if c.hub then
+      r = loadBarrel(c.chest, job.grid, want)
+    else
+      r = askStorage({ type = "load", crafter = id, grid = job.grid, steps = want }, LOAD_WAIT)
+    end
     if not r then
       job.state, job.crafter, job.tried = "queued", nil, os.clock()
       say("The storage computer isn't answering.", "orange")
@@ -187,7 +493,11 @@ local function runJob(id, job)
     local craft = { type = "craft", steps = r.steps, grid = job.grid }
     local reply = net.ask(id, CRAFT_PROTOCOL, craft, { wait = CRAFT_WAIT,
       match = function(msg) return msg.type == "crafted" and msg.id == craft.id end })
-    askStorage({ type = "clear", crafter = id }, LOAD_WAIT)
+    if c.hub then
+      withHub(function() emptyBarrel(c.chest) end)
+    else
+      askStorage({ type = "clear", crafter = id }, LOAD_WAIT)
+    end
     c.note = nil
     if not reply then
       -- the turtle went quiet: someone else can have the job
@@ -244,6 +554,7 @@ end
 local function lookLoop()
   while true do
     flushOutbox()
+    if hub.name and os.clock() >= (hub.nextClaim or 0) then claimHub() end
     local r = askStorage({ type = "crafters" })
     if r then
       local chests = r.crafters or {}
@@ -251,13 +562,16 @@ local function lookLoop()
       local online = { rednet.lookup(CRAFT_PROTOCOL) }
       table.sort(online)
       for _, id in ipairs(online) do
-        -- the chest picked in 'storage setup' goes to one turtle without a chest of its own
-        local chest = chests[id]
+        -- a barrel on my cable (through the ender chest), else its chest on
+        -- the storage cable; the chest picked in 'storage setup' goes to one
+        -- turtle without a chest of its own
+        local barrel = hub.ready and barrels[id] and peripheral.isPresent(barrels[id]) and barrels[id]
+        local chest = barrel or chests[id]
         if not chest and r.shared and not sharedTaken then chest, sharedTaken = r.shared, true end
         if chest then
           seen[id] = true
           crafters[id] = crafters[id] or {}
-          crafters[id].chest, crafters[id].online = chest, true
+          crafters[id].chest, crafters[id].online, crafters[id].hub = chest, true, barrel and true or nil
         end
       end
       for id, c in pairs(crafters) do
@@ -272,7 +586,9 @@ local function lookLoop()
       if #queue.jobs > 0 and n == 0 then problem = "no crafting turtle is running 'crafter' with a chest" end
       askStorage({ type = "problem", text = problem })
       if problem then say("No crafting turtles: " .. problem .. ".", "orange")
-      elseif message[1] == "Starting..." or message[1]:find("storage computer", 1, true) then
+      elseif hub.why then say(hub.why:sub(1, 1):upper() .. hub.why:sub(2) .. ".", "orange")
+      elseif message[1] == "Starting..." or message[1]:find("storage computer", 1, true)
+        or message[1]:find("ender chest", 1, true) then
         say(("Ready: %d crafting turtles."):format(n), "lime")
       end
     else
@@ -409,9 +725,48 @@ if args[1] == "clear" then
   return
 end
 
+if args[1] == "hub" then
+  if args[2] == "off" then
+    settings.unset(HUB_SETTING)
+    settings.save()
+    files.delete(BARRELS_FILE)
+    print("No ender chest: crafting turtles use chests on the storage cable.")
+    return
+  end
+  local name = args[2]
+  if not name then
+    local found = enderChests()
+    if #found == 0 then
+      print("No ender chest on my cable. Put one there with a wired modem")
+      print("(right-click it so it turns red), then try again.")
+      return
+    elseif #found > 1 then
+      print("Ender chests on my cable:")
+      for _, n in ipairs(found) do print("  " .. n) end
+      print("Pick one: overseer hub <name>")
+      return
+    end
+    name = found[1]
+  end
+  if not (peripheral.isPresent(name) and isEnder(name) and isInventory(name)) then
+    print(name .. " isn't an ender chest on my cable.")
+    return
+  end
+  settings.set(HUB_SETTING, name)
+  settings.save()
+  print(("My ender chest is %s. Put its twin (same colours, used by"):format(name))
+  print("nothing else) on the storage cable with a wired modem, and each")
+  print("crafting turtle's barrel on my cable. Then reboot me.")
+  return
+end
+
+hub.name = settings.get(HUB_SETTING)
+local savedBarrels = files.read(BARRELS_FILE)
+if hub.name and type(savedBarrels) == "table" then barrels = savedBarrels end
+
 if not net.open("any") then
   print("I need a modem: a wired one on the storage computer's cable, and")
-  print("wireless if the crafting turtles talk by wireless.")
+  print("wireless if the crafting turtles talk by wireless (ender, far away).")
   return
 end
 
@@ -429,7 +784,7 @@ local workers = {}
 for slot = 1, MAX_CRAFTERS do workers[slot] = worker(slot) end
 term.clear()
 if report then report.init("craft overseer") end
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netLoop, lookLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netLoop, lookLoop, claimLoop,
   report and report.loop or function() while true do sleep(3600) end end, table.unpack(workers))
 term.setBackgroundColor(colors.black)
 term.clear()

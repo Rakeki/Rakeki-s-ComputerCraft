@@ -1205,8 +1205,11 @@ end
 ---------------------------------------------------------------- turtles finding their chest
 
 -- A turtle next to a chest on the network tells us what's in it (lib/claim.lua),
--- and that chest becomes its delivery chest, or the crafter chest:
---   { type = "claim", role = "delivery" or "crafter", items = its list() }
+-- and that chest becomes its delivery chest, or the crafter chest. A craft
+-- overseer far away claims the twin of its ender chest the same way, role
+-- "hub": it's kept as that overseer's crafter chest, and the overseer
+-- passes each batch on to its turtles' barrels.
+--   { type = "claim", role = "delivery", "crafter" or "hub", items = its list() }
 --     -> { re = "claim", ok = true, chest } when it's the one we have for it
 --     -> { re = "claim", probe = item } once we've put one item in a chest it could be
 --   { type = "claim", role, seen = true or false }  (did the item turn up?)
@@ -1318,7 +1321,7 @@ local function assign(from, role, chest)
   local s = loadSetup() or setup
   s.deliveries, s.crafters = s.deliveries or {}, s.crafters or {}
   for _, t in ipairs({ setup, s }) do
-    if role == "crafter" then
+    if role == "crafter" or role == "hub" then
       -- each crafting turtle has a chest of its own
       for id, name in pairs(t.crafters) do
         if name == chest then t.crafters[id] = nil end
@@ -1337,14 +1340,15 @@ local function assign(from, role, chest)
   saveSetup(s)
   if role == "crafter" then crafterId = from end
   store.scan() -- it may have been storage until now
-  message = { ("Turtle #%d's %s chest is %s."):format(from, role, chest), "lime" }
+  message = { role == "hub" and ("Craft overseer #%d's ender chest is %s."):format(from, chest)
+    or ("Turtle #%d's %s chest is %s."):format(from, role, chest), "lime" }
   if report then report.log(("turtle #%d uses %s"):format(from, chest)) end
   os.queueEvent("storage_changed")
   return { re = "claim", ok = true, chest = chest }
 end
 
 local function claimChest(from, msg, role)
-  role = role or (msg.role == "crafter" and "crafter" or "delivery")
+  role = role or ((msg.role == "crafter" or msg.role == "hub") and msg.role or "delivery")
   local c = claims[from]
   if msg.seen ~= nil then
     if not c then return { re = "claim", ok = false, error = "I lost track of where I was: try again" } end
@@ -1357,7 +1361,7 @@ local function claimChest(from, msg, role)
   end
   if c then takeMarker(c) end
   -- the chest we already have for it, if it still holds what the turtle sees
-  local mine = role == "crafter" and setup.crafters[from] or role == "delivery" and setup.deliveries[from]
+  local mine = (role == "crafter" or role == "hub") and setup.crafters[from] or role == "delivery" and setup.deliveries[from]
     or role == "work" and setup.works[from]
   if mine then
     local ok, list = pcall(peripheral.call, mine, "list")

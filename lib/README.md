@@ -33,7 +33,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
   chest), so nothing has to be picked in `storage setup`. Used by
-  `village-turtle`, `builder-turtle`, `crafter-turtle`, `remote-terminal` and `workchest.lua`
+  `village-turtle`, `builder-turtle`, `crafter-turtle`, `remote-terminal`, `craft-overseer`
+  (role `hub`: its ender chest's twin, for crafting turtles far away) and `workchest.lua`
   (role `work`: a far-away work chest, through an ender chest).
 - `mekfeed.lua`: Mekanism machines fed through a hopper or barrel (CC can't
   reach their slots): reads them and their feeders at once, sets their bottom

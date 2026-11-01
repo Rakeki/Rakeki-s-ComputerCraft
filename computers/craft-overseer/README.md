@@ -1,6 +1,6 @@
 # craft-overseer
 
-- **Type:** advanced computer, with a wired modem on the storage system's cable (and a wireless or ender modem if the crafting turtles talk by wireless)
+- **Type:** advanced computer, with a wired modem on the storage system's cable (and a wireless or ender modem if the crafting turtles talk by wireless); or far away, with an ender modem and an ender chest (see [Far from the storage system](#far-from-the-storage-system))
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
@@ -47,6 +47,7 @@ again.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is its ender chest's twin, when it has one (copy to `/lib/claim.lua`). Needed.
 
 ## Setup
 
@@ -64,7 +65,41 @@ again.
    ```
    overseer                  -- start (startup.lua does this on boot)
    overseer clear            -- forget the queue
+   overseer hub              -- use the ender chest on my cable (see below)
+   overseer hub <name>       -- that one, when there are several
+   overseer hub off          -- stop using it
    ```
+
+## Far from the storage system
+
+The crafting turtles can work somewhere else entirely (another base,
+another dimension) with **one pair of ender chests** for all of them:
+
+1. At the storage system: one ender chest of the pair, with a **full-block
+   wired modem** on it, on the storage cable (right-click the modem so it
+   turns red). Give the pair its own colours: nothing else may use them.
+2. At the crafting site: the overseer computer with an **ender modem** (it
+   reaches the storage computer and the turtles from anywhere) and a
+   **wired modem**, and its own cable joining:
+   - the other ender chest of the pair, with a wired modem on it;
+   - each crafting turtle's **barrel** (or chest), directly in front of the
+     turtle, with a wired modem on it.
+3. Each crafting turtle needs an ender or wireless modem too.
+4. On the overseer, type `overseer hub` (it picks the ender chest on its
+   cable, or lists them if there are several), then reboot it. It tells the
+   storage computer which chest is the twin of its ender chest (the storage
+   footer says "Craft overseer #5's ender chest is ..."), and each turtle
+   asks it which barrel is its own when it starts ("The craft overseer uses
+   my chest (...)").
+
+For each batch the storage computer loads the ender chest, the overseer
+moves it into that turtle's barrel, the turtle crafts, and the overseer
+sends what it made back through the ender chest. One batch passes through
+the ender chest at a time, but the turtles still craft side by side.
+
+The crafting site has to stay loaded (a chunk loader), or the turtles stop
+answering and their jobs wait. Turtles on the storage cable still work as
+before alongside the far-away ones.
 
 ## Things to know
 

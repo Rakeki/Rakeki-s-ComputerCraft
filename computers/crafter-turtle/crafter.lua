@@ -16,7 +16,9 @@
 -- Put its chest directly in front of it and connect the chest to the storage
 -- network with a full-block wired modem: the turtle tells the storage
 -- computer which chest is its own (lib/claim.lua), so there's nothing to pick
--- in 'storage setup'.
+-- in 'storage setup'. Far from the storage system, its barrel goes on the
+-- craft overseer's cable instead (the overseer's hub: an ender chest whose
+-- twin is on the storage cable), and the overseer finds it the same way.
 local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer which chest is mine
 local report = fs.exists("lib/report.lua") and require("lib.report")
@@ -24,6 +26,8 @@ local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves er
 
 local CRAFT_PROTOCOL = "storage_crafter" -- the storage computer sends crafting jobs on this
 local STORAGE_PROTOCOL = "storage" -- recipes are taught to the storage computer on this
+local OVERSEER_PROTOCOL = "craft_overseer" -- a craft overseer with an ender chest finds my barrel on this
+local OVERSEER_WAIT = 60 -- seconds to wait for the overseer (each answer may wait its turn at its ender chest)
 local GRID = { 1, 2, 3, 5, 6, 7, 9, 10, 11 } -- turtle slots of the 3x3 crafting grid
 local STAGE = { 4, 8, 12, 13, 14, 15 } -- slots outside the grid, for sorting ingredients into it
 local OUT_SLOT = 16 -- crafted items land here first
@@ -79,17 +83,34 @@ local storage = net.peer(STORAGE_PROTOCOL, { open = "any", wait = STORAGE_WAIT }
 -- Ask the storage computer something; nil if it doesn't answer.
 local function askStorage(msg) return (storage:ask(msg)) end
 
--- Make sure the storage computer uses the chest in front of me as its
--- crafter chest: on start, then now and then (it may have been set up
--- again), waiting while it's not running.
+-- a craft overseer with an ender chest of its own (far from the storage
+-- system) finds my barrel on its cable instead
+local overseer = net.peer(OVERSEER_PROTOCOL, { open = "any", wait = OVERSEER_WAIT, retry = 60 })
+local function askOverseer(msg) return (overseer:ask(msg)) end
+
+-- Make sure the storage system uses the chest in front of me as my crafter
+-- chest: the overseer's hub if my chest is on its cable, else the storage
+-- computer's own cable. On start, then now and then (it may have been set
+-- up again), waiting while it's not running.
 local function claimLoop()
   local said
+  local ways = { { ask = askOverseer, who = "craft overseer" }, { ask = askStorage, who = "storage system" } }
   while true do
     while busy do sleep(1) end
-    local ok, why = claim.chest(askStorage, "crafter", "front")
+    -- the one that took my chest last time first, so it's a quick check
+    local ok, why, way
+    local refused = {} -- why each one that answered didn't take it
+    for _, w in ipairs(ways) do
+      ok, why = claim.chest(w.ask, "crafter", "front")
+      way = w
+      if ok then break end
+      if ok == false then refused[#refused + 1] = ("%s: %s"):format(w.who, why) end
+    end
+    if ok and way ~= ways[1] then ways[1], ways[2] = ways[2], ways[1] end
+    if not ok and #refused > 0 then ok, why = false, table.concat(refused, "; ") end
     local text
     if ok then
-      text = ("The storage system uses my chest (%s)."):format(why)
+      text = ("The %s uses my chest (%s)."):format(way.who, why)
     elseif ok == false then
       text = "Couldn't hook my chest up to the storage system: " .. why
     else
@@ -335,7 +356,8 @@ if not openModems() then
 end
 if not frontChest() then
   print("Put my chest directly in front of me (with a full-block wired")
-  print("modem on it, on the storage cable), then start me again.")
+  print("modem on it, on the storage cable or the craft overseer's),")
+  print("then start me again.")
   return
 end
 rednet.host(CRAFT_PROTOCOL, os.getComputerLabel())
