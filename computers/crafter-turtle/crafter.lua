@@ -94,10 +94,12 @@ local function askOverseer(msg) return (overseer:ask(msg)) end
 -- up again), waiting while it's not running.
 local function claimLoop()
   local said
+  -- always the overseer first: the storage computer takes an empty chest it
+  -- had for me before as still mine (it can't tell two empty chests apart),
+  -- so asked first it would keep me from the overseer's barrel for good
   local ways = { { ask = askOverseer, who = "craft overseer" }, { ask = askStorage, who = "storage system" } }
   while true do
     while busy do sleep(1) end
-    -- the one that took my chest last time first, so it's a quick check
     local ok, why, way
     local refused = {} -- why each one that answered didn't take it
     for _, w in ipairs(ways) do
@@ -106,7 +108,6 @@ local function claimLoop()
       if ok then break end
       if ok == false then refused[#refused + 1] = ("%s: %s"):format(w.who, why) end
     end
-    if ok and way ~= ways[1] then ways[1], ways[2] = ways[2], ways[1] end
     if not ok and #refused > 0 then ok, why = false, table.concat(refused, "; ") end
     local text
     if ok then
@@ -118,7 +119,9 @@ local function claimLoop()
     end
     if text ~= said then print(text) said = text end
     if not ok then status("waiting", ok == false and why or "no storage system") end
-    sleep(ok and CLAIM_EVERY or 30)
+    -- the overseer said no but the storage computer took it: the overseer may
+    -- still be linking its ender chest, so ask it again soon
+    sleep(not ok and 30 or (way ~= ways[1] and #refused > 0) and 60 or CLAIM_EVERY)
   end
 end
 

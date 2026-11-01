@@ -347,6 +347,9 @@ end
 --   { type = "claim", role, seen = true or false }           -> the same answers
 local function claimBarrel(from, msg)
   if not hub.name then return { ok = false, error = "I have no ender chest of my own: use the storage cable" } end
+  -- a turtle that starts with me mustn't go to the storage computer just
+  -- because I haven't linked my ender chest yet
+  if not hub.ready and os.clock() >= (hub.nextClaim or 0) then claimHub() end
   if not hub.ready then return { ok = false, error = hub.why or "the storage computer hasn't found my ender chest yet" } end
   local c = claims[from]
   if msg.seen ~= nil then

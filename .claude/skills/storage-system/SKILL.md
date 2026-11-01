@@ -179,8 +179,12 @@ the overseer for a crafting turtle), then `load` / `clear` with
 the turtle's barrel itself, one batch at a time (`withHub`). Turtles
 `claim` on `craft_overseer` first (the overseer probes its own cable with
 an item from the ender chest, borrowed from storage by a one-item `load`;
-`/.overseer_barrels`), then on `storage`; whichever took the chest is asked
-first next time.
+`/.overseer_barrels`), then on `storage`, always in that order: the storage
+computer's quick check takes an empty chest it had for the turtle before as
+still its own (two empty chests look alike), so asked first it would keep the
+turtle off the overseer's barrel. The overseer links its ender chest before
+answering a turtle's first claim, so turtles that start with it don't fall
+through to the storage computer.
 
 **Machine jobs.** A factory computer sends `makes` with its infuser's
 recipes as ordinary grids (input cells plus enough infusion items for one
