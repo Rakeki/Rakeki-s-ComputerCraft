@@ -40,6 +40,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [instabuild](computers/instabuild/README.md): creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
+- [cobble-breeder](computers/cobble-breeder/README.md): breeds better and better Cobblemon from a Cobbreeding pasture (command computer): reads every egg's IVs before it hatches, sends the better ones to the incubator and tells you which breeder to swap; monitor shows each breeder's IVs and how close you are to 6x31
 - [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest and a touch monitor to take items from, and serves items to every turtle
 - [remote-terminal](computers/remote-terminal/README.md): the storage system from anywhere, through a linked ender chest: search and pull items, or drop them in to send them home
 - [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does

@@ -1,7 +1,7 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
-// and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
+// the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
 // build control on a pocket computer, and instabuild.
 (function () {
   const PALETTE = {
@@ -1272,6 +1272,118 @@
     return s;
   }
 
+  //---------------------------------------------------------------- cobblemon breeder
+
+  // computers/cobble-breeder/breed.lua on a monitor: a perfect Ditto and a
+  // Bulbasaur lay an egg every couple of seconds; better ones are kept and
+  // the swap shows in orange until "Make the swap" plays the player's part.
+  function breeder(el) {
+    const W = 57, H = 30, MAX = 31, PERFECT = 186;
+    const STATS = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
+    const s = new Screen(W, H, el);
+    const total = (m) => m.ivs.reduce((a, b) => a + b, 0);
+    const pct = (m) => Math.round(total(m) / PERFECT * 100);
+    const ivC = (v) => (v >= MAX ? "lime" : v >= 25 ? "yellow" : v >= 15 ? "orange" : "red");
+    const desc = (m) => `${m.species}${m.gender !== "-" ? " " + m.gender : ""} ${m.ivs.join("/")} (${total(m)})`;
+    const st = {
+      breeders: [
+        { species: "Ditto", gender: "-", nature: "Adamant", ivs: [31, 31, 31, 31, 31, 31] },
+        { species: "Bulbasaur", gender: "F", nature: "Modest", ivs: [24, 12, 31, 27, 18, 9] },
+      ],
+      swap: null, eggs: [], counts: { judged: 0, kept: 0, rej: 0 }, best: null, paused: false, msg: null, msgC: "white",
+    };
+    const say = (t, c = "white") => { st.msg = t; st.msgC = c; };
+
+    // an egg: each IV from a parent (5 with a Destiny Knot) or random
+    function layEgg() {
+      const [a, b] = st.breeders, from = new Set();
+      while (from.size < 5) from.add(Math.floor(Math.random() * 6));
+      const ivs = STATS.map((_, i) => (from.has(i) ? (Math.random() < 0.5 ? a : b).ivs[i] : Math.floor(Math.random() * 32)));
+      return { species: "Bulbasaur", gender: Math.random() < 0.88 ? "M" : "F", nature: "Modest", ivs, shiny: Math.random() < 0.03 };
+    }
+    function step() {
+      if (st.paused) return;
+      const egg = layEgg(), target = st.swap || st.breeders[1];
+      let verdict = "rej";
+      if (total(egg) > total(target)) { verdict = "keep"; st.swap = egg; st.counts.kept++; }
+      else if (egg.shiny) verdict = "shiny";
+      else st.counts.rej++;
+      st.counts.judged++;
+      if (!st.best || total(egg) > total(st.best)) st.best = egg;
+      st.eggs.unshift({ m: egg, verdict });
+      st.eggs.length = Math.min(st.eggs.length, 20);
+    }
+
+    function card(x, y, w, n, m) {
+      const head = st.swap && n === 2 ? "orange" : "gray";
+      const name = ` ${n} ${m.species} ${m.gender === "-" ? "" : m.gender}`, right = `${m.nature} `;
+      s.put(x, y, fitM(name, w), "white", head);
+      if (name.length + right.length + 1 <= w) s.put(x + w - right.length, y, right, "white", head);
+      STATS.forEach((label, i) => {
+        const v = m.ivs[i];
+        s.put(x, y + i + 1, fitM(label, 4), "lightGray");
+        barM(s, x + 4, y + i + 1, w - 7, v / MAX, ivC(v));
+        s.put(x + w - 2, y + i + 1, String(v).padStart(2), ivC(v));
+      });
+      s.put(x, y + 7, fitM(`${total(m)}/${PERFECT}  ${pct(m)}%${m.fromEgg ? "  (from egg)" : ""}`, w), m.fromEgg ? "lightGray" : "white");
+    }
+
+    function draw() {
+      s.clear();
+      const [word, col] = st.paused ? ["PAUSED", "gray"] : st.swap ? ["SWAP", "orange"] : ["BREEDING", "green"];
+      s.fill(1, col); s.put(2, 1, "Breeder", "white", col); s.put(W - word.length, 1, word, "white", col);
+      const best = st.breeders[1];
+      const label = `${String(pct(best)).padStart(3)}%`;
+      s.put(2, 3, "To 6x31", "lightGray"); barM(s, 10, 3, W - 16, total(best) / PERFECT, pct(best) >= 100 ? "lime" : "lightBlue"); s.put(W - label.length, 3, label);
+      let x = 2, covered = 0;
+      STATS.forEach((lab, i) => {
+        const top = Math.max(...st.breeders.map((b) => b.ivs[i])); covered += top;
+        const t = `${lab} ${top} `; s.put(x, 4, t, ivC(top)); x += t.length + 1;
+      });
+      const pair = `pair ${Math.round(covered / PERFECT * 100)}%`; s.put(W - pair.length, 4, pair, "lightGray");
+      const cw = Math.floor((W - 1) / 2) - 1;
+      st.breeders.forEach((m, i) => card(2 + i * (cw + 1), 6, cw, i + 1, m));
+      let y = 15;
+      if (st.swap) {
+        const text = `Swap breeder 2 (${total(st.breeders[1])}) for the new ${desc(st.swap)} once it hatches.`;
+        const words = text.split(" "); let line = "";
+        const lines = [];
+        for (const wd of words) { if ((line + " " + wd).trim().length > W - 2) { lines.push(line); line = wd; } else line = (line + " " + wd).trim(); }
+        lines.push(line);
+        lines.slice(0, 2).forEach((l) => s.put(1, y++, fitM(" " + l, W), "black", "orange"));
+      }
+      y++;
+      s.put(2, y++, fitM(`Eggs  ${st.counts.judged} judged  ${st.counts.kept} kept  ${st.counts.rej} rejected${st.best ? "  best " + total(st.best) : ""}`, W - 2), "lightGray");
+      const V = { keep: ["KEEP", "lime"], shiny: ["SHINY", "yellow"], rej: ["rej", "gray"] };
+      for (const e of st.eggs) {
+        if (y > H - 2) break;
+        s.put(2, y, fitM(`${e.m.species} ${e.m.gender}`, 13), e.m.shiny ? "yellow" : "white");
+        let ex = 16;
+        e.m.ivs.forEach((v) => { s.put(ex, y, String(v).padStart(2), ivC(v)); ex += 3; });
+        s.put(ex, y, `${String(total(e.m)).padStart(3)} ${V[e.verdict][0]}`, V[e.verdict][1]);
+        y++;
+      }
+      let bx = s.button(2, H, "Scan", "white", "blue", () => say("Scanned Ditto 31/31/31/31/31/31 (186)", "lime"));
+      bx = s.button(bx, H, st.paused ? "Resume" : "Pause", "white", st.paused ? "green" : "gray", () => {
+        st.paused = !st.paused; say(st.paused ? "Paused: eggs stay in the chest." : "Running again.");
+      });
+      if (st.swap) {
+        bx = s.button(bx, H, "Make the swap", "black", "orange", () => {
+          st.breeders[1] = { ...st.swap, fromEgg: true }; st.swap = null;
+          say("Swap made. Scan the new one to be sure, if you like.", "lime");
+        });
+      }
+      if (st.msg) s.put(bx, H, fitM(st.msg, W - bx + 1), st.msgC);
+      s.render();
+    }
+
+    for (let i = 0; i < 6; i++) step();
+    setInterval(() => { step(); draw(); }, 2000);
+    clickable(s, el, draw);
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- power dashboard
 
   // computers/power-dashboard/power.lua on a monitor: a made-up matrix
@@ -1948,5 +2060,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, essence, buildControl, instabuild } };
 })();

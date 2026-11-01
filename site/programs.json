@@ -2,7 +2,7 @@
   "groups": [
     { "id": "mining", "title": "Mining", "tagline": "Turtles that dig: halls, strip mines, Nether tunnels, and a fleet that mines chunk by chunk." },
     { "id": "building", "title": "Building", "tagline": "Plans, projections and the turtles that build them, from a cottage to a station in the sky." },
-    { "id": "farming", "title": "Farming", "tagline": "Trees, crops and Mystical Agriculture essence, harvested and replanted." },
+    { "id": "farming", "title": "Farming", "tagline": "Trees, crops and Mystical Agriculture essence, harvested and replanted, and Pokémon bred towards perfect IVs." },
     { "id": "storage", "title": "Storage & crafting", "tagline": "One searchable store for every chest, and the computers and turtles that craft, smelt and cook for it." },
     { "id": "mekanism", "title": "Mekanism & power", "tagline": "Reactors kept safe, power watched, digital miners run from one monitor." },
     { "id": "network", "title": "Network & dashboards", "tagline": "GPS, the status dashboard every program reports to, and a MineColonies overview." }
@@ -484,6 +484,53 @@
           ["Press Enter to start.", "", "yellow"]
         ]
       }
+    },
+    {
+      "name": "cobble-breeder",
+      "group": "farming",
+      "title": "Cobblemon Breeder",
+      "command": "breed",
+      "device": "computer",
+      "deviceLabel": "Command computer + monitor",
+      "color": "pink",
+      "tagline": "Breeds better and better Pokémon from a Cobbreeding pasture: reads every egg's IVs before it hatches, sends the better ones to the incubator and tells you which breeder to swap, on the way to a 6x31.",
+      "libs": ["screen", "files", "report", "errlog"],
+      "keep": ["config.lua"],
+      "autostart": true,
+      "stats": [
+        ["Judges", "every egg"],
+        ["Goal", "6 × 31 IVs"],
+        ["Monitor", "4 × 3 or bigger"],
+        ["Needs", "Cobbreeding + Incubator"]
+      ],
+      "features": [
+        "Reads each egg's IVs, nature and gender in the egg chest, before it hatches",
+        "An egg that beats the weakest breeder goes to the incubator; the rest to a reject chest, deleted or hatched",
+        "Says which breeder to recall and follows the pasture, so a swap never needs scanning",
+        "Monitor: every breeder's six IVs, progress to 6x31, the best of each stat and the last eggs"
+      ],
+      "setup": [
+        "Set eggEncryptionEnabled to false in config/cobbreeding/main.json and run /cobbreeding reload.",
+        "Put a hopper under the pasture into an egg chest, and a hopper on top of the incubator (keep the incubator away from the pasture).",
+        "Place a command computer within 8 blocks of them with a monitor, install, and run 'breed setup' to pick each chest.",
+        "Send each breeder out next to the computer and tap Scan (or type its IVs with 'breed ivs'), then put it in the pasture."
+      ],
+      "commands": [
+        ["breed setup", "find the pasture and chests around the computer and pick each"],
+        ["breed", "run it on the monitor (runs on boot once set up)"],
+        ["breed scan", "read the Pokémon sent out next to the computer"],
+        ["breed ivs 2 31 31 28 31 30 31", "type breeder 2's IVs by hand"],
+        ["breed forget", "forget the egg history and the best egg"]
+      ],
+      "integrates": [
+        ["status-server", "Shows the best breeder's progress, and turns yellow when a swap is waiting or a chest is full."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "breeder",
+        "caption": "The breeder on a monitor, with made-up eggs. When a better egg comes in, tap Make the swap to play your part."
+      },
+      "terminal": null
     },
     {
       "name": "mine-server",
