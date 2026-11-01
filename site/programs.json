@@ -701,6 +701,7 @@
       "commands": [
         ["projector", "show the last plan (startup does this)"],
         ["projector <plan>", "show a plan from /plans (.json or .lua)"],
+        ["projector platform 31x25x8", "a plan that takes a size: wide x long x high"],
         ["projector village", "follow what a village turtle is building"],
         ["projector build", "have the builder turtles (or instabuild) build the plan where it's shown (or tap Build)"],
         ["projector list", "every plan, with its size"],
@@ -821,6 +822,7 @@
         ["build check <plan>", "its size and the blocks it needs"],
         ["build <plan> <x> <y> <z> [facing]", "build it with its north-west bottom corner at x y z"],
         ["build <plan> here [facing]", "the same, at this computer's GPS position"],
+        ["build platform <x> <y> <z> north 31x25x8", "a plan that takes a size: wide x long x high"],
         ["build watch", "follow the builders (runs on boot while one is building)"],
         ["build stop", "call them off; again to give up on ones that don't answer"]
       ],
@@ -871,6 +873,7 @@
         ["instabuild check <plan>", "its size and the blocks it uses"],
         ["instabuild <plan> <x> <y> <z> [facing]", "build it with its north-west bottom corner at x y z"],
         ["instabuild <plan> here [facing]", "2 blocks south of this computer, on its level"],
+        ["instabuild platform <x> <y> <z> north 31x25x8", "a plan that takes a size: wide x long x high"],
         ["instabuild serve", "place what the blueprint projector shows when Build is tapped on it (U undo, Q stop)"],
         ["instabuild undo", "remove what the last build placed"]
       ],
@@ -1695,17 +1698,18 @@
       "tagline": "Building plans: load a .json or .lua plan from /plans and place it in the world, turned to face any way.",
       "usage": "local plan = require(\"lib.plan\")\n\nlocal p = assert(plan.load(\"skystation\"))   -- /plans/skystation.json or .lua\nlocal at = plan.corner(p, 0, 100, 150, -40) -- north-west bottom corner, facing north\nlocal mats, blocks = plan.world(p, at)     -- names; { x, y, z, m } in world coords\nprint(p.name, p.w, p.l, p.h, #blocks)",
       "api": [
-        ["plan.load(id)", "The plan in /plans/<id>.json or .lua (or a file path), or nil and what's wrong with it: { name, mats, blocks, layers, w, l, h, clear }."],
+        ["plan.load(id, opts)", "The plan in /plans/<id>.json or .lua (or a file path), or nil and what's wrong with it: { name, mats, blocks, layers, w, l, h, clear }. A Lua plan gets opts as its \"...\"."],
+        ["plan.options(words)", "Picks a plan's options out of a command's words, and returns them and the other words: a size like 31x25 or 31x25x8 is opts.size, key=value is opts[key]."],
         ["plan.ids()", "Every plan name in /plans."],
         ["plan.copy(id, to)", "Copy the plan's file to to plus its extension and return the new path: build from the copy so an update to /plans can't change a building half way."],
         ["plan.fromTable(raw, id)", "A plan from a table already in memory (legend + layers, or a block list)."],
         ["plan.corner(p, turn, x, y, z)", "Where it goes (\"at\") so its north-west bottom corner is x y z, turned turn quarter turns clockwise."],
-        ["plan.world(p, at)", "Block names (facing states turned with the plan), and every block as { x, y, z, m } in world coordinates."],
+        ["plan.world(p, at)", "Block names (facing states, and the sides of walls, fences and panes, turned with the plan), and every block as { x, y, z, m } in world coordinates."],
         ["plan.base(block) / plan.facing(block)", "A block name without its [state], and its facing as a heading (0 north .. 3 west) or nil."],
         ["plan.area(p, at), plan.footprint(p, at)", "The box it fills, and the ground it covers."],
         ["plan.offset(p, turn, x, z)", "A plan block's offset from at, turned."]
       ],
-      "notes": "A plan file is JSON (legend + layers, each layer rows of letters seen from above with the first row north; or blocks: [[x, y, z, \"minecraft:stone\"], ...]) or a Lua file returning the same table, for plans made by code. \"clear\": false marks one built in the air, so builders don't dig out its box first. A block can carry a state, \"minecraft:spruce_stairs[facing=east]\": builders face that way to place it, and turning the plan turns it."
+      "notes": "A plan file is JSON (legend + layers, each layer rows of letters seen from above with the first row north; or blocks: [[x, y, z, \"minecraft:stone\"], ...]) or a Lua file returning the same table, for plans made by code. \"clear\": false marks one built in the air, so builders don't dig out its box first. A block can carry a state, \"minecraft:spruce_stairs[facing=east]\": builders face that way to place it, and turning the plan turns it (and north=tall style sides of walls and fences). A Lua plan can take options typed after the command, as its \"...\": the platform plan reads opts.size, so 'build platform 100 64 -20 north 31x25x8' builds it 31 by 25 and 8 high."
     },
     {
       "name": "crew",
@@ -1997,9 +2001,9 @@
       "name": "platform",
       "file": "platform.lua",
       "title": "Mossy platform",
-      "tagline": "A raised square of moss to build on, any size: old stonework sides of stone bricks and cobblestone, mossy and cracked, where big blocks two high stand out in staggered rows over sunken bands, fitted to each side, under a stone rim. 21 × 21 and 5 high; set platform.size 31x25 (or 31x25x8) for another size.",
-      "size": "21 × 21 × 5",
-      "blocks": 2037
+      "tagline": "A raised square of moss, any size, its sides an old mossy stone wall: a tuff rim over wall posts on pillars, then staggered rows of blocks over sunken bands, fitted to each side and wrapping the corners. 21 × 21 and 11 high; type a size after it for another (build platform <x> <y> <z> north 31x25x8).",
+      "size": "21 × 21 × 11",
+      "blocks": 4419
     }
   ]
 }

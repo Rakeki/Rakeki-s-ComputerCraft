@@ -14,7 +14,9 @@
 --
 -- facing is where the plan's front (its first row) faces: north (the
 -- default), east, south or west. Plans: 'install plan <name>', or your own
--- in /plans.
+-- in /plans. A plan that takes a size (platform) gets it as one more word
+-- anywhere after the plan: 31x25 or 31x25x8 (wide x long x high), as in
+-- instabuild platform 100 64 -20 north 31x25x8.
 local plans = require("lib.plan") -- loading plans and placing them in the world
 local files = require("lib.files")
 local net = require("lib.net") -- rednet requests and answers, for serve
@@ -30,7 +32,9 @@ local READ_MAX = 4096 -- most blocks one getBlockInfos call reads
 local IN_FLIGHT = 128 -- commands sent before waiting for answers
 local AIR = { ["minecraft:air"] = true, ["minecraft:cave_air"] = true, ["minecraft:void_air"] = true }
 
-local args = { ... }
+-- a size (31x25x8) or key=value words typed after the plan are its options
+-- (lib/plan.lua); the rest are the command
+local typed, args = plans.options({ ... })
 
 local function facingName(turn)
   for name, t in pairs(FACINGS) do
@@ -250,7 +254,7 @@ local function listPlans()
 end
 
 local function checkPlan(id)
-  local p, err = plans.load(id)
+  local p, err = plans.load(id, typed)
   if not p then error(err, 0) end
   print(("%s: %d wide, %d deep, %d high, %d blocks"):format(p.name, p.w, p.l, p.h, #p.blocks))
   table.sort(p.mats, function(a, b) return a.total > b.total end)
@@ -258,7 +262,7 @@ local function checkPlan(id)
 end
 
 local function build(id, where, facingArg)
-  local p, err = plans.load(id)
+  local p, err = plans.load(id, typed)
   if not p then error(err, 0) end
   local turn = FACINGS[facingArg or "north"]
   if not turn then error("Facing must be north, east, south or west.", 0) end

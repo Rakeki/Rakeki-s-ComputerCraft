@@ -77,10 +77,11 @@ two-storey **tavern**, a **chapel** with a bell tower, a **market**
 square, a **treehouse**, a **castle** (45×45, 31 high, about 8,200
 blocks), a **barn** and silo, a Japanese **teahouse** and garden, a
 **wizardtower**, a **greenhouse**, a modern **villa**, a Viking
-**longhouse** and a **platform**: a raised square of moss on mossy
-stonework sides (big blocks standing out in staggered rows), 21×21 and 5
-high or any size you set first (`set platform.size 31x25`, or `31x25x8`
-for 8 high; the blocks are fitted to it). A few hold water or lava, which the builders place from
+**longhouse** and a **platform**: a raised square of moss whose sides are
+an old mossy stone wall (a tuff rim, wall posts on pillars, staggered rows
+of blocks), 21×21 and 11 high or any size you type after it:
+`projector platform 31x25x8` (wide x long x high; or `set platform.size
+31x25x8` once). A few hold water or lava, which the builders place from
 buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
 forge (1 lava). `install plans` lists every
@@ -293,6 +294,8 @@ modem, and they must be in range of each other.
 
 A plan is a file in `/plans/` named after it: `/plans/house.json` (or
 `house.lua`) is `projector house`. Every plan there appears on the monitor.
+A plan that takes a size (the platform) gets it as one more word,
+`projector platform 31x25x8`; it stays with that plan through reboots.
 
 ### Getting plans
 

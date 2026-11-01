@@ -64,6 +64,7 @@ build check skystation              -- size, and every block it needs
 build skystation 100 150 -40        -- north-west bottom corner at 100 150 -40, front facing north
 build cottage 20 64 -8 east         -- front facing east (north, east, south or west)
 build cottage here                  -- at this computer's position (needs GPS)
+build platform 100 64 -20 north 31x25x8 -- a plan that takes a size: 31 wide, 25 long, 8 high
 build watch                         -- follow the builders again (after Ctrl+T)
 build stop                          -- call them off; again to give up on ones that don't answer
 ```
@@ -71,6 +72,11 @@ build stop                          -- call them off; again to give up on ones t
 "Facing" is the way the plan's front (its first row) faces. Turning it
 keeps the north-west corner where you said, so the building grows south and
 east from there whichever way it faces.
+
+Some plans take a size, typed as one more word: `31x25` (wide x long) or
+`31x25x8` (and how high). The platform plan is one:
+`build platform 100 64 -20 north 31x25x8`, or `build check platform 31x25x8`
+first to see what it needs. A plan that takes no size ignores it.
 
 ## Things to know
 

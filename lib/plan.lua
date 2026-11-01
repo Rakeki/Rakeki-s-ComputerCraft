@@ -4,6 +4,8 @@
 --
 --   local plan = require("lib.plan")
 --   local p, err = plan.load("skystation")   -- /plans/skystation.json or .lua, or a file path
+--   local opts, rest = plan.options({ ... })  -- "31x25x8" and key=value words a Lua plan reads
+--   local p = plan.load("platform", opts)     -- ...as "local opts = ..." (opts.size = "31x25x8")
 --   local at = plan.corner(p, 0, 100, 150, -40) -- north-west bottom corner, facing north
 --   local mats, blocks = plan.world(p, at)    -- block names; { x, y, z, m } in world coordinates
 --
@@ -22,7 +24,11 @@
 -- <plan>' digs that hole. A colour (a number, or "#rrggbb") is only for the
 -- projection. A block may carry a state, as setblock takes it:
 -- "minecraft:spruce_stairs[facing=east]". Builder turtles face that way to
--- place it (stairs climb towards it), and turning the plan turns it.
+-- place it (stairs climb towards it), and turning the plan turns it (and
+-- the sides of walls, fences and panes: north=tall).
+-- A Lua plan gets the options typed after the command as its "..." (a table,
+-- empty when there are none): a size word like 31x25 or 31x25x8 is
+-- opts.size, and key=value words are opts[key]. It should work without any.
 local plan = {}
 
 local FACINGS = { "north", "east", "south", "west" }
@@ -38,11 +44,23 @@ function plan.facing(block)
   end
 end
 
--- The block with its facing turned turn quarter turns clockwise.
+-- The block with its facing turned turn quarter turns clockwise, and its
+-- sides too (a wall's or fence's north=tall becomes east=tall).
 local function turned(block, turn)
-  local f = plan.facing(block)
-  if not f or (turn or 0) % 4 == 0 then return block end
-  return (block:gsub("([%[,]facing=)%a+", "%1" .. FACINGS[(f + turn) % 4 + 1]))
+  turn = (turn or 0) % 4
+  local name, state = block:match("^([^%[]+)%[(.*)%]$")
+  if turn == 0 or not state then return block end
+  local index = {}
+  for i, f in ipairs(FACINGS) do index[f] = i - 1 end
+  local function turn1(f) return FACINGS[(index[f] + turn) % 4 + 1] end
+  local parts = {}
+  for kv in state:gmatch("[^,]+") do
+    local k, v = kv:match("^(.-)=(.*)$")
+    if k == "facing" and index[v] then kv = k .. "=" .. turn1(v)
+    elseif k and index[k] then kv = turn1(k) .. "=" .. v end
+    parts[#parts + 1] = kv
+  end
+  return name .. "[" .. table.concat(parts, ",") .. "]"
 end
 
 plan.DIR = "/plans"
@@ -193,8 +211,22 @@ function plan.ids()
   return ids
 end
 
--- Load a plan: the plan, or nil and what's wrong with it.
-function plan.load(id)
+-- The options among a command's words, and the other words in order: a
+-- size like 31x25 or 31x25x8 is opts.size, key=value is opts[key].
+function plan.options(words)
+  local opts, rest = {}, {}
+  for _, word in ipairs(words) do
+    local k, v = word:match("^(%a[%w_]*)=(.+)$")
+    if k then opts[k] = v
+    elseif word:match("^%d+x%d+$") or word:match("^%d+x%d+x%d+$") then opts.size = word
+    else rest[#rest + 1] = word end
+  end
+  return opts, rest
+end
+
+-- Load a plan: the plan, or nil and what's wrong with it. A Lua plan gets
+-- opts (from plan.options) as its "...".
+function plan.load(id, opts)
   local path = plan.path(id)
   if not path then return nil, ("No plan called '%s' in %s."):format(id, plan.DIR) end
   local raw
@@ -207,7 +239,7 @@ function plan.load(id)
   else
     local fn, err = loadfile(path, nil, setmetatable({}, { __index = _G }))
     if not fn then return nil, err end
-    local ok, result = pcall(fn)
+    local ok, result = pcall(fn, opts or {})
     if not ok then return nil, result end
     raw = result
   end

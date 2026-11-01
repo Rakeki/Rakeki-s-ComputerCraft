@@ -7,7 +7,8 @@
 --
 -- Usage:
 --   projector                 show the last plan (startup runs this)
---   projector <plan>          show a plan: /plans/<plan>.json or .lua, or a file path
+--   projector <plan> [size]   show a plan: /plans/<plan>.json or .lua, or a file path;
+--                             a size (31x25x8) or key=value words go to a plan that takes them (platform)
 --   projector village         show what a village turtle is building, where it's building it
 --   projector build           have a builder turtle (computers/builder-turtle) build the plan where it's shown
 --                             (or a command computer running 'instabuild serve' place it, in creative)
@@ -43,7 +44,9 @@ local INSTA_PROTOCOL = "instabuild" -- a command computer running 'instabuild se
 local INSTA_WAIT = 10 -- seconds to wait for it to take a building
 local INSTA_RETRY = 30 -- seconds before looking for one again after none was found
 
-local args = { ... }
+-- a size (31x25x8) or key=value words typed after the plan are its options
+-- (lib/plan.lua); the rest are the command
+local typed, args = plans.options({ ... })
 
 ---------------------------------------------------------------- files
 
@@ -132,7 +135,7 @@ local function decorate(p)
 end
 
 -- file: load from there instead of /plans (the copy a build was started with)
-local function loadPlan(id, file)
+local function loadPlan(id, file, opts)
   if id == "village" then
     if not village then return nil, "No village builder heard yet." end
     local ok, p = pcall(plans.fromTable, { name = village.name, blocks = village.blocks }, id)
@@ -142,7 +145,7 @@ local function loadPlan(id, file)
     p.village, p.fixed, p.world0 = true, village.world, { x = x0, y = y0, z = z0 }
     return decorate(p)
   end
-  local p, err = plans.load(file or id)
+  local p, err = plans.load(file or id, opts)
   if not p then return nil, err end
   p.id = id
   return decorate(p)
@@ -228,7 +231,7 @@ local function save()
   writeFile(STATE_FILE, {
     plan = state.plan, x = state.x, y = state.y, z = state.z, turn = state.turn,
     view = state.view, layer = state.layer, step = state.step, hidden = state.hidden, build = state.build,
-    buildPlan = state.buildPlan, page = state.page,
+    buildPlan = state.buildPlan, page = state.page, opts = state.opts, optsFor = state.optsFor,
   })
 end
 
@@ -248,7 +251,8 @@ local function usePlan(id, keepPlace)
   -- while it's being built, the plan comes from the copy taken at Build, so
   -- a reboot shows (and hands out) exactly what the builders are building
   local building = state.build and state.buildPlan and id == state.plan and fs.exists(state.buildPlan)
-  local p, err = loadPlan(id, building and state.buildPlan or nil)
+  -- options typed with a plan stay with that plan, not the next one picked
+  local p, err = loadPlan(id, building and state.buildPlan or nil, state.optsFor == id and state.opts or nil)
   if not p then return false, err end
   plan, state.plan = p, id
   state.layer = state.view == "layer" and (villageLayer() or 1) or plan.h
@@ -800,7 +804,7 @@ local function listPlans()
 end
 
 local function checkPlan(id)
-  local p, err = loadPlan(id)
+  local p, err = loadPlan(id, nil, typed)
   if not p then error(err, 0) end
   print(("%s: %d wide, %d deep, %d high, %d blocks"):format(p.name, p.w, p.l, p.h, #p.blocks))
   print(("Shows as %d shapes (whole view)."):format(#mergeBoxes(p.blocks, true)))
@@ -835,6 +839,7 @@ local function main()
     cmd, buildOnStart = nil, true
   end
   if cmd then
+    state.opts, state.optsFor = next(typed) and typed or nil, cmd
     local ok, err = usePlan(cmd, state.plan ~= nil)
     if not ok then error(err, 0) end
     state.hidden = false

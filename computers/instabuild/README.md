@@ -58,6 +58,7 @@ instabuild check skystation              -- size, and every block it uses
 instabuild skystation 100 150 -40        -- north-west bottom corner at 100 150 -40, front facing north
 instabuild cottage 20 64 -8 east         -- front facing east (north, east, south or west)
 instabuild cottage here                  -- 2 blocks south of this computer, on its level
+instabuild platform 100 64 -20 north 31x25x8 -- a plan that takes a size: 31 wide, 25 long, 8 high
 instabuild serve                         -- place what the blueprint projector shows when Build is tapped on it
 instabuild undo                          -- remove what the last build placed
 ```

@@ -14,7 +14,9 @@
 --
 -- facing is where the plan's front (its first row) faces: north (the
 -- default), east, south or west. Plans: 'install plan <name>', or your own
--- .json / .lua in /plans (see lib/plan.lua).
+-- .json / .lua in /plans (see lib/plan.lua). A plan that takes a size
+-- (platform) gets it as one more word anywhere after the plan: 31x25 or
+-- 31x25x8 (wide x long x high), as in build platform 100 64 -20 north 31x25x8.
 local plans = require("lib.plan") -- loading plans and placing them in the world
 local crew = require("lib.crew") -- hands the plan to builder turtles
 local net = require("lib.net")
@@ -27,7 +29,9 @@ local PLAN_COPY = "/.build_control_plan" -- the plan being built, copied when it
 local FACINGS = { north = 0, east = 1, south = 2, west = 3 }
 local GPS_WAIT = 5 -- seconds to wait for a GPS fix ('build <plan> here')
 
-local args = { ... }
+-- a size (31x25x8) or key=value words typed after the plan are its options
+-- (lib/plan.lua); the rest are the command
+local typed, args = plans.options({ ... })
 local state = files.read(STATE_FILE) or {}
 
 local function status(s, detail)
@@ -47,7 +51,7 @@ local job -- the plan in world coordinates, worked out once (a big plan takes a 
 local builders = crew.new({
   job = function()
     if not job then
-      local p, err = plans.load(state.plan)
+      local p, err = plans.load(state.plan, state.opts)
       if not p then error(err, 0) end
       local mats, blocks = plans.world(p, state.at)
       job = { id = state.plan, name = p.name, mats = mats, blocks = blocks, area = plans.area(p, state.at), clear = p.clear }
@@ -114,7 +118,7 @@ local function listPlans()
 end
 
 local function checkPlan(id)
-  local p, err = plans.load(id)
+  local p, err = plans.load(id, typed)
   if not p then error(err, 0) end
   print(("%s: %d wide, %d deep, %d high, %d blocks%s"):format(p.name, p.w, p.l, p.h, #p.blocks,
     p.clear and "" or ", built in the air"))
@@ -126,7 +130,7 @@ local function start(id, where, facingArg)
   if builders.build then
     error(("Already building %s: 'build stop' first, or 'build watch'."):format(builders.build.name), 0)
   end
-  local p, err = plans.load(id)
+  local p, err = plans.load(id, typed)
   if not p then error(err, 0) end
   local turn = FACINGS[facingArg or "north"]
   if not turn then error("Facing must be north, east, south or west.", 0) end
@@ -158,7 +162,7 @@ local function start(id, where, facingArg)
   -- same plan, even if /plans/<id> is updated meanwhile
   local copy, copyErr = plans.copy(id, PLAN_COPY)
   if not copy then error(copyErr, 0) end
-  state.plan, state.at = copy, at
+  state.plan, state.at, state.opts = copy, at, typed
   files.write(STATE_FILE, state)
   if builders:start() then watch() end
 end
