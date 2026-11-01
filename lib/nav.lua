@@ -184,13 +184,16 @@ local function headingBetween(p1, p2)
 end
 
 -- Work out position and heading from GPS by stepping forward once and back.
+-- Ends facing the way it started: jobs take the start facing as their
+-- forward, so a turn left in here would turn the whole job.
 local function calibrate()
   local p1 = locate()
   if not p1 then return false end
-  local moved = false
+  local moved, turns = false, 0
   for _ = 1, 4 do
     if turtle.forward() then moved = true break end
     nav.turnRight()
+    turns = turns + 1
   end
   if not moved and dig("forward") then moved = turtle.forward() end
   if moved then
@@ -204,6 +207,7 @@ local function calibrate()
   else
     pos = p1 -- boxed in: position is right, heading is the last saved one
   end
+  for _ = 1, turns % 4 do nav.turnLeft() end
   save()
   return true
 end

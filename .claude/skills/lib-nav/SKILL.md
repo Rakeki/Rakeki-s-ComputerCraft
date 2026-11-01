@@ -36,7 +36,7 @@ in their own frame (forward/right of the start) convert with an origin; see
 
 | Call | Does |
 |---|---|
-| `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading). Returns `true` if the position is known. |
+| `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading; if blocked it tries the other sides, then turns back, so it always ends facing the way it started). Returns `true` if the position is known. |
 | `nav.setPosition(x, y, z, h)` | Sets position/heading outright (h number or name) and saves. |
 | `nav.locate()` | Where GPS says the turtle is, rounded to the block, or nil (no move, no calibration). |
 | `nav.confirmResume(putBack)` | Resuming without GPS: gives the player 10 s to press a key if the turtle was moved. True to carry on; on a key prints `putBack` (how to put it back and run `prog here`) and returns false. |
