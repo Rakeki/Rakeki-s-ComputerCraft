@@ -844,7 +844,12 @@ function orderCraft(name, count)
   if not jobs then
     -- make what we can, so a build gets as far as it can meanwhile
     local can = crafting.craftable(name, stock, count - 1, reach)
-    if can == 0 then return false, "not enough to make it from" end
+    if can == 0 then
+      local none = crafting.missing and crafting.missing(name, stock, reach)
+      if type(none) == "table" then none = none[1] end
+      if type(none) == "string" then return false, "no " .. (none:sub(1, 1) == "#" and none or nameOf(none)) .. " stored, and no way to make it" end
+      return false, "not enough to make it from"
+    end
     count, why = can, ("only enough to make %d"):format(can)
     jobs = crafting.plan(name, count, stock, reach)
     if not jobs then return false, "not enough to make it from" end
@@ -1834,8 +1839,16 @@ local function handleRequest(from, msg)
       message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
     elseif short and next(making) then
       message = { ("Turtle #%d asked for items I'm crafting now."):format(from), "lightBlue" }
-    elseif short and next(cantCraft) and select(2, next(cantCraft)) ~= "no recipe for it" then
-      local item, why = next(cantCraft)
+    elseif short and next(cantCraft) then
+      -- name the item and why: a reason other than "no recipe" first, as
+      -- that's one more stock (or a recipe further down) would fix
+      local item, why
+      for name, w in pairs(cantCraft) do
+        if not item or (why == "no recipe for it" and w ~= why) then item, why = name, w end
+      end
+      if why == "no recipe for it" then
+        why = "no recipe for it (teach one with 'crafter learn')"
+      end
       message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(item), from, why), "orange" }
     elseif short then
       message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }

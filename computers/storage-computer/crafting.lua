@@ -9,6 +9,7 @@
 --   crafting.reachable(avail)       every item that could possibly be made from avail
 --   crafting.plan(name, n, avail, reach)       crafts that make n, or nil; avail: item -> count usable
 --   crafting.craftable(name, avail, max, reach) how many could be made from avail
+--   crafting.missing(name, avail, reach)        the ingredient there's none of (and no way to make), or nil
 --   crafting.names()                every item it has a recipe for
 --   crafting.using(pattern)         every recipe with an ingredient matching a Lua pattern (essence)
 --   crafting.setMachine(via, list)  recipes a machine runs instead of a crafting turtle (the factory's
@@ -319,6 +320,34 @@ function crafting.craftable(name, avail, max, reach)
     if can(mid) then lo = mid else hi = mid end
   end
   return lo
+end
+
+-- Why name can't be made at all from avail: the ingredient, as deep down
+-- as it goes, that there's none of and no way to make (an item name, a
+-- "#tag", or a list of names), or nil when it's only amounts that are short.
+-- Follows each item's first recipe, so it's a hint, not the only answer.
+function crafting.missing(name, avail, reach, depth)
+  depth = depth or 0
+  local r = (byMake[name] or {})[1]
+  if not r or depth > MAX_DEPTH then return nil end
+  for k = 1, 9 do
+    local key = r.grid[k]
+    if key then
+      local have = false
+      for item, n in pairs(avail) do
+        if n > 0 and crafting.matches(key, item) then have = true break end
+      end
+      if not have then
+        local options = makeable(key)
+        local reachable = false
+        for _, item in ipairs(options) do
+          if not reach or reach[item] then reachable = true break end
+        end
+        if not reachable then return (options[1] and crafting.missing(options[1], avail, reach, depth + 1)) or key end
+      end
+    end
+  end
+  return nil
 end
 
 -- Everything that could possibly be made from avail, ignoring amounts:
