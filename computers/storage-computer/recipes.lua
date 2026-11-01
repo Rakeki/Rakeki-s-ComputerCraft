@@ -19,6 +19,7 @@ local function mc(name) return "minecraft:" .. name end
 local function stairs(make, block) add(make, 4, { "B  ", "BB ", "BBB" }, { B = mc(block) }) end
 local function slab(make, block) add(make, 6, { "BBB" }, { B = mc(block) }) end
 local function square(make, block, count) add(make, count or 4, { "BB", "BB" }, { B = mc(block) }) end
+local function wall(make, block) add(make, 6, { "BBB", "BBB" }, { B = mc(block) }) end
 
 local WOODS = { "oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry" }
 local woodSlabs = {}
@@ -55,7 +56,7 @@ add("lantern", 1, { "NNN", "NTN", "NNN" }, { N = mc("iron_nugget"), T = mc("torc
 -- stone
 stairs("cobblestone_stairs", "cobblestone")
 slab("cobblestone_slab", "cobblestone")
-add("cobblestone_wall", 6, { "CCC", "CCC" }, { C = mc("cobblestone") })
+wall("cobblestone_wall", "cobblestone")
 add("mossy_cobblestone", 1, { "CM" }, { C = mc("cobblestone"), M = { mc("vine"), mc("moss_block") } })
 square("stone_bricks", "stone")
 stairs("stone_brick_stairs", "stone_bricks")
@@ -85,6 +86,50 @@ add("packed_mud", 1, { "MW" }, { M = mc("mud"), W = mc("wheat") })
 square("mud_bricks", "packed_mud")
 stairs("mud_brick_stairs", "mud_bricks")
 slab("mud_brick_slab", "mud_bricks")
+
+-- more stone: the blocks made from others, then each family's stairs, slab
+-- and wall ({ name the pieces start with, block, wall = false for none })
+add("mossy_stone_bricks", 1, { "BM" }, { B = mc("stone_bricks"), M = { mc("vine"), mc("moss_block") } })
+square("polished_granite", "granite")
+square("polished_diorite", "diorite")
+square("red_sandstone", "red_sand", 1)
+square("nether_bricks", "nether_brick", 1)
+square("polished_blackstone", "blackstone")
+square("polished_blackstone_bricks", "polished_blackstone")
+square("end_stone_bricks", "end_stone")
+square("polished_tuff", "tuff")
+square("tuff_bricks", "polished_tuff")
+local STONES = {
+  { "stone", "stone", wall = false },
+  { "mossy_cobblestone", "mossy_cobblestone" },
+  { "mossy_stone_brick", "mossy_stone_bricks" },
+  { "granite", "granite" }, { "diorite", "diorite" }, { "andesite", "andesite" },
+  { "polished_granite", "polished_granite", wall = false },
+  { "polished_diorite", "polished_diorite", wall = false },
+  { "polished_andesite", "polished_andesite", wall = false },
+  { "cobbled_deepslate", "cobbled_deepslate" },
+  { "polished_deepslate", "polished_deepslate" },
+  { "deepslate_brick", "deepslate_bricks" },
+  { "red_sandstone", "red_sandstone" },
+  { "nether_brick", "nether_bricks" },
+  { "blackstone", "blackstone" },
+  { "polished_blackstone", "polished_blackstone" },
+  { "polished_blackstone_brick", "polished_blackstone_bricks" },
+  { "end_stone_brick", "end_stone_bricks" },
+  { "prismarine", "prismarine" },
+  { "tuff", "tuff" }, { "polished_tuff", "polished_tuff" }, { "tuff_brick", "tuff_bricks" },
+}
+for _, s in ipairs(STONES) do
+  stairs(s[1] .. "_stairs", s[2])
+  slab(s[1] .. "_slab", s[2])
+  if s.wall ~= false then wall(s[1] .. "_wall", s[2]) end
+end
+-- walls of families whose stairs and slabs are above
+wall("stone_brick_wall", "stone_bricks")
+wall("deepslate_tile_wall", "deepslate_tiles")
+wall("brick_wall", "bricks")
+wall("mud_brick_wall", "mud_bricks")
+wall("sandstone_wall", "sandstone")
 
 -- glass, farm and home
 add("glass_pane", 16, { "GGG", "GGG" }, { G = mc("glass") })

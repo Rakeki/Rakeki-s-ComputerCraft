@@ -216,7 +216,9 @@ crafting turtle stops answering, waiting turtles are told that crafting is
 stuck, and it carries on by itself once the turtle is back.
 
 The recipes are in `recipes.lua`: everything craftable that the village
-themes use, plus the usual basics. Teach it more with `crafter learn` on the
+themes use, the usual basics, and the stairs, slabs and walls of the vanilla
+stone, brick, deepslate, blackstone and tuff families (mossy stone bricks
+too). Teach it more with `crafter learn` on the
 crafting turtle; those are saved on this computer in `/.storage_recipes`.
 For every recipe in your modpack, see [Modded recipes](#modded-recipes).
 
