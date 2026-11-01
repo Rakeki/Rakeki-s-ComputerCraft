@@ -886,6 +886,7 @@
       "features": [
         "Clears the plot (not for a plan built in the air), then builds every layer from the block above it",
         "Restocks from the supply chest behind its home, or orders from the storage system",
+        "Far from the storage cable? Its supply chest can be an ender chest whose twin is on the cable: no setup, just an ender modem on the turtle",
         "Reports to the projector: the panel shows how far it's got and Layer view follows it",
         "Several builders share one building, a strip each, crossing over at heights of their own",
         "Saves after every block, so a reboot or chunk reload carries on where it stopped",
@@ -894,7 +895,7 @@
       "setup": [
         "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left, and (best with a big barrel) an empty buffer chest under it.",
         "Run builder: with GPS it finds its position, otherwise type its X Y Z and facing (F3). Reboot.",
-        "Fill the supply chest with the plan's blocks and coal (or put a wired modem on it, on the storage cable, and the storage system fills it), then tap Build on the projector."
+        "Fill the supply chest with the plan's blocks and coal (or put a wired modem on it, on the storage cable, and the storage system fills it; far away, make it an ender chest whose twin is on the cable), then tap Build on the projector."
       ],
       "commands": [
         ["builder", "wait for a building from a projector (runs on boot)"],
@@ -905,7 +906,7 @@
       ],
       "integrates": [
         ["blueprint-projector", "Sends it the plan when you tap Build, and shows its progress on the panel."],
-        ["storage-computer", "Orders each load of blocks and coal into its supply chest, which it tells the storage system is its own."],
+        ["storage-computer", "Orders each load of blocks and coal into its supply chest, which it tells the storage system is its own. Far away, the supply chest is an ender chest whose twin sits on the storage cable."],
         ["gps-deployer", "With GPS it finds its own position and checks it as it builds."],
         ["nav", "All its moves go through lib/nav.lua, so chests and computers are never dug."]
       ],

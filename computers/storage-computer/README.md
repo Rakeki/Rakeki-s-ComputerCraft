@@ -34,6 +34,9 @@ storage, except the ones you choose for:
   their own supply chest. Put a wired modem on that chest, on this network,
   and the turtle tells the storage computer which chest it is the first time
   it asks for something. See [Turtles asking for items](#turtles-asking-for-items).
+  A builder far from this network can use an ender chest instead, its twin
+  on this cable: see the builder's
+  [Far from the storage system](../builder-turtle/README.md#far-from-the-storage-system-an-ender-chest).
 - **Shared delivery chest** (optional): where items go for a turtle that
   hasn't found its own chest. Without one, they go to the output chest
   (which is never cleared out).
@@ -140,6 +143,10 @@ turtle sees it turn up (then takes it back). The footer then says e.g.
 "Turtle #14's delivery chest is minecraft:chest_7." That chest stops being
 storage, and it's remembered. Move the turtle to another chest and it finds
 the new one the next time it asks. This needs at least one item in storage.
+The chest can also be a linked ender chest whose twin is on this cable (a
+[builder](../builder-turtle/README.md#far-from-the-storage-system-an-ender-chest)
+at a far-away site): the item comes out of the twin next to the turtle, and
+the ender chest here becomes its chest.
 
 A turtle's chest only ever holds what the turtle has asked for. Every 5
 seconds anything else in it (leftovers from an earlier load, empty buckets,

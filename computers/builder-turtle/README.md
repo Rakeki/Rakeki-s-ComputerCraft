@@ -110,6 +110,77 @@ supply chest and says "The storage system sends my blocks to my supply chest
 supply chest. If it can't find the chest (no modem on it, or the modem isn't
 red) it says so and tries again 5 minutes later.
 
+### Far from the storage system: an ender chest
+
+Building somewhere the storage cable doesn't reach (another base, the
+Nether, a build site across the map)? Use a pair of linked ender chests:
+one on the storage cable at your base, its twin as the builder's supply
+chest. Whatever the storage system sends into the one at home comes out
+behind the builder. There's nothing to set up in either program: it's only
+where the blocks go.
+
+At your base, on the storage cable:
+
+```
+[storage chests]==cable==[wired modem, red][ender chest: white-white-blue]
+```
+
+At the build site, seen from above (the builder facing north):
+
+```
+            north
+  [spoil]  [builder]       builder: ender modem on its side
+           [ender chest]   its twin: white-white-blue, directly behind it
+```
+
+1. At your base, put an ender chest next to the storage cable with a wired
+   modem on it, and right-click the modem so it turns red.
+2. At the build site, put its twin (the same colours) directly behind the
+   builder, where the supply chest would go, and the spoil chest on its left
+   as usual.
+3. Give the builder an **ender modem** (a wireless one only reaches so far):
+   it then talks to the storage computer, the projector and build control
+   from anywhere, even another dimension.
+4. Run `builder` (or reboot it) and start the build as usual, from the
+   projector or build control:
+
+```
+build platform 3200 70 -1450 north 31x25x11   -- on build control, at the far site
+```
+
+The first time it runs short, the builder finds its chest by itself: the
+storage computer drops one item into the ender chest at home, the builder
+sees it come out of the twin, and from then on that's its supply chest. On
+the builder's screen:
+
+```
+Going home: loading blocks
+The storage system sends my blocks to my supply chest (...).
+The storage system sent 640 blocks to my supply chest.
+```
+
+If storage runs out of something, the same orange line as ever says what
+it's waiting for ("Waiting for stone bricks (64)"): put more into storage at
+your base and it comes through.
+
+Things to watch:
+
+- The ender chests have to be the linkable kind that's shared by colour,
+  like EnderStorage's. A vanilla ender chest belongs to each player, and CC
+  can't reach into it.
+- One colour pair per builder: two builders, or a builder and a
+  [remote terminal](../remote-terminal/README.md), can't share a pair.
+- The pair's home end mustn't already be one of the storage system's own
+  chests (its input chest, an extra input chest, a far-away factory
+  computer's chest): the storage computer won't hand those to a turtle.
+- Your base has to stay loaded while you're away (a chunk loader), or the
+  storage computer can't send anything and the builder waits.
+- The storage system keeps a turtle's chest clear apart from what it asked
+  for, so blocks dropped into the builder's ender chest by hand go home to
+  storage within seconds. Put spares into storage, and the builder orders
+  them back as it needs them.
+- A buffer chest under the builder works with an ender chest too.
+
 ## Staying on track
 
 - It saves its progress after every block, so after a reboot or a chunk
