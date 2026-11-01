@@ -75,7 +75,7 @@ local COLOR_WORDS = {
   { "nether", 0x5a2a2e }, { "mossy", 0x6a7d4f }, { "cobblestone", 0x7a7a7a }, { "deepslate", 0x4d4d52 },
   { "blackstone", 0x2a2328 }, { "sandstone", 0xd8cb9b }, { "sand", 0xdbcfa3 }, { "gravel", 0x847f7e },
   { "andesite", 0x888889 }, { "diorite", 0xbcbcbc }, { "granite", 0x956755 }, { "tuff", 0x6c6d66 },
-  { "calcite", 0xdfe0dc }, { "stone", 0x8f8f8f }, { "bricks", 0x976253 }, { "brick", 0x976253 },
+  { "calcite", 0xdfe0dc }, { "dead", 0x857f7b }, { "stone", 0x8f8f8f }, { "bricks", 0x976253 }, { "brick", 0x976253 },
   { "quartz", 0xebe5de }, { "prismarine", 0x63a598 }, { "purpur", 0xa77aa7 }, { "terracotta", 0x985e43 },
   { "mud", 0x8c6a4f }, { "dirt", 0x866043 }, { "grass", 0x5d9a3a }, { "leaves", 0x3f8a2f },
   { "hay", 0xc9a42a }, { "glass", 0xa8d8ea }, { "ice", 0x91b7fd }, { "snow", 0xf6fefe },
@@ -169,11 +169,13 @@ end
 -- Join neighbouring blocks into as few boxes as possible (rows, then
 -- rectangles, then stacks): a projector holds a limited number of objects and
 -- each one costs a sync to every goggle wearer. Blocks must be sorted bottom
--- up. With sameMaterial, only blocks of one material join; m is nil otherwise.
-local function mergeBoxes(blocks, sameMaterial)
+-- up. With mats (the plan's, coloured), only blocks of one colour join, so
+-- a mix of stones that show alike (stone and stone bricks) costs no more
+-- than one; box.m is one of its materials. Without, m is nil.
+local function mergeBoxes(blocks, mats)
   local grid, used, boxes = {}, {}, {}
   local function key(x, y, z) return x .. "," .. y .. "," .. z end
-  for _, b in ipairs(blocks) do grid[key(b.x, b.y, b.z)] = sameMaterial and b.m or 0 end
+  for _, b in ipairs(blocks) do grid[key(b.x, b.y, b.z)] = mats and mats[b.m].color or 0 end
   local function free(x, y, z, m)
     local k = key(x, y, z)
     return grid[k] == m and not used[k]
@@ -198,7 +200,7 @@ local function mergeBoxes(blocks, sameMaterial)
           for x = b.x, x1 do used[key(x, y, z)] = true end
         end
       end
-      boxes[#boxes + 1] = { x0 = b.x, y0 = b.y, z0 = b.z, x1 = x1, y1 = y1, z1 = z1, m = sameMaterial and m or nil }
+      boxes[#boxes + 1] = { x0 = b.x, y0 = b.y, z0 = b.z, x1 = x1, y1 = y1, z1 = z1, m = mats and b.m or nil }
     end
     if i % 2000 == 0 then os.queueEvent("projector_yield") os.pullEvent("projector_yield") end
   end
@@ -316,16 +318,16 @@ local function scene()
       if #blocks <= budget then
         boxes, inset = singleBoxes(blocks), INSET_BLOCK
       else
-        boxes, inset = mergeBoxes(blocks, true), INSET_MERGED
+        boxes, inset = mergeBoxes(blocks, plan.mats), INSET_MERGED
       end
     else
       local blocks = {}
       for _, b in ipairs(plan.blocks) do
         if b.y < layer then blocks[#blocks + 1] = b end
       end
-      boxes, inset = mergeBoxes(blocks, true), INSET_MERGED
+      boxes, inset = mergeBoxes(blocks, plan.mats), INSET_MERGED
       if #boxes > budget then
-        boxes, why = mergeBoxes(blocks, false), "Too big for one colour per block: shown in one colour"
+        boxes, why = mergeBoxes(blocks), "Too big for one colour per block: shown in one colour"
       end
     end
     if #boxes > budget then
@@ -807,7 +809,7 @@ local function checkPlan(id)
   local p, err = loadPlan(id, nil, typed)
   if not p then error(err, 0) end
   print(("%s: %d wide, %d deep, %d high, %d blocks"):format(p.name, p.w, p.l, p.h, #p.blocks))
-  print(("Shows as %d shapes (whole view)."):format(#mergeBoxes(p.blocks, true)))
+  print(("Shows as %d shapes (whole view)."):format(#mergeBoxes(p.blocks, p.mats)))
   local mats = {}
   for _, m in ipairs(p.mats) do mats[#mats + 1] = m end
   table.sort(mats, function(a, b) return a.total > b.total end)

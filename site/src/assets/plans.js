@@ -151,7 +151,7 @@ return enc(raw)`;
     ["nether", "#5a2a2e"], ["mossy", "#6a7d4f"], ["cobblestone", "#7a7a7a"], ["deepslate", "#4d4d52"],
     ["blackstone", "#2a2328"], ["sandstone", "#d8cb9b"], ["sand", "#dbcfa3"], ["gravel", "#847f7e"],
     ["andesite", "#888889"], ["diorite", "#bcbcbc"], ["granite", "#956755"], ["tuff", "#6c6d66"],
-    ["calcite", "#dfe0dc"], ["smooth_stone", "#a0a0a0"], ["stone", "#8f8f8f"], ["bricks", "#976253"], ["brick", "#976253"],
+    ["calcite", "#dfe0dc"], ["smooth_stone", "#a0a0a0"], ["dead", "#857f7b"], ["stone", "#8f8f8f"], ["bricks", "#976253"], ["brick", "#976253"],
     ["quartz", "#ebe5de"], ["prismarine", "#63a598"], ["sea_lantern", "#d6e6e0"], ["purpur", "#a77aa7"], ["terracotta", "#985e43"],
     ["mud", "#8c6a4f"], ["dirt", "#866043"], ["grass", "#5d9a3a"], ["leaves", "#3f8a2f"],
     ["hay", "#c9a42a"], ["glass", "#a8d8ea"], ["ice", "#91b7fd"], ["snow", "#f6fefe"],

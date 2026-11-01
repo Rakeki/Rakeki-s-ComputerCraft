@@ -361,7 +361,8 @@ return plan
 ## Things to know
 
 - Plans are shown as outlines, not solid blocks. Neighbouring blocks of the
-  same material are joined into one bigger box, so a wall shows as one
+  same colour are joined into one bigger box (stone and stone bricks show
+  alike, so a mixed stone wall costs no more), so a wall shows as one
   outline in Whole view; Layer view outlines every block on its own.
 - A projector holds up to 1,024 shapes. A building too big for that is shown
   in a single colour, and if it still doesn't fit, only part of it is shown;
