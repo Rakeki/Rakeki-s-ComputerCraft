@@ -27,6 +27,10 @@
 --     and jam the pot);
 --   * one item n times (6 XS candy): slots fill one after the other, so the
 --     pot cooks once n - 1 slots are full, and holds at most n stacks.
+--
+-- What the pots are made from (sculk, honeycomb) is kept topped up: once a
+-- minute the storage computer is asked ('prepare') to craft each up to a
+-- total, if it has a recipe for it, so the pots never run dry.
 local screen = require("lib.screen") -- flicker-free drawing
 local files = require("lib.files") -- crash-safe save files
 
@@ -40,6 +44,9 @@ local STACK = 64 -- items to a stack, for items the feed hopper hasn't shown yet
 local STUCK_AFTER = 120 -- seconds a pot that should be cooking may make nothing before the screen says so
 local COOKING_FOR = 30 -- seconds a pot counts as cooking after something last came out of it
 local SIDES = { "top", "bottom", "left", "right", "front", "back" } -- a relay's sides, to find the comparator
+local CRAFT_EVERY = 60 -- seconds between asking the storage computer to craft the pots' raw items
+local NO_RECIPE_WAIT = 600 -- seconds before asking again for an item the storage computer has no recipe for
+local CRAFT_UPTO = 128 -- how many of each raw item to keep crafted in storage, if config.lua doesn't say
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
@@ -100,6 +107,10 @@ function M.new(f)
     exp_candy_xl = { make = "cobblemon:exp_candy_xl", "cobblemon:exp_candy_l", times = 3 },
   }
   local KEEP = config.keep or {}
+  -- How many of each raw item to keep crafted: a number for all of them, a
+  -- table by item, or false for none.
+  local CRAFT = config.craft
+  if CRAFT == nil then CRAFT = CRAFT_UPTO end
   -- The candy the Candy page lists: item, what to call it, and the exp one
   -- gives (Cobblemon's own amounts; rare candy depends on the Pokemon).
   local CANDY = config.candy or {
@@ -118,6 +129,9 @@ function M.new(f)
   local madeAt = {} -- feed hopper -> os.clock() when something last came out of it
   local stackOf = {} -- item -> items to a stack, from the feed hoppers
   local stuckSince = {} -- feed hopper -> { at = os.clock(), made }: should have been cooking since, with nothing more made
+  local craftAt = -math.huge -- when the raw items were last ordered
+  local noRecipe = {} -- item -> os.clock() when the storage computer said it has no recipe for it
+  local craftNote = nil -- { text, colour }: what the last order of raw items did, for the screen
   self.message = { "Looking for the storage computer...", "lightGray" }
   self.status = { "starting", "" }
 
@@ -256,6 +270,64 @@ function M.new(f)
     return true
   end
 
+  ---------------------------------------------------------------- raw items
+
+  -- How many of a raw item to keep in storage (on top of what 'keep' holds
+  -- back), or 0 for none.
+  local function craftTarget(name)
+    local n = type(CRAFT) == "table" and CRAFT[name] or type(CRAFT) == "number" and CRAFT or 0
+    n = math.floor(tonumber(n) or 0)
+    return n > 0 and n + (KEEP[name] or 0) or 0
+  end
+
+  -- Have the storage computer craft the set-up pots' raw items (sculk,
+  -- honeycomb) up to their totals. 'prepare' tops up to a total that counts
+  -- what's already being made, so asking again never orders twice. An item
+  -- it has no recipe for is left alone for a while, then tried again (a
+  -- recipe may have been learned since).
+  local function craftRaw(counts)
+    if not CRAFT or os.clock() - craftAt < CRAFT_EVERY then return end
+    craftAt = os.clock()
+    local items, any = {}, false
+    for _, p in ipairs(pots) do
+      if p.recipe and not p.recipe.same then
+        for _, name in ipairs(p.recipe.items) do
+          local n = craftTarget(name)
+          local quiet = noRecipe[name] and os.clock() - noRecipe[name] < NO_RECIPE_WAIT
+          if n > (counts[name] or 0) and not quiet then items[name], any = n, true end
+        end
+      end
+    end
+    if not any then
+      craftNote = nil
+      return
+    end
+    local reply = f.ask({ type = "prepare", items = items })
+    if not reply then return end
+    local making, cant = {}, {}
+    for name in pairs(items) do
+      local why = type(reply.cantCraft) == "table" and reply.cantCraft[name]
+      local n = type(reply.crafting) == "table" and reply.crafting[name] or 0
+      if why == "no recipe for it" then
+        noRecipe[name] = os.clock()
+      elseif why then
+        cant[#cant + 1] = ("%s (%s)"):format(nice(name), why)
+      end
+      if n > 0 then making[#making + 1] = ("%d %s"):format(n, nice(name)) end
+    end
+    table.sort(making)
+    table.sort(cant)
+    if #cant > 0 then
+      craftNote = { "Can't craft for the pots: " .. table.concat(cant, ", "), "orange" }
+    elseif reply.craftProblem then
+      craftNote = { "Crafting for the pots: " .. reply.craftProblem, "orange" }
+    elseif #making > 0 then
+      craftNote = { "Crafting " .. table.concat(making, " and ") .. " for the pots.", "lightBlue" }
+    else
+      craftNote = nil
+    end
+  end
+
   ---------------------------------------------------------------- a round
 
   -- Every pot is read before the storage computer is asked, so the screen
@@ -304,6 +376,7 @@ function M.new(f)
     local input, avail = r.input or r.stock.input, {}
     local work = f.work
     for name, n in pairs(stock) do avail[name] = math.max(0, n - (KEEP[name] or 0)) end
+    craftRaw(stock)
 
     -- what's cooked goes back through the input chest
     local problem, blocked = nil, false
@@ -447,6 +520,8 @@ function M.new(f)
       say("A pot isn't cooking: is its lid powered? Or empty it by hand.", "red")
     elseif sent > 0 then
       say(("Sent %d items to the pots."):format(sent))
+    elseif craftNote then
+      say(craftNote[1], craftNote[2])
     elseif cooking == 0 then
       say("Nothing to cook.")
     else

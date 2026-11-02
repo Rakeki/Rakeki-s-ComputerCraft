@@ -1330,7 +1330,7 @@
         "Mekanism Enrichment Chambers (2 dust per ore block, 4 per 3 raw ores) and Energized Smelters, fed through a hopper or barrel",
         "Mekanism Metallurgic Infusers on request: steel, alloys, circuits, bronze and more, from +1 / +8 / +64 buttons on the Infuser tab or the monitor; the storage computer orders the infusing its crafts need, and a missing in-between step (enriched iron for steel) is made first",
         "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed",
-        "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; a Candy page on the monitor",
+        "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; sculk and honeycomb crafted to keep them coming, when the storage system has recipes; a Candy page on the monitor",
         "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into",
         "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
         "Several factory computers share a cable: each furnace and botany pot belongs to one, and smelters leave the ores an enricher anywhere takes; the Chain page shows what happens where",

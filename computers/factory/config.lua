@@ -134,6 +134,11 @@ return {
       -- ["cobblemon:exp_candy_s"] = 64,
       -- ["minecraft:honeycomb"] = 16,
     },
+    -- How many of each raw item (what a pot without 'times' takes: sculk,
+    -- honeycomb) to keep in storage by having the storage computer craft
+    -- more, when it has a recipe for it; on top of 'keep'. A number for all
+    -- of them, by item, e.g. { ["minecraft:honeycomb"] = 256 }, or false for none.
+    craft = 128,
     -- What the monitor's Candy page lists: item, what to call it, and the exp one gives.
     candy = {
       { "cobblemon:exp_candy_xs", "XS", 100 },

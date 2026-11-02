@@ -434,6 +434,14 @@ be counted and you can open a pot without upsetting it.
 
 - **Sculk and honeycomb** go in in pairs, up to a stack between them in
   the pot. When one of them runs out in storage, the other waits too.
+- **Keeping them coming.** Once a minute the factory asks the storage
+  computer to craft more sculk and honeycomb, up to 128 of each in storage
+  (on top of any `keep`), so the pots are never left waiting. This only
+  does anything when the storage computer has a recipe for them (a
+  modpack's, or one taught with `crafter learn`); without one it's left
+  alone and tried again every 10 minutes. Change the amount with `craft`
+  under `cooker` in `config.lua` (a number, or per item), or `craft = false`
+  to turn it off.
 - **Compressing** needs a slot per candy (6 for S, 3 for the rest), and a
   hopper only starts the next slot once one is full. So a compressing pot
   starts cooking once it holds 5 stacks and 1 (321 XS candy) for an S pot,
