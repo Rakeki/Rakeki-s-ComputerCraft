@@ -86,7 +86,7 @@ an old mossy stone wall (a tuff rim, wall posts on pillars, staggered rows
 of blocks), 21×21 and 11 high or any size you type after it:
 `projector platform 31x25x8` (wide x long x high; or `set platform.size
 31x25x8` once). A few hold water or lava, which the builders place from
-buckets: the tea house's pond (39 water), the greenhouse (31), the villa's
+buckets: the tea house's pond (39 water), the greenhouse (33), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
 forge (1 lava). Your own go in
 `/plans` too (see [Plans](#plans)). The same plans work with

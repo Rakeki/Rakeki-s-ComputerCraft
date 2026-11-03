@@ -2176,9 +2176,9 @@
       "name": "greenhouse",
       "file": "greenhouse.lua",
       "title": "Greenhouse",
-      "tagline": "A white-framed glasshouse with a pitched glass roof and a domed cross wing: raised beds of flowers, azaleas and bamboo, sugar cane along a water channel, and a fountain.",
-      "size": "21 × 33 × 19",
-      "blocks": 2073
+      "tagline": "A tall glasshouse under a barrel-vaulted glass roof, its fronts a timber frame of oak posts, spruce bands and arched windows on stone plinths, with spires along the ridge: flower beds, bamboo, sugar cane along a water channel, two azalea trees and a fountain.",
+      "size": "27 × 41 × 26",
+      "blocks": 4879
     },
     {
       "name": "villa",
