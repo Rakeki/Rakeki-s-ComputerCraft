@@ -902,7 +902,7 @@ end
 term.clear()
 if errlog then errlog.init("factory") end
 if report then report.init("factory") end
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, workLoop, netLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, workLoop, netLoop, function() net.keepOpen("any") end,
   report and report.loop or function() while true do sleep(3600) end end)
 term.setBackgroundColor(colors.black)
 term.setTextColor(colors.white)

@@ -27,7 +27,9 @@ World-style axes: `x` east, `y` up, `z` south.
 `nav.HEADINGS.north == 0` etc. `nav.face` accepts a number or a name.
 `turnRight` adds 1, `turnLeft` subtracts 1 (mod 4).
 
-Without GPS the numbers are whatever you set with `nav.setPosition`
+Every turtle that moves needs GPS (all but the gps-deployer): call
+`nav.waitForGps()` before the first move. Jobs from before that rule may still
+be in counted coordinates: there the numbers are whatever was set with `nav.setPosition`
 (commonly `0, 0, 0, "north"`), so treat them as relative. Programs that work
 in their own frame (forward/right of the start) convert with an origin; see
 [[turtle-job]].
@@ -39,7 +41,8 @@ in their own frame (forward/right of the start) convert with an origin; see
 | `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading; if blocked it tries the other sides, then turns back, so it always ends facing the way it started). Returns `true` if the position is known. |
 | `nav.setPosition(x, y, z, h)` | Sets position/heading outright (h number or name) and saves. |
 | `nav.locate()` | Where GPS says the turtle is, rounded to the block, or nil (no move, no calibration). |
-| `nav.confirmResume(putBack)` | Resuming without GPS: gives the player 10 s to press a key if the turtle was moved. True to carry on; on a key prints `putBack` (how to put it back and run `prog here`) and returns false. |
+| `nav.waitForGps()` | Waits until GPS answers (tries every 5 s; prints why, and `report.set("waiting", ...)` if the program loaded `lib.report`). Returns the position. After a server restart the GPS hosts may still be starting, so moving turtles wait here rather than trust a saved position. |
+| `nav.confirmResume(putBack)` | Resuming an old job started without GPS: gives the player 10 s to press a key if the turtle was moved. True to carry on; on a key prints `putBack` (how to put it back and run `prog here`) and returns false. |
 
 Typical start:
 

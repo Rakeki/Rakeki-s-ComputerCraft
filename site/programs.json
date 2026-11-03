@@ -45,12 +45,12 @@
         ["excavate cellar", "the 17×17×7 hole for the cellar plan; any plan name works"],
         ["excavate sanctum deep", "the sanctum's 41×41×26 hole, 10 above bedrock"],
         ["excavate resume", "carry on after stopping it"],
-        ["excavate here", "no GPS: you put it back on its start block"],
+        ["excavate here", "a job from before GPS was needed: you put it back on its start block"],
         ["excavate cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
-        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
+        ["gps-deployer", "Needs GPS: it checks its position every 20 steps and finds its way back if moved."],
         ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the thirteen underground plans, from the bunker to the cavern."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
@@ -103,12 +103,12 @@
         ["stripmine 100 48 2", "main length, branch length, gap"],
         ["stripmine 80 0", "just the main tunnel"],
         ["stripmine resume", "carry on after stopping it"],
-        ["stripmine here", "no GPS: you put it back on its start block"],
+        ["stripmine here", "a job from before GPS was needed: you put it back on its start block"],
         ["stripmine cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Reports what it's digging and how far along it is."],
-        ["gps-deployer", "Optional GPS keeps it on route if it gets moved."]
+        ["gps-deployer", "Needs GPS: it keeps it on route if it gets moved."]
       ],
       "render": { "kind": "voxel", "scene": "stripmine", "animate": true, "caption": "A smaller strip mine being dug: main tunnel first, each pair of branches as it passes them." },
       "terminal": {
@@ -156,12 +156,12 @@
         ["nethertunnel", "128 long"],
         ["nethertunnel 300", "300 long"],
         ["nethertunnel resume", "carry on after stopping it"],
-        ["nethertunnel here", "no GPS: you put it back on its start block"],
+        ["nethertunnel here", "a job from before GPS was needed: you put it back on its start block"],
         ["nethertunnel cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Reports how far along the tunnel it is."],
-        ["gps-deployer", "Optional GPS keeps it on route if it gets moved."]
+        ["gps-deployer", "Needs GPS: it keeps it on route if it gets moved."]
       ],
       "render": { "kind": "voxel", "scene": "nethertunnel", "animate": true, "caption": "A shorter tunnel being dug through netherrack: a cave wall patched, a sealed bridge over a lava lake, a lava pocket walled off." },
       "terminal": {
@@ -213,12 +213,12 @@
         ["level 48 24 10", "48 by 24, clearing only 10 blocks up"],
         ["level 61 50 0", "clear nothing above, only fill the holes below"],
         ["level resume", "carry on after stopping it"],
-        ["level here", "no GPS: you put it back on its start block"],
+        ["level here", "a job from before GPS was needed: you put it back on its start block"],
         ["level cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
-        ["gps-deployer", "With GPS it checks its position every 20 steps and finds its way back if moved."],
+        ["gps-deployer", "Needs GPS: it checks its position every 20 steps and finds its way back if moved."],
         ["build-control", "Once the platform is down, send a plan to the builder turtles at its corner."]
       ],
       "render": { "kind": "voxel", "scene": "level", "caption": "A finished platform in rolling land: hills cut down to it, dips and the pond filled with dirt and cobblestone, trees outside left alone." },
@@ -272,13 +272,13 @@
         ["village status", "what's built so far"],
         ["village grow <radius>", "let a finished village grow further"],
         ["village resume", "carry on (startup does this)"],
-        ["village here", "no GPS: reset to its home block"],
+        ["village here", "a village from before GPS was needed: reset to its home block"],
         ["village cancel", "forget the village (buildings stay)"],
         ["village join [id]", "help another village turtle build its village, from this turtle's own chests (GPS)"]
       ],
       "integrates": [
         ["status-server", "Shows the plot it's on, and exactly which blocks it's waiting for."],
-        ["gps-deployer", "With GPS it checks itself every 25 blocks and recalibrates if moved."],
+        ["gps-deployer", "Needs GPS: it checks itself every 25 blocks and recalibrates if moved."],
         ["blueprint-projector", "With a wireless modem, 'projector village' shows the building it's working on, right on its plot."],
         ["storage-computer", "Counts what's in the storage system and has it sent to the supply chest as each load is needed."],
         ["crafter-turtle", "Blocks that can be crafted from what's stored count as available, and get made when it asks."]
@@ -347,12 +347,12 @@
         ["mobfarm 22", "XP farm: mobs land on half a heart"],
         ["mobfarm list", "what to put in the chest"],
         ["mobfarm resume", "carry on after stopping it"],
-        ["mobfarm here", "no GPS: you put it back on its start block"],
+        ["mobfarm here", "a job from before GPS was needed: you put it back on its start block"],
         ["mobfarm cancel", "forget the current job"]
       ],
       "integrates": [
         ["status-server", "Shows which part of the farm it's building and what it's waiting for."],
-        ["gps-deployer", "Same GPS position checks as the excavator."]
+        ["gps-deployer", "Needs GPS: the same position checks as the excavator."]
       ],
       "render": {
         "kind": "gallery",
@@ -404,13 +404,13 @@
         ["treefarm 6 8", "6 columns of 8 trees"],
         ["treefarm 6 8 4", "...4 blocks apart"],
         ["treefarm resume", "carry on after stopping it"],
-        ["treefarm here", "no GPS: you put it back on its start block"],
+        ["treefarm here", "a job from before GPS was needed: you put it back on its start block"],
         ["treefarm cancel", "stop farming and forget the farm"]
       ],
       "integrates": [
         ["status-server", "Shows which round and tree it's on, and how many logs so far."],
         ["storage-computer", "Make its chest the storage system's input and the logs get put away."],
-        ["gps-deployer", "Optional GPS keeps it on the farm if it gets moved."]
+        ["gps-deployer", "Needs GPS: it keeps it on the farm if it gets moved."]
       ],
       "render": {
         "kind": "voxel",
@@ -460,7 +460,7 @@
         ["cropfarm", "a 9 x 9 field"],
         ["cropfarm 15 20", "width (to the right), length (forward)"],
         ["cropfarm resume", "carry on after stopping it"],
-        ["cropfarm here", "no GPS: you put it back on its start block"],
+        ["cropfarm here", "a job from before GPS was needed: you put it back on its start block"],
         ["cropfarm cancel", "stop farming and forget the field"]
       ],
       "integrates": [
@@ -599,7 +599,7 @@
         "Craft a mining turtle with an ender modem (or wireless modem).",
         "Place it, give it a bit of coal and run 'refuel all'.",
         "Install and reboot. It names itself Miner-<id>.",
-        "With GPS it finds its own position. Without, it asks once: look at its block with F3 open and type the Targeted Block X Y Z.",
+        "It needs GPS to find its own position and facing (it steps forward once, so give it room in front).",
         "Every miner: put its own chest right behind it, open sky above. That spot is its home: it unloads, refuels and waits there."
       ],
       "commands": [
@@ -609,7 +609,7 @@
       ],
       "integrates": [
         ["mine-server", "Gets jobs from the server; the server never mines a chunk with a miner's home in it."],
-        ["gps-deployer", "GPS lets new miners find their position and facing on their own, and keeps them on track while mining."],
+        ["gps-deployer", "Miners need GPS: it finds their position and facing and keeps them on track while mining."],
         ["status-server", "Each miner shows up with its chunk, progress and fuel."]
       ],
       "render": { "kind": "voxel", "scene": "automine", "caption": "Three chunks: one mined out, one in progress, one still queued." },
@@ -890,24 +890,23 @@
         "Reports to the projector: the panel shows how far it's got and Layer view follows it",
         "Several builders share one building, a strip each, crossing over at heights of their own",
         "Saves after every block, so a reboot or chunk reload carries on where it stopped",
-        "GPS or a typed-in position: it builds in real world coordinates"
+        "Builds in real world coordinates from GPS, and waits for GPS before it moves"
       ],
       "setup": [
         "Put the turtle on its home block with a wireless modem: supply chest behind it, spoil chest to its left, and (best with a big barrel) an empty buffer chest under it.",
-        "Run builder: with GPS it finds its position, otherwise type its X Y Z and facing (F3). Reboot.",
+        "Run builder: it finds its position and facing with GPS. Reboot.",
         "Fill the supply chest with the plan's blocks and coal (or put a wired modem on it, on the storage cable, and the storage system fills it; far away, make it an ender chest whose twin is on the cable), then tap Build on the projector."
       ],
       "commands": [
         ["builder", "wait for a building from a projector (runs on boot)"],
         ["builder setup", "make this block home"],
-        ["builder here", "no GPS: put back on its home block, carry on"],
         ["builder status", "what it's building and how far along"],
         ["builder cancel", "forget the current building"]
       ],
       "integrates": [
         ["blueprint-projector", "Sends it the plan when you tap Build, and shows its progress on the panel."],
         ["storage-computer", "Orders each load of blocks and coal into its supply chest, which it tells the storage system is its own. Far away, the supply chest is an ender chest whose twin sits on the storage cable."],
-        ["gps-deployer", "With GPS it finds its own position and checks it as it builds."],
+        ["gps-deployer", "Needs GPS: it finds its own position and checks it as it builds."],
         ["nav", "All its moves go through lib/nav.lua, so chests and computers are never dug."]
       ],
       "render": { "kind": "voxel", "scene": "builder", "caption": "The projector beside a half-built cottage, the builder placing the next layer, and its home with the supply and spoil chests." },
@@ -1676,6 +1675,7 @@
       "usage": "local nav = require(\"lib.nav\")\n\nif not nav.init() then            -- loads saved position, calibrates with GPS\n  nav.setPosition(0, 0, 0, \"north\")\nend\n\nlocal ok, err = nav.forward()     -- digs through anything that isn't protected\nif not ok then print(\"Stuck: \" .. err) end\n\nnav.goTo(10, 64, -5)              -- rises first, then x, then z, then down\nnav.writeFile(\"/.myjob_job\", job) -- crash-safe state file",
       "api": [
         ["nav.init(useGps)", "Load the saved position; calibrate with GPS unless useGps is false. Returns true if the position is known."],
+        ["nav.waitForGps()", "Wait until GPS answers (moving turtles need it), saying why on screen and on the status server. Returns { x, y, z }."],
         ["nav.setPosition(x, y, z, h)", "Set position and heading outright (h is 0-3 or north/east/south/west)."],
         ["nav.forward() / up() / down()", "Move, digging whatever is in the way. Returns ok, err (nofuel, protected, bedrock, undiggable, blocked)."],
         ["nav.turnLeft() / turnRight() / face(h)", "Turn; face picks the shortest way round."],
@@ -1823,10 +1823,11 @@
       "tagline": "Rednet the same way in every program: ask another computer something and get its answer (never a stale one, never waiting forever), answer, and find who hosts a protocol.",
       "usage": "local net = require(\"lib.net\")\n\nlocal storage = net.peer(\"storage\", { retry = 60 })\nlocal reply, why = storage:ask({ type = \"count\", items = { \"minecraft:torch\" } })\nif not reply then print(\"No storage system: \" .. why) end\n\n-- the other side\nlocal from, msg = rednet.receive(\"storage\")\nnet.answer(from, \"storage\", msg, { counts = counts })",
       "api": [
-        ["net.open(kind)", "Open wireless and ender modems, or every modem with \"any\". True if rednet is open."],
+        ["net.open(kind)", "Open wireless and ender modems, or every modem with \"any\". True if rednet is open. Just after boot it waits up to 15 s for a modem to attach."],
+        ["net.keepOpen(kind)", "Run beside the program (parallel): opens modems that attach after it started."],
         ["net.ask(to, protocol, msg, opts)", "Send msg with a fresh id and wait for the answer that repeats it. opts: wait (seconds), match(reply), other(from, msg) for anything else that arrives."],
         ["net.answer(to, protocol, request, reply)", "Answer a request: adds re (its type) and its id."],
-        ["net.peer(protocol, opts)", "The computer hosting a protocol, looked up once and remembered until it goes quiet. opts: open, retry, wait, host."],
+        ["net.peer(protocol, opts)", "The computer hosting a protocol, looked up once and remembered until it goes quiet. opts: open, retry, wait, host. For 5 minutes after boot a missing peer is looked for every 5 s, whatever retry says."],
         ["peer:ask(msg, wait)", "Ask it something: the answer, or nil and why (\"no modem\", \"none\" or \"no answer\")."],
         ["net.hasWireless()", "A wireless or ender modem is attached."]
       ],

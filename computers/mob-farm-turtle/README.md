@@ -74,7 +74,7 @@ chest hasn't got it.
    mobfarm 22               -- XP farm: mobs land on half a heart
    mobfarm list             -- what to put in the chest (what's still needed, if a job is running)
    mobfarm resume           -- carry on after stopping it
-   mobfarm here             -- no GPS: "I've put you back on your start block", then carry on
+   mobfarm here             -- you put it back on its start block (also for an old job from before GPS was needed)
    mobfarm cancel           -- forget the current job
    ```
 
@@ -114,11 +114,11 @@ last the roof. Then it comes back down to its start block. Pick it up when it's 
 
 Same as the [excavate turtle](../excavate-turtle/README.md#staying-on-track):
 
-- **With GPS** (a constellation in range at the start and a modem on the
-  turtle), it checks its position every time it starts and every 20 steps.
-- **Without GPS** it waits 10 seconds when it resumes. If you moved it, press
-  a key, put it back on its start block facing the way it started, and run
-  `mobfarm here`.
+- It checks its position with GPS every time it starts and every 20 steps.
+- **GPS is needed:** it won't move without it. If GPS doesn't answer when it
+  starts (after a server restart the GPS computers may still be starting), it
+  waits and says so on screen and on the status server. `mobfarm here` is only
+  for a job started before GPS was needed.
 - **If it finds itself somewhere off its routes**, it stops rather than dig its
   way back through the farm. Put it back on its start block and run `mobfarm here`.
 - **If its way is blocked** (by a protected block like a chest), it says where

@@ -79,18 +79,17 @@ which strip it's on, e.g. "Building Cottage (strip 2 of 3): 410 blocks."
    Optional, but best with a big mixed supply chest or barrel: a plain
    **buffer chest** directly **under** the home block (the turtle sits on
    it). See [Things to know](#things-to-know).
-3. Install the program and run `builder`. It needs its real position: with
-   [GPS](../gps-deployer/README.md) it finds it by itself; without GPS it asks
-   for its X, Y and Z (look at its block with F3 open) and which way it faces.
-   That block is now its home.
+3. Install the program and run `builder`. It needs
+   [GPS](../gps-deployer/README.md): it finds its position and facing by itself
+   (give it a little fuel and room in front, since it steps forward once). That
+   block is now its home.
 4. Reboot it. It waits for a building.
 5. On the projector, put the building where you want it and tap **Build**
    (or press B, or run `projector build`).
 
 ```
 builder              -- wait for a building (startup.lua does this)
-builder setup        -- make this block home (asks where it is without GPS)
-builder here         -- no GPS: you put it back on its home block, carry on
+builder setup        -- make this block home (found with GPS)
 builder status       -- what it's building and how far along
 builder cancel       -- forget the building it's working on
 ```
@@ -185,11 +184,11 @@ Things to watch:
 
 - It saves its progress after every block, so after a reboot or a chunk
   reload it carries on where it stopped.
-- With GPS it checks its position every 50 blocks and fixes it if it's been
-  moved.
-- Without GPS it trusts its own count. When it starts back up mid-building
-  it gives you 10 seconds to press a key if you moved it; then put it back on
-  its home block, facing the way it faced, and run `builder here`.
+- It checks its position with GPS every time it starts and every 50 blocks,
+  and fixes it if it's been moved.
+- It won't move without GPS. If GPS doesn't answer when it starts (after a
+  server restart the GPS computers may still be starting), it waits and says
+  so on screen and on the status server.
 
 ## Things to know
 

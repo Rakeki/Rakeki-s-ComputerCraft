@@ -2166,7 +2166,8 @@ if args[1] == "status" then
   return
 end
 
-local hasGps = gpsPos() ~= nil
+-- Nothing moves without GPS: wait for it (nav.waitForGps says why on screen).
+local hasGps = nav.waitForGps() ~= nil
 local useGps = hasGps and (not job or job.gps)
 local knowsPosition = nav.init(useGps)
 

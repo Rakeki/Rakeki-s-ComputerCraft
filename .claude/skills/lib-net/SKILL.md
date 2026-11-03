@@ -17,11 +17,12 @@ local net = require("lib.net")
 
 | Call | Does |
 |---|---|
-| `net.open(kind)` | Opens modems: wireless and ender ones (default), or every modem with `"any"` (wired too). True if rednet is open on any. |
+| `net.open(kind)` | Opens modems: wireless and ender ones (default), or every modem with `"any"` (wired too). True if rednet is open on any. In the first 15 s after boot it waits for a modem to attach (one on a neighbouring block can come a moment after the computer starts). |
+| `net.keepOpen(kind)` | Run beside the program in `parallel.waitForAny`: opens modems that attach after it started. Every long-running host (storage, factory, overseer, crafter, builder) runs it; mine-server and status-server call `net.open("any")` on `peripheral` events instead. |
 | `net.hasWireless()` | A wireless or ender modem is attached (so turtles can reach this computer). |
 | `net.ask(to, protocol, msg, opts)` | Gives `msg` a fresh `id`, sends it, and waits for the answer from `to`. Returns it, or nil when none came in time. `opts.wait` (seconds, default 10); `opts.match(reply, from)` to accept a different answer (default: `reply.re == msg.type and reply.id == msg.id`); `opts.other(from, msg)` gets anything else that arrives on the protocol meanwhile. |
 | `net.answer(to, protocol, request, reply)` | Sets `reply.re = request.type`, `reply.id = request.id` and sends it. |
-| `net.peer(protocol, opts)` | A computer found by `rednet.lookup`, remembered until it goes quiet. `opts.open` (`"wireless"` / `"any"`), `opts.retry` (seconds before looking again after nobody was found), `opts.wait`, `opts.host`. |
+| `net.peer(protocol, opts)` | A computer found by `rednet.lookup`, remembered until it goes quiet. `opts.open` (`"wireless"` / `"any"`), `opts.retry` (seconds before looking again after nobody was found; for the first 5 min after boot at most 5 s, since after a server restart everyone boots at once and the host may not be up yet), `opts.wait`, `opts.host`. |
 | `peer:ask(msg, wait)` | `net.ask` to the peer. Returns the answer, or nil and why: `"no modem"`, `"none"` (nobody hosts it) or `"no answer"` (then it's looked up again next time). |
 | `peer.id`, `peer:forget()` | Its id (set it when a message tells you who it is); forget it. |
 

@@ -2815,7 +2815,7 @@ local function setupLoop()
   end
 end
 
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop, function() net.keepOpen("any") end,
   tidyLoop, craftViewLoop, outputLoop, dumpLoop, setupLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)

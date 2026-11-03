@@ -15,7 +15,6 @@ local errlog = require("lib.errlog") -- saves errors to /errors.log
 local PROTOCOL = "automine"
 local JOB_FILE = "/.automine_job"
 local HOME_FILE = "/.automine_home"
-local GPS_FILE = "/.automine_gps" -- true once this miner has had GPS: from then on it won't move without it
 local GPS_TRIES = 3 -- attempts before GPS counts as lost (one missed answer isn't a lost signal)
 local GPS_RETRY = 15 -- seconds between GPS checks while waiting for it to come back
 local STATUS_INTERVAL = 5
@@ -24,7 +23,6 @@ local POSITION_CHECK_CELLS = 32 -- cells mined between GPS checks of the tracked
 local serverId
 local config -- sent by the server: cruiseY, lanes, targetFuel, minFuel, junk
 local home -- { x, y, z, heading, chestDir, fuelDir }: this turtle's own spot and chests
-local usesGps = false -- has had GPS (saved in GPS_FILE)
 local gpsLost = false -- started without the GPS it had: main waits for it before doing anything
 local junk = {}
 local job -- { cx, cz, yTop, yBottom, layer, cell }
@@ -189,7 +187,7 @@ local function gpsFix()
   end
 end
 
--- Once a miner has had GPS it won't move without it: tracking alone drifts
+-- A miner never moves without GPS: tracking alone drifts
 -- (a chunk unloading mid-move), and a wrong position sends it digging and
 -- unloading in the wrong place. It stays where it is, tells the server where
 -- that is (the error and its status carry the position), and waits.
@@ -214,11 +212,7 @@ end
 -- move would be off by the same amount, so compare it with GPS now and then
 -- and recalibrate if they disagree.
 local function checkPosition()
-  local g = gpsFix()
-  if not g then
-    if not usesGps then return end -- set up without GPS: tracking is all it has
-    g = waitForGps()
-  end
+  local g = gpsFix() or waitForGps()
   local p = nav.getPos()
   if g.x ~= p.x or g.y ~= p.y or g.z ~= p.z then
     print(("Position was off: thought %d,%d,%d, GPS says %d,%d,%d. Correcting."):format(p.x, p.y, p.z, g.x, g.y, g.z))
@@ -465,27 +459,6 @@ local function main()
   end
 end
 
--- The player's own F3 position is the block they stand on, not the turtle's,
--- so ask for the turtle's block ("Targeted Block", shown as "x, y, z").
-local function askPosition()
-  print("No GPS here, so tell me where I am. Press F3 and look")
-  print("at my block: \"Targeted Block\" shows its X, Y, Z.")
-  while true do
-    write("X Y Z: ")
-    local n = {}
-    for num in read():gmatch("-?%d+") do n[#n + 1] = tonumber(num) end
-    print("Stand behind me, looking the way I face, and read")
-    print("\"Facing\" on F3.")
-    write("Facing (north/east/south/west): ")
-    local facing = read():lower():gsub("%s", "")
-    if #n == 3 and nav.HEADINGS[facing] then
-      nav.setPosition(n[1], n[2], n[3], facing)
-      return
-    end
-    print("Didn't understand that, try again.")
-  end
-end
-
 -- 'miner home': make this spot home, e.g. to move it, or for a miner that
 -- was mid-job when it was set up.
 local function markHome()
@@ -514,22 +487,16 @@ if not os.getComputerLabel() then os.setComputerLabel("Miner-" .. os.getComputer
 print("AutoMine turtle " .. os.getComputerLabel())
 -- GPS works out the facing by stepping forward, which needs fuel.
 if inv.fuelLevel() < 10 then inv.refuel(100) end
-usesGps = nav.readFile(GPS_FILE) == true
+-- Nothing moves without GPS. Without it just now (after a server restart
+-- the GPS hosts may still be starting), report the saved position and wait.
 if gpsFix() then
   nav.init(true)
-  if not usesGps then
-    usesGps = true
-    nav.writeFile(GPS_FILE, true)
-  end
-elseif usesGps then
-  -- It had GPS, so it doesn't guess: report the saved position and wait.
-  nav.init(false)
+elseif nav.init(false) then
   gpsLost = true
   print("No GPS signal. I won't move until it's back.")
-elseif not nav.init(false) then
-  askPosition()
-elseif not nav.confirmResume("Then type my position again.") then
-  askPosition()
+else
+  nav.waitForGps() -- never had a position: nothing to report until GPS answers
+  nav.init(true)
 end
 local p = nav.getPos()
 print(("I'm at %d, %d, %d, facing %s."):format(p.x, p.y, p.z, HEADING_NAMES[nav.getHeading()]))

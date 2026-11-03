@@ -98,11 +98,12 @@ Trips home must follow paths the job has already cleared (excavate's
 
 ## GPS
 
-- `local hasGps = gpsPos() ~= nil` (`gpsPos` is `nav.locate`), `useGps = hasGps and (not job or job.gps)`,
-  `nav.init(useGps)`. A job started without GPS stays in counted coordinates.
+- Moving turtles need GPS: `local hasGps = nav.waitForGps() ~= nil` (waits, saying why, until GPS
+  answers), `useGps = hasGps and (not job or job.gps)`, `nav.init(useGps)`. Every new job has
+  `gps = true`; an old job started without GPS stays in counted coordinates.
 - With `job.gps`, every 20 units `checkPosition()` compares nav with GPS and
   calls `nav.init()` + `rejoin()` (go back to start if off the plan).
-- Without GPS, on resume `confirmResume()` (`nav.confirmResume(putBack)`) gives
+- An old job without GPS: on resume `confirmResume()` (`nav.confirmResume(putBack)`) gives
   10 s to press a key if the turtle was moved; the player then puts it back on the start block and runs
   `prog here`, which does `nav.setPosition(toWorld(start)..., job.origin.heading)`.
 
@@ -112,7 +113,7 @@ Trips home must follow paths the job has already cleared (excavate's
 |---|---|
 | (sizes) | New job. Refuses if a job exists ("Run 'prog resume' or 'prog cancel'."). Prints sizes and a fuel estimate, "Press Enter to start", `save()`, refuel from chest. |
 | `resume` | Rebuild plan from the job file and continue. `startup.lua` runs this. |
-| `here` | No GPS: player has put it back on the start block. |
+| `here` | An old job without GPS: player has put it back on the start block. |
 | `cancel` | `nav.deleteFile(JOB_FILE)`. |
 
 Label on start: `if not os.getComputerLabel() then os.setComputerLabel("Prog-" .. os.getComputerID()) end`.
@@ -138,8 +139,8 @@ A job that comes from another computer (the projector's plan for
 its own real position. Copy `computers/builder-turtle/builder.lua`:
 
 - `builder setup` makes the current block home and saves `/.builder_home`
-  `{ x, y, z, heading, gps }`: from GPS if there is one, otherwise the player
-  types the position and facing shown on F3.
+  `{ x, y, z, heading, gps }` from GPS (`nav.waitForGps()` first); every start
+  waits for GPS and calibrates with it too.
 - Save the job (big: every block) once to its own file, and the progress
   (stage + step) to a small file rewritten after every block.
 - Refuse a job too far from home (`MAX_DISTANCE`), and with GPS check the

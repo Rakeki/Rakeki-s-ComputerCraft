@@ -67,7 +67,7 @@ C
    treefarm 6 8              -- 6 columns of 8 trees
    treefarm 6 8 4            -- ...4 blocks apart, for bigger trees
    treefarm resume           -- carry on after stopping it
-   treefarm here             -- no GPS: "I've put you back on your start block", then carry on
+   treefarm here             -- an old job from before GPS was needed: "I've put you back on your start block"
    treefarm cancel           -- stop farming and forget the farm
    ```
 
@@ -79,11 +79,12 @@ grown.
 
 Same as the [excavator](../excavate-turtle/README.md#staying-on-track):
 
-- **With GPS** at the start, it checks its position every 10 trees and
+- It checks its position every 10 trees and
   corrects itself. If it's been moved off the farm, it heads back to the start.
-- **Without GPS**, on resume it waits 10 seconds. If you moved it, press a key,
-  put it back on its start block facing the original way, and run
-  `treefarm here`.
+- **GPS is needed:** it won't move without it. If GPS doesn't answer when it
+  starts (after a server restart the GPS computers may still be starting), it
+  waits and says so on screen and on the status server. `treefarm here` is only
+  for a job started before GPS was needed.
 
 If it reboots half way up a tree, it climbs back down and finishes chopping
 that tree first.

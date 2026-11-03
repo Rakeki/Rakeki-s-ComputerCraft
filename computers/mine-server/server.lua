@@ -333,6 +333,7 @@ local function handle(ev)
   elseif name == "key" then
     view:key(ev[2])
   elseif name == "peripheral" or name == "peripheral_detach" then
+    if name == "peripheral" then net.open("any") end -- a modem that attached after boot
     refreshDisplays()
   end
   -- monitor_resize / term_resize: the next frame is made at the new size

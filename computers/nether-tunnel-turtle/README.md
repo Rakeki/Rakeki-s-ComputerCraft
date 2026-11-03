@@ -74,7 +74,7 @@ have blaze spawners) or ComputerCraft blocks.
    nethertunnel              -- 128 long
    nethertunnel 300          -- 300 long
    nethertunnel resume       -- carry on after stopping it
-   nethertunnel here         -- no GPS: "I've put you back on your start block", then carry on
+   nethertunnel here         -- an old job from before GPS was needed: "I've put you back on your start block"
    nethertunnel cancel       -- forget the current job
    ```
 
@@ -91,12 +91,13 @@ digging outside the sealed tunnel.
 
 Same as the [excavator](../excavate-turtle/README.md#staying-on-track):
 
-- **With GPS** at the start of the job, it checks its position every 2 blocks
+- It checks its position every 2 blocks
   of tunnel and corrects itself. If it's been moved out of the tunnel, it
   heads back to the start.
-- **Without GPS**, on resume it waits 10 seconds. If you moved it, press a key,
-  put it back on its start block facing the original way, and run
-  `nethertunnel here`.
+- **GPS is needed:** it won't move without it. If GPS doesn't answer when it
+  starts (after a server restart the GPS computers may still be starting), it
+  waits and says so on screen and on the status server. `nethertunnel here` is only
+  for a job started before GPS was needed.
 
 ## Things to know
 

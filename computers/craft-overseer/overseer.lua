@@ -787,7 +787,7 @@ local workers = {}
 for slot = 1, MAX_CRAFTERS do workers[slot] = worker(slot) end
 term.clear()
 if report then report.init("craft overseer") end
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netLoop, lookLoop, claimLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netLoop, lookLoop, claimLoop, function() net.keepOpen("any") end,
   report and report.loop or function() while true do sleep(3600) end end, table.unpack(workers))
 term.setBackgroundColor(colors.black)
 term.clear()

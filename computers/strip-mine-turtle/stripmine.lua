@@ -357,10 +357,11 @@ end
 if not os.getComputerLabel() then os.setComputerLabel("StripMiner-" .. os.getComputerID()) end
 job = nav.readFile(JOB_FILE)
 
--- With GPS, the turtle works in real world coordinates and re-checks its
--- position and facing every time it starts. A job started without GPS keeps
--- using the saved position, since its coordinates are relative to the start.
-local hasGps = gpsPos() ~= nil
+-- Nothing moves without GPS: wait for it (nav.waitForGps says why on screen).
+-- The turtle works in real world coordinates and re-checks its position and
+-- facing every time it starts. A job from before GPS was needed keeps using
+-- the saved position, since its coordinates are relative to the start.
+local hasGps = nav.waitForGps() ~= nil
 local useGps = hasGps and (not job or job.gps)
 local knowsPosition = nav.init(useGps)
 

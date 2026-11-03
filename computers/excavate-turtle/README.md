@@ -8,7 +8,7 @@
 ## What it does
 
 Digs out a box-shaped hole and makes sure it's walled in and dry. It works on
-its own; no server needed. GPS is optional but strongly recommended (see
+its own; no server needed. It needs GPS (see
 [Staying on track](#staying-on-track)).
 
 That's all it does: it builds nothing inside the hole. The inner walls, the
@@ -68,7 +68,7 @@ fuel, but then water and lava can get in.
    excavate cellar               -- the hole the cellar plan needs (see Building plans)
    excavate sanctum deep         -- the sanctum's hole, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
-   excavate here                 -- no GPS: "I've put you back on your start block", then carry on
+   excavate here                 -- an old job from before GPS was needed: "I've put you back on your start block"
    excavate cancel               -- forget the current job
    ```
 
@@ -109,7 +109,7 @@ builds it.
    corner of the hole-to-be as usual and run
    `excavate <plan>` (add `down` or `deep` if you like). The hole is laid
    out north-south and east-west to match the plan, whichever way the
-   turtle faces. Without GPS it asks which way it's facing.
+   turtle faces.
 2. When it's done, with GPS it prints where to put the builder turtle and
    the exact `build` command. The builder's spot is counted from the hole's
    north-west corner, on its floor: put the builder there facing south, its
@@ -214,8 +214,10 @@ Things to know:
 
 ## Staying on track
 
-**With GPS** (a GPS constellation in range when the job starts, and a modem on
-the turtle), the turtle works in real world coordinates:
+It needs GPS (a GPS constellation in range, and a modem on the turtle) and
+works in real world coordinates. It won't move without GPS: if GPS doesn't
+answer when it starts (after a server restart the GPS computers may still be
+starting), it waits and says so on screen and on the status server.
 
 - **On start or resume:** every time it starts or resumes, including after a
   reboot, a chunk reload, or being picked up and put down, it checks its
@@ -226,14 +228,13 @@ the turtle), the turtle works in real world coordinates:
   carried up to the surface, it goes back to its start block and carries on
   with the job from there.
 
-GPS has to be working when you **start** the job. A job started without GPS
-keeps counting its own moves even if GPS appears later, because its
-coordinates aren't real world coordinates. Underground, GPS may be out of range
+Underground, GPS may be out of range
 (an ender modem helps). The turtle then keeps going on its own count and checks
 again when GPS is back.
 
-**Without GPS**, the turtle can't tell if it has been moved. When it resumes, it
-waits 10 seconds first:
+**A job started before GPS was needed** keeps counting its own moves, because
+its coordinates aren't real world coordinates. When it resumes, it waits 10
+seconds first:
 
 - **If you didn't move it,** do nothing and it carries on.
 - **If you moved it,** press any key. Then put it back on its start block, facing

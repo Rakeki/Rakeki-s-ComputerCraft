@@ -59,30 +59,24 @@ at home as usual) and wait for it to come back before asking for a new job.
 3. Put a bit of coal in the turtle and run `refuel all`.
 4. Copy the files on and reboot. It names itself `Miner-<id>` so it keeps its
    files if you break it, and saves its spot as home on the first start.
-5. **With GPS** (recommended) it finds its own position and facing. It steps
-   forward once to work out its facing, so give it fuel and room in front first.
-   **Without GPS** it asks once for its position and facing. Press F3, look at
-   the turtle's block and type the X Y Z from **Targeted Block** (not your own
-   position, which is the block you're standing on). For facing, stand behind it
-   looking the same way and read "Facing".
+5. It needs **GPS** (see [gps-deployer](../gps-deployer/README.md)) to find its
+   own position and facing. It steps forward once to work out its facing, so
+   give it fuel and room in front first.
 
 ```
 miner home      -- make this spot my home (chest behind me), e.g. to move it
 ```
 
-With GPS it also checks its position every 32 blocks mined and before each
+It also checks its position every 32 blocks mined and before each
 trip, and corrects itself (and says so) if it has slipped.
 
-**If GPS is lost:** once a miner has had GPS, it won't carry on without it.
-When the signal drops (or it starts up without it), it stays where it is and
+**If GPS is lost:** a miner never moves without GPS. When the signal drops
+(or it starts up without it, as after a server restart while the GPS
+computers are still starting), it stays where it is and
 tells the server: the map and the event log show "no GPS at x,y,z: waiting
 for it", with the position it last knew. It checks again every 15 seconds and
 carries on by itself when GPS is back, correcting its position first if it
 was off.
-
-A miner set up without GPS at all trusts its saved position on every reboot,
-but first waits 10 seconds: press a key if you moved it, then type its
-position again.
 
 ## Things to know
 

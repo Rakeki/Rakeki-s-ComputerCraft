@@ -264,11 +264,11 @@ there's none, it waits.
   `startup.lua` picks it up again. In the simulator it was rebooted 8 times at
   random points (mid-flight, mid-build, mid-street) and built exactly the
   same village as without reboots.
-- **GPS:** with GPS available when the village starts, the turtle checks its
-  position against GPS on every resume and every 25 blocks. If it's been
-  moved, it recalibrates and heads home before carrying on. Without GPS it
-  trusts its own count and gives you 10 seconds on resume to say it was moved
-  (then put it back on its home block facing forward and run `village here`).
+- **GPS:** it won't move without GPS. It checks its position against GPS on
+  every resume and every 25 blocks; if it's been moved, it recalibrates and
+  heads home before carrying on. If GPS doesn't answer when it starts (after a
+  server restart the GPS computers may still be starting), it waits and says
+  so. `village here` is only for a village started before GPS was needed.
 - **Never digs** chests, barrels, furnaces, hoppers, spawners or anything from
   ComputerCraft (via `lib/nav.lua`). Between plots it flies above everything
   it has built, and never digs sideways on the way: it goes over whatever's
@@ -333,7 +333,7 @@ To turn sharing off, set `SHARE_PLAN = false` at the top of `village.lua`.
 
 - `village`: start a new village here
 - `village resume`: carry on (`startup.lua` does this)
-- `village here`: you put the turtle back on its home block, facing forward; reset its position
+- `village here`: a village started before GPS was needed: you put the turtle back on its home block, facing forward; reset its position
 - `village grow <radius>`: let a finished village grow further out
 - `village list [theme]`: blocks each building needs
 - `village status`: what's built so far

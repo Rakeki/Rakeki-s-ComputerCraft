@@ -8,7 +8,7 @@
 ## What it does
 
 Flattens a rectangle of land into a solid, level building platform. It works
-on its own; no server needed. GPS is optional but recommended (see
+on its own; no server needed. It needs GPS (see
 [Staying on track](#staying-on-track)).
 
 The height of the platform is the ground the turtle starts on: the block under
@@ -72,7 +72,7 @@ until you make room.
    level 61 50 0                 -- clear nothing above, only fill the holes (it still digs through
                                  -- anything in its way just above the ground)
    level resume                  -- carry on after stopping it
-   level here                    -- no GPS: "I've put you back on your start block", then carry on
+   level here                    -- an old job from before GPS was needed: "I've put you back on your start block"
    level cancel                  -- forget the current job
    ```
 
@@ -82,13 +82,12 @@ fuel or fill blocks, it waits at the start until you fix it.
 
 ## Staying on track
 
-- **With GPS** (see [gps-deployer](../gps-deployer/README.md)), it checks
-  its position every 20 steps and when it starts up. If it was moved, it finds
-  its own way back.
-- **Without GPS**, it trusts its own count. When it restarts (reboot, chunk
-  reload) it gives you 10 seconds to press a key if you moved it. Then put it
-  back on its start block, facing the way it faced at the start, and run
-  `level here`.
+- It checks its position with GPS (see [gps-deployer](../gps-deployer/README.md))
+  every 20 steps and when it starts up. If it was moved, it finds its own way back.
+- **GPS is needed:** it won't move without it. If GPS doesn't answer when it
+  starts (after a server restart the GPS computers may still be starting), it
+  waits and says so on screen and on the status server. `level here` is only
+  for a job started before GPS was needed.
 - Keep the area loaded (stay nearby, or use a chunk loader) for big jobs. If
   the chunk unloads, the turtle stops and picks up again when it's loaded.
 

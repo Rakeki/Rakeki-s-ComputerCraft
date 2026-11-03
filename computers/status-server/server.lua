@@ -95,6 +95,7 @@ local function handle(ev)
   elseif x and not drag then
     apply(view:click(x, y))
   elseif name == "peripheral" or name == "peripheral_detach" then
+    if name == "peripheral" then net.open("any") end -- a modem that attached after boot
     -- also fired by turtles driving past: only acts if the monitor came or went
     if view.display:refresh() then announce() end
   end

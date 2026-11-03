@@ -3,7 +3,8 @@
 Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 `require("lib.<module>")`.
 
-- `nav.lua`: turtle position tracking (saved across reboots, optional GPS) and
+- `nav.lua`: turtle position tracking (saved across reboots, checked with GPS, which
+  every moving turtle but the gps-deployer waits for: `nav.waitForGps`) and
   movement that digs through anything except protected blocks. Used by
   `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`, `gps-deployer` and
@@ -71,7 +72,9 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 - `net.lua`: rednet the same way everywhere: opening wireless or every modem,
   asking another computer something with an id the answer repeats and a
   deadline (`net.ask`), answering (`net.answer`), and a cached lookup of the
-  computer hosting a protocol (`net.peer`). Used by `village-turtle`,
+  computer hosting a protocol (`net.peer`). Copes with a server restart, when
+  everything boots at once: a missing peer is looked for every 5 s for the first
+  5 minutes, `net.open` waits briefly for a modem, `net.keepOpen` opens late ones. Used by `village-turtle`,
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
   `factory`,

@@ -5,6 +5,7 @@
 --
 --   local net = require("lib.net")
 --   net.open()                                -- wireless or ender modems; net.open("any") opens wired ones too
+--   parallel.waitForAny(main, function() net.keepOpen("any") end)  -- opens modems attached later
 --   local reply = net.ask(id, "storage", { type = "count", items = { ... } })
 --   net.answer(from, "storage", request, { counts = counts })  -- adds re and id
 --
@@ -15,13 +16,22 @@
 -- net.ask's opts: wait (seconds, default 10), match(reply, from) to accept a
 -- different kind of answer (default: re and id match), and other(from, msg)
 -- for anything else that arrives on the protocol while waiting.
+--
+-- After a server restart every computer boots at once: the computer a
+-- program needs may not be up yet, and a modem on a neighbouring block can
+-- attach a moment after the computer starts. So for the first minutes after
+-- boot a peer that isn't found is looked for again every few seconds (not
+-- after its usual retry), net.open waits a little for a modem, and
+-- net.keepOpen, run alongside the program, opens modems that attach later.
 local net = {}
+
+local BOOT_GRACE = 300 -- seconds after boot while other computers may still be starting
+local BOOT_RETRY = 5 -- seconds between lookups for a missing peer meanwhile
+local MODEM_WAIT = 15 -- seconds after boot that net.open waits for a modem to attach
 
 local nextId = 0 -- shared by every coroutine on this computer, so ids never repeat
 
--- Open modems: kind "wireless" (default) opens wireless and ender modems,
--- "any" every modem, wired ones too. True if rednet is open on any.
-function net.open(kind)
+local function openNow(kind)
   for _, side in ipairs(peripheral.getNames()) do
     if peripheral.getType(side) == "modem" and not rednet.isOpen(side)
       and (kind == "any" or peripheral.call(side, "isWireless")) then
@@ -29,6 +39,26 @@ function net.open(kind)
     end
   end
   return rednet.isOpen()
+end
+
+-- Open modems: kind "wireless" (default) opens wireless and ender modems,
+-- "any" every modem, wired ones too. True if rednet is open on any.
+function net.open(kind)
+  while not openNow(kind) do
+    if os.clock() >= MODEM_WAIT then return false end
+    sleep(1)
+  end
+  return true
+end
+
+-- Run alongside the program (parallel.waitForAny): opens modems attached
+-- after it started, so a computer that booted before its modem stays reachable.
+function net.keepOpen(kind)
+  openNow(kind)
+  while true do
+    os.pullEvent("peripheral")
+    openNow(kind)
+  end
 end
 
 -- A wireless or ender modem is attached (one that reaches turtles).
@@ -83,7 +113,9 @@ function Peer:find()
   if os.clock() < self.notBefore then return nil, "none" end
   self.id = rednet.lookup(self.protocol, self.opts.host)
   if not self.id then
-    self.notBefore = os.clock() + (self.opts.retry or 0)
+    local retry = self.opts.retry or 0
+    if os.clock() < BOOT_GRACE then retry = math.min(retry, BOOT_RETRY) end
+    self.notBefore = os.clock() + retry
     return nil, "none"
   end
   return self.id

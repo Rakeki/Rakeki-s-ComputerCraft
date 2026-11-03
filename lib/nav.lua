@@ -5,6 +5,7 @@ local files = require("lib.files") -- crash-safe save files
 local nav = {}
 
 local STATE_FILE = "/.nav_state"
+local GPS_RETRY = 5 -- seconds between tries while waiting for GPS
 
 -- Headings: 0 = north (-z), 1 = east (+x), 2 = south (+z), 3 = west (-x)
 local DIRS = { [0] = { x = 0, z = -1 }, [1] = { x = 1, z = 0 }, [2] = { x = 0, z = 1 }, [3] = { x = -1, z = 0 } }
@@ -176,6 +177,30 @@ local function locate()
   return { x = math.floor(x + 0.5), y = math.floor(y + 0.5), z = math.floor(z + 0.5) }
 end
 nav.locate = locate
+
+-- Turtles that move need GPS: without it a wrong saved position (a chunk
+-- unloading mid-move, a turtle picked up) sends them digging in the wrong
+-- place. Wait until it answers, saying why on screen and on the status
+-- server: after a server restart the GPS hosts may still be starting.
+function nav.waitForGps()
+  local p = locate()
+  if p then return p end
+  local report = package.loaded["lib.report"] -- only if the program uses it
+  print("Waiting for GPS: I need it to know where I am.")
+  print("No GPS here yet? Build one with a gps-deployer turtle.")
+  if report then report.set("waiting", "no GPS: waiting for it") end
+  local said = os.clock()
+  repeat
+    sleep(GPS_RETRY)
+    p = locate()
+    if not p and os.clock() - said >= 60 then
+      print("Still no GPS. Waiting...")
+      said = os.clock()
+    end
+  until p
+  print("GPS found.")
+  return p
+end
 
 local function headingBetween(p1, p2)
   for h, d in pairs(DIRS) do

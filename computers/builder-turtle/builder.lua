@@ -11,13 +11,11 @@
 -- its strip, and crosses over at a height of its own so they don't meet.
 --
 --   builder            wait for a building from a projector (startup.lua runs this)
---   builder setup      make this block home (asks where I am if there's no GPS)
---   builder here       you put me back on my home block (no GPS): carry on from there
+--   builder setup      make this block home (found with GPS)
 --   builder status     what I'm building and how far along I am
 --   builder cancel     forget the building I'm working on
 --
--- Needs a wireless or ender modem, and its real world position: from GPS, or
--- typed in once with 'builder setup' (press F3 to read it).
+-- Needs a wireless or ender modem and GPS (it waits for GPS before it moves).
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
@@ -848,42 +846,16 @@ end
 
 ---------------------------------------------------------------- setup
 
-local function askNumber(prompt)
-  while true do
-    write(prompt)
-    local n = tonumber(read())
-    if n then return math.floor(n) end
-    print("Type a whole number.")
-  end
-end
-
--- Make the block I'm on home: from GPS, or from what the player reads off F3.
+-- Make the block I'm on home, found with GPS.
 local function setupHome()
-  local useGps = gpsPos() ~= nil
-  if useGps then
-    print("Finding my position and facing with GPS...")
-    nav.init(true)
-  else
-    print("No GPS here, so tell me where I am. Look at my block")
-    print("with F3 open: it shows the block's X Y Z (Targeted Block).")
-    local x, y, z = askNumber("X: "), askNumber("Y: "), askNumber("Z: ")
-    local facing
-    while not facing do
-      write("Which way am I facing (north, east, south, west)? ")
-      facing = nav.HEADINGS[read():lower()]
-    end
-    nav.setPosition(x, y, z, facing)
-  end
+  nav.waitForGps()
+  print("Finding my position and facing with GPS...")
+  nav.init(true)
   local p = nav.getPos()
-  home = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading(), gps = useGps }
+  home = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading(), gps = true }
   nav.writeFile(HOME_FILE, home)
   print(("Home is %d,%d,%d, facing %s."):format(p.x, p.y, p.z, ({ [0] = "north", "east", "south", "west" })[home.heading]))
   print("Put my supply chest behind me and a spoil chest to my left.")
-end
-
--- No GPS to check against: give the player a chance to say the turtle was moved.
-local function confirmResume()
-  return nav.confirmResume("Put me back on my home block, facing the way I faced\nthere, then run: builder here")
 end
 
 ---------------------------------------------------------------- start
@@ -912,14 +884,15 @@ elseif args[1] == "status" then
 elseif args[1] == "setup" or not home then
   setupHome()
   if args[1] == "setup" then return end
-elseif args[1] == "here" then
-  nav.setPosition(home.x, home.y, home.z, home.heading)
-  print("Position reset to my home block.")
-elseif home.gps then
-  nav.init(true)
 else
-  if not nav.init(false) then error("Lost track of my position: run 'builder setup' on my home block.", 0) end
-  if job and not confirmResume() then return end
+  -- nothing moves without GPS: after a server restart it may still be starting
+  nav.waitForGps()
+  nav.init(true)
+  if not home.gps then
+    -- a home typed off F3 before GPS was needed: world coordinates too, so GPS can check it
+    home.gps = true
+    nav.writeFile(HOME_FILE, home)
+  end
 end
 
 if not openModem() then
@@ -935,4 +908,4 @@ parallel.waitForAny(function()
     report.set("error", tostring(err))
     error(err, 0)
   end
-end, listen, report.loop)
+end, listen, net.keepOpen, report.loop)

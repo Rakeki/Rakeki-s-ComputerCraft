@@ -20,7 +20,7 @@ computers/                  In-game programs, one folder each (never in the repo
                             published on the site for wget, e.g. storage-computer's modpack recipes
 lib/                        Shared modules, copied to /lib/ in-game, loaded with require("lib.<module>")
   README.md                 One line per module: what it does and which programs use it
-  nav.lua                   Turtle position tracking + safe movement (saved across reboots, optional GPS)
+  nav.lua                   Turtle position tracking + safe movement (saved across reboots, GPS checks; nav.waitForGps)
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
@@ -343,6 +343,9 @@ Detailed guides live in `.claude/skills/`:
   never read or empty storage chests (or an ME / RS system) themselves.
 - **Movement:** turtles use `lib/nav.lua` (never raw `turtle.forward` for moves
   that change position) so position is saved and protected blocks are never dug.
+  Every turtle that moves needs GPS (only the gps-deployer, which builds it, does
+  without): `nav.waitForGps()` before the first move, so after a server restart
+  it waits for the GPS hosts instead of trusting a saved position.
   Counting, selecting and burning items go through `lib/inv.lua`; GPS checks
   through `nav.locate` and `nav.confirmResume`.
 - **Rednet:** requests and answers go through `lib/net.lua` (`net.peer(...):ask`,

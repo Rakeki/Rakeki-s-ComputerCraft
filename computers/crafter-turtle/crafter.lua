@@ -373,4 +373,4 @@ parallel.waitForAny(function()
     status("error", tostring(err))
     error(err, 0)
   end
-end, claimLoop, report and report.loop or function() while true do sleep(3600) end end)
+end, claimLoop, function() net.keepOpen("any") end, report and report.loop or function() while true do sleep(3600) end end)
