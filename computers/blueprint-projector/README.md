@@ -52,8 +52,9 @@ It doesn't come with any plans: install the ones you want into `/plans` by
 name after the projector (`install plan cottage`, `install plan castle
 teahouse windmill`), or pick them on the website's plans page, which writes
 the command for you; `install plans` lists them all. There's a **cottage** (7×7, 8
-high), a **watchtower** (7×7, 11 high), a five-storey **pagoda** (31×32, 59
-high, over 9,000 blocks) with balconies, upturned eaves and a gold spire,
+high), a **watchtower** (7×7, 11 high), a mega **pagoda** (73×93, 89
+high, about 55,600 blocks): a many-roofed timber pagoda in a moss garden
+(it needs Oh The Biomes We've Gone, Fetzi's Asian Deco and Torchmaster blocks),
 a **sky station** (63×63, 98 high, about 21,200 blocks) to hang in the
 sky: four hollow rings round a core with a glass dome and a spire on top
 and a spike below, with floors to walk round inside (see
@@ -351,8 +352,8 @@ Draw each layer from above, bottom layer first, one character per block:
 ### Plans made by code (Lua)
 
 A `.lua` plan returns the same table, so a loop can make one: handy for
-big or round buildings that would be huge as JSON. `plans/pagoda.lua` and
-`plans/skystation.lua` are made that way:
+big or round buildings that would be huge as JSON. `plans/skystation.lua` is made
+that way (`plans/pagoda.lua` is a structure file packed into a Lua plan):
 
 ```lua
 local plan = { name = "Pillar", blocks = {} }

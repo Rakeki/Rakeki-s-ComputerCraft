@@ -1947,9 +1947,9 @@
       "name": "pagoda",
       "file": "pagoda.lua",
       "title": "Pagoda",
-      "tagline": "Five storeys on a stepped plinth, with balconies, deep upturned eaves, lanterns and a gold spire.",
-      "size": "31 × 32 × 59",
-      "blocks": 9199
+      "tagline": "A mega timber pagoda of many roofs in a moss garden, with lanterns; needs Oh The Biomes We've Gone, Fetzi's Asian Deco and Torchmaster.",
+      "size": "73 × 93 × 89",
+      "blocks": 55597
     },
     {
       "name": "skystation",
