@@ -4,6 +4,7 @@
 -- is built inside it: builder turtles do the inner walls and details.
 --
 --   excavate [width] [length] [height] [up|down|deep]    (default 21 21 16 up)
+--   excavate <size> [up|down|deep]   a cube that size, e.g. 'excavate 30 deep'
 --   excavate <plan> [up|down|deep]   the hole a plan in /plans needs (cellar, fortress, ...: any with a hole)
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
@@ -15,7 +16,8 @@
 --
 -- "deep" digs a shaft straight down from the turtle and digs the hole
 -- centred underneath it, with its floor ABOVE_BEDROCK layers above bedrock.
--- The turtle comes back up the shaft to the chest.
+-- The turtle comes back up the shaft to the chest. Place it above where the
+-- middle of the hole should be.
 --
 -- A plan name digs the hole that plan says it needs (its "hole" field: width
 -- east-west, length north-south, height), lined up with north whichever way
@@ -607,9 +609,12 @@ else
       return
     end
   end
+  -- one number is a cube that size
+  if #nums == 1 then nums[2], nums[3] = nums[1], nums[1] end
   local w, l, h = nums[1] or hole[1], nums[2] or hole[2], nums[3] or hole[3]
   if w < 1 or l < 1 or h < 1 then
     print("Usage: excavate [width] [length] [height] [up|down|deep]")
+    print("       excavate <size> [up|down|deep]   (a cube)")
     print("       excavate <plan> [up|down|deep]")
     return
   end

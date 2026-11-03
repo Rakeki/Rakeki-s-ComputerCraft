@@ -63,8 +63,10 @@ fuel, but then water and lava can get in.
    ```
    excavate                      -- 21x21x16 hole, digging up from the turtle
    excavate 30 40 12             -- 30 wide, 40 long, 12 high
+   excavate 25                   -- one number: a 25x25x25 cube
    excavate 21 21 16 down        -- dig downwards instead (turtle at the top corner)
    excavate deep                 -- shaft down from the surface, hole floor 10 above bedrock
+   excavate 30 deep              -- a 30x30x30 cube centred under the turtle, floor 10 above bedrock
    excavate cellar               -- the hole the cellar plan needs (see Building plans)
    excavate sanctum deep         -- the sanctum's hole, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
@@ -250,7 +252,9 @@ can't be dug themselves, such as a spawner in the middle of the hole.
 
 `excavate deep` digs a 1×1 shaft straight down from the turtle. The hole is
 dug **centred under the turtle**, so the shaft comes down through the exact
-middle of the ceiling. Its floor is at Y −50, which is 10 above the top bedrock
+middle of the ceiling: place the turtle on the surface right above where the
+middle of the hole should be. Give the size as usual (`excavate 40 30 20 deep`),
+or one number for a cube (`excavate 30 deep` digs 30×30×30). Its floor is at Y −50, which is 10 above the top bedrock
 layer (−60 in 1.18+). Change `BEDROCK_TOP` / `ABOVE_BEDROCK` at the top of
 `excavate.lua` to adjust. The turtle gets its Y level from GPS, or asks you for it.
 If you carry it up out of the shaft mid-job, with GPS it finds its way back to
