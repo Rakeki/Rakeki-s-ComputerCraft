@@ -2176,9 +2176,9 @@
       "name": "greenhouse",
       "file": "greenhouse.lua",
       "title": "Greenhouse",
-      "tagline": "A tall glasshouse under a barrel-vaulted glass roof, its fronts a timber frame of oak posts, spruce bands and arched windows on stone plinths, with spires along the ridge: flower beds, bamboo, sugar cane along a water channel, two azalea trees and a fountain.",
-      "size": "27 × 41 × 26",
-      "blocks": 4879
+      "tagline": "A tall glasshouse under a barrel-vaulted glass roof, set back behind oak ribs that stand out over it; its fronts a deep timber frame of oak posts, spruce bands and arched windows on mossy stone plinths, with spires along the ridge and planters outside; the inside is left empty for you to fill.",
+      "size": "27 × 45 × 27",
+      "blocks": 4991
     },
     {
       "name": "villa",
