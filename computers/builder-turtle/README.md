@@ -160,7 +160,19 @@ The storage system sent 640 blocks to my supply chest.
 
 If storage runs out of something, the same orange line as ever says what
 it's waiting for ("Waiting for stone bricks (64)"): put more into storage at
-your base and it comes through.
+your base and it comes through. When an order comes up short, the line
+above it says why, as the storage computer sees it:
+
+```
+Storage has 513 mossy stone bricks, but only 0 are in my supply chest.
+The storage system couldn't send them: enderstorage:ender_chest_6 took none of the Mossy Stone Bricks asked for: is it full?
+Storage has no mossy stone bricks and can't craft it: no recipe for it.
+No storage system answered my order.
+```
+
+The last one means its orders aren't getting through at all: check the
+builder's ender modem, the storage computer's wireless or ender modem, and
+that your base is loaded.
 
 Things to watch:
 
@@ -204,7 +216,9 @@ Things to watch:
   slot itself, which is slower with stack upgrades; keep a slot empty. Some
   barrels (Sophisticated Storage) don't let it choose the slot: then it can
   only reach blocks a few stacks deep, and says so on its screen. Give
-  those a buffer chest.
+  those a buffer chest. If the block under its home block can't take items
+  from the supply chest (it isn't a plain chest or barrel), the builder says
+  so once and takes from the supply chest itself.
 - It flies over the top of a building, so the building's top has to stay
   a few blocks below the build limit (Y 319): 2 blocks, plus 1 for each
   extra builder sharing it. One that's too high is refused, saying how far

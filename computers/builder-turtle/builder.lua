@@ -307,17 +307,23 @@ end
 -- With a buffer chest under my home block: the supply chest (in front)
 -- pushes exactly what's wanted into it, from whatever slot it's in, and I
 -- take it from there. Nothing in the supply chest is moved about, so its
--- order doesn't matter. False when there's no buffer chest.
+-- order doesn't matter. False when there's no buffer chest, or when the
+-- chests couldn't hand anything over (the block under me isn't a chest I can
+-- use that way): then the caller takes from the supply chest itself.
+local warnedBuffer = false -- said once that the buffer chest route doesn't work
 local function takeViaBuffer(match, want, current)
   local supply, buffer = peripheral.wrap("front"), peripheral.wrap("bottom")
   if not (supply and supply.list and buffer and buffer.list and buffer.pushItems) then return false end
   -- anything left in it from last time goes back first
   for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
+  local start, tried, why = current(), false, nil
   for slot, it in pairs(supply.list()) do
     if match(it.name) then
       local left = it.count
       while left > 0 and current() < want and emptySlots() > 0 do
         local ok, n = pcall(supply.pushItems, "bottom", slot, math.min(64, left, want - current()))
+        tried = true
+        if not ok then why = tostring(n) end
         if not ok or not n or n == 0 then break end
         left = left - n
         turtle.select(freeSlotFor(it.name) or 1)
@@ -329,6 +335,14 @@ local function takeViaBuffer(match, want, current)
   -- what didn't fit in me goes back
   for slot in pairs(buffer.list()) do pcall(buffer.pushItems, "front", slot) end
   turtle.select(1)
+  if tried and current() == start then
+    if not warnedBuffer then
+      print("The chest under my home block couldn't hand me blocks from my supply chest"
+        .. (why and (" (" .. why .. ")") or "") .. ". Taking them from the supply chest myself.")
+      warnedBuffer = true
+    end
+    return false
+  end
   return true
 end
 
@@ -456,6 +470,7 @@ end
 -- the storage computer, looked up again a minute after none answered
 local storage = net.peer(STORAGE_PROTOCOL, { retry = 60, wait = STORAGE_WAIT })
 local supply = claim.tracker("delivery", CLAIM_RETRY) -- whether the storage system knows my supply chest
+local lastStorageNote = "" -- why the last order came up short, so the same reason isn't printed every 10 s
 
 -- Ask a storage computer something; nil if there isn't one in range.
 local function askStorage(msg)
@@ -484,12 +499,33 @@ local function orderFromStorage(needs)
   end
   local r = askStorage({ type = "deliver", items = order })
   supply:seen(r) -- not sent to my own chest: find it again next time
-  if r then
+  local notes = {}
+  if not r then
+    if USE_STORAGE then notes[1] = "No storage system answered my order." end
+  else
     local sent = 0
     for _, n in pairs(r.sent or {}) do sent = sent + n end
     if sent > 0 then print(("The storage system sent %d blocks to %s."):format(sent,
       r.to == "output" and "its output chest" or "my supply chest")) end
+    if type(r.error) == "string" then notes[#notes + 1] = "The storage system couldn't send them: " .. r.error end
+    -- what's still short, and why
+    for item, n in pairs(order) do
+      local ready = type(r.ready) == "table" and r.ready[item] or 0
+      local stock = type(r.stock) == "table" and r.stock[item] or 0
+      local why = type(r.cantCraft) == "table" and r.cantCraft[item]
+      if ready < n and not (type(r.crafting) == "table" and r.crafting[item]) then
+        if stock > 0 then
+          notes[#notes + 1] = ("Storage has %d %s, but only %d are in my supply chest."):format(stock, shortName(item), ready)
+        elseif why then
+          notes[#notes + 1] = ("Storage has no %s and can't craft it: %s."):format(shortName(item), why)
+        end
+      end
+    end
   end
+  table.sort(notes)
+  local text = table.concat(notes, "\n")
+  if text ~= "" and text ~= lastStorageNote then print(text) end
+  lastStorageNote = text
   return r
 end
 

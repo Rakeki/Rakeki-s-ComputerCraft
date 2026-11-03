@@ -1823,6 +1823,10 @@ local function handleRequest(from, msg)
         if have < n then
           local err
           sent[name], err = fetch(name, n - have, to)
+          -- stored, yet none moved and no error: say so, or the turtle waits without a reason
+          if not err and sent[name] == 0 and (countPlain({ name })[name] or 0) > 0 then
+            err = ("%s took none of the %s asked for: is it full?"):format(to, nameOf(name))
+          end
           failed = failed or err
         end
         ready[name] = have + sent[name]
