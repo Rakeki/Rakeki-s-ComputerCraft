@@ -36,7 +36,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
                             'install plan <name>' puts one in /plans (no program comes with any: install it, then the plans);
                             underground ones (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads,
-                            sanctum, atrium, grandstair, fortress, cavern) also carry "hole" (the size 'excavate <plan>' digs)
+                            sanctum, atrium, grandstair, fortress, cavern, deephold) also carry "hole" (the size 'excavate <plan>' digs)
                             and "home" (the builder's clear spot); programs.json's entry has "hole" too
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
@@ -193,7 +193,7 @@ Existing computers:
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `turtle-finder` | Pocket computer: lists every turtle heard on `cc_status`, nearest first, and points a big arrow at the one picked (relative to the way you last walked, or a compass), with distance, height and what it is doing; remembers last known positions | screen, net, files, errlog (if present) |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation; `gps-deploy satellite` spreads the hosts wider and builds a satellite round each (hull, antenna dish, solar wings, lights) | nav, inv, files, report, errlog (if present) |
-| `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the thirteen underground plans, bunker to cavern) and prints its `home` for the builder | nav, report, errlog, inv, files |
+| `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the fourteen underground plans, bunker to deephold) and prints its `home` for the builder | nav, report, errlog, inv, files |
 | `level-turtle` | Standalone turtle: flattens an area into a solid building platform (clears everything above the ground it starts on in 3-high layers, up to open sky or a given height, then fills holes below with the dirt it dug, up to 8 deep) | nav, report, errlog, inv, files |
 | `strip-mine-turtle` | Standalone turtle: 3x3 main tunnel with 3x3 branches | nav, report, errlog, inv, files |
 | `nether-tunnel-turtle` | Standalone turtle: sealed 3x3 Nether tunnel; patches holes, walls off lava, burns lava from a bucket | nav, report, errlog, inv, files |

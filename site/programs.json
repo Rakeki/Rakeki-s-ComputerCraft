@@ -29,7 +29,7 @@
         "Walks every wall, floor and ceiling block and fills caves, water and lava with cobblestone",
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
-        "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress, cavern) and prints where the builder goes and the build command",
+        "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress, cavern, deephold) and prints where the builder goes and the build command",
         "Resumes after reboots, chunk unloads, or being picked up"
       ],
       "setup": [
@@ -53,7 +53,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "Needs GPS: it checks its position every 20 steps and finds its way back if moved."],
-        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the thirteen underground plans, from the bunker to the cavern."]
+        ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the fourteen underground plans, from the bunker to the deep hold."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
       "layouts": [
@@ -2077,6 +2077,15 @@
       "size": "63 × 63 × 29",
       "hole": "63 × 63 × 30",
       "blocks": 18410
+    },
+    {
+      "name": "deephold",
+      "file": "deephold.lua",
+      "title": "Deep Hold",
+      "tagline": "A three-storey deepslate base for just above bedrock: an open well round a copper-banded core, a rotunda on each floor, and twelve rooms from a storage hall and farm to a library, garden and vault.",
+      "size": "57 × 57 × 29",
+      "hole": "57 × 57 × 30",
+      "blocks": 24454
     },
     {
       "name": "factory",

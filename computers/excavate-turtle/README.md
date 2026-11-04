@@ -106,6 +106,7 @@ builds it.
 | [grandstair](../../plans/grandstair.lua) | 31 × 46 × 22 | 8,320 | 15 east, 30 south | An entrance hall: in through an arch onto a high landing, down a stone staircase between pillars with chiselled capitals and balconies, under dark oak beams and glowstone, to an aquarium window; a storeroom under the landing |
 | [fortress](../../plans/fortress.lua) | 27 × 61 × 15 | 8,390 | 13 east, 56 south | A Nether-style blackstone hall: lava channels under grates along the walls, guard alcoves with glowing panels, deepslate pillars and ribs with lava over grates in the ceiling, a portal dais between two lavafalls |
 | [cavern](../../plans/cavern.lua) | 63 × 63 × 30 | 18,410 | 22 east, 36 south | A whole cave made a base: rough rock walls of stone, tuff and dripstone with stalactites and glowstone overhead; a stair round a great stone pillar up to a lookout deck, and a bridge on stone piers to the roof terrace of a three-storey house (a hall with a fireplace and kitchen, bedrooms and a storeroom, a library, a tower); a lake fed by a waterfall, with a pier and a bridge to an azalea island; giant mushrooms; farm terraces; a mine depot with a track, ore heaps and a smithy; an amethyst grotto with an enchanting table and a blackstone grotto with a portal |
+| [deephold](../../plans/deephold.lua) | 57 × 57 × 30 | 24,450 | 28 east, 34 south | A three-storey deepslate base for just above bedrock (`excavate deephold deep`): an open well through every floor round a core pillar banded with copper and froglights, a basin at its foot; a rotunda walk on each floor behind a lantern railing; corridors to the four walls with stairs up the west and east ones. Ground floor: a storage hall of barrels, a smithy, a sugar cane farm and a turtle bay, a portal frame, two lavafalls behind bars. First floor: bedrooms, a kitchen with a fireplace and long table, a library with an enchanting table, a brewing room with a nether wart bed. Top floor: a vault with a lodestone and ender chests, a lounge, a garden with azalea trees and a pond, an armoury and archery range |
 
 1. Install the plan on the turtle (`install plan <plan>`), put it in a
    corner of the hole-to-be as usual and run
@@ -131,8 +132,9 @@ Some plans need a few things from you:
 
 - **The way in.** The plans fill a sealed hole, so you dig your own
   tunnel in. The bunker's corridor, the grand stair's arch over its landing,
-  the fortress's gate in its south wall and the cavern's mine tunnel in its
-  east wall (the track runs into the rock) open on the rock, ready for it;
+  the fortress's gate in its south wall, the cavern's mine tunnel in its
+  east wall (the track runs into the rock) and the deep hold's arch at the
+  south end of its ground floor open on the rock, ready for it;
   the burrow's stair carries on up into the rock from the lounge, so dig on
   from its top step to the surface.
 - **Beds and armour stands** can't be placed by the turtle: bed spots are
@@ -141,10 +143,11 @@ Some plans need a few things from you:
   alcoves).
 - **Buckets.** Water and lava come from buckets in the supply chest. Most
   plans need a few dozen water buckets; the grand stair's aquarium takes
-  121, the sanctum 216 and the cavern's lake about 480. The fortress takes 150 lava buckets for its
+  121, the sanctum 216 and the cavern's lake about 480. The deep hold takes about 100 (its farm channels, basin and pond) and 2 lava
+  buckets for its lavafalls (`LAVA` at the top of `deephold.lua` too). The fortress takes 150 lava buckets for its
   channels, ceiling pools and lavafalls: set `LAVA` at the top of
   `fortress.lua` to `"minecraft:magma_block"` to build it without. The
-  cloister's fountain, the fortress's lavafalls and the cavern's waterfall
+  cloister's fountain, the fortress's and deep hold's lavafalls and the cavern's waterfall
   pour on purpose; their basins hold them.
 - **The burrow's shaft.** The builder's home in the burrow is a one-block
   shaft through every floor beside the stair, fenced on each floor. Put a
