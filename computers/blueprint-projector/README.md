@@ -74,8 +74,8 @@ high, about 8,300), a Nether-style **fortress** (27×61, 14 high, about
 walls, a stair round a great pillar up to a lookout, a bridge to a
 three-storey house, a lake with a waterfall, giant mushrooms, farm
 terraces, a mine depot and two grottos; and a **deep hold** (57×57, 29 high, about
-24,500) for just above bedrock: three floors round an open well, twelve
-rooms; and **Turtle Works**
+17,700) for just above bedrock: a hall for Create contraptions and a
+two-track train station; and **Turtle Works**
 (61×50, 23 high, about 15,300 blocks), a factory hall for a ComputerCraft
 base, wired up under the floor, with docks for turtles (see
 [The factory](#the-factory)); and a

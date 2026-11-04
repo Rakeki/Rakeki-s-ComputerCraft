@@ -2082,10 +2082,10 @@
       "name": "deephold",
       "file": "deephold.lua",
       "title": "Deep Hold",
-      "tagline": "A three-storey deepslate base for just above bedrock: an open well round a copper-banded core, a rotunda on each floor, and twelve rooms from a storage hall and farm to a library, garden and vault.",
+      "tagline": "A base for Create by bedrock: a 27-high contraption hall with a gallery, a two-track through station with an island platform and footbridge, and an upper hall over it with loading hatches down to the trains.",
       "size": "57 × 57 × 29",
       "hole": "57 × 57 × 30",
-      "blocks": 24454
+      "blocks": 17659
     },
     {
       "name": "factory",

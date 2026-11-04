@@ -29,7 +29,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [status-server](computers/status-server/README.md): monitor dashboard showing every computer's status and what it's doing
 - [turtle-finder](computers/turtle-finder/README.md): pocket computer that finds a lost turtle: lists every turtle it hears, nearest first, and points an arrow to the one you pick
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system, optionally each host inside a satellite
-- [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (fourteen of them, from a small bunker to a three-storey base by bedrock)
+- [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (fourteen of them, from a small bunker to a Create base and train station by bedrock)
 - [level-turtle](computers/level-turtle/README.md): standalone turtle that flattens an area into a solid building platform: cuts down hills and trees, fills dips, ponds and holes with the dirt it dug
 - [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides
 - [nether-tunnel-turtle](computers/nether-tunnel-turtle/README.md): standalone turtle that digs a sealed 3x3 tunnel through the Nether, patching holes and walling off lava
