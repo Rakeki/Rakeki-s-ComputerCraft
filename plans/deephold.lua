@@ -8,7 +8,7 @@
 --   floor left clear and marked out in bays, lights set into the floor so
 --   nothing spawns between machines, iron beams under the ceiling for rope
 --   pulleys and gantries, a water pool for pumps, and a gallery round it
---   halfway up, reached by two long stairs on the north wall.
+--   halfway up, reached by a stair tucked under it on the west wall.
 --
 --   The station (the south 21 blocks): two through tracks east-west, out
 --   through tunnel mouths in both side walls, with a platform each side and
@@ -146,19 +146,33 @@ end
 local function onGallery(x, z)
   return x <= GALLERY or x >= N - GALLERY or z <= GALLERY or z > HALL_Z - GALLERY
 end
--- where the two hall stairs arrive (the railing leaves a gap)
-local STAIR_TOPS = { C - 4, C + 4 }
+-- the stair up to the gallery: under its west side against the wall, two
+-- wide, climbing north from STAIR_Z; it comes up through a hole in the
+-- gallery floor (WELL), and the gallery bulges out round the hole
+local STAIR_Z = 28 -- z of the bottom step; the top step is UPPER - 2 further north
+local STAIR_TOP = STAIR_Z - (UPPER - 2)
+local WELL = { STAIR_TOP, STAIR_TOP + 2 } -- z of the hole over the top steps
+local BULGE = { WELL[1] - 1, WELL[2] + 2, GALLERY + 3 } -- z from, z to, x of its railing
 for z = 1, HALL_Z do
   for x = 1, N - 1 do
-    if onGallery(x, z) then
-      set(x, UPPER, z, tiles(x, UPPER, z))
+    local bulge = z >= BULGE[1] and z <= BULGE[2] and x > GALLERY and x <= BULGE[3]
+    if onGallery(x, z) or bulge then
+      local well = x <= 2 and z >= WELL[1] and z <= WELL[2]
+      if not well then set(x, UPPER, z, tiles(x, UPPER, z)) end
       local inner = (x == GALLERY or x == N - GALLERY) and z > GALLERY and z <= HALL_Z - GALLERY
         or (z == GALLERY or z == HALL_Z - GALLERY + 1) and x > GALLERY and x < N - GALLERY
-      local gap = z == GALLERY and (abs(x - STAIR_TOPS[1]) <= 1 or abs(x - STAIR_TOPS[2]) <= 1)
-      if inner and not gap then set(x, UPPER + 1, z, RAIL) end
+      if x == GALLERY and z >= BULGE[1] and z <= BULGE[2] then
+        inner = z >= WELL[1] and z <= WELL[2] -- railing round the hole instead
+      end
+      if bulge then
+        inner = x == BULGE[3] or z == BULGE[1] or z == BULGE[2]
+      end
+      if not well and inner then set(x, UPPER + 1, z, RAIL) end
     end
   end
 end
+-- railing on the hole's south edge
+for x = 1, 2 do set(x, UPPER + 1, WELL[2] + 1, RAIL) end
 -- lanterns on the railing over each bay line
 for _, x in ipairs(BAYS) do
   set(x, UPPER + 2, GALLERY, LANTERN)
@@ -181,20 +195,15 @@ for _, x in ipairs({ BAYS[1], BAYS[2], BAYS[4], BAYS[5] }) do
   post(x, HALL_Z - GALLERY + 1)
 end
 
--- two long stairs up the north wall to the gallery, meeting in the middle
-local function hallStair(x0, dir)
-  local facing = dir > 0 and "east" or "west"
-  for i = 0, UPPER - 1 do
-    local x = x0 + dir * i
-    for z = GALLERY + 1, GALLERY + 2 do
-      for y = 1, i do set(x, y, z, BRICKS) end
-      set(x, i + 1, z, i == UPPER - 1 and POLISHED or steps(facing))
-    end
-    if i < UPPER - 1 then set(x, i + 2, GALLERY + 3, RAIL) end
+-- the stair itself: step i at y i + 1, solid underneath, railed on the hall side
+for i = 0, UPPER - 2 do
+  local z = STAIR_Z - i
+  for x = 1, 2 do
+    for y = 1, i do set(x, y, z, BRICKS) end
+    set(x, i + 1, z, steps("north"))
   end
+  if not among(BAY_Z, z) and i + 2 < UPPER then set(GALLERY, i + 2, z, RAIL) end
 end
-hallStair(STAIR_TOPS[1] - (UPPER - 1), 1)
-hallStair(STAIR_TOPS[2] + (UPPER - 1), -1)
 
 -- a water pool for pumps and hose pulleys in the south-east corner
 for z = 25, 29 do
