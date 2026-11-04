@@ -75,7 +75,10 @@ A double chest holds 54 kinds.
    - **Far away:** make the chest an **ender chest** (EnderStorage or the
      like) and put its twin (same colours, used by nothing else) on the
      storage cable with a wired modem. Give this computer and the storage
-     computer an **ender modem**.
+     computer an **ender modem**. A vanilla ender chest won't do: computers
+     can't see into it. The ender chest can touch this computer, or sit on
+     a wired modem of its own joined to this computer's (it's found if it's
+     the only ender chest there; else pick it with `cannon chest`).
 
    Don't pick the chest in `storage setup`: the storage computer finds it by
    itself.

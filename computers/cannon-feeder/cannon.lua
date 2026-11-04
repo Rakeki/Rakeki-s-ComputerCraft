@@ -108,13 +108,32 @@ local function nearChests()
   return list
 end
 
--- The one picked with 'cannon chest', else the only one touching me.
+-- Ender chests reached through a wired modem (a peripheral type with "ender"
+-- in it, as the storage computer counts them): never storage, so if there's
+-- just one it can only be the cannon's.
+local function enderChests()
+  local list = {}
+  for _, name in ipairs(peripheral.getNames()) do
+    if isInventory(name) then
+      for _, t in ipairs({ peripheral.getType(name) }) do
+        if t:lower():find("ender", 1, true) then list[#list + 1] = name break end
+      end
+    end
+  end
+  return list
+end
+
+-- The one picked with 'cannon chest', else the only one touching me, else
+-- the only ender chest on my wired modem.
 local function findChest()
   if job.chest and peripheral.isPresent(job.chest) then return job.chest end
   local list = nearChests()
   if #list == 1 then return list[1] end
-  return nil, #list == 0 and "no chest next to me: put the one by the cannon there"
-    or "more than one chest next to me: pick one with 'cannon chest'"
+  if #list > 1 then return nil, "more than one chest next to me: pick one with 'cannon chest'" end
+  local ender = enderChests()
+  if #ender == 1 then return ender[1] end
+  if #ender > 1 then return nil, "more than one ender chest on my modem: pick one with 'cannon chest'" end
+  return nil, "can't see a chest: put it against me (a vanilla ender chest won't do), or 'cannon chest'"
 end
 
 -- What's in the chest: item name -> count (plain items only), and its size.
