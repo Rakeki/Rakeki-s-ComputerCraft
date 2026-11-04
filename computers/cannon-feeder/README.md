@@ -40,7 +40,7 @@ How the chest is kept:
   chest while it's on the list; take it off the list (or clear it) and the
   storage computer puts it away within 10 minutes.
 
-The monitor (or the computer's screen) shows the cannon's progress (blocks
+The monitor and the computer's own screen both show the cannon's progress (blocks
 placed of all, with a Block Reader; otherwise how much has been sent) and what
 it's doing (placing, waiting for an item, out of gunpowder, finished), the
 chest and its gunpowder, and each item: sent of needed (or how many were sent,

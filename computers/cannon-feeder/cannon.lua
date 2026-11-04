@@ -11,7 +11,7 @@
 --     from then on, until the cannon says it's finished.
 --   - A list typed in (or a plan's blocks), each sent until the whole amount
 --     has gone: the cannon has it before it asks.
--- A monitor, or this computer's screen, shows the cannon's progress and each
+-- A monitor and this computer's screen show the cannon's progress and each
 -- item: in the chest, being crafted, or why it can't be had.
 --
 --   cannon                    start feeding (startup.lua runs this)
@@ -395,6 +395,9 @@ end
 
 local display = screen.find({ setting = "cannon.monitor", scales = MONITOR_SCALES, minW = 36, minH = 10,
   fallback = term.current() })
+-- With a monitor, the terminal shows the same picture, so the list can be
+-- read at the computer too.
+local console = screen.new(term.current())
 local put, fit = screen.put, screen.fit
 
 -- What an item is up to, and its colour.
@@ -414,7 +417,7 @@ local function stateText(it)
   return it.auto and not working() and "done" or "waiting", it.auto and not working() and "lime" or "gray"
 end
 
-local function draw()
+local function draw(display)
   if not display.target then return end
   local win, w, h = display:frame()
   local need, sent = 0, 0
@@ -465,7 +468,8 @@ end
 
 local function uiLoop()
   while true do
-    draw()
+    draw(display)
+    if display.name then draw(console) end
     local ev = { os.pullEvent() }
     if ev[1] == "peripheral" or ev[1] == "peripheral_detach" then display:refresh() end
   end
