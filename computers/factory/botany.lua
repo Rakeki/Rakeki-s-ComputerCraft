@@ -8,18 +8,38 @@
 -- the modpack's pack_recipes.lua (tools/recipes.mjs), or teach one with
 -- 'crafter learn'. A pot shows CC only its harvest, and only through its
 -- bottom, so each pot stands on a full-block wired modem; the seed and soil
--- are never touched.
+-- are never touched. Or the pots empty themselves into a barrel (or chest)
+-- under them or at the end of a pipe: a "pot barrel", added on the setup
+-- screen or with 'factory add potbarrel', which this empties instead. It's
+-- named to the storage computer as a feeder, so it isn't storage: else the
+-- storage computer would fill it and the pots would have nowhere to go.
 local screen = require("lib.screen") -- flicker-free drawing
+local files = require("lib.files") -- crash-safe save files
 
 local M = {}
 
 local RECIPES_EVERY = 300 -- seconds between asking the storage computer for its recipes again
 local POT_SLOTS = 12 -- harvest slots in a pot
+local BARRELS_FILE = "/.factory_pot_barrels" -- the pot barrels: { name, ... }
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
 -- The crop a pot grows, from what it gives: "iron essence" -> "iron".
 local function cropOf(name) return (nice(name):gsub(" essence$", "")) end
+
+-- Inventories on the wired network (not touching this computer) that can be
+-- a pot barrel: a barrel or chest, never an ender chest or a pot (skip).
+local function barrelsOnNetwork(skip)
+  local sides, list = {}, {}
+  for _, s in ipairs(rs.getSides()) do sides[s] = true end
+  for _, name in ipairs(peripheral.getNames()) do
+    local t = peripheral.getType(name) or ""
+    if not sides[name] and (t:find("barrel", 1, true) or t:find("chest", 1, true)) and not t:find("ender", 1, true)
+      and not name:find(skip, 1, true) then list[#list + 1] = name end
+  end
+  table.sort(list)
+  return list
+end
 
 -- f: the factory (factory.lua): ask, config, mine.
 function M.new(f)
@@ -31,7 +51,8 @@ function M.new(f)
   local NAMES = config.names or {}
 
   local self = { id = "essence", title = "Essence", every = 10, what = "Botany pots -> essence" }
-  local pots = {} -- what the Pots view shows, one entry per pot
+  local pots = {} -- what the Pots view shows, one entry per pot or pot barrel
+  local barrelState = {} -- barrel name -> { items, took, state, colour } from its last emptying
   local recipes = {} -- best recipe per item made: { make, count, need = { { key, n } }, from }
   local recipesAt -- os.clock() when the recipes last came
   local counts = {} -- item -> how many are stored
@@ -96,14 +117,36 @@ function M.new(f)
     return out
   end
 
-  function self.uses() return {} end
-  function self.active() return #myPots() > 0 end
+  local function readBarrels()
+    local t = files.read(BARRELS_FILE)
+    return type(t) == "table" and t or {}
+  end
+
+  local function writeBarrels(t)
+    files.write(BARRELS_FILE, t)
+    f.wake() -- the running factory, if this is another tab
+  end
+
+  -- added by hand, so always this computer's
+  function self.uses() return readBarrels() end
+  function self.active() return #myPots() > 0 or #readBarrels() > 0 end
   function self.takes() return {} end
 
   function self.summary()
-    local n = #myPots()
-    return n > 0 and ("%d botany pots"):format(n) or ""
+    local n, b = #myPots(), #readBarrels()
+    local out = {}
+    if n > 0 then out[#out + 1] = ("%d botany pots"):format(n) end
+    if b > 0 then out[#out + 1] = ("%d pot barrel%s"):format(b, b == 1 and "" or "s") end
+    return table.concat(out, ", ")
   end
+
+  -- The pot barrels as a lib/mekfeed.lua set, so factory.lua names them to
+  -- the storage computer (not storage) along with the Mekanism feeders.
+  self.barrelSet = { entries = function()
+    local out = {}
+    for _, name in ipairs(readBarrels()) do out[#out + 1] = { feeder = name } end
+    return out
+  end }
 
   ---------------------------------------------------------------- recipes
 
@@ -259,6 +302,43 @@ function M.new(f)
     end
   end
 
+  -- Empty every pot barrel into the input chest. factory.lua calls this just
+  -- before it names the feeders, since the storage computer only takes an
+  -- empty one (until then it's storage, so what's in it is counted anyway).
+  function self.beforeRegister(input)
+    local now = {}
+    for _, name in ipairs(readBarrels()) do
+      local b = { items = 0, took = 0 }
+      local ok, list = pcall(peripheral.call, name, "list")
+      if not peripheral.isPresent(name) or not ok or type(list) ~= "table" then
+        b.state, b.colour = "not on the cable", "red"
+      else
+        local stuck, crops, seen = 0, {}, {}
+        for slot, item in pairs(list) do
+          if item.name:find(ESSENCE) and not seen[item.name] then
+            seen[item.name] = true
+            crops[#crops + 1] = cropOf(item.name)
+          end
+          local okP, moved = pcall(peripheral.call, name, "pushItems", input, slot)
+          moved = okP and moved or 0
+          if moved > 0 then
+            taken[item.name] = (taken[item.name] or 0) + moved
+            b.took = b.took + moved
+          end
+          if moved < item.count then stuck = stuck + 1 end
+          b.items = b.items + item.count - moved
+        end
+        table.sort(crops)
+        if #crops > 0 then lastCrop[name] = table.concat(crops, ", ") end
+        if stuck > 0 then b.state, b.colour = "input chest full?", "red"
+        elseif b.took > 0 then b.state, b.colour = "emptied", "lime"
+        else b.state, b.colour = "waiting", "white" end
+      end
+      now[name] = b
+    end
+    barrelState = now
+  end
+
   function self.read() end
 
   function self.round(r)
@@ -275,6 +355,17 @@ function M.new(f)
     local jobs = {}
     for _, p in ipairs(now) do jobs[#jobs + 1] = function() emptyPot(p, r.stock.input) end end
     if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+    for i, name in ipairs(readBarrels()) do
+      local b = barrelState[name] or { state = "...", colour = "gray" }
+      local p = { name = name, title = NAMES[name] or ("Barrel " .. i), crop = lastCrop[name],
+        items = b.items, took = b.took, state = b.state, colour = b.colour }
+      -- still storage to the storage computer, which may fill it with anything
+      if r.unsure and r.unsure[name] and p.colour ~= "red" then
+        p.state, p.colour = "still storage", "red"
+        p.why = r.feedProblem or "the storage computer hasn't taken it as a pot barrel yet"
+      end
+      now[#now + 1] = p
+    end
     pots = now
 
     local took, broken, first = 0, 0, nil
@@ -286,15 +377,16 @@ function M.new(f)
       end
     end
     if #pots == 0 then
-      note("No botany pots here: stand each on a full-block wired modem joined to the cable.", "orange")
+      note("No botany pots here: stand each on a wired modem, or add the barrel they empty into (Setup).", "orange")
       status("waiting", "no pots")
     elseif first then
       local why = {
         ["can't see inside"] = "stand it on a full-block wired modem (CC only sees a pot from below)",
         ["not a hopper pot"] = "only a Hopper Botany Pot lets its harvest be taken out",
         ["input chest full?"] = "nothing more fits in the storage input chest",
+        ["not on the cable"] = "put a wired modem on it, join it to the cable and right-click it",
       }
-      note(("%s: %s."):format(first.title, why[first.state] or first.state), "red")
+      note(("%s: %s."):format(first.title, first.why or why[first.state] or first.state), "red")
       status("alert", ("%d of %d botany pots need attention"):format(broken, #pots))
     else
       if took > 0 then note(("Took %d items from the pots."):format(took)) end
@@ -306,7 +398,7 @@ function M.new(f)
       for _, b in ipairs(lookup("")) do
         if b.items > 0 then can = can + 1 end
       end
-      note(("%d pots growing. Stored essence makes %d kinds of item."):format(#pots, can))
+      note(("%s growing. Stored essence makes %d kinds of item."):format(self.summary(), can))
     end
   end
 
@@ -409,7 +501,7 @@ function M.new(f)
       screen.put(win, 37, y, fit(p.state or "...", w - 37), p.colour or "gray")
     end
     if #pots > rows then screen.put(win, 2, h - 2, ("...and %d more"):format(#pots - rows), "gray") end
-    if #pots == 0 then screen.put(win, 2, 4, "No botany pots here yet.", "gray") end
+    if #pots == 0 then screen.put(win, 2, 4, "No botany pots or pot barrels here yet.", "gray") end
   end
 
   function self.key()
@@ -501,6 +593,108 @@ function M.new(f)
       end
     end
     return false
+  end
+
+  ---------------------------------------------------------------- pot barrels
+
+  -- Why name can't be a pot barrel, or nil if it can.
+  local function cantBe(name)
+    if not peripheral.isPresent(name) then return name .. " isn't on the network." end
+    for _, b in ipairs(readBarrels()) do
+      if b == name then return name .. " is a pot barrel already." end
+    end
+    if f.taken(name) then return name .. " is used by another machine." end
+    return nil
+  end
+
+  local function addBarrel(name)
+    local list = readBarrels()
+    list[#list + 1] = name
+    writeBarrels(list)
+    return ("Barrel %d: %s. It's emptied into storage every %d seconds."):format(#list, name, self.every)
+  end
+
+  -- 'factory add potbarrel [barrel]': asks which if it's not given.
+  function self.addCommand(name)
+    if not name then
+      local free = {}
+      for _, n in ipairs(barrelsOnNetwork(POTS)) do
+        if not cantBe(n) then free[#free + 1] = n end
+      end
+      if #free == 0 then
+        print("No free barrel or chest on the network: put a wired modem on it, join it to the cable and right-click it.")
+        return
+      end
+      print("The barrel (or chest) the Hopper Botany Pots empty into. Right-click its modem to see its name.")
+      for i, n in ipairs(free) do print(("%2d  %s"):format(i, n)) end
+      write("Which? (Enter to cancel) ")
+      local text = read()
+      if text == "" then return end
+      name = free[tonumber(text)] or text
+    end
+    local why = cantBe(name)
+    if why then print(why) return end
+    print(addBarrel(name))
+  end
+
+  -- Every pot barrel, for 'factory list' and 'factory remove': { text, remove() }.
+  function self.listed()
+    local out = {}
+    for i, name in ipairs(readBarrels()) do
+      out[#out + 1] = { text = ("Barrel %d: %s, botany pots empty into it"):format(i, name), remove = function()
+        local list = readBarrels()
+        table.remove(list, i)
+        writeBarrels(list)
+        return ("Forgot %s: it's storage again."):format(name)
+      end }
+    end
+    return out
+  end
+
+  -- The pot barrels on the factory's Machines page (lib/setupui.lua): a row
+  -- per barrel (tap to remove it) and + Add a botany pot barrel.
+  function self.setupParts(ui)
+    local function add()
+      local list = readBarrels()
+      ui:pickChest({ title = "Pick the pot barrel", hint = "The barrel or chest the Hopper Botany Pots empty into.",
+        names = barrelsOnNetwork(POTS),
+        nothing = "No barrels here: put a wired modem on it and right-click it.",
+        roleOf = function(n)
+          for _, b in ipairs(list) do
+            if b == n then return "a pot barrel" end
+          end
+          return f.taken(n) and "in use" or nil
+        end,
+        pick = function(n)
+          local why = cantBe(n)
+          if why then ui:say(why, "orange") return end
+          ui:back()
+          ui:say(addBarrel(n), "lime")
+        end })
+    end
+    local parts = {}
+    function parts.entries()
+      local out = {}
+      for i, name in ipairs(readBarrels()) do
+        out[#out + 1] = { label = ("Pot barrel %d"):format(i), value = name,
+          colour = peripheral.isPresent(name) and "lightGray" or "red", act = function()
+            ui:open({ title = ("Pot barrel %d"):format(i), hint = name, rows = function()
+              return { { label = "Remove it", colour = "red", act = function()
+                local now = readBarrels()
+                if now[i] == name then table.remove(now, i) end
+                writeBarrels(now)
+                ui:back()
+                ui:say(("Forgot %s: it's storage again."):format(name), "lime")
+              end } }
+            end })
+          end }
+      end
+      return out
+    end
+    function parts.adds()
+      return { { label = "+ Add a botany pot barrel", colour = "lime", act = add } }
+    end
+    return parts
   end
 
   ---------------------------------------------------------------- commands

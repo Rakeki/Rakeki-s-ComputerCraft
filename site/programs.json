@@ -1464,13 +1464,13 @@
       ],
       "setup": [
         "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
-        "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves.",
+        "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves (pots that empty into a barrel: add the barrel as a pot barrel).",
         "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines and cooking pots. Pick a work chest if you have many machines."
       ],
       "commands": [
         ["factory","start (runs on boot)"],
         ["factory setup","the setup screen on the monitor and the computer: machines, the chain, the work chest, the monitor; or tap Setup, or press F1"],
-        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan (Create) or pot (Cobblemon)"],
+        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan (Create), pot (Cobblemon) or potbarrel (the barrel botany pots empty into)"],
         ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
         ["factory remove 2","forget machine 2 (no number: list them)"],
         ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],

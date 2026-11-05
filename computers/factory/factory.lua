@@ -17,7 +17,8 @@
 --                                   or Setup on its monitor or screen, or F1)
 --   factory add <kind> [...]        add a machine: chamber, crusher, washer, smelter, fan, smokefan
 --                                   ([machine] feeder [output]), infuser ([machine feeder extra output]),
---                                   or pot ([recipe feed output relay])
+--                                   pot ([recipe feed output relay]), or potbarrel ([barrel]: the one
+--                                   Hopper Botany Pots empty into)
 --   factory list                    every machine, its owner and what it is
 --   factory remove [n]              forget machine n (no number: list them)
 --   factory give <name|all> <id>    hand a furnace or botany pot (or all of them) to factory computer id
@@ -353,7 +354,10 @@ local function round()
   end
   -- far away, everything goes home through the ender chest (or the return one)
   local useWork = work:check(reply) or work.remote
-  local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set, byId.infuse.set }, work.remote)
+  -- the pot barrels emptied first: the storage computer only takes an empty one as a feeder
+  if running(byId.essence) then byId.essence.beforeRegister(work:input(reply.input)) end
+  local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set, byId.infuse.set,
+    byId.essence.barrelSet }, work.remote)
   local r = { stock = reply, useWork = useWork, input = work:input(reply.input), unsure = unsure,
     feedProblem = feedProblem }
   -- in the chain's order, so a smelter sees what the enricher takes this round
@@ -541,7 +545,7 @@ local function setupScreen(screens)
   local ui = setupui.new({ screens = screens, name = "factory" })
   local setParts = {
     byId.smelt.set:setupParts(ui), byId.enrich.set:setupParts(ui), byId.infuse.set:setupParts(ui),
-    byId.cook.setupParts(ui),
+    byId.cook.setupParts(ui), byId.essence.setupParts(ui),
   }
 
   local function machinesPage()
@@ -581,7 +585,7 @@ local function setupScreen(screens)
           end
         end
         local function rank(row)
-          if row.label:find("cooking pot", 1, true) then return 3 end
+          if row.label:find("cooking pot", 1, true) or row.label:find("pot barrel", 1, true) then return 3 end
           local create = row.label:find("Create", 1, true) ~= nil
           return (create == anyMek) and 2 or 1
         end
@@ -759,7 +763,7 @@ end
 local KINDS = { -- 'factory add <kind>': which part and how
   chamber = { part = "enrich" }, crusher = { part = "enrich", line = true }, washer = { part = "enrich", line = true },
   smelter = { part = "smelt" }, fan = { part = "smelt", line = true }, smokefan = { part = "smelt", line = true },
-  infuser = { part = "infuse", extra = true }, pot = { part = "cook" },
+  infuser = { part = "infuse", extra = true }, pot = { part = "cook" }, potbarrel = { part = "essence" },
 }
 
 -- Every machine added here, numbered for 'factory remove': { text, remove() }.
@@ -783,6 +787,7 @@ local function listed()
     end
   end
   for _, row in ipairs(byId.cook.listed()) do out[#out + 1] = row end
+  for _, row in ipairs(byId.essence.listed()) do out[#out + 1] = row end
   return out
 end
 
@@ -802,6 +807,7 @@ if verb == "add" then
     print("  infuser [machine feeder extra output]  (Mekanism)")
     print("  crusher, washer, fan, smokefan [feeder [output]]  (Create)")
     print("  pot [recipe feed output relay]  (Cobblemon)")
+    print("  potbarrel [barrel]  (the barrel Hopper Botany Pots empty into)")
     return
   end
   if not needModem() then return end
@@ -809,6 +815,8 @@ if verb == "add" then
   refreshUses()
   if kind.part == "cook" then
     byId.cook.addCommand(args[3], args[4], args[5], args[6])
+  elseif kind.part == "essence" then
+    byId.essence.addCommand(args[3])
   elseif kind.extra then
     byId[kind.part].set:add(args[3], args[4], args[6], args[5])
   elseif kind.line then

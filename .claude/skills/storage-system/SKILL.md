@@ -93,7 +93,9 @@ all of them) only ever `stock`, `send` / `fill` and empties into the input
 chest. Its essence part empties Hopper Botany Pots into the input chest
 itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
 through its bottom face, and only a hopper pot lets them be taken, so each pot
-stands on a full-block wired modem), and orders crafts with `prepare` set to
+stands on a full-block wired modem), or empties a "pot barrel" the pots push into
+(`/.factory_pot_barrels`, named to the storage computer with `feeders` so it isn't
+storage; emptied just before each `feeders` request, since only an empty one is taken), and orders crafts with `prepare` set to
 stored + already crafting + wanted (`prepare` tops up to a total). The smelter part's orders (`ORDERS` in smelt.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order, and into Mekanism smelters

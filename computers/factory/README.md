@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, cooking pots' hoppers and relays, botany pots on wired modems); optional monitor, touching it or on the cable (picked with `factory monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, cooking pots' hoppers and relays, botany pots on wired modems or the barrel they empty into); optional monitor, touching it or on the cable (picked with `factory monitor`)
 
 ## What it does
 
@@ -478,7 +478,10 @@ Every 10 seconds it empties each of its Hopper Botany Pots into the storage
 system's input chest, so the essence (and any spare seeds) ends up in
 storage. A pot whose harvest slots fill up stops growing, so this keeps
 them all going. The seed and soil are never touched: a pot doesn't even
-show them to a computer.
+show them to a computer. If your pots push their harvest into a **barrel**
+instead (under them, or at the end of a pipe), add that barrel as a **pot
+barrel** and it's the barrel that gets emptied (see
+[Botany pots](#botany-pots)).
 
 The Essence tab's **Recipes** view is the lookup. It lists every recipe
 that uses essence with what it makes, what it takes, how many you can make
@@ -672,7 +675,20 @@ Use **Hopper Botany Pots**: a plain pot doesn't let its harvest be taken
 out. Stand each one on a **full-block wired modem** (craft a wired modem on
 its own), join the modems with cable to the storage network and right-click
 each so it turns red. A computer only sees a pot from below; a row of pots
-on a row of modems works well. They're found by themselves. For the
+on a row of modems works well. They're found by themselves.
+
+Or let the pots empty themselves into a **barrel** (or chest): a Hopper
+Botany Pot pushes its harvest into the block under it, so put a barrel
+there, or pipe several pots into one. Put a wired modem on the barrel, join
+it to the cable and right-click it, then add it on the setup screen
+(**Machines**, **+ Add a botany pot barrel**) or with
+`factory add potbarrel`. The pots then don't need modems. Without this the
+storage computer takes the barrel for one of its storage chests and fills
+it with other things, until the pots have nowhere to put their harvest. The
+barrel must be empty for the storage computer to let it go: the factory
+empties it first, and the Pots view shows **still storage** until it has.
+
+For the
 recipes, the storage computer needs a [crafting turtle](../crafter-turtle/README.md)
 and your modpack's recipes, which include Mystical Agriculture's (see
 [Modded recipes](../storage-computer/README.md#modded-recipes)); a
@@ -696,6 +712,8 @@ factory add fan                -- a Create blasting fan (lava)
 factory add smokefan           -- a Create smoking fan (fire): food only
 factory add pot                -- a cooking pot: what it makes, its hoppers and its relay
 factory add pot exp_candy_s minecraft:hopper_3 minecraft:hopper_4 redstone_relay_0   -- the same in one go
+factory add potbarrel          -- the barrel your Hopper Botany Pots empty into: pick it
+factory add potbarrel minecraft:barrel_7   -- or name it
 factory relay 2                -- give cooking pot 2 its relay
 factory list                   -- every machine added here, and the furnaces and pots found (and whose they are)
 factory remove 2               -- forget machine 2 (no number: list them)
@@ -919,7 +937,8 @@ botany pots over, and machines added there can be added again on the other.
   every 5 minutes. The storage system picks its own recipe for an item: if
   you have iron blocks stored, an order for iron ingots may break those up
   instead of using essence. Spare seeds go to storage too; add `"_seeds$"`
-  to `leave` under `essence` to leave them in the pots. Pots of any kind
+  to `leave` under `essence` to leave them in the pots (a pot barrel is
+  always emptied completely: nothing goes back into a pot). Pots of any kind
   work as long as they're Hopper pots whose names have `botany_pot` in
   them (`pots`).
 - **Which monitor.** It uses a monitor touching it first, else the first
