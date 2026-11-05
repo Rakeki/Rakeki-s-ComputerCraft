@@ -43,8 +43,10 @@
 --   s:size()                         the screen's size now
 --   screen.put(t, x, y, text, fg, bg) write text; colours are names ("lime") or numbers (colors.lime), bg black if left out
 --   screen.fit(text, w)              cut or pad text to exactly w characters
+--   screen.squeeze(text, w)          cut text to at most w by taking out its middle (keeps a name's number)
 --   screen.wrap(text, w, most)       text in lines of up to w characters, broken at spaces (most: line limit)
---   screen.tiles(t, w, top, bottom, tiles, minW)  a status board: a coloured tile per { title, text, bg, fg }
+--   screen.tiles(t, w, top, bottom, tiles, minW)  a status board: a coloured tile per { title, text, bg, fg },
+--                                    3, 2 or 1 rows high, whichever shows them all; returns how many didn't fit
 --   screen.legend(t, x, y, w, { { colour, word }, ... })  what the tile colours mean, on one row
 --   screen.choose(setting, arg)      pick a monitor from every one on the network (arg: a name, number or
 --                                    'none' given on the command line); saves it, returns it or nil
@@ -240,22 +242,61 @@ function screen.fit(text, w)
   return text .. (" "):rep(w - #text)
 end
 
+-- text cut to at most w characters by taking out its middle
+-- ("terracotta_h..pot_0"): the end of a peripheral's name is what tells it
+-- from the others. Not padded.
+function screen.squeeze(text, w)
+  text = tostring(text or "")
+  if #text <= w then return text end
+  if w < 6 then return text:sub(1, math.max(0, w)) end
+  local tail = math.max(1, math.floor((w - 2) * 0.4))
+  return text:sub(1, w - 2 - tail) .. ".." .. text:sub(-tail)
+end
+
+local TILE_MAX = 24 -- widest a tile is stretched to, so a few tiles don't become one long column
+
 -- A status board: one coloured tile per machine, { title, text, bg, fg
 -- (default black) }, in a grid from row top to row bottom of t (w wide).
--- Each tile is 3 rows high (title, text, blank) and at least minW wide,
--- stretched to fill the width. Returns how many didn't fit.
+-- It takes the roomiest layout that shows them all: tiles 3 rows high
+-- (title, text, blank), else 2 (title, text), else 1 ("title: text"), as
+-- wide as they can be (at least minW, TILE_MAX unless there's a row to
+-- fill). Returns how many didn't fit even at 1 row each.
 function screen.tiles(t, w, top, bottom, tiles, minW)
   minW = minW or 12
-  local cols = math.max(1, math.floor((w + 1) / (minW + 1)))
+  local n, height = #tiles, bottom - top + 1
+  if n == 0 or height < 1 then return n end
+  local maxCols = math.max(1, math.floor((w + 1) / (minW + 1)))
+  local layout
+  for _, tileH in ipairs({ 3, 2, 1 }) do
+    local gap = tileH > 1 and 1 or 0
+    local rows = math.floor((height + gap) / (tileH + gap))
+    if rows >= 1 then
+      local cols = math.max(math.ceil(n / rows), math.min(n, math.floor((w + 1) / (TILE_MAX + 1))))
+      cols = math.max(1, cols)
+      if cols <= maxCols then
+        layout = { h = tileH, gap = gap, cols = cols, rows = rows }
+        break
+      end
+    end
+  end
+  -- even 1-row tiles don't all fit: as many as do
+  layout = layout or { h = 1, gap = 0, cols = maxCols, rows = height }
+  local cols = layout.cols
   local tileW = math.floor((w + 1) / cols) - 1
-  local rows = math.floor((bottom - top + 2) / 4)
   for i, tile in ipairs(tiles) do
     local row, col = math.floor((i - 1) / cols), (i - 1) % cols
-    if row >= rows then return #tiles - i + 1 end
-    local x, y, fg = 1 + col * (tileW + 1), top + row * 4, tile[4] or "black"
-    screen.put(t, x, y, screen.fit(" " .. tile[1], tileW), fg, tile[3])
-    screen.put(t, x, y + 1, screen.fit(" " .. (tile[2] or ""), tileW), fg, tile[3])
-    screen.put(t, x, y + 2, (" "):rep(tileW), fg, tile[3])
+    if row >= layout.rows then return n - i + 1 end
+    local x, y, fg = 1 + col * (tileW + 1), top + row * (layout.h + layout.gap), tile[4] or "black"
+    -- the last column takes what the division left over
+    local tw = col == cols - 1 and w - x + 1 or tileW
+    if layout.h == 1 then
+      local text = (tile[2] or "") ~= "" and (tile[1] .. ": " .. tile[2]) or tile[1]
+      screen.put(t, x, y, screen.fit(" " .. text, tw), fg, tile[3])
+    else
+      screen.put(t, x, y, screen.fit(" " .. screen.squeeze(tile[1], tw - 1), tw), fg, tile[3])
+      screen.put(t, x, y + 1, screen.fit(" " .. (tile[2] or ""), tw), fg, tile[3])
+      if layout.h == 3 then screen.put(t, x, y + 2, (" "):rep(tw), fg, tile[3]) end
+    end
   end
   return 0
 end

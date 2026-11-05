@@ -97,7 +97,7 @@ function M.new(f)
   local function crushes(name) return matches(name, CRUSHES) end
   local function washes(name) return matches(name, WASHES) end
 
-  local self = { id = "enrich", title = "Enricher", rank = 1, every = 5,
+  local self = { id = "enrich", title = "Enricher", short = "Enrich", rank = 1, every = 5,
     what = "Ores -> dust, crushed ores, nuggets" }
   local machines = {} -- what the screen shows: each machine with its feeder and how it's doing
   local news -- { text, colour, untilTime }: a put-back item, shown for a minute
@@ -419,13 +419,24 @@ function M.new(f)
     end
     table.sort(list, function(a, b) return a[2] > b[2] end)
     local parts = {}
-    for i = 1, math.min(4, #list) do parts[i] = ("%s %d"):format(nice(list[i][1]), list[i][2]) end
-    return total, table.concat(parts, ", ")
+    for i = 1, #list do parts[i] = ("%s %d"):format(nice(list[i][1]), list[i][2]) end
+    return total, parts
+  end
+
+  -- "To enrich: 435 (raw iron 286, raw osmium 77, 2 more)": whole items, as many as fit in w.
+  local function waitingLine(total, parts, w)
+    local head = ("To enrich: %d"):format(total)
+    for n = #parts, 1, -1 do
+      local more = #parts - n
+      local text = ("%s (%s%s)"):format(head, table.concat(parts, ", ", 1, n), more > 0 and (", %d more"):format(more) or "")
+      if #text <= w then return text end
+    end
+    return head
   end
 
   function self.key()
     local total, top = waitingText()
-    local key = { self.message[1], self.message[2], total, top }
+    local key = { self.message[1], self.message[2], total, table.concat(top, ",") }
     for _, m in ipairs(machines) do
       key[#key + 1] = table.concat({ m.title, m.item or "", m.queued or 0, m.energy or 0, m.state or "" }, "/")
     end
@@ -450,8 +461,8 @@ function M.new(f)
     put(doingX, 3, "Doing", "yellow")
     local footer = {}
     local function add(text, colour) footer[#footer + 1] = { text, colour } end
-    add(total > 0 and ("To enrich: %d (%s)"):format(total, top) or "No ores in storage.", total > 0 and "white" or "gray")
-    for _, line in ipairs(screen.wrap(self.message[1], w, wide and 1 or 3)) do add(line, self.message[2]) end
+    add(total > 0 and waitingLine(total, top, w - 2) or "No ores in storage.", total > 0 and "white" or "gray")
+    for _, line in ipairs(screen.wrap(self.message[1], w, wide and 2 or 3)) do add(line, self.message[2]) end
     add(wide and "Tab: next page  F1 or Setup: the setup screen" or "F1: setup", "gray")
     local shown = h - 4 - #footer
     for i = 1, math.min(shown, #machines) do

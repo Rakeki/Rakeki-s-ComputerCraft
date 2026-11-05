@@ -391,7 +391,8 @@ end
 -- yellow working, orange flat out, red needs you), and the parts' own
 -- monitor pages (the cooking pots' Candy).
 local display = screen.new(term.current())
-local board = screen.find({ setting = "factory.monitor", scales = { 1, 0.5 }, minW = 15, minH = 8 })
+-- a small monitor (2 or 3 blocks wide) takes small text: big text would leave room for a few tiles
+local board = screen.find({ setting = "factory.monitor", scales = { 1, 0.5 }, minW = 30, minH = 12 })
 local LEGEND = { { "lime", "idle" }, { "yellow", "working" }, { "orange", "flat out" }, { "red", "help" } }
 local tab -- the id of the part whose page the terminal shows
 local boardPage = "machines" -- or a part's id, for its monitor page
@@ -403,6 +404,41 @@ local function runningParts()
     if running(p) then out[#out + 1] = p end
   end
   return out
+end
+
+-- The tab bar on row 1: a tab per { id, title, short }, the one whose id is
+-- on lit, and Setup at the right. Every tab is shown: their titles, else
+-- their short ones, else cut to share the room. Returns the tap zones.
+local function tabBar(win, w, list, on)
+  screen.put(win, 1, 1, (" "):rep(w), "white", "gray")
+  local room = w - 8 -- " Setup " and a space before it
+  local function width(labels)
+    local n = 0
+    for _, l in ipairs(labels) do n = n + #l + 2 end
+    return n
+  end
+  local labels = {}
+  for i, p in ipairs(list) do labels[i] = p.title end
+  if width(labels) > room then
+    for i, p in ipairs(list) do labels[i] = p.short or p.title end
+  end
+  if width(labels) > room and #list > 0 then
+    local each = math.max(1, math.floor(room / #list) - 2)
+    for i, l in ipairs(labels) do labels[i] = l:sub(1, each) end
+  end
+  local zones, x = {}, 1
+  for i, p in ipairs(list) do
+    local label = " " .. labels[i] .. " "
+    if x + #label - 1 <= room then
+      local lit = p.id == on
+      screen.put(win, x, 1, label, lit and "black" or "white", lit and "yellow" or "gray")
+      zones[#zones + 1] = { x, x + #label - 1, p.id }
+      x = x + #label
+    end
+  end
+  screen.put(win, w - 6, 1, " Setup ", "black", "lightGray")
+  zones[#zones + 1] = { w - 6, w, "setup" }
+  return zones
 end
 
 local function draw()
@@ -423,32 +459,17 @@ local function draw()
     current.draw(win, w, h)
   else
     screen.put(win, 2, 3, "Nothing set up yet.", "white")
-    local lines = {
-      "Furnaces and botany pots on the cable are found by themselves.",
-      "Mekanism machines (infusers too), Create crushers, washers,",
-      "fans and Cobblemon cooking pots are added on the setup screen:",
-      "tap Setup, press F1, or type 'factory setup' in another tab.",
-    }
-    for i, line in ipairs(lines) do screen.put(win, 2, 4 + i, screen.fit(line, w - 2), "lightGray") end
-    screen.put(win, 1, h - 1, screen.fit(message[1], w), message[2])
+    local help = "Furnaces and botany pots on the cable are found by themselves. Mekanism machines"
+      .. " (infusers too), Create crushers, washers and fans, Cobblemon cooking pots and the barrels"
+      .. " botany pots empty into are added on the setup screen: tap Setup, press F1, or type"
+      .. " 'factory setup' in another tab."
+    for i, line in ipairs(screen.wrap(help, w - 2, h - 8)) do screen.put(win, 2, 4 + i, screen.fit(line, w - 2), "lightGray") end
+    local msg = screen.wrap(message[1], w, 2)
+    for i, line in ipairs(msg) do screen.put(win, 1, h - 1 - #msg + i, screen.fit(line, w), message[2]) end
     screen.put(win, 1, h, screen.fit("F1: setup", w), "gray")
   end
-  -- the tab bar
-  screen.put(win, 1, 1, (" "):rep(w), "white", "gray")
-  tabZones = {}
-  local x = 1
-  for _, p in ipairs(list) do
-    local label = " " .. p.title .. " "
-    if x + #label < w - 7 then
-      local on = p.id == tab
-      screen.put(win, x, 1, label, on and "black" or "white", on and "yellow" or "gray")
-      tabZones[#tabZones + 1] = { x, x + #label - 1, p.id }
-      x = x + #label
-    end
-  end
+  tabZones = tabBar(win, w, list, tab)
   if #list == 0 then screen.put(win, 2, 1, "Factory", "yellow", "gray") end
-  screen.put(win, w - 6, 1, " Setup ", "black", "lightGray")
-  tabZones[#tabZones + 1] = { w - 6, w, "setup" }
   -- not "a and b and f()": that keeps only f's first result
   local cx, cy
   if current and current.cursor then cx, cy = current.cursor(w) end
@@ -489,33 +510,27 @@ local function drawBoard()
   if board:same(table.concat(key, "|")) then return end
 
   local bwin, w, h = board:frame()
-  screen.put(bwin, 1, 1, (" "):rep(w), "white", "gray")
-  boardZones = {}
   if #pages == 1 then
+    boardZones = tabBar(bwin, w, {}, nil)
     screen.put(bwin, 2, 1, "Factory", "yellow", "gray")
-    local count = ("%d of %d working"):format(working, #tiles)
-    if #count + 19 <= w then screen.put(bwin, w - #count - 8, 1, count, "lightGray", "gray") end
   else
-    local x = 1
-    for _, pg in ipairs(pages) do
-      local label = " " .. pg.title .. " "
-      if x + #label < w - 7 then
-        local on = pg.id == boardPage
-        screen.put(bwin, x, 1, label, on and "black" or "white", on and "yellow" or "gray")
-        boardZones[#boardZones + 1] = { x, x + #label - 1, pg.id }
-        x = x + #label
-      end
-    end
+    boardZones = tabBar(bwin, w, pages, boardPage)
   end
-  screen.put(bwin, w - 6, 1, " Setup ", "black", "lightGray")
-  boardZones[#boardZones + 1] = { w - 6, w, "setup" }
   if page.page then
     page.page.draw(bwin, w, h)
     screen.put(bwin, 1, h, screen.fit(msg[1], w), msg[2])
   else
+    -- how many are working, under the tabs
+    if #tiles > 0 then
+      screen.put(bwin, 2, 2, screen.fit(("%d of %d machines working"):format(working, #tiles), w - 2), "lightGray")
+    end
     local left = screen.tiles(bwin, w, 3, h - 3, tiles)
-    if left > 0 then screen.put(bwin, 2, h - 2, ("...and %d more"):format(left), "gray") end
-    if #tiles == 0 then screen.put(bwin, 2, 3, screen.fit("No machines yet.", w - 2), "gray") end
+    if left > 0 then
+      local more = ("...and %d more: see the computer's tabs"):format(left)
+      if #more > w - 2 then more = ("+%d more"):format(left) end
+      screen.put(bwin, 2, h - 2, screen.fit(more, w - 2), "gray")
+    end
+    if #tiles == 0 then screen.put(bwin, 2, 3, screen.fit("No machines yet: tap Setup.", w - 2), "gray") end
     screen.put(bwin, 1, h - 1, screen.fit(msg[1], w), msg[2])
     screen.legend(bwin, 2, h, w - 2, LEGEND)
   end
@@ -626,7 +641,8 @@ local function setupScreen(screens)
           end
           local off = claims.off[p.id]
           local value = off and "off here" or #where > 0 and table.concat(where, "; ") or "nobody: add a machine"
-          out[#out + 1] = { label = p.what, value = value,
+          -- the part's name: its description (p.what) and where it runs don't both fit on a row
+          out[#out + 1] = { label = p.title, value = value,
             colour = off and "gray" or #where > 0 and "lightGray" or "orange", act = function()
               readClaims()
               claims.off[p.id] = not claims.off[p.id] or nil

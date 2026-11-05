@@ -1491,10 +1491,10 @@
         ["status-server","Shows what each factory computer is doing, and when a machine needs attention."]
       ],
       "render": { "kind": "screen", "scene": "smelter", "caption": "The Smelter tab: every furnace, what's in it and its fuel. Click the footer to place a charcoal, stone or glass order.", "more": [
-        {"scene":"smelterBoard","caption":"The monitor is a status board: a tile per machine, lime idle, yellow working, orange flat out, red when it needs you (no fuel or power, output stuck, a Create line not moving, a pot not cooking)."},
+        {"scene":"smelterBoard","caption":"The monitor is a status board: a tile per machine (smaller tiles when there are many, so every machine fits), lime idle, yellow working, orange flat out, red when it needs you (no fuel or power, output stuck, a Create line not moving, a pot not cooking)."},
         {"scene":"enricher","caption":"The Enricher tab: each chamber, crusher and washer, the ore it's on, how many are queued in it and its feeder, its power and what it's doing."},
         {"scene":"infuser","caption":"The Infuser tab: each recipe, how many you can make from what is stored, and buttons to ask for more; what is asked for is listed under it (the storage computer orders too). Try the buttons."},
-        {"scene":"cooker","caption":"The Pots tab: each cooking pot, what it makes, how many it has made and what it's doing."},
+        {"scene":"cooker","caption":"The Cooking tab: each cooking pot, what it makes, how many it has made and what it's doing."},
         {"scene":"cookerMonitor","caption":"The monitor's Candy page: each size in storage and in the pots, the exp it's worth, and what's left to make more XS from."},
         {"scene":"essence","caption":"The Essence tab: what the stored essence makes, how many you can make, and an order of 4 crafts of iron ingots."}
       ] },
@@ -1996,7 +1996,7 @@
       "tagline": "Flicker-free monitors and terminals: each frame is drawn hidden and shown in one go, and frames that haven't changed are skipped.",
       "usage": "local screen = require(\"lib.screen\")\nlocal s = screen.find({ scales = { 1, 0.5 }, minW = 40, fallback = term.current() })\n\nif not s:same(key) then             -- optional: skip a frame that looks the same\n  local win, w, h = s:frame()       -- hidden and cleared\n  screen.put(win, 1, 1, \"Hello\", \"yellow\", \"gray\")\n  s:show()                          -- up it goes, all at once\nend",
       "api": [
-        ["screen.tiles(t, w, top, bottom, tiles, minW)", "A status board: a coloured tile per { title, text, bg, fg } (3 rows high, at least minW wide, stretched to fill) between rows top and bottom. How many didn't fit."],
+        ["screen.tiles(t, w, top, bottom, tiles, minW)", "A status board: a coloured tile per { title, text, bg, fg } between rows top and bottom: 3 rows high, else 2, else 1 (title: text), whichever shows them all, at least minW wide, stretched to fill. How many didn't fit even at 1 row."],
         ["screen.legend(t, x, y, w, keys)", "What the tile colours mean on one row, { colour, word } pairs; stops before one that doesn't fit."],
         ["screen.find(opts)", "A screen on a monitor it finds itself: name (only that one), filter(name, monitor), scales (largest text that fits minW x minH, set once), fallback (e.g. term.current()) while there's no monitor, setting (a settings key, e.g. 'smelter.monitor', the player sets to a monitor's name or 'none'); unset, a monitor touching the computer first, else the first on the cable."],
         ["screen.choose(setting, arg)", "For a '<program> monitor' command: lists every monitor the computer sees (touching it or on the cable), saves the player's pick (or 'none', or arg given on the command line) in setting and returns it; nil when left as it was. Queue an event the running program calls refresh() on, so it moves straight away."],
@@ -2009,7 +2009,8 @@
         ["s:same(key)", "True when key matches the last frame at this size, so drawing can be skipped."],
         ["s:setTarget(t)", "Draw on another monitor from now on."],
         ["screen.put(t, x, y, text, fg, bg)", "Write text in colours: names (\"lime\") or numbers (colors.lime); bg is black if left out."],
-        ["screen.fit(text, w)", "Cut or pad text to exactly w characters."]
+        ["screen.fit(text, w)", "Cut or pad text to exactly w characters."],
+        ["screen.squeeze(text, w)", "Cut text to at most w characters by taking out its middle (terracotta_h..pot_0), so a peripheral name keeps the number that tells it apart."]
       ],
       "notes": "Clearing a monitor and redrawing it in place makes it flash, so every program with a screen draws through this. Skipping unchanged frames also saves sending them to every player who can see the monitor. Turtles driving past fire peripheral events, so refresh() never rescales a monitor that is still there: rescaling is what flashes it. Every computer on a wired network sees every monitor on it, so each program passes a setting and the player can give it its own ('set storage.monitor monitor_3')."
     },

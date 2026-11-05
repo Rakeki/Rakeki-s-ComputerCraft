@@ -134,7 +134,7 @@ function M.new(f)
     for item, n in pairs(items) do infuseOf[item] = { kind = kind, amount = n } end
   end
 
-  local self = { id = "infuse", title = "Infuser", rank = 0, every = 5, what = "Requests -> steel, alloys, circuits" }
+  local self = { id = "infuse", title = "Infuser", short = "Infuse", rank = 0, every = 5, what = "Requests -> steel, alloys, circuits" }
   local machines = {}
   local requests = {} -- every request, oldest first (REQUEST_DIR)
   local counts = {} -- the storage computer's counts, for the screen
@@ -144,6 +144,7 @@ function M.new(f)
   local outStuck, outWhy, collected
   local makesKey, makesAt, makesNote = nil, -math.huge, nil
   local scroll = 0 -- the first recipe shown
+  local picked = 1 -- the recipe the terminal's keys ask for (a basic computer has no mouse)
   local zones = {} -- target -> { { x1, x2, y, action } }: what a tap does on the terminal or monitor
   self.message = { "Looking for the storage computer...", "lightGray" }
   self.status = { "starting", "" }
@@ -823,6 +824,13 @@ function M.new(f)
     screen.put(win, bx, 3, "Request", "yellow")
     local queueRows = math.min(QUEUE_SHOWN, #requests)
     local rows = h - 4 - #footer - (queueRows > 0 and queueRows + 1 or 0)
+    local keyed = target == "terminal"
+    if keyed then
+      picked = math.max(1, math.min(picked, #recipes))
+      -- the picked recipe stays in view
+      if picked <= scroll then scroll = picked - 1 end
+      if picked > scroll + rows then scroll = picked - rows end
+    end
     scroll = math.max(0, math.min(scroll, #recipes - rows))
     for i = 1, rows do
       local rc, y = recipes[scroll + i], 3 + i
@@ -831,10 +839,12 @@ function M.new(f)
         local nameW = canR - 7
         local name = rc.title
         local from = (" %s%s + %s"):format(rc.per > 1 and (rc.per .. " ") or "", nice(rc.from[1]), rc.infuse:gsub("_", " "))
-        screen.put(win, 2, y, fit(name, nameW), n > 0 and "white" or "lightGray")
-        if #name + 2 < nameW then screen.put(win, 2 + #name, y, fit(from, nameW - #name), "gray") end
+        local bg = keyed and scroll + i == picked and "gray" or "black"
+        screen.put(win, 1, y, (" "):rep(canR + 1), "white", bg)
+        screen.put(win, 2, y, fit(name, nameW), n > 0 and "white" or "lightGray", bg)
+        if #name + 2 < nameW then screen.put(win, 2 + #name, y, fit(from, nameW - #name), bg == "gray" and "lightGray" or "gray", bg) end
         local can = n > 9999 and "9999+" or tostring(n)
-        screen.put(win, canR - #can + 1, y, can, n > 0 and "lime" or "gray")
+        screen.put(win, canR - #can + 1, y, can, n > 0 and "lime" or bg == "gray" and "lightGray" or "gray", bg)
         local x = bx
         for _, k in ipairs(BUTTONS) do
           x = button(win, target, x, y, (" +%d "):format(k), { add = rc, n = k }, "black", n > 0 and "lightGray" or "gray")
@@ -862,7 +872,7 @@ function M.new(f)
   end
 
   function self.key()
-    local key = { self.message[1], self.message[2], scroll }
+    local key = { self.message[1], self.message[2], scroll, picked }
     for _, rc in ipairs(recipes) do key[#key + 1] = canChain(rc, counts) end
     for _, q in ipairs(requests) do key[#key + 1] = table.concat({ q.key, q.made, q.count, q.state or "" }, "/") end
     for _, m in ipairs(machines) do key[#key + 1] = table.concat({ m.title, m.state or "" }, "/") end
@@ -877,10 +887,12 @@ function M.new(f)
     end
     screen.put(win, 2, 2, screen.fit(("%d infuser%s, %d working"):format(#machines, #machines == 1 and "" or "s", busy), w - 2),
       "lightGray")
-    drawRequests(win, w, h, "terminal", {
-      { self.message[1], self.message[2] },
-      { w >= 48 and "Tap to request, x to cancel. Arrows scroll. Tab, F1: setup" or "F1: setup", "gray" },
-    })
+    -- the message takes a second line rather than being cut off
+    local footer = {}
+    for _, line in ipairs(screen.wrap(self.message[1], w, 2)) do footer[#footer + 1] = { line, self.message[2] } end
+    footer[#footer + 1] = { w >= 50 and "Arrows pick. Enter +1, 8 +8, 6 +64. X cancels last" or "Enter +1, 8 +8, 6 +64, X cancels",
+      "gray" }
+    drawRequests(win, w, h, "terminal", footer)
   end
 
   -- The monitor's Infuse page: the same, to tap.
@@ -904,6 +916,7 @@ function M.new(f)
       tell(("Asked for %d %s."):format(a.n * a.add.count, a.add.title), "lime")
     elseif a.scroll then
       scroll = math.max(0, scroll + a.scroll)
+      picked = math.max(1, math.min(#recipes, picked + a.scroll)) -- else the terminal snaps back to it
     elseif a.cancel then
       local q = files.read(a.cancel)
       if fs.exists(a.cancel) then fs.delete(a.cancel) end
@@ -940,11 +953,23 @@ function M.new(f)
   -- Keys, scrolling and clicks while its page is showing.
   function self.event(ev, x, y)
     local e = ev[1]
-    if e == "key" and ev[2] == keys.up then scroll = math.max(0, scroll - 1)
-    elseif e == "key" and ev[2] == keys.down then scroll = scroll + 1
-    elseif e == "key" and ev[2] == keys.pageUp then scroll = math.max(0, scroll - 8)
-    elseif e == "key" and ev[2] == keys.pageDown then scroll = scroll + 8
-    elseif e == "mouse_scroll" then scroll = math.max(0, scroll + ev[2])
+    -- the arrows move the picked recipe; Enter, 8 and 6 ask for it, as +1, +8 and +64 do
+    if e == "key" and ev[2] == keys.up then picked = math.max(1, picked - 1)
+    elseif e == "key" and ev[2] == keys.down then picked = math.min(#recipes, picked + 1)
+    elseif e == "key" and ev[2] == keys.pageUp then picked = math.max(1, picked - 8)
+    elseif e == "key" and ev[2] == keys.pageDown then picked = math.min(#recipes, picked + 8)
+    elseif e == "key" and (ev[2] == keys.enter or ev[2] == keys.numPadEnter) and recipes[picked] then
+      act({ add = recipes[picked], n = 1 })
+    elseif e == "char" and (ev[2] == "8" or ev[2] == "6") and recipes[picked] then
+      act({ add = recipes[picked], n = ev[2] == "8" and 8 or 64 })
+    elseif e == "char" and ev[2]:lower() == "x" and #requests > 0 then
+      -- the newest one asked for (not one a request asked for itself: that's asked for again), with what it asked for
+      local last
+      for _, q in ipairs(requests) do
+        if not q.parent then last = q end
+      end
+      if last then act({ cancel = last.file }) end
+    elseif e == "mouse_scroll" then picked = math.max(1, math.min(#recipes, picked + ev[2]))
     elseif x then tap("terminal", x, y)
     end
     return false

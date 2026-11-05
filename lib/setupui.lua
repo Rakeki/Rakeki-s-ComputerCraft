@@ -47,6 +47,25 @@ UI.__index = UI
 
 local function shortName(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
+-- text in at most w characters: a peripheral name in it ("mod:thing_12")
+-- loses its middle first, since its end tells it from the others; then
+-- the end goes, with ".." to show something's missing.
+local function shorten(text, w)
+  text = tostring(text or "")
+  if #text <= w then return text end
+  local over = #text - w
+  local s, e = text:find("[%w_%.%-]+:[%w_%.%-/]+")
+  if s and e - s + 1 > 8 then
+    local token = text:sub(s, e)
+    local keep = math.max(8, #token - over)
+    text = text:sub(1, s - 1) .. screen.squeeze(token, keep) .. text:sub(e + 1)
+  end
+  if #text <= w then return text end
+  if w <= 3 then return text:sub(1, w) end
+  return text:sub(1, w - 2) .. ".."
+end
+setupui.shorten = shorten
+
 -- What's in each of names: { stacks, top = the item there's most of }. Read
 -- side by side: each call takes a tick otherwise.
 function setupui.contents(names)
@@ -144,7 +163,10 @@ end
 function UI:drawOne(i, scr, list)
   local page = self.page
   local w, h = scr:size()
-  local per = math.max(1, h - 4)
+  -- the hint takes a second line rather than being cut off
+  local hint = page.hint and screen.wrap(page.hint, w - 2, 2) or {}
+  local first = 2 + math.max(1, #hint) -- the first row's line
+  local per = math.max(1, h - first - 1)
   local pages = math.max(1, math.ceil(#list / per))
   -- the terminal's page follows the keyboard's row
   if i == 1 then self.pages[i] = math.floor((self.sel - 1) / per) + 1 end
@@ -160,24 +182,31 @@ function UI:drawOne(i, scr, list)
 
   local head = type(page.title) == "function" and page.title(self) or page.title
   text(1, 1, (" "):rep(w), "white", "gray")
-  text(2, 1, fit(head, w - 2), "yellow", "gray")
   local right = self.filter ~= "" and ("find: " .. self.filter) or pages > 1 and ("%d/%d"):format(pg, pages) or ""
-  if #right > 0 and #head + #right + 4 <= w then text(w - #right, 1, right, "lightGray", "gray") end
-  if page.hint then text(2, 2, fit(page.hint, w - 2), "lightGray") end
+  text(2, 1, fit(shorten(head, w - 2 - (#right > 0 and #right + 2 or 0)), w - 2), "yellow", "gray")
+  if #right > 0 and #right + 4 <= w then text(w - #right, 1, right, "lightGray", "gray") end
+  for k, line in ipairs(hint) do text(2, 1 + k, fit(line, w - 2), "lightGray") end
 
   for r = 1, per do
     local n = (pg - 1) * per + r
     local row = list[n]
     if row then
-      local y = 2 + r
+      local y = first + r - 1
       local on = i == 1 and n == self.sel
       local bg = on and "blue" or "black"
       local value = row.value or ""
-      local vw = math.min(#value, math.floor((w - 3) * 0.5))
+      -- both whole when they fit; else the value up to half the row, or what the label leaves
+      local room = w - 3
+      local vw = #value
+      if #row.label + 1 + vw > room then vw = math.min(vw, math.max(room - #row.label - 1, math.floor(room * 0.5))) end
+      local lw = room - (vw > 0 and vw + 1 or 0)
       text(1, y, (" "):rep(w), "white", bg)
-      text(2, y, fit(row.label, w - 3 - (vw > 0 and vw + 1 or 0)),
+      text(2, y, fit(shorten(row.label, lw), lw),
         row.dim and "gray" or row.labelColour or row.value and "white" or row.colour or "white", bg)
-      if vw > 0 then text(w - vw, y, fit(value, vw), row.colour or "lightGray", bg) end
+      if vw > 0 then
+        local v = shorten(value, vw)
+        text(w - #v, y, v, row.colour or "lightGray", bg)
+      end
       if row.act then zones[#zones + 1] = { 1, w, y, function() self.sel = n; row.act(self) end } end
     end
   end
@@ -259,7 +288,9 @@ function UI:run(page)
         end
       end
     end
-    local per = math.max(1, select(2, self.screens[1]:size()) - 4)
+    local tw, th = self.screens[1]:size()
+    local hintLines = self.page.hint and #screen.wrap(self.page.hint, tw - 2, 2) or 1
+    local per = math.max(1, th - 3 - hintLines)
     if tapped then
       tapped()
     elseif e == "peripheral" or e == "peripheral_detach" then

@@ -29,10 +29,14 @@ added on the [setup screen](#the-setup-screen), in a few taps. With none of
 a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
-The computer's screen has a tab per part that's running (**Smelter**,
-**Enricher**, **Infuser**, **Pots**, **Essence**): tap one, or press **Tab**. A
-**monitor** is a status board you can read from across the room, a tile per
-machine:
+The computer's screen has a tab per part that's running (**Enricher**,
+**Smelter**, **Infuser**, **Cooking**, **Essence**; shortened to **Enrich**,
+**Smelt**, **Infuse**, **Cook** when they don't all fit): tap one, or press
+**Tab**. Everything on them works from the keyboard too, so a basic computer
+(no mouse) can do it all. A **monitor** is a status board you can read from
+across the room, a tile per machine, with how many are working at the top.
+The tiles get smaller to fit every machine on the monitor (a monitor 2 or 3
+blocks wide uses small text); only on a tiny one do some go to "+N more":
 
 | Colour | Means |
 |---|---|
@@ -369,7 +373,9 @@ There are three ways to ask:
   lists every recipe with how many you can make from what's stored, and
   **+1**, **+8** and **+64** buttons: tap one to ask for that many more.
   What's asked for is listed underneath with how it's doing; tap **x** to
-  cancel one. Up / Down or the mouse wheel scroll the list.
+  cancel one. On the computer, **Up** / **Down** (or the mouse wheel) pick a
+  recipe, **Enter**, **8** and **6** ask for 1, 8 or 64 of it, and **X**
+  cancels the newest one you asked for (with what it needed first).
 - **`factory infuse`** lists the recipes; `factory infuse steel 64` asks
   for 64 steel dust, `factory infuse cancel` cancels.
 - **The storage computer.** It's told what this computer can infuse, so
@@ -448,7 +454,7 @@ be counted and you can open a pot without upsetting it.
   or 2 stacks and 1 (129) for the others, and keeps a little more than
   that in it as it works. Those candies are in the pot, not in storage.
 
-The Pots tab lists each pot, what it makes, how many it has made since the
+The Cooking tab lists each pot, what it makes, how many it has made since the
 factory started, and what it's doing: **cooking**, **filling** (about how
 many it holds / how many it needs to start), **needs** an item that's run
 out in storage, or **not cooking!** when it should be.
@@ -506,7 +512,8 @@ On the Recipes view: type to search, **Backspace** to delete, **Up** /
 one craft fewer or more, **Page Up** / **Page Down** for ten, **End** for as
 many as you can make, **Enter** to order.
 
-The **Pots** view (top right of the tab) lists each pot with its crop
+The **Pots** view (top right of the tab, or **F2**) lists each pot and pot
+barrel (**Botany 1**, **Barrel 1**, ...) with its crop
 (named from what it last gave), what's left in it and what it's doing:
 **harvested**, **growing**, **waiting** (nothing harvested yet), or in red
 **can't see inside** (no modem under it), **not a hopper pot** or **input

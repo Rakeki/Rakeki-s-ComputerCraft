@@ -59,6 +59,7 @@ function M.new(f)
   local taken, takenSince = {}, os.epoch("utc") -- item -> how many came out of the pots since starting
   local lastCrop = {} -- pot -> what came out of it last, to name its crop
   local news -- { text, colour, untilTime }: how an order went, kept on screen a while
+  local stale = true -- the recipe list needs making again (new counts or recipes)
   self.message = { "Looking for the storage computer...", "lightGray" }
   self.status = { "starting", "" }
 
@@ -343,6 +344,7 @@ function M.new(f)
 
   function self.round(r)
     counts = r.stock.counts
+    stale = true -- the recipe list is made again from these counts when it's next drawn
     if not recipesAt or os.clock() - recipesAt > RECIPES_EVERY then
       local ok, why = loadRecipes()
       if not ok then note("No recipes yet: " .. why, "orange") end
@@ -350,7 +352,7 @@ function M.new(f)
 
     local now = {}
     for i, name in ipairs(myPots()) do
-      now[i] = { name = name, title = NAMES[name] or ("Pot " .. i), hopper = name:find("hopper", 1, true) ~= nil }
+      now[i] = { name = name, title = NAMES[name] or ("Botany " .. i), hopper = name:find("hopper", 1, true) ~= nil }
     end
     local jobs = {}
     for _, p in ipairs(now) do jobs[#jobs + 1] = function() emptyPot(p, r.stock.input) end end
@@ -413,6 +415,7 @@ function M.new(f)
   local function current() return list[selected] end
 
   local function refreshList()
+    stale = false
     local all = lookup(query)
     list = {}
     for _, b in ipairs(all) do
@@ -436,9 +439,10 @@ function M.new(f)
     return x + #text + 1
   end
 
-  local function drawRecipes(win, w, h)
+  -- foot: rows at the bottom for the message and keys
+  local function drawRecipes(win, w, h, foot)
     local fit = screen.fit
-    local rows = h - 6
+    local rows = h - 4 - foot
     screen.put(win, 1, 2, "Find: ", "yellow")
     screen.put(win, 7, 2, fit(query, w - 24), "white", "gray")
     screen.put(win, 2, 3, "Makes", "yellow")
@@ -469,7 +473,7 @@ function M.new(f)
     end
     local b = current()
     if b then
-      local y = h - 2
+      local y = h - foot
       local x = button(win, 1, y, " - ", { add = -1 })
       local sum = ("%d x %d = %d"):format(amount, b.r.count, amount * b.r.count)
       screen.put(win, x, y, sum, "white")
@@ -480,7 +484,7 @@ function M.new(f)
     end
   end
 
-  local function drawPots(win, w, h)
+  local function drawPots(win, w, h, foot)
     local fit = screen.fit
     local mins = (os.epoch("utc") - takenSince) / 60000
     local total = 0
@@ -488,23 +492,27 @@ function M.new(f)
     -- a rate from the first few rounds would be wildly off
     local rate = mins >= 5 and ("%d an hour"):format(math.floor(total / mins * 60)) or "rate after 5 minutes"
     screen.put(win, 2, 2, fit(("Taken: %d (%s)"):format(total, rate), w - 18), "white")
+    -- Doing gets the room it needs ("input chest full?"), Crop what's left
+    local doX = math.max(29, w - 17)
+    local leftX = doX - 6
     screen.put(win, 2, 3, "Pot", "yellow")
     screen.put(win, 14, 3, "Crop", "yellow")
-    screen.put(win, 31, 3, "Left", "yellow")
-    screen.put(win, 37, 3, "Doing", "yellow")
-    local rows = h - 6
+    screen.put(win, leftX, 3, "Left", "yellow")
+    screen.put(win, doX, 3, "Doing", "yellow")
+    local rows = h - 4 - foot
     for i = 1, math.min(rows, #pots) do
       local p, y = pots[i], 3 + i
       screen.put(win, 2, y, fit(p.title, 11), "white")
-      screen.put(win, 14, y, fit(p.crop or "-", 16), "lightGray")
-      screen.put(win, 31, y, fit(tostring(p.items or 0), 5), "white")
-      screen.put(win, 37, y, fit(p.state or "...", w - 37), p.colour or "gray")
+      screen.put(win, 14, y, fit(screen.squeeze(p.crop or "-", leftX - 15), leftX - 15), "lightGray")
+      screen.put(win, leftX, y, fit(tostring(p.items or 0), 5), "white")
+      screen.put(win, doX, y, fit(p.state or "...", w - doX + 1), p.colour or "gray")
     end
-    if #pots > rows then screen.put(win, 2, h - 2, ("...and %d more"):format(#pots - rows), "gray") end
+    if #pots > rows then screen.put(win, 2, h - foot,("...and %d more"):format(#pots - rows), "gray") end
     if #pots == 0 then screen.put(win, 2, 4, "No botany pots or pot barrels here yet.", "gray") end
   end
 
   function self.key()
+    if stale then refreshList() end
     local key = { view, query, selected, scroll, amount, #list, #recipes, self.message[1], self.message[2] }
     for name, n in pairs(counts) do
       if name:find(ESSENCE) then key[#key + 1] = name .. n end
@@ -521,12 +529,14 @@ function M.new(f)
     for _, t in ipairs({ { "recipes", " Recipes " }, { "pots", " Pots " } }) do
       x = button(win, x, 2, t[2], { view = t[1] }, view == t[1] and "black" or "white", view == t[1] and "yellow" or "gray")
     end
-    if view == "recipes" then drawRecipes(win, w, h) else drawPots(win, w, h) end
+    -- the message gets a second line rather than being cut off
+    local msg = screen.wrap(self.message[1], w, 2)
+    if view == "recipes" then drawRecipes(win, w, h, #msg + 1) else drawPots(win, w, h, #msg + 1) end
     local total, kinds = essenceTotals()
-    screen.put(win, 1, h - 1, screen.fit(self.message[1], w), self.message[2])
+    for i, line in ipairs(msg) do screen.put(win, 1, h - #msg - 1 + i, screen.fit(line, w), self.message[2]) end
     screen.put(win, 1, h, screen.fit(view == "recipes"
-      and ("Essence %d (%d kinds). Type to find, arrows, Enter orders"):format(total, kinds)
-      or "Tab: next page  F1: setup", w), "gray")
+      and ("Essence %d  Type: find  Enter: order  F2: pots"):format(total)
+      or "F2: recipes  Tab: next page  F1: setup", w), "gray")
   end
 
   -- Where the cursor goes on the terminal (the Find box), if anywhere.
@@ -561,7 +571,10 @@ function M.new(f)
   -- terminal). Never takes over the terminal, so false.
   function self.event(ev, x, y)
     local e = ev[1]
-    if e == "char" and view == "recipes" then
+    if e == "key" and ev[2] == keys.f2 then
+      -- the other view, from the keyboard (a basic computer has no mouse)
+      view = view == "recipes" and "pots" or "recipes"
+    elseif e == "char" and view == "recipes" then
       query = query .. ev[2]
       selected, amount = 1, 1
       refreshList()
@@ -611,7 +624,7 @@ function M.new(f)
     local list = readBarrels()
     list[#list + 1] = name
     writeBarrels(list)
-    return ("Barrel %d: %s. It's emptied into storage every %d seconds."):format(#list, name, self.every)
+    return ("Added %s as pot barrel %d."):format(name, #list)
   end
 
   -- Every barrel on the cable that could be a pot barrel: { name, what },
@@ -667,8 +680,7 @@ function M.new(f)
     local now = readBarrels()
     for _, c in ipairs(list) do now[#now + 1] = c.name end
     writeBarrels(now)
-    return ("Added %d pot barrel%s. Each is emptied into storage every %d seconds."):format(#list,
-      #list == 1 and "" or "s", self.every)
+    return ("Added %d pot barrel%s."):format(#list, #list == 1 and "" or "s")
   end
 
   -- 'factory add potbarrel [barrel | all]': asks which if it's not given.

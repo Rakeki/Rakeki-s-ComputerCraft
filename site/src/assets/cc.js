@@ -780,13 +780,16 @@
   //---------------------------------------------------------------- factory
 
   // The factory's tab bar (computers/factory/factory.lua): a tab per part
-  // running, the one showing in yellow, Setup at the right.
+  // running, the one showing in yellow, Setup at the right. Five full titles
+  // don't fit in 51, so it shows their short ones, as the program does.
   function factoryTabs(s, W, active) {
     s.fill(1, "gray");
     let x = 1;
-    for (const t of ["Smelter", "Enricher", "Infuser", "Pots", "Essence"]) {
+    const short = { Enricher: "Enrich", Smelter: "Smelt", Infuser: "Infuse", Pots: "Cook", Cooking: "Cook", Essence: "Essence" };
+    for (const t of ["Enrich", "Smelt", "Infuse", "Cook", "Essence"]) {
       const label = ` ${t} `;
-      s.put(x, 1, label, t === active ? "black" : "white", t === active ? "yellow" : "gray");
+      const on = t === (short[active] || active);
+      s.put(x, 1, label, on ? "black" : "white", on ? "yellow" : "gray");
       x += label.length;
     }
     s.put(W - 6, 1, " Setup ", "black", "lightGray");
@@ -805,12 +808,12 @@
     el.classList.add("clickable");
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
     const furnaces = [
-      { name: "blast furnace 0", blast: true, input: ["raw iron", 64], fuel: ["charcoal", 8] },
-      { name: "blast furnace 1", blast: true, input: ["raw gold", 23], fuel: ["charcoal", 3] },
-      { name: "furnace 0", input: ["raw copper", 40], fuel: ["coal", 5] },
-      { name: "furnace 1", input: ["raw copper", 40], fuel: ["coal", 5] },
-      { name: "smoker 0", smoker: true, input: ["beef", 24], fuel: ["charcoal", 3] },
-      { name: "furnace 2", input: null, fuel: null },
+      { name: "Blast furnace 0", blast: true, input: ["raw iron", 64], fuel: ["charcoal", 8] },
+      { name: "Blast furnace 1", blast: true, input: ["raw gold", 23], fuel: ["charcoal", 3] },
+      { name: "Furnace 0", input: ["raw copper", 40], fuel: ["coal", 5] },
+      { name: "Furnace 1", input: ["raw copper", 40], fuel: ["coal", 5] },
+      { name: "Smoker 0", smoker: true, input: ["beef", 24], fuel: ["charcoal", 3] },
+      { name: "Furnace 2", input: null, fuel: null },
     ];
     const ores = { "raw iron": 410, "raw copper": 96, "raw gold": 0 };
     const food = { beef: 40, porkchop: 18, cod: 12 };
@@ -866,11 +869,13 @@
       factoryTabs(s, W, "Smelter");
       s.put(2, 2, `Fuel for ${st.fuel} items`, "lightGray");
       const fuelX = W - 12;
-      s.put(2, 3, "Furnace", "yellow"); s.put(20, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
+      // the name column as wide as the longest name (up to 17), as smelt.lua does
+      const nameW = Math.min(17, Math.max(7, ...furnaces.map((f) => f.name.length))), doX = 2 + nameW + 2;
+      s.put(2, 3, "Furnace", "yellow"); s.put(doX, 3, "Smelting", "yellow"); s.put(fuelX, 3, "Fuel", "yellow");
       furnaces.forEach((f, i) => {
         const y = 4 + i;
-        s.put(2, y, fitT(f.name, 17), f.blast ? "orange" : f.smoker ? "pink" : "white");
-        s.put(20, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - 21), f.input ? "white" : "gray");
+        s.put(2, y, fitT(f.name, nameW), f.blast ? "orange" : f.smoker ? "pink" : "white");
+        s.put(doX, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - doX - 1), f.input ? "white" : "gray");
         s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
       });
       const lines = st.orders.map((o) => `${o.kind}: ${o.made} of ${o.count} made from ${o.from}`);
@@ -1612,7 +1617,14 @@
       });
       const list = Object.entries(stock).sort((a, b) => b[1] - a[1]);
       const total = list.reduce((n, [, c]) => n + c, 0);
-      s.put(2, H - 2, fitT(`To enrich: ${total} (${list.map(([n, c]) => `${n} ${c}`).join(", ")})`, W - 2), "white");
+      // whole items, as many as fit, like enrich.lua
+      const parts = list.map(([n, c]) => `${n} ${c}`);
+      let line = `To enrich: ${total}`;
+      for (let n = parts.length; n >= 1; n--) {
+        const more = parts.length - n, t = `To enrich: ${total} (${parts.slice(0, n).join(", ")}${more ? `, ${more} more` : ""})`;
+        if (t.length <= W - 2) { line = t; break; }
+      }
+      s.put(2, H - 2, fitT(line, W - 2), "white");
       s.put(1, H - 1, fitT("Chamber 4: it has no power", W), "red");
       s.put(1, H, fitT("Tab: next page  F1 or Setup: the setup screen", W), "gray");
       s.render();
@@ -1707,7 +1719,7 @@
         });
       }
       s.put(1, H - 1, fitT(msg[0], W), msg[1]);
-      s.put(1, H, fitT("Tap to request, x to cancel. Arrows scroll. Tab, F1: setup", W), "gray");
+      s.put(1, H, fitT("Arrows pick. Enter +1, 8 +8, 6 +64. X cancels last", W), "gray");
       s.render();
     }
 
@@ -1720,8 +1732,8 @@
   //---------------------------------------------------------------- status boards
 
   // The factory's monitor: a tile per machine, like
-  // screen.tiles in lib/screen.lua (3 rows high, at least 12 wide, stretched
-  // to fill), lime idle, yellow working, orange flat out, red needs you.
+  // screen.tiles in lib/screen.lua (3 rows high while they all fit, at least
+  // 12 wide, stretched to fill), lime idle, yellow working, orange flat out, red needs you.
   function statusBoard(el, title, verb, legend, tiles, step) {
     const W = 39, H = 19;
     const s = new Screen(W, H, el);
@@ -1732,8 +1744,7 @@
       s.put(2, 1, title, "yellow", "gray");
       const working = tiles.filter((t) => t[2] === "yellow" || t[2] === "orange").length;
       s.put(W - 6, 1, " Setup ", "black", "lightGray");
-      const count = `${working} of ${tiles.length} ${verb}`;
-      s.put(W - count.length - 8, 1, count, "lightGray", "gray");
+      s.put(2, 2, `${working} of ${tiles.length} machines ${verb}`, "lightGray");
       const cols = Math.max(1, Math.floor((W + 1) / 13)), tileW = Math.floor((W + 1) / cols) - 1;
       tiles.forEach(([name, text, bg], i) => {
         const x = 1 + (i % cols) * (tileW + 1), y = 3 + Math.floor(i / cols) * 4, fg = bg === "red" ? "white" : "black";
@@ -1759,12 +1770,12 @@
   // Everything one factory runs: furnaces (one out of fuel), a chamber, a
   // crusher, a Mekanism smelter and a cooking pot.
   function smelterBoard(el) {
-    const tiles = [["blast furnace 0", "raw iron", "orange"], ["furnace 1", "oak log", "yellow"], ["furnace 2", "no fuel", "red"],
-      ["smoker 3", "idle", "lime"], ["Chamber 1", "iron ore", "yellow"], ["Crusher 1", "zinc ore", "yellow"],
+    const tiles = [["Blast 0", "raw iron", "orange"], ["Furnace 1", "oak log", "yellow"], ["Furnace 2", "no fuel", "red"],
+      ["Smoker 3", "idle", "lime"], ["Chamber 1", "iron ore", "yellow"], ["Crusher 1", "zinc ore", "yellow"],
       ["Smelter 1", "iron dust", "orange"], ["Pot 1", "cooking", "yellow"]];
     let t = 0;
     return statusBoard(el, "Factory", "working", [["lime", "idle"], ["yellow", "working"], ["orange", "flat out"], ["red", "help"]],
-      tiles, () => { t++; tiles[3] = t % 8 < 4 ? ["smoker 3", "idle", "lime"] : ["smoker 3", "beef", "yellow"]; });
+      tiles, () => { t++; tiles[3] = t % 8 < 4 ? ["Smoker 3", "idle", "lime"] : ["Smoker 3", "beef", "yellow"]; });
   }
 
   //---------------------------------------------------------------- remote terminal
@@ -1969,7 +1980,7 @@
       s.put(20, y, " Max ", "black", "lightGray");
       s.put(26, y, " Order ", "white", "green");
       s.put(1, H - 1, fitT("Crafting 24 iron ingot.", W), "lime");
-      s.put(1, H, fitT(`Essence ${total} (${Object.keys(ess).length} kinds). Type to find, arrows, Enter orders`, W), "gray");
+      s.put(1, H, fitT(`Essence ${total}  Type: find  Enter: order  F2: pots`, W), "gray");
       s.render();
     }
 

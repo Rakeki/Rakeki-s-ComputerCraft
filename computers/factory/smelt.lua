@@ -36,6 +36,13 @@ local FUEL_ORDER = { "minecraft:charcoal", "minecraft:coal", "minecraft:coal_blo
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
+-- A furnace's name on screen: "Furnace 3", "Blast furnace 0" ("Blast 0" short, for a tile).
+local function furnaceTitle(fu, short)
+  local t = nice(fu.name)
+  if short then t = t:gsub("^blast furnace", "blast") end
+  return (t:gsub("^%l", string.upper))
+end
+
 -- Logs and wood (bark on all sides) of every tree burn into charcoal;
 -- nether stems don't, and aren't called logs.
 local function isWood(name) return (name:find("_log$") or name:find("_wood$")) ~= nil end
@@ -72,7 +79,7 @@ function M.new(f)
   local DUSTS = config.dusts or { "^mekanism:dust_iron$", "^mekanism:dust_gold$", "^mekanism:dust_copper$",
     "^mekanism:dust_osmium$", "^mekanism:dust_tin$", "^mekanism:dust_lead$", "^mekanism:dust_uranium$" }
 
-  local self = { id = "smelt", title = "Smelter", rank = 2, every = 10,
+  local self = { id = "smelt", title = "Smelter", short = "Smelt", rank = 2, every = 10,
     what = "Ores, dust, food -> ingots, cooked food" }
   local furnaces = {} -- what the screen shows: { name, blast, input, fuel, output } per furnace
   local meks = {} -- the Mekanism smelters and fans (lib/mekfeed.lua), for the screen too
@@ -554,7 +561,7 @@ function M.new(f)
         for name, n in pairs(reply and reply.sent or {}) do
           fu.fuel = { name = name, count = (fu.fuel and fu.fuel.count or 0) + n }
         end
-        if not fu.fuel then unfuelled = true end
+        if not fu.fuel then unfuelled = reply and reply.error or true end
       end
     end
 
@@ -653,7 +660,9 @@ function M.new(f)
     elseif work.problem then
       say(("Not using the work chest: %s."):format(work.problem), "orange")
     elseif unfuelled then
-      say("Out of fuel: put coal or charcoal in the fuel chest.", "orange")
+      -- the storage computer's reason, when it gave one
+      say(type(unfuelled) == "string" and ("No fuel came: %s."):format(unfuelled)
+        or "Out of fuel: put coal or charcoal in the fuel chest.", "orange")
     elseif loaded > 0 then
       say(("Loaded %d items into %d furnaces."):format(loaded, into))
     elseif busy == 0 then
@@ -670,7 +679,7 @@ function M.new(f)
   local function rows()
     local list = {}
     for _, fu in ipairs(furnaces) do
-      list[#list + 1] = { nice(fu.name), fu.blast and "orange" or fu.smoker and "pink" or "white",
+      list[#list + 1] = { furnaceTitle(fu), fu.blast and "orange" or fu.smoker and "pink" or "white",
         fu.input and ("%d %s"):format(fu.input.count, nice(fu.input.name)) or "idle", fu.input and "white" or "gray",
         fu.fuel and ("%d %s"):format(fu.fuel.count, nice(fu.fuel.name)) or "-" }
     end
@@ -727,23 +736,31 @@ function M.new(f)
     local stat = stock and ("Fuel for %d items"):format(stock.fuel or 0) or "No storage yet"
     put(2, 2, fit(stat, w - 2), "lightGray")
     local fuelX = w - 12
+    -- the name column as wide as the longest name (up to 17), the rest for what it's smelting
+    local nameW = 7
+    for _, row in ipairs(list) do nameW = math.max(nameW, #row[1]) end
+    nameW = math.min(nameW, 17)
+    local doX = 2 + nameW + 2
     put(2, 3, "Furnace", "yellow")
-    put(20, 3, "Smelting", "yellow")
+    put(doX, 3, "Smelting", "yellow")
     put(fuelX, 3, "Fuel", "yellow")
-    local shown = h - 6 - math.max(#lines, 1)
+    -- the message takes a second line rather than being cut off
+    local msg = screen.wrap(self.message[1], w, 2)
+    local shown = h - 5 - #msg - math.max(#lines, 1)
     for i = 1, math.min(shown, #list) do
       local row, y = list[i], 3 + i
-      put(2, y, fit(row[1], 17), row[2])
-      put(20, y, fit(row[3], fuelX - 21), row[4])
+      put(2, y, fit(screen.squeeze(row[1], nameW), nameW), row[2])
+      put(doX, y, fit(row[3], fuelX - doX - 1), row[4])
       put(fuelX, y, fit(row[5], 12), "lightGray")
     end
     if #list > shown then put(2, 4 + shown, ("...and %d more"):format(#list - shown), "gray") end
     if #list == 0 then put(2, 4, "No furnaces yet.", "gray") end
-    if #lines == 0 then put(1, h - 2, fit(" No orders.", w), "gray") end
+    local base = h - 1 - #msg -- the last order line
+    if #lines == 0 then put(1, base, fit(" No orders.", w), "gray") end
     for i, line in ipairs(lines) do
-      put(1, h - 2 - #lines + i, fit(" " .. line, w), "lightBlue")
+      put(1, base - #lines + i, fit(" " .. line, w), "lightBlue")
     end
-    put(1, h - 1, fit(self.message[1], w), self.message[2])
+    for i, line in ipairs(msg) do put(1, base + i, fit(line, w), self.message[2]) end
     put(1, h, fit("C:charcoal S:stone G:glass X:cancel Tab F1:setup", w), "gray")
   end
 
@@ -762,7 +779,7 @@ function M.new(f)
     local tiles = {}
     for _, fu in ipairs(furnaces) do
       local colour, text = furnaceStatus(fu)
-      tiles[#tiles + 1] = { nice(fu.name), text, colour }
+      tiles[#tiles + 1] = { furnaceTitle(fu, true), text, colour }
     end
     for _, m in ipairs(meks) do
       local item = mekfeed.current(m) or (m.inputs[1] and m.inputs[1].name)

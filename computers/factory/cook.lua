@@ -122,7 +122,7 @@ function M.new(f)
     { "cobblemon:rare_candy", "Rare" },
   }
 
-  local self = { id = "cook", title = "Pots", every = 10, what = "Cooking pots (exp candy)" }
+  local self = { id = "cook", title = "Cooking", short = "Cook", every = 10, what = "Cooking pots (exp candy)" }
   local pots = {} -- what the screen shows: each pot with its recipe and how it's doing
   local made = {} -- feed hopper -> how many it has made since the factory started
   local stock = nil -- the storage computer's last counts: item -> how many
@@ -204,7 +204,7 @@ function M.new(f)
 
   function self.summary()
     local n = #readPots()
-    return n > 0 and ("%d pots"):format(n) or ""
+    return n > 0 and ("%d pot%s"):format(n, n == 1 and "" or "s") or ""
   end
 
   ---------------------------------------------------------------- a pot's load
@@ -334,10 +334,14 @@ function M.new(f)
   -- shows them even while it isn't answering.
   function self.read()
     local list = readPots()
-    local nowPots = {}
+    local nowPots, before = {}, {}
+    for _, p in ipairs(pots) do before[p.entry.feed] = p end
     for i, entry in ipairs(list) do
       local r, why = recipeOf(entry.recipe)
-      nowPots[i] = { n = i, entry = entry, recipe = r, problem = why, hopper = {} }
+      -- what it was doing stays on screen until this round says otherwise (not "...")
+      local old = before[entry.feed]
+      nowPots[i] = { n = i, entry = entry, recipe = r, problem = why, hopper = {},
+        state = old and old.state, colour = old and old.colour }
     end
     -- each call takes a tick, so read every pot at once: its feed hopper
     -- before its comparator, so an item that moves between the two reads is
@@ -547,7 +551,8 @@ function M.new(f)
     put(5, 3, "Makes", "yellow")
     put(21, 3, "Made", "yellow")
     put(29, 3, "Doing", "yellow")
-    local shown = h - 6
+    local msg = screen.wrap(self.message[1], w, 2) -- a second line rather than cut off
+    local shown = h - 5 - #msg
     for i = 1, math.min(shown, #pots) do
       local p, y = pots[i], 3 + i
       put(2, y, tostring(p.n), "lightGray")
@@ -555,9 +560,9 @@ function M.new(f)
       put(21, y, fit(tostring(made[p.entry.feed] or 0), 7), "white")
       put(29, y, fit(p.state or "...", w - 29), p.colour or "gray")
     end
-    if #pots > shown then put(2, h - 2, ("...and %d more"):format(#pots - shown), "gray") end
+    if #pots > shown then put(2, h - 1 - #msg, ("...and %d more"):format(#pots - shown), "gray") end
     if #pots == 0 then put(2, 4, "No pots yet.", "gray") end
-    put(1, h - 1, fit(self.message[1], w), self.message[2])
+    for i, line in ipairs(msg) do put(1, h - 1 - #msg + i, fit(line, w), self.message[2]) end
     put(1, h, fit("Tab: next page  F1 or Setup: the setup screen", w), "gray")
   end
 

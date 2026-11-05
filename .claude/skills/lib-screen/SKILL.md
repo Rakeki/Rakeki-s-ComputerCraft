@@ -31,6 +31,7 @@ list `lib/screen.lua` in its README's Files.
 | `s:size()` | The screen's size now (for layout before the first frame). |
 | `screen.put(t, x, y, text, fg, bg)` | Write text. Colours are names (`"lime"`) or numbers (`colors.lime`); `bg` defaults to black, `fg` to white. |
 | `screen.fit(text, w)` | Cut or pad to exactly `w` characters (`""` when `w <= 0`). |
+| `screen.squeeze(text, w)` | Cut to at most `w` by taking out the middle (`terracotta_h..pot_0`): use it for peripheral names, whose end tells them apart. Not padded. |
 
 ## Patterns
 
@@ -58,7 +59,8 @@ each real change is sent to every player who can see the monitor.
 ### Status boards
 
 A monitor that only has to say how each machine is doing (the factory) is a status board: `screen.tiles(win, w, top, bottom, tiles)` with a
-`{ title, text, bg, fg }` tile per machine, and `screen.legend(win, x, y, w,
+`{ title, text, bg, fg }` tile per machine (3 rows high while they all fit, then 2, then 1-row
+"title: text" bars; it returns how many still didn't fit, for a "+N more"), and `screen.legend(win, x, y, w,
 keys)` on the last row. The colours are always lime idle, yellow working,
 orange flat out / full, red needs you (white text); the detailed table stays
 on the computer's own screen.
