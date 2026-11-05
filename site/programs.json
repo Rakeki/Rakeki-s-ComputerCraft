@@ -1285,17 +1285,17 @@
       "autostart": true,
       "stats": [
         ["Tops up", "every 5 s"],
-        ["Per item", "up to 2 stacks"],
+        ["Sends", "never past the list"],
         ["Learns", "from a Block Reader"],
         ["Far away", "through an ender chest"]
       ],
       "features": [
         "With an Advanced Peripherals Block Reader on the cannon, sends the item it's waiting for at once and keeps it topped up until the cannon finishes",
-        "Keeps the chest touching the cannon topped up with everything on its list, until all of each is sent",
+        "Keeps the chest touching the cannon topped up with everything on its list, until all of each is sent and never more",
         "List from typed items (cannon add stone_bricks 340) or every block a plan from /plans uses",
         "Crafts what storage hasn't got but can make, with the crafting turtles or the craft overseer",
         "Keeps gunpowder in the chest for the cannon while there's more to send",
-        "Monitor shows the cannon's progress and what it waits for, and each item: sent, in chest, crafting, or why it can't be had",
+        "Screen leads with what's missing now: the item the cannon is stuck on and why, and every item storage can't send enough of; tap for what has been sent",
         "Near the storage on its cable, or anywhere through an ender chest"
       ],
       "setup": [
@@ -1320,7 +1320,7 @@
         ["craft-overseer", "Crafts what's missing, across all the crafting turtles."],
         ["status-server", "Shows how many items are still to send."]
       ],
-      "render": { "kind": "screen", "scene": "cannon", "caption": "The feeder's screen with a Block Reader on the cannon: the cannon uses up the chest and the feeder tops it up; the mossy walls it waits for are being crafted, the lanterns wait for iron nuggets." },
+      "render": { "kind": "screen", "scene": "cannon", "caption": "The feeder's screen with a Block Reader on the cannon: what's missing now comes first. The cannon waits for mossy walls while they're crafted, then for lanterns, which need iron nuggets storage hasn't got; the bottom line is what has been sent. Tap for the Sent page." },
       "terminal": {
         "device": "computer",
         "lines": [

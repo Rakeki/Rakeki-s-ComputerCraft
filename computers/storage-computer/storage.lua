@@ -1141,6 +1141,7 @@ end
 -- Requests from turtles over rednet:
 --   { type = "count", items = { name, ... } }      -> { re = "count", counts = { [name] = n } }
 --   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
+--                                                     (optional most = { [name] = n }: move no more than that now)
 --   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
 --   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter, cooker)
@@ -1820,9 +1821,14 @@ local function handleRequest(from, msg)
         n = math.floor(n)
         local have = math.min(present[name] or 0, n)
         sent[name] = 0
-        if have < n then
+        -- most: never move more than this many now, whatever the chest holds
+        -- (the cannon feeder: the cannon empties its chest while we work)
+        local want = n - have
+        local cap = type(msg.most) == "table" and tonumber(msg.most[name])
+        if cap then want = math.min(want, math.max(0, math.floor(cap))) end
+        if want > 0 then
           local err
-          sent[name], err = fetch(name, n - have, to)
+          sent[name], err = fetch(name, want, to)
           -- stored, yet none moved and no error: say so, or the turtle waits without a reason
           if not err and sent[name] == 0 and (countPlain({ name })[name] or 0) > 0 then
             err = ("%s took none of the %s asked for: is it full?"):format(to, nameOf(name))
@@ -1839,7 +1845,10 @@ local function handleRequest(from, msg)
     -- what isn't there yet and isn't already being made: craft it if we can
     local making, cantCraft = {}, {}
     for _, name in ipairs(names) do
-      local missing = math.floor(msg.items[name]) - ready[name] - (pendingCraft[name] or 0)
+      local missing = math.floor(msg.items[name]) - ready[name]
+      local cap = type(msg.most) == "table" and tonumber(msg.most[name])
+      if cap then missing = math.min(missing, math.floor(cap) - sent[name]) end
+      missing = missing - (pendingCraft[name] or 0)
       if missing > 0 then
         local made, why = orderCraft(name, missing)
         if made then making[name] = made end

@@ -1815,20 +1815,29 @@
   //---------------------------------------------------------------- cannon feeder
 
   // The cannon feeder: same layout as computers/cannon-feeder/cannon.lua,
-  // with a Block Reader on the cannon. Each block the cannon asks for joins
-  // the list and is kept topped up; the mossy walls it waits for are crafted
-  // on the way, then it waits for lanterns, which need iron nuggets.
+  // with a Block Reader on the cannon and two items typed in. What's missing
+  // now leads: the mossy walls the cannon waits for are crafted on the way,
+  // then it waits for lanterns, which need iron nuggets; the typed spruce
+  // trapdoors and chains can't all be had. Every so often it shows the Sent
+  // page, as a tap on the monitor would.
   function cannon(el) {
     const W = 51, H = 19, TOTAL = 1062;
     const s = new Screen(W, H, el);
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const NUGGET = "no Iron Nugget stored, and no way to make it";
     // name, the tick the cannon first asks for it, the tick storage has it (never for lanterns)
     const ASKS = [["stone bricks", 0, 0], ["spruce planks", 0, 0], ["spruce stairs", 0, 0], ["cobblestone", 0, 0],
       ["glass pane", 0, 0], ["mossy stone brick wall", 3, 10], ["lantern", 22, Infinity]];
+    // typed in: name, amount, how many were sent before storage ran out, why it can't make more
+    const TYPED = [["spruce trapdoor", 8, 3, null], ["chain", 6, 0, NUGGET]];
     let items, t, placed, powder, message;
-    const reset = () => { items = []; t = 0; placed = 0; powder = 32; message = ["Starting...", "lightGray"]; };
+    const reset = () => {
+      items = TYPED.map(([name, need, sent, why]) => ({ name, need, why, sent, chest: 0, typed: true }));
+      t = 0; placed = 0; powder = 32; message = ["Starting...", "lightGray"];
+    };
     reset();
     const missing = () => ASKS.find(([, ask, have]) => t >= ask && t < have && ask > 0);
+    const page = () => (t % 20 >= 15 ? "sent" : "missing");
 
     function step() {
       t++;
@@ -1839,22 +1848,33 @@
       }
       let total = 0;
       for (const it of items) {
+        if (it.typed) continue;
         if (!waitFor && it.chest > 0) { const n = Math.min(it.chest, 3 + (it.name.length % 4)); it.chest -= n; placed += n; }
         const [, , have] = ASKS.find(([n]) => n === it.name);
-        if (t >= have && it.chest < 64) { const n = 128 - it.chest; it.sent += n; it.chest += n; total += n; }
+        // topped up to 2 stacks, never more in the chest than the blocks left
+        const most = Math.min(128, TOTAL - placed);
+        if (t >= have && it.chest < 64 && most > it.chest) { const n = most - it.chest; it.sent += n; it.chest += n; total += n; }
       }
       placed = Math.min(placed, TOTAL);
       powder = powder > 8 ? powder - 1 : 32;
       const w = missing();
-      if (w && w[0] === "lantern") message = ["The cannon waits for lantern: no Iron Nugget stored, and no way to make it.", "red"];
+      if (w && w[0] === "lantern") message = ["The cannon waits for lantern: " + NUGGET + ".", "red"];
       else if (w) message = [`The cannon waits for ${w[0]}: crafting it.`, "lightBlue"];
-      else message = total > 0 ? [`Sent ${total} items.`, "lightBlue"] : ["", "lightGray"];
+      else message = ["2 items can't be had right now: see Missing now.", "orange"];
     }
 
-    function state(it) {
+    function row(y, name, nameColour, right, colour) {
+      const most = Math.floor(W * 0.6);
+      if (right.length > most) right = right.slice(0, most);
+      s.put(2, y, fitT(name, W - right.length - 3), nameColour);
+      s.put(W - right.length, y, right, colour);
+    }
+
+    function sentState(it) {
+      if (it.typed) return it.why ? [`can't: ${it.why}`, "red"] : ["none stored", "orange"];
       if (it.chest > 0) return [`${it.chest} in chest`, "white"];
       if (it.name === "mossy stone brick wall") return ["crafting", "lightBlue"];
-      if (it.name === "lantern") return ["can't: no Iron Nugget stored, and no way to make it", "red"];
+      if (it.name === "lantern") return [`can't: ${NUGGET}`, "red"];
       return ["waiting", "gray"];
     }
 
@@ -1866,16 +1886,28 @@
       const head = `${placed} / ${TOTAL} placed`;
       s.put(W - head.length, 1, head, "lightGray", "gray");
       s.put(2, 2, w ? `Cannon: waiting for ${w[0]}` : "Cannon: placing", w ? "orange" : "lightBlue");
-      s.put(2, 3, `Chest: front   gunpowder ${powder}`, "gray");
-      items.forEach((it, i) => {
-        const [text, colour] = state(it);
-        let right = `${it.sent} sent  ${text}`;
-        const most = Math.floor(W * 0.6);
-        if (right.length > most) right = right.slice(0, most);
-        s.put(2, 5 + i, fitT(it.name, W - right.length - 3), w && w[0] === it.name ? "orange" : "white");
-        s.put(W - right.length, 5 + i, right, colour);
-      });
-      if (items.length === 0) s.put(2, 5, "Nothing yet: items join as the cannon asks.", "gray");
+      if (w && w[0] === "lantern") s.put(4, 3, fitT("none stored, can't craft: " + NUGGET, W - 4), "red");
+      else if (w) s.put(4, 3, "being crafted (16)", "lightBlue");
+      let y = w ? 5 : 4;
+      if (page() === "sent") {
+        for (const it of items) {
+          const [text, colour] = sentState(it);
+          const count = it.typed ? `${it.sent}/${it.need}` : `${it.sent} sent`;
+          row(y++, it.name, w && w[0] === it.name ? "orange" : "white", `${count}  ${text}`, colour);
+        }
+      } else {
+        s.put(2, y++, "Missing now: 2", "yellow");
+        for (const it of items.filter((i) => i.typed)) {
+          const text = it.why ? "can't: " + it.why : "none stored";
+          row(y++, it.name, "white", `need ${it.need - it.sent}  ${text}`, "red");
+        }
+      }
+      let need = 0, sent = 0;
+      for (const it of items.filter((i) => i.typed)) { need += it.need; sent += it.sent; }
+      const tail = `Sent ${sent}/${need}  0/2 done  powder ${powder}`;
+      const hint = page() === "sent" ? "[tap: missing]" : "[tap: sent]";
+      s.put(2, H - 1, fitT(tail, W - hint.length - 3), "gray");
+      s.put(W - hint.length, H - 1, hint, "gray");
       s.put(1, H, fitT(message[0], W), message[1]);
       s.render();
     }
