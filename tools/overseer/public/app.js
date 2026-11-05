@@ -69,6 +69,8 @@
     fleetDirty: true,
     protosDirty: true,
     fitted: false,
+    autoFit: true, // keep fitting everything in view until the player pans, zooms or picks something
+    snapped: false, // the first fit jumps there; later ones glide
   };
 
   const name = (id) => {
@@ -82,7 +84,8 @@
     if (!n) {
       n = { born: performance.now(), pulse: 0, peers: {}, hist: new Map(), vx: null, vz: null };
       S.nodes.set(raw.id, n);
-    }
+      if (S.autoFit) S.fitted = false; // a newcomer may be off-screen: fit again until the player moves the map
+    } else if (S.autoFit && raw.pos && !n.pos) S.fitted = false;
     const wasOff = n.offline, oldState = n.state;
     Object.assign(n, raw);
     if (n.pos && n.vx == null) { n.vx = n.pos.x; n.vz = n.pos.z; }
@@ -275,6 +278,7 @@
   }
   function flyTo(n, zoom) {
     if (n.gx == null) return;
+    S.autoFit = false;
     goal.x = n.gx; goal.z = n.gz;
     if (zoom) goal.s = Math.max(goal.s, 5);
   }
@@ -606,11 +610,21 @@
   }
 
   let last = performance.now();
+  let frameErrors = 0;
   function frame(now) {
+    // one bad frame (odd data from a computer) must never stop the map for good
+    try { draw(now); } catch (e) { if (frameErrors++ < 5) console.error("overseer frame:", e); }
+    requestAnimationFrame(frame);
+  }
+  function draw(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     const bounds = layout(now);
-    if (!S.fitted && W && S.nodes.size) { fit(bounds); Object.assign(cam, goal); S.fitted = true; }
+    if (!S.fitted && W && H && S.nodes.size) {
+      fit(bounds);
+      if (!S.snapped) { Object.assign(cam, goal); S.snapped = true; }
+      S.fitted = true;
+    }
     if (S.opts.follow && S.sel != null) { const n = S.nodes.get(S.sel); if (n && n.gx != null) { goal.x = n.gx; goal.z = n.gz; } }
     const k = 1 - Math.exp(-dt * 7);
     cam.x += (goal.x - cam.x) * k; cam.z += (goal.z - cam.z) * k;
@@ -642,7 +656,6 @@
       ctx.fillStyle = "rgba(125,147,173,0.8)"; ctx.font = "600 13px 'JetBrains Mono', monospace"; ctx.textAlign = "center";
       ctx.fillText("Waiting for the bridge to hear something…", W / 2, H / 2 + 60); ctx.textAlign = "left";
     }
-    requestAnimationFrame(frame);
   }
 
   // ------------------------------------------------------------ map: input
@@ -683,7 +696,7 @@
         moved += Math.abs(dx) + Math.abs(dy);
         cam.x -= dx / cam.s; cam.z -= dy / cam.s; goal.x = cam.x; goal.z = cam.z;
         drag = { x: e.clientX, y: e.clientY };
-        if (moved > 4) { S.opts.follow = false; pressed("#bFollow", false); }
+        if (moved > 4) { S.opts.follow = false; S.autoFit = false; pressed("#bFollow", false); }
       }
       return;
     }
@@ -714,6 +727,7 @@
     goal.x = wx(px); goal.z = wz(py); goal.s = Math.min(16, goal.s * 2);
   });
   function zoomAt(px, py, f) {
+    S.autoFit = false;
     const s = Math.max(0.03, Math.min(24, cam.s * f));
     const bx = wx(px), bz = wz(py);
     cam.s = s;
@@ -1005,7 +1019,7 @@
   // ------------------------------------------------------------ buttons + keys
   function pressed(sel, on) { $(sel).setAttribute("aria-pressed", String(on)); }
   function toggle(opt, sel) { S.opts[opt] = !S.opts[opt]; pressed(sel, S.opts[opt]); }
-  $("#bFit").onclick = () => fit();
+  $("#bFit").onclick = () => { S.autoFit = true; fit(); };
   $("#bFollow").onclick = () => { toggle("follow", "#bFollow"); const n = S.nodes.get(S.sel); if (S.opts.follow && n) flyTo(n, true); };
   $("#bTrails").onclick = () => toggle("trails", "#bTrails");
   $("#bBeats").onclick = () => toggle("beats", "#bBeats");
@@ -1015,15 +1029,15 @@
     if (e.target === search) { if (e.key === "Escape") { search.value = ""; search.blur(); S.fleetDirty = true; } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === "f") fit();
+    if (k === "f") { S.autoFit = true; fit(); }
     else if (k === "t") toggle("trails", "#bTrails");
     else if (k === "h") toggle("beats", "#bBeats");
     else if (k === "l") toggle("labels", "#bLabels");
     else if (k === " ") { e.preventDefault(); $("#bPause").click(); }
     else if (k === "escape") select(null);
     else if (k === "/") { e.preventDefault(); search.focus(); }
-    else if (k === "+" || k === "=") goal.s = Math.min(24, goal.s * 1.4);
-    else if (k === "-") goal.s = Math.max(0.03, goal.s / 1.4);
+    else if (k === "+" || k === "=") S.autoFit = false, goal.s = Math.min(24, goal.s * 1.4);
+    else if (k === "-") S.autoFit = false, goal.s = Math.max(0.03, goal.s / 1.4);
   });
 
   // ------------------------------------------------------------ boot + connection
