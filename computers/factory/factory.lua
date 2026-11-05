@@ -17,7 +17,7 @@
 --                                   or Setup on its monitor or screen, or F1)
 --   factory add <kind> [...]        add a machine: chamber, crusher, washer, smelter, fan, smokefan
 --                                   ([machine] feeder [output]), infuser ([machine feeder extra output]),
---                                   pot ([recipe feed output relay]), or potbarrel ([barrel]: the one
+--                                   pot ([recipe feed output relay]), or potbarrel ([barrel | all]: the one
 --                                   Hopper Botany Pots empty into)
 --   factory list                    every machine, its owner and what it is
 --   factory remove [n]              forget machine n (no number: list them)
@@ -449,8 +449,10 @@ local function draw()
   if #list == 0 then screen.put(win, 2, 1, "Factory", "yellow", "gray") end
   screen.put(win, w - 6, 1, " Setup ", "black", "lightGray")
   tabZones[#tabZones + 1] = { w - 6, w, "setup" }
-  local cx, cy = current and current.cursor and current.cursor(w)
-  if cx then
+  -- not "a and b and f()": that keeps only f's first result
+  local cx, cy
+  if current and current.cursor then cx, cy = current.cursor(w) end
+  if cx and cy then
     win.setCursorPos(cx, cy)
     win.setTextColor(colors.white)
     win.setCursorBlink(true)
@@ -807,7 +809,7 @@ if verb == "add" then
     print("  infuser [machine feeder extra output]  (Mekanism)")
     print("  crusher, washer, fan, smokefan [feeder [output]]  (Create)")
     print("  pot [recipe feed output relay]  (Cobblemon)")
-    print("  potbarrel [barrel]  (the barrel Hopper Botany Pots empty into)")
+    print("  potbarrel [barrel | all]  (the barrel Hopper Botany Pots empty into; all: every free one)")
     return
   end
   if not needModem() then return end

@@ -614,8 +614,78 @@ function M.new(f)
     return ("Barrel %d: %s. It's emptied into storage every %d seconds."):format(#list, name, self.every)
   end
 
-  -- 'factory add potbarrel [barrel]': asks which if it's not given.
+  -- Every barrel on the cable that could be a pot barrel: { name, what },
+  -- what = "empty" or the essence in it. One holding anything else is
+  -- storage's (left alone), and so are the storage computer's own chests
+  -- and every peripheral a machine here or on another factory computer
+  -- uses: the storage computer turns down the whole list if one is its own.
+  -- skipped = how many barrels were left out.
+  local function allCandidates()
+    local own = {}
+    local stock = f.ask({ type = "stock" })
+    if stock then
+      for _, k in ipairs({ "input", "fuelChest", "work" }) do
+        if type(stock[k]) == "string" then own[stock[k]] = true end
+      end
+    end
+    local names = {}
+    for _, n in ipairs(barrelsOnNetwork(POTS)) do
+      local t = peripheral.getType(n) or ""
+      if t:find("barrel", 1, true) then names[#names + 1] = n end
+    end
+    local out, skipped, jobs = {}, 0, {}
+    local whats = {}
+    for i, n in ipairs(names) do
+      jobs[#jobs + 1] = function()
+        if own[n] or cantBe(n) or f.mine(n) then return end
+        local ok, list = pcall(peripheral.call, n, "list")
+        if not ok or type(list) ~= "table" then return end
+        local crops, seen, other = {}, {}, false
+        for _, item in pairs(list) do
+          if item.name:find(ESSENCE) then
+            if not seen[item.name] then
+              seen[item.name] = true
+              crops[#crops + 1] = cropOf(item.name)
+            end
+          elseif not item.name:find("_seeds$") then
+            other = true
+          end
+        end
+        if other then return end
+        table.sort(crops)
+        whats[i] = #crops > 0 and (table.concat(crops, ", ") .. " essence") or next(list) and "seeds" or "empty"
+      end
+    end
+    for i = 1, #jobs, 100 do parallel.waitForAll(table.unpack(jobs, i, math.min(#jobs, i + 99))) end
+    for i, n in ipairs(names) do
+      if whats[i] then out[#out + 1] = { name = n, what = whats[i] } else skipped = skipped + 1 end
+    end
+    return out, skipped
+  end
+
+  local function addAll(list)
+    local now = readBarrels()
+    for _, c in ipairs(list) do now[#now + 1] = c.name end
+    writeBarrels(now)
+    return ("Added %d pot barrel%s. Each is emptied into storage every %d seconds."):format(#list,
+      #list == 1 and "" or "s", self.every)
+  end
+
+  -- 'factory add potbarrel [barrel | all]': asks which if it's not given.
   function self.addCommand(name)
+    if name == "all" then
+      local list, skipped = allCandidates()
+      if #list == 0 then
+        print(("No barrel to add: every one on the cable is in use or holds other things (%d)."):format(skipped))
+        return
+      end
+      for _, c in ipairs(list) do print(("  %-28s %s"):format(c.name, c.what)) end
+      if skipped > 0 then print(("Left out %d barrels in use or holding other things."):format(skipped)) end
+      write(("Add these %d as pot barrels? (y/n) "):format(#list))
+      if read():lower():sub(1, 1) ~= "y" then return end
+      print(addAll(list))
+      return
+    end
     if not name then
       local free = {}
       for _, n in ipairs(barrelsOnNetwork(POTS)) do
@@ -691,8 +761,28 @@ function M.new(f)
       end
       return out
     end
+    -- every free barrel at once, after a look at the list
+    local function addEvery()
+      ui:say("Looking at every barrel on the cable...", "lightBlue")
+      ui:draw()
+      local list, skipped = allCandidates()
+      ui:say(skipped > 0 and ("Left out %d barrels in use or holding other things."):format(skipped) or "")
+      ui:open({ title = "Add every barrel", hint = "Barrels that are empty or hold only essence and seeds.",
+        rows = function()
+          if #list == 0 then return { { label = "No free barrel on the cable.", dim = true } } end
+          local out = { { label = ("Add these %d as pot barrels"):format(#list), colour = "lime", act = function()
+            ui:back()
+            ui:say(addAll(list), "lime")
+          end } }
+          for _, c in ipairs(list) do out[#out + 1] = { label = c.name, value = c.what, dim = true } end
+          return out
+        end })
+    end
     function parts.adds()
-      return { { label = "+ Add a botany pot barrel", colour = "lime", act = add } }
+      return {
+        { label = "+ Add a botany pot barrel", colour = "lime", act = add },
+        { label = "+ Add every free barrel as a pot barrel", colour = "lime", act = addEvery },
+      }
     end
     return parts
   end

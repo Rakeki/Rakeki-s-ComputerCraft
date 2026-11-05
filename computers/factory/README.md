@@ -682,7 +682,11 @@ Botany Pot pushes its harvest into the block under it, so put a barrel
 there, or pipe several pots into one. Put a wired modem on the barrel, join
 it to the cable and right-click it, then add it on the setup screen
 (**Machines**, **+ Add a botany pot barrel**) or with
-`factory add potbarrel`. The pots then don't need modems. Without this the
+`factory add potbarrel`. With many, **+ Add every free barrel as a pot
+barrel** (or `factory add potbarrel all`) lists every barrel on the cable
+that is empty or holds only essence and seeds, and adds them all once you
+say yes; barrels holding anything else, and ones the storage computer or a
+machine already uses, are left out. The pots then don't need modems. Without this the
 storage computer takes the barrel for one of its storage chests and fills
 it with other things, until the pots have nowhere to put their harvest. The
 barrel must be empty for the storage computer to let it go: the factory
@@ -714,6 +718,7 @@ factory add pot                -- a cooking pot: what it makes, its hoppers and 
 factory add pot exp_candy_s minecraft:hopper_3 minecraft:hopper_4 redstone_relay_0   -- the same in one go
 factory add potbarrel          -- the barrel your Hopper Botany Pots empty into: pick it
 factory add potbarrel minecraft:barrel_7   -- or name it
+factory add potbarrel all      -- every free barrel on the cable (empty or only essence), after a look at the list
 factory relay 2                -- give cooking pot 2 its relay
 factory list                   -- every machine added here, and the furnaces and pots found (and whose they are)
 factory remove 2               -- forget machine 2 (no number: list them)
