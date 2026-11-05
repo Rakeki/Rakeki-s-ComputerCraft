@@ -266,7 +266,7 @@ fs.rmSync(OUT, { recursive: true, force: true });
 copyDir(path.join(SRC, "assets"), path.join(OUT, "assets"));
 copyDir(path.join(ROOT, "computers"), path.join(OUT, "computers"), (n) => n === "_template");
 copyDir(path.join(ROOT, "lib"), path.join(OUT, "lib"));
-copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"));
+copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"), (n) => n === "data"); // tools/overseer/data holds the overseer server's key
 copyDir(path.join(ROOT, "plans"), path.join(OUT, "plans"));
 for (const program of [...data.programs, ...(data.plans || [])]) {
   for (const f of program.files) {

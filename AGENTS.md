@@ -40,6 +40,9 @@ plans/                      Building plans (JSON, or Lua for plans made by code)
                             and "home" (the builder's clear spot); programs.json's entry has "hole" too
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
+  overseer/                 The overseer: server.mjs (takes posts from computers/overseer-bridge, streams them to the page
+                            as server-sent events; config and saved state in data/, git-ignored) and public/ (the live
+                            map page: app.js, demo.js = the made-up base it plays with no server, style.css)
 site/                       The website and in-game installer
   programs.json             Website + installer data for every program and lib (schema below)
   build.mjs                 Builds _site/ (Node, no dependencies)
@@ -192,6 +195,7 @@ Existing computers:
 | `mine-turtle` | AutoMine miner, talks to mine-server over rednet | nav, report, errlog, inv, net, files |
 | `status-server` | Monitor dashboard of every computer's status | errlog, screen, net, files |
 | `turtle-finder` | Pocket computer: lists every turtle heard on `cc_status`, nearest first, and points a big arrow at the one picked (relative to the way you last walked, or a compass), with distance, height and what it is doing; remembers last known positions | screen, net, files, errlog (if present) |
+| `overseer-bridge` | Listens on the rednet repeat channel (65533: rednet sends every message there too) on every modem, so it hears all traffic in range unchanged; posts a summary of each message (type, re, a few short fields, size; `cc_status` reports in full) with `http.post` about once a second to `tools/overseer/server.mjs` on the player's PC (`overseer.url`, `overseer.key` settings), which streams it to a browser map. Queues up to 2000 while the server is down | screen, report, errlog (if present) |
 | `gps-deployer` | Turtle that builds a 4-computer GPS constellation; `gps-deploy satellite` spreads the hosts wider and builds a satellite round each (hull, antenna dish, solar wings, lights) | nav, inv, files, report, errlog (if present) |
 | `excavate-turtle` | Standalone turtle: digs a hole of any size and seals its walls, floor and ceiling (no water or lava inside); builds nothing in it, builder turtles do. `excavate <plan>` digs the `hole` a plan names (the fourteen underground plans, bunker to deephold) and prints its `home` for the builder | nav, report, errlog, inv, files |
 | `level-turtle` | Standalone turtle: flattens an area into a solid building platform (clears everything above the ground it starts on in 3-high layers, up to open sky or a given height, then fills holes below with the dirt it dug, up to 8 deep) | nav, report, errlog, inv, files |

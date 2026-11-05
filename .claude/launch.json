@@ -4,8 +4,18 @@
     {
       "name": "site",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["site/serve.mjs"],
+      "runtimeArgs": [
+        "site/serve.mjs"
+      ],
       "port": 8080
+    },
+    {
+      "name": "overseer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/overseer/server.mjs"
+      ],
+      "port": 8090
     }
   ]
 }

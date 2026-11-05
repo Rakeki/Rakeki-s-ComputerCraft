@@ -18,7 +18,8 @@ computers/
     README.md     What it does, where it is, its computer ID, peripherals
     startup.lua   Runs automatically when the computer boots
 lib/              Shared modules usable by any computer
-tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the storage system
+tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the storage system,
+                  and overseer/: the server and page for the live network map
 site/             The website and in-game installer (built by GitHub Actions)
 ```
 
@@ -27,6 +28,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 - [mine-server](computers/mine-server/README.md): AutoMine server; assigns chunks to miners and shows a chunk-planning map
 - [mine-turtle](computers/mine-turtle/README.md): AutoMine mining turtle (same code on every miner)
 - [status-server](computers/status-server/README.md): monitor dashboard showing every computer's status and what it's doing
+- [overseer-bridge](computers/overseer-bridge/README.md): listens to every rednet message and status report and posts them to the overseer server on your PC, a live browser map of every computer and turtle, what each is doing, and the messages flying between them
 - [turtle-finder](computers/turtle-finder/README.md): pocket computer that finds a lost turtle: lists every turtle it hears, nearest first, and points an arrow to the one you pick
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system, optionally each host inside a satellite
 - [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (fourteen of them, from a small bunker to a Create base and train station by bedrock)
@@ -58,7 +60,7 @@ site/             The website and in-game installer (built by GitHub Actions)
 ## How they connect
 
 Every program works on its own. With a modem they work together: everything
-reports to the status server, AutoMine turtles take jobs from the AutoMine
+reports to the status server (and, through the overseer bridge, to a live map in your browser), AutoMine turtles take jobs from the AutoMine
 server, the GPS deployer's hosts keep turtles on course, the village builder
 gets its blocks from the storage system (which has the crafter make what it
 lacks, and the factory smelt its ores) and shows its next building through the blueprint projector,

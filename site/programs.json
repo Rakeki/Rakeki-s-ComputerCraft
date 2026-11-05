@@ -746,6 +746,129 @@
       "terminal": null
     },
     {
+      "name": "overseer-bridge",
+      "group": "network",
+      "title": "Overseer",
+      "command": "overseer",
+      "device": "computer",
+      "deviceLabel": "Computer + ender modem, and your PC",
+      "color": "cyan",
+      "tagline": "A live map of your whole network in your browser: where every computer and turtle is, what it is doing, and every message flying between them.",
+      "libs": [
+        "screen",
+        "report",
+        "errlog"
+      ],
+      "autostart": true,
+      "stats": [
+        [
+          "Changes to other programs",
+          "none"
+        ],
+        [
+          "Hears",
+          "every rednet message"
+        ],
+        [
+          "Runs on your PC",
+          "Node.js, no installs"
+        ],
+        [
+          "Updates",
+          "about once a second"
+        ]
+      ],
+      "features": [
+        "Every computer and turtle on a map where it is, coloured by what it is doing",
+        "Messages fly between them as glowing streaks, coloured by protocol; broadcasts ripple out",
+        "Turtle trails, a searchable fleet list with fuel bars, and alerts for stuck or erroring machines",
+        "A traffic chart of the last two minutes and a live log of every message: who, to whom, what, how big",
+        "Click anything for its position, fuel, uptime, who it talks to and what it has been doing",
+        "A demo world plays when no server is running, so you can try the page right away"
+      ],
+      "setup": [
+        "On your PC, run node tools/overseer/server.mjs. It prints a key and the two set lines for the bridge.",
+        "Allow CC to reach your PC: add an [[http.rules]] allow rule for 127.0.0.1 port 8090 above the $private rule in computercraft-server.toml.",
+        "Place a computer with an ender modem (and a wired one for a cable you want to hear), install the bridge, and type the two set lines.",
+        "Type overseer test, reboot, and open http://localhost:8090."
+      ],
+      "commands": [
+        [
+          "set overseer.url <address>",
+          "where the overseer server runs (it prints this)"
+        ],
+        [
+          "set overseer.key <key>",
+          "the key the server printed"
+        ],
+        [
+          "overseer test",
+          "check the server answers, and say what is wrong if it does not"
+        ],
+        [
+          "overseer",
+          "run the bridge (startup.lua does this on boot)"
+        ],
+        [
+          "node tools/overseer/server.mjs",
+          "on your PC: the server and the page"
+        ]
+      ],
+      "integrates": [
+        [
+          "report",
+          "Every program that reports its status shows up on the map with its position, state and fuel."
+        ],
+        [
+          "status-server",
+          "The same reports, on a monitor in-game; the bridge itself shows on it too."
+        ],
+        [
+          "storage-computer",
+          "Its requests, deliveries and crafting messages are the busiest streaks on the map."
+        ],
+        [
+          "mine-turtle",
+          "Watch the miners spread through their chunks and report back to the mine server."
+        ]
+      ],
+      "render": {
+        "kind": "gallery",
+        "caption": "The overseer page in a browser: the map, the fleet, traffic and the packet stream. The real page is animated: try the demo.",
+        "images": [
+          [
+            "Overseer page",
+            "computers/overseer-bridge/preview/overseer.svg"
+          ]
+        ]
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          [
+            "> ",
+            "overseer test",
+            "cmd"
+          ],
+          [
+            "Checking http://127.0.0.1:8090/api/ingest ...",
+            "",
+            "white"
+          ],
+          [
+            "The overseer server answered. All good!",
+            "",
+            "white"
+          ],
+          [
+            "Reboot (or type 'overseer') to start the bridge.",
+            "",
+            "white"
+          ]
+        ]
+      }
+    },
+    {
       "name": "gps-deployer",
       "group": "network",
       "title": "GPS Deployer",

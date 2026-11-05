@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overseer</title>
+<meta name="description" content="Live map of a ComputerCraft network: where every computer and turtle is, what it's doing, and the rednet messages between them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12 7v14l-12 7-12-7V9z' fill='%2304070d' stroke='%233fe0ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23ff3fd2'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<div id="boot">
+  <div class="boot-box">
+    <div class="boot-logo">OVERSEER</div>
+    <div class="boot-lines" id="bootLines"></div>
+    <div class="boot-bar"><i id="bootBar"></i></div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M20 3l14.7 8.5v17L20 37 5.3 28.5v-17z" fill="none" stroke="#3fe0ff" stroke-width="2"/>
+      <g class="spin"><circle cx="20" cy="20" r="10" fill="none" stroke="#ff3fd2" stroke-width="1.5" stroke-dasharray="4 4"/></g>
+      <circle cx="20" cy="20" r="4" fill="#3fe0ff"/>
+    </svg>
+    <div>
+      <h1 data-text="OVERSEER">OVERSEER</h1>
+      <small>ComputerCraft network</small>
+    </div>
+  </div>
+  <div class="link" id="link"><span class="dot"></span><span id="linkText">CONNECTING</span></div>
+  <div class="kpis">
+    <div class="kpi" id="kOnline"><b>0</b><span>online</span></div>
+    <div class="kpi" id="kTurtles"><b>0</b><span>turtles</span></div>
+    <div class="kpi" id="kRate"><b>0</b><span>msg / s</span></div>
+    <div class="kpi" id="kTotal"><b>0</b><span>messages</span></div>
+    <div class="kpi" id="kErr"><b>0</b><span>alerts</span></div>
+  </div>
+  <div class="clock" id="clock"></div>
+</header>
+
+<main class="deck">
+  <section class="panel map-wrap" aria-label="Map">
+    <canvas id="map" aria-label="Map of every computer and the messages between them"></canvas>
+    <div class="hud tl"><b>WORLD MAP</b><span id="cursor">X — Z —</span><br><span id="zoomInfo"></span></div>
+    <div class="map-tools">
+      <button class="tbtn" id="bFit" title="Fit everything in view (F)">Fit <kbd>F</kbd></button>
+      <button class="tbtn" id="bFollow" aria-pressed="false" title="Keep the selected computer in the middle">Follow</button>
+      <button class="tbtn" id="bTrails" aria-pressed="true" title="Where turtles have been (T)">Trails <kbd>T</kbd></button>
+      <button class="tbtn" id="bBeats" aria-pressed="true" title="Status heartbeats (H)">Heartbeats <kbd>H</kbd></button>
+      <button class="tbtn" id="bLabels" aria-pressed="true" title="Names (L)">Labels <kbd>L</kbd></button>
+      <button class="tbtn" id="bPause" aria-pressed="false" title="Freeze the stream (Space)">Pause <kbd>␣</kbd></button>
+    </div>
+    <div class="tip" id="tip"></div>
+    <div class="compass"><span>N</span></div>
+    <div class="demo-banner" id="demoBanner" hidden>DEMO WORLD · run <code>node tools/overseer/server.mjs</code> to see yours</div>
+  </section>
+
+  <div class="side">
+    <section class="panel fleet" aria-label="Fleet">
+      <div class="panel-head"><h2>Fleet</h2><input class="search" id="search" placeholder="search  /" autocomplete="off" spellcheck="false"></div>
+      <div class="fleet-list" id="fleet"></div>
+    </section>
+    <section class="panel traffic" aria-label="Traffic">
+      <div class="panel-head"><h2>Traffic</h2><span class="grow"></span><span class="meta" id="trafficMeta">last 2 min</span></div>
+      <canvas id="chart"></canvas>
+      <div class="protos" id="protos"></div>
+    </section>
+  </div>
+
+  <section class="panel log" aria-label="Packet stream">
+    <div class="panel-head"><h2>Packet stream</h2><span class="grow"></span><span class="meta" id="logMeta"></span></div>
+    <div class="log-body" id="log"></div>
+  </section>
+</main>
+
+<aside class="drawer" id="drawer" aria-label="Details"></aside>
+
+<div class="fx-vignette"></div>
+<div class="fx-scan"></div>
+
+<script src="demo.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
