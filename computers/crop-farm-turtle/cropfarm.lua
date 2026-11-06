@@ -195,7 +195,7 @@ reach = function(p)
     else
       local w = nav.getPos()
       local msg = ("Stuck at %d,%d,%d (%s)"):format(w.x, w.y, w.z, tostring(err))
-      print(msg .. ". Clear the way; retrying.")
+      print(msg .. (err == nav.TOO_FAR and ". That's past my range: 'set nav.range <blocks>' and I'll carry on." or ". Clear the way; retrying."))
       report.set("stuck", msg)
       checkPosition()
       sleep(math.min(60, 5 * tries))
@@ -327,6 +327,15 @@ else
   job = { width = w, length = l, cell = 0, round = 1, harvested = 0, gps = hasGps,
     origin = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading() } }
   buildPlan()
+  -- every corner within my range (nav.range), or the far end never gets done
+  for _, c in ipairs({ { x = w - 1, y = 0, z = 0 }, { x = 0, y = 0, z = l - 1 }, { x = w - 1, y = 0, z = l - 1 } }) do
+    local cx, _, cz = toWorld(c)
+    if not nav.inRange(cx, cz) then
+      print(("That reaches past my range (%d blocks from where I started)."):format(nav.range()))
+      print("Make it smaller, or 'set nav.range <blocks>' first.")
+      return
+    end
+  end
   print(hasGps and "GPS found: I'll check my position as I go."
     or "No GPS: working from my own position count only.")
   print(("Field %d wide and %d long, starting under me. About %d fuel a round."):format(w, l, plan.total + w + l))

@@ -53,12 +53,15 @@
 
   const canvas = $("world"), over = $("over"), view = $("view"), stage = $("stage");
   let rot = 0, P = null, W = 0, H = 0, lastRender = 0;
+  // cut: hide every block above this Y (null: none), to see the mines
+  let cut = null;
+  const lowY = () => (cut === null ? Math.max(box.y0, 40) : box.y0);
   const turn = ([x, y, z]) => { for (let i = 0; i < rot; i++) { const t = x; x = -z; z = t; } return [x, y, z]; };
   // display coordinates: relative to the box corner, ground at 0
   const local = (x, y, z) => [x - box.x0, dispY(y) - G, z - box.z0];
   const corners = () => {
     const out = [];
-    for (const x of [0, box.x1 - box.x0]) for (const y of [box.y0 - G, dispY(box.y1) - G]) for (const z of [0, box.z1 - box.z0]) out.push(turn([x, y, z]));
+    for (const x of [0, box.x1 - box.x0]) for (const y of [lowY() - G, (cut === null ? dispY(box.y1) : cut) - G]) for (const z of [0, box.z1 - box.z0]) out.push(turn([x, y, z]));
     return out;
   };
   function renderWorld() {
@@ -66,9 +69,11 @@
     for (const [k, kind] of blocks) {
       if (!Voxel.BLOCKS[kind]) continue;
       const [x, y, z] = k.split(",").map(Number);
+      if (cut !== null && y > cut) continue;
+      if (y < lowY()) continue;
       world.set(...local(x, y, z), kind);
     }
-    for (const c of data.computers) if (c.kind !== "turtle" && c.kind !== "pocket" && c.born <= cur) world.set(...local(...c.start), c.kind === "computer" ? "computer" : "advanced");
+    for (const c of data.computers) if (c.kind !== "turtle" && c.kind !== "pocket" && c.born <= cur && (cut === null || c.start[1] <= cut)) world.set(...local(...c.start), c.kind === "computer" ? "computer" : "advanced");
     const width = Math.max(900, Math.min(2200, view.clientWidth * 1.6));
     const r = Voxel.render(canvas, world.rotated(rot), { width, pad: 0.04, detail: 1, edges: false, bounds: corners() });
     if (!r) return;
@@ -236,6 +241,7 @@
   $("play").onclick = () => { if (T >= END) T = 0; setPlaying(!playing); };
   slider.oninput = () => { T = Number(slider.value); seek(T); };
   $("turn").onclick = () => { rot = (rot + 1) % 4; renderWorld(); fit(); };
+  $("cut").onchange = () => { cut = $("cut").value === "" ? null : Number($("cut").value); renderWorld(); fit(); };
   $("fit").onclick = fit;
   window.addEventListener("resize", () => fit());
   document.addEventListener("keydown", (e) => { if (e.key === " " && e.target === document.body) { e.preventDefault(); $("play").click(); } });

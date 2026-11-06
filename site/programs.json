@@ -81,7 +81,7 @@
       "device": "turtle",
       "deviceLabel": "Mining turtle",
       "color": "lightBlue",
-      "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, torches every 8 blocks, loot hauled home.",
+      "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, at any depth, torches every 8 blocks, loot hauled home.",
       "libs": ["nav", "report", "errlog", "inv", "files"],
       "stats": [
         ["Main tunnel", "3 × 3 × 64"],
@@ -91,6 +91,7 @@
       ],
       "features": [
         "Throws junk away and only brings back the good stuff",
+        "Mines deep: 'at -54' digs a shaft down first and hauls everything back up it",
         "Places torches from its inventory as it goes",
         "Never digs chests, spawners or ComputerCraft blocks",
         "Refuels from the chest, including coal it mined itself"
@@ -104,6 +105,7 @@
         ["stripmine", "64 long, 32 long branches, 3 blocks apart"],
         ["stripmine 100 48 2", "main length, branch length, gap"],
         ["stripmine 80 0", "just the main tunnel"],
+        ["stripmine at -54", "a shaft down to Y -54 first, then the tunnels down there"],
         ["stripmine resume", "carry on after stopping it"],
         ["stripmine here", "a job from before GPS was needed: you put it back on its start block"],
         ["stripmine cancel", "forget the current job"]
@@ -1733,6 +1735,68 @@
         "caption": "The manager on a monitor. Tap a miner to open its page."
       },
       "terminal": null
+    },
+    {
+      "name": "furnace-turtle",
+      "group": "storage",
+      "title": "Furnace Turtle",
+      "command": "furnace",
+      "device": "turtle",
+      "deviceLabel": "Crafty mining turtle",
+      "color": "red",
+      "tagline": "Places a row of furnaces and keeps them smelting whatever lands in the chest behind it: no modems, cables or storage system.",
+      "libs": ["nav", "inv", "files", "report", "errlog"],
+      "stats": [
+        ["Furnaces", "4 (up to 16)"],
+        ["Fuel", "~4 per furnace a round"],
+        ["Rounds", "every 20 s"],
+        ["Resumes", "after reboot"]
+      ],
+      "features": [
+        "Crafts its own furnaces from cobblestone (crafty turtle)",
+        "Loads from above, fuels and empties from below, like hoppers",
+        "Shares each load between the furnaces, just enough fuel for it",
+        "Logs become charcoal it keeps for fuel",
+        "Can sit behind another turtle's chest and smelt what it brings home"
+      ],
+      "setup": [
+        "Place the turtle where the row starts, facing along it.",
+        "Put a chest behind it (ore, sand, logs and fuel go in) and one on its left (everything comes out there).",
+        "Put coal in the chest, and cobblestone or furnaces.",
+        "Run the command and press Enter."
+      ],
+      "commands": [
+        ["furnace", "a row of 4 furnaces, then keep them going"],
+        ["furnace 8", "a row of 8"],
+        ["furnace resume", "carry on (startup does this)"],
+        ["furnace here", "no GPS and it was moved: back on its start block"],
+        ["furnace cancel", "forget the job; the furnaces stay"]
+      ],
+      "integrates": [
+        ["strip-mine-turtle", "Put it on the other side of the strip miner's chest: it smelts the ore that comes home."],
+        ["tree-farm-turtle", "Logs from the tree farm's chest become charcoal, which fuels the furnaces."],
+        ["status-server", "With a modem: shows how many furnaces, what's smelting and how much it has made."]
+      ],
+      "render": {
+        "kind": "voxel",
+        "scene": "furnace",
+        "caption": "The turtle at the start of its row: the chest behind it feeds the furnaces, the one on its left gets what they make."
+      },
+      "terminal": {
+        "device": "turtle",
+        "lines": [
+          ["> ", "furnace", "cmd"],
+          ["A row of 4 furnaces straight ahead of me, with a lane", "", "white"],
+          ["dug above and below it.", "", "white"],
+          ["Chest behind me: ore, sand, logs, food and fuel go in.", "", "white"],
+          ["Chest on my left: everything smelted comes out.", "", "white"],
+          ["I craft my own furnaces from cobblestone.", "", "lightGray"],
+          ["I burn about 24 fuel a round.", "", "white"],
+          ["Press Enter to start.", "", "yellow"],
+          ["Crafted 4 furnaces from cobblestone.", "", "white"],
+          ["All the furnaces are in.", "", "lime"]
+        ]
+      }
     },
     {
       "name": "crate-turtle",

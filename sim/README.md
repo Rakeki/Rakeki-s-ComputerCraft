@@ -25,7 +25,8 @@ The viewer plays the recording back in voxels: the turtles move, dig and
 build, each rednet message flashes between sender and receiver (rings for
 broadcasts), and the list shows every turtle's status and fuel. Tap one to
 see its screen at that moment. Play, pause and drag the timeline; 1× to 200×;
-drag to move, scroll or pinch to zoom, ⟳ to turn the view. Any scenario
+drag to move, scroll or pinch to zoom, ⟳ to turn the view, and the cut menu hides
+everything above a height so you can watch the mines underground. Any scenario
 records (`node replay.mjs storage 400`); one with an exported `VIEW` box
 draws that area, the others a box round their computers.
 
@@ -77,7 +78,7 @@ what a player would notice.
 | `machines` | Power dashboard, fission guard, fusion control, digital miners, colony dashboard | the reactor started, then SCRAMmed when its coolant ran out |
 | `gps` | No GPS: the GPS deployer builds the hosts | 4 hosts on, a probe gets a fix |
 | `extras` | Tree and crop farms, mob farm, village, Nether tunnel, projector + instabuild, cobble breeder | instabuild placed blocks, the farms harvested |
-| `bootstrap` | Four turtles placed together in one chunk, each with an ender modem and a chest: GPS deployer then strip miner (`set nav.range 64`), leveller, excavator, tree farm | what today's programs get done alone, and that each turtle stays within its range; prints every step of a whole base, done or what's missing |
+| `bootstrap` | Four turtles placed together in one chunk, each with an ender modem and a chest: GPS deployer then strip miner (`set nav.range 64`), leveller, excavator, tree farm; and a crafty furnace turtle behind the strip miner's chest | what today's programs get done alone (ore mined at Y -54, furnaces crafted, the ore smelted), and that each turtle stays within its range; prints every step of a whole base, done or what's missing |
 | `base` | All the above together, plus builders + build control, excavator, leveller, strip miner, crate turtle, turtle finder, overseer bridge, craft overseer | via `map.mjs` |
 
 ## Things to know

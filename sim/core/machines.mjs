@@ -21,6 +21,9 @@ export function addFurnace(w, pos, opts = {}) {
   const inv = new Inventory(3, {
     canPlace: (slot, item) => slot === 0 || (slot === 1 && items.fuelItems(item.name) > 0),
   });
+  // vanilla's faces, for turtles touching it: the top takes the input, the
+  // sides the fuel, the bottom fuel in and the results out
+  inv.faces = (face) => face === "up" ? { put: [0], take: [0] } : face === "down" ? { put: [1], take: [2] } : { put: [1], take: [1] };
   const f = { inv, burn: 0, progress: 0, made: 0, type };
   const c = w.addInventory(pos, type, 3, { inventory: inv, net: opts.net, name: opts.name });
   w.addTicker((dt) => {

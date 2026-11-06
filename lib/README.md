@@ -8,8 +8,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   movement that digs through anything except protected blocks, and never more
   than `nav.range` blocks (256 unless set) from where the turtle started. Used by
   `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
-  `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`, `gps-deployer` and
-  `builder-turtle`.
+  `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`, `gps-deployer`,
+  `builder-turtle` and `furnace-turtle`.
 - `report.lua`: sends this computer's status to the [status
   server](../computers/status-server/README.md). Used by `excavate-turtle`, `level-turtle`,
   `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
@@ -18,7 +18,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
   present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `crate-turtle` (if present),
+  `digital-miner-manager` (if present), `crate-turtle` (if present), `furnace-turtle`,
   `build-control` (if present), `remote-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `overseer-bridge` and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
@@ -29,7 +29,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `builder-turtle`, `storage-computer` (if present), `crafter-turtle` (if
   present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
-  `digital-miner-manager` (if present), `crate-turtle` (if present),
+  `digital-miner-manager` (if present), `crate-turtle` (if present), `furnace-turtle` (if present),
   `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `turtle-finder` (if present), `overseer-bridge` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
@@ -87,13 +87,13 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-server`, `mine-turtle`,
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer`, `factory`,
-  `fission-guard`, `crate-turtle`, `build-control`, `instabuild`,
+  `fission-guard`, `crate-turtle`, `furnace-turtle`, `build-control`, `instabuild`,
   `remote-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder` and `workchest.lua`.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,
   `mob-farm-turtle`, `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`,
-  `gps-deployer` and `builder-turtle`.
+  `gps-deployer`, `builder-turtle` and `furnace-turtle`.
 - `plan.lua`: building plans: loads a `.json` or `.lua` plan from `/plans`
   (legend + layers, or a block list) and places it in the world, turned to
   face any way (blocks with a `[facing=...]` state turn with it, and the sides of walls and fences), takes options typed after the command for a Lua plan (`plan.options`: a size like `31x25x8`, `key=value`), and copies a plan so a building keeps the plan it started with. Used by `blueprint-projector`, `build-control`, `instabuild` and `cannon-feeder` (`cannon plan`: the blocks a plan uses).

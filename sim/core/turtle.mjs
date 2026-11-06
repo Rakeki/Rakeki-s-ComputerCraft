@@ -131,7 +131,11 @@ export function turtleApi(t, w) {
       if (w.dropItem) w.dropItem(at(where), { ...s, count });
       return [true];
     }
-    const k = inv.moveTo(target, sel(), count);
+    // a sided block (a furnace) takes items only into the slots of the face touched
+    const face = target.faces && target.faces(where === "up" ? "down" : where === "down" ? "up" : "side");
+    let k = 0;
+    if (face) for (const slot of face.put) k += inv.slots[sel()] ? inv.moveTo(target, sel(), count - k, slot) : 0;
+    else k = inv.moveTo(target, sel(), count);
     if (!k) return [false, "No space for items"];
     return [true];
   };
@@ -143,7 +147,9 @@ export function turtleApi(t, w) {
       return got ? [true] : [false, "No items to take"];
     }
     let want = n ?? 64, got = 0;
+    const face = src.faces && src.faces(where === "up" ? "down" : where === "down" ? "up" : "side");
     for (let i = 0; i < src.size && want > 0; i++) {
+      if (face && !face.take.includes(i)) continue;
       const s = src.slots[i];
       if (!s) continue;
       // takes one kind of item per call, as CC does

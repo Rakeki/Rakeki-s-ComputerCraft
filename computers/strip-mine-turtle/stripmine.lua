@@ -3,6 +3,7 @@
 -- chest at the start.
 --
 --   stripmine [length] [branch] [gap]    (default 64 32 3)
+--   stripmine [length] [branch] [gap] at <y>   dig a shaft down to Y <y> first, and mine there
 --   stripmine resume
 --   stripmine here
 --   stripmine cancel
@@ -11,7 +12,9 @@
 -- behind it. The main tunnel is 3 wide (centred on the turtle), 3 high (from
 -- the turtle's block up) and [length] long, counting the start block. Branches
 -- [branch] long go off both sides, with [gap] solid blocks between
--- neighbouring branches.
+-- neighbouring branches. With "at <y>" (needs GPS) it digs a 1x1 shaft
+-- straight down under the start block to Y <y>, mines there instead, and
+-- carries everything back up the shaft to the chest.
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
 local report = require("lib.report") -- status server; does nothing without a modem
@@ -25,6 +28,7 @@ local TORCH = "minecraft:torch" -- never dropped or unloaded, so put them anywhe
 -- Fuel it tops up to from the chest behind the start (coal it has mined,
 -- or any fuel you put in there).
 local REFUEL_TO = 3000
+local LOWEST = -59 -- deepest tunnel floor 'at' allows: just above the bedrock layers
 
 -- Thrown away instead of carried back to the chest.
 local JUNK = {}
@@ -59,13 +63,17 @@ local function goL(p) return nav.goTo(toWorld(p)) end
 
 ---------------------------------------------------------------- plan
 
+-- The tunnels' floor, local to the start: 0, or below it with 'at <y>'.
+local function floorY() return job.depth or 0 end
+local function midY() return floorY() + 1 end
+
 -- Every spot to stand on and dig above and below, in order. They're all at
--- y = 1, the middle of the tunnel, so each one clears a 1x3 column.
+-- the middle of the tunnel (one above its floor), so each one clears a 1x3 column.
 local function buildPlan()
   local spacing = job.gap + 3 -- branch centre to branch centre
   plan = { cells = {}, branches = {}, start = { x = 0, y = 0, z = 0 } }
   local function add(x, z, torch, where)
-    table.insert(plan.cells, { x = x, y = 1, z = z, torch = torch, where = where })
+    table.insert(plan.cells, { x = x, y = midY(), z = z, torch = torch, where = where })
   end
   for z = 0, job.length - 1 do
     -- one 3-wide slice of the main tunnel, snaking so each cell is next to the last
@@ -104,19 +112,42 @@ local function tunnelOf(p)
   end
 end
 
+-- In the tunnels' three layers (everything is, without a shaft).
+local function inMine(p) return p.y >= floorY() and p.y <= floorY() + 2 end
+
 -- Move anywhere in the mine along the tunnels: out of a branch to the middle
 -- of the main tunnel, along it, then into the other branch.
-local function travel(t)
+local function alongTunnels(t)
   local p = here()
   local from = tunnelOf(p)
   if from ~= nil and from == tunnelOf(t) then return goL(t) end
   if from ~= "main" then
-    local ok, err = goL({ x = 0, y = 1, z = p.z })
+    local ok, err = goL({ x = 0, y = midY(), z = p.z })
     if not ok then return ok, err end
   end
-  local ok, err = goL({ x = 0, y = 1, z = t.z })
+  local ok, err = goL({ x = 0, y = midY(), z = t.z })
   if not ok then return ok, err end
   return goL(t)
+end
+
+-- With a shaft: the start block is at its top and the main tunnel's first
+-- cell at its bottom, so between the two it goes straight up or down it.
+local function travel(t)
+  if floorY() == 0 then return alongTunnels(t) end
+  local p, bottom = here(), { x = 0, y = midY(), z = 0 }
+  local pUp, tUp = not inMine(p), not inMine(t)
+  if pUp and tUp then return goL(t) end -- on the start block or in the shaft
+  if pUp then -- down the shaft (digging it the first time), then along
+    local ok, err = goL(bottom)
+    if not ok then return ok, err end
+    return alongTunnels(t)
+  end
+  if tUp then -- along to the shaft, then up it
+    local ok, err = alongTunnels(bottom)
+    if not ok then return ok, err end
+    return goL(t)
+  end
+  return alongTunnels(t)
 end
 
 ---------------------------------------------------------------- position checks
@@ -128,7 +159,8 @@ local gpsPos = nav.locate
 -- Somewhere the turtle is meant to be: in a tunnel, or on its start block.
 local function onPlan(p)
   local s = plan.start
-  return (tunnelOf(p) ~= nil and p.y >= 0 and p.y <= 2) or (p.x == s.x and p.y == s.y and p.z == s.z)
+  local inShaft = p.x == 0 and p.z == 0 and p.y <= 0 and p.y >= floorY()
+  return (tunnelOf(p) ~= nil and inMine(p)) or inShaft or (p.x == s.x and p.y == s.y and p.z == s.z)
 end
 
 -- If the turtle finds itself off its route (picked up and put down
@@ -291,6 +323,7 @@ reach = function(p)
   while true do
     local ok, err = travel(p)
     if ok then return true end
+    if err == nav.TOO_FAR then return false, nav.sayTooFar() end -- the job skips what's past its range
     local h = here()
     if err ~= "nofuel" and math.abs(h.x - p.x) + math.abs(h.y - p.y) + math.abs(h.z - p.z) <= 1 then
       return false, err
@@ -393,22 +426,43 @@ elseif job then
   print("A job is already in progress. Run 'stripmine resume' or 'stripmine cancel'.")
   return
 else
-  local nums = {}
-  for _, a in ipairs(args) do nums[#nums + 1] = tonumber(a) or -1 end
+  local nums, atY, bad = {}, nil, false
+  local i = 1
+  while i <= #args do
+    if args[i] == "at" then
+      atY = tonumber(args[i + 1])
+      if not atY then bad = true end
+      i = i + 2
+    else
+      nums[#nums + 1] = tonumber(args[i]) or -1
+      i = i + 1
+    end
+  end
   local length, branch, gap = nums[1] or 64, nums[2] or 32, nums[3] or 3
-  if length < 1 or branch < 0 or gap < 1 then
-    print("Usage: stripmine [length] [branch] [gap]")
+  if bad or length < 1 or branch < 0 or gap < 1 then
+    print("Usage: stripmine [length] [branch] [gap] [at <y>]")
     return
   end
   if not knowsPosition then nav.setPosition(0, 0, 0, "north") end
   local p = nav.getPos()
-  job = { length = length, branch = branch, gap = gap, cell = 0, gps = hasGps,
+  local depth = 0
+  if atY then
+    -- Y is a world height, so it needs GPS to know where it is
+    if not hasGps then print("'at <y>' needs GPS, to know how far down that is.") return end
+    atY = math.floor(atY)
+    if atY < LOWEST then print(("Y %d is in the bedrock: %d is as deep as I go."):format(atY, LOWEST)) return end
+    if atY > p.y - 3 then print(("Y %d isn't below me (I'm at Y %d)."):format(atY, p.y)) return end
+    depth = atY - p.y
+  end
+  job = { length = length, branch = branch, gap = gap, cell = 0, gps = hasGps, depth = depth ~= 0 and depth or nil,
     origin = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading() } }
   print(hasGps and "GPS found: I'll check my position as I go."
     or "No GPS: working from my own position count only.")
   buildPlan()
 
-  local fuel = math.floor(#plan.cells * 1.3)
+  -- a trip home now and then, up the shaft and back
+  local fuel = math.floor(#plan.cells * 1.3) + math.abs(depth) * 2 * (1 + math.floor(#plan.cells / 400))
+  if depth ~= 0 then print(("A shaft straight down under me to Y %d, then:"):format(p.y + depth)) end
   print(("Main tunnel %d long, %d pairs of branches %d long, %d blocks apart."):format(
     length, #plan.branches, branch, gap))
   print(("Needs about %d fuel (have %s). I refuel from the chest"):format(fuel, tostring(turtle.getFuelLevel())))

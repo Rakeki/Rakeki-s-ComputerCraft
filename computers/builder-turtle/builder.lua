@@ -218,6 +218,7 @@ local function reach(p)
   while true do
     local ok, err = travel(p)
     if ok then return true end
+    if err == nav.TOO_FAR then return false, nav.sayTooFar() end -- the job skips what's past its range
     if err == "nofuel" then
       waitForFuelHere()
     else

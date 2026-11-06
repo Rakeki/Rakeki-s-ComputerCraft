@@ -415,7 +415,7 @@ reach = function(p)
       local w = nav.getPos()
       local tx, ty, tz = toWorld(p)
       local msg = ("Stuck at %d,%d,%d (%s) on the way to %d,%d,%d"):format(w.x, w.y, w.z, tostring(err), tx, ty, tz)
-      print(msg .. ". Clear the way; retrying.")
+      print(msg .. (err == nav.TOO_FAR and ". That's past my range: 'set nav.range <blocks>' and I'll carry on." or ". Clear the way; retrying."))
       report.set("stuck", msg)
       checkPosition()
       sleep(math.min(60, 5 * tries))
@@ -617,6 +617,19 @@ else
   local p = nav.getPos()
   job = { length = length, slice = 0, step = 0, patched = 0, lava = 0, gps = hasGps,
     origin = { x = p.x, y = p.y, z = p.z, heading = nav.getHeading() } }
+  -- no further than my range (nav.range): the tunnel stops there
+  local function fits(n)
+    for _, side in ipairs({ -1, 1 }) do
+      local cx, _, cz = toWorld({ x = side, y = 0, z = n - 1 })
+      if not nav.inRange(cx, cz) then return false end
+    end
+    return true
+  end
+  if not fits(length) then
+    while length > 1 and not fits(length) do length = length - 1 end
+    job.length = length
+    print(("My range is %d blocks from where I started, so the tunnel stops after %d. 'set nav.range <blocks>' first for a longer one."):format(nav.range(), length))
+  end
   print(hasGps and "GPS found: I'll check my position as I go."
     or "No GPS: working from my own position count only.")
   buildPlan()

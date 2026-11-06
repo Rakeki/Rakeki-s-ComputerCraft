@@ -386,6 +386,7 @@ reach = function(p)
   while true do
     local ok, err = travel(p)
     if ok then return true end
+    if err == nav.TOO_FAR then return false, nav.sayTooFar() end -- the job skips what's past its range
     local h = here()
     if err ~= "nofuel" and math.abs(h.x - p.x) + math.abs(h.y - p.y) + math.abs(h.z - p.z) <= 1 then
       return false, err

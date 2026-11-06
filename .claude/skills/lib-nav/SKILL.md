@@ -86,7 +86,12 @@ up and placed elsewhere), or a position given in the other kind of
 coordinates (a job without GPS counts from its own start, so pass `job.gps`
 when re-anchoring a GPS job with `here`). `nav.resetOrigin()` starts it
 from here (a turtle given a new home); `nav.origin()` and
-`nav.inRange(x, z)` let a program check a job fits before starting.
+`nav.inRange(x, z)` let a program check a job fits before starting: the
+tree farm and crop farm refuse a field past it, the Nether tunnel shortens
+itself to fit. Jobs that skip cells they can't reach (strip mine, excavate,
+level, mob farm, village, builder) skip past-range cells too: their `reach`
+returns `false, nav.sayTooFar()`, which says so once and returns
+`nav.TOO_FAR`.
 Raw `turtle.*` moves (the calibration step, programs moving without nav)
 aren't covered.
 

@@ -30,6 +30,15 @@ Default layout (`stripmine` with no arguments):
 It digs the main tunnel and does each pair of branches as soon as the main
 tunnel is open past them: left branch first, then right.
 
+- **Mining deep:** with `at <y>` (for example `stripmine at -54`, the
+  diamond level) it first digs a 1×1 shaft straight down under its start
+  block to that height, then digs the same tunnels down there. Every trip home
+  goes back up the shaft to the chest, so the chest stays on the surface. It
+  needs GPS for this, and goes no deeper than Y -59, above the bedrock.
+- **Range:** it never goes further from where it started than
+  `nav.range` (256 blocks unless you set it). A tunnel that would go past
+  that is dug up to it, the rest is left out, and it says so once.
+
 - **Junk:** cobblestone, dirt, deepslate and so on get thrown away when the
   inventory fills.
 - **Unloading:** if it's still full after that, it goes back to the start,
@@ -65,6 +74,8 @@ turtle mines straight through them.
    stripmine                 -- 64 long, 32 long branches, 3 blocks apart
    stripmine 100 48 2        -- main length, branch length, gap between branches
    stripmine 80 0            -- just the main tunnel, no branches
+   stripmine at -54          -- shaft down to Y -54, then the default tunnels there
+   stripmine 64 16 3 at 11   -- the same with your own sizes, at Y 11 (iron and copper)
    stripmine resume          -- carry on after stopping it
    stripmine here            -- an old job from before GPS was needed: "I've put you back on your start block"
    stripmine cancel          -- forget the current job

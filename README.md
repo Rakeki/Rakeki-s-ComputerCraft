@@ -34,7 +34,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system, optionally each host inside a satellite
 - [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (fourteen of them, from a small bunker to a Create base and train station by bedrock)
 - [level-turtle](computers/level-turtle/README.md): standalone turtle that flattens an area into a solid building platform: cuts down hills and trees, fills dips, ponds and holes with the dirt it dug
-- [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides
+- [strip-mine-turtle](computers/strip-mine-turtle/README.md): standalone turtle that digs a 3x3 main tunnel with 3x3 branches off both sides, at any depth (a shaft down first)
 - [nether-tunnel-turtle](computers/nether-tunnel-turtle/README.md): standalone turtle that digs a sealed 3x3 tunnel through the Nether, patching holes and walling off lava
 - [village-turtle](computers/village-turtle/README.md): turtle that builds a themed village and keeps expanding it, picking buildings to suit the terrain
 - [mob-farm-turtle](computers/mob-farm-turtle/README.md): standalone turtle that builds a mob farm: a dark spawning room with water channels, a drop shaft and a collection chest
@@ -56,6 +56,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [power-dashboard](computers/power-dashboard/README.md): Mekanism Induction Matrix on a monitor: stored power, in and out, time until full or empty, an hour's graph, turbines and energy cubes, and a redstone signal when power runs low
 - [fusion-control](computers/fusion-control/README.md): Mekanism fusion reactor panel: plasma and case temperature, fuel, water and steam, power made, injection-rate buttons and warnings
 - [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
+- [furnace-turtle](computers/furnace-turtle/README.md): turtle that places a row of furnaces and keeps them smelting what lands in the chest behind it (a crafty one crafts the furnaces from cobblestone); no modems or cables
 - [crate-turtle](computers/crate-turtle/README.md): turtle that pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked
 
 ## How they connect

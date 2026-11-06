@@ -54,6 +54,7 @@ R[#R + 1] = { make = "create:zinc_ingot", count = 1, rows = { "NNN", "NNN", "NNN
 add("lantern", 1, { "NNN", "NTN", "NNN" }, { N = mc("iron_nugget"), T = mc("torch") })
 
 -- stone
+add("furnace", 1, { "CCC", "C C", "CCC" }, { C = { mc("cobblestone"), mc("cobbled_deepslate"), mc("blackstone") } })
 stairs("cobblestone_stairs", "cobblestone")
 slab("cobblestone_slab", "cobblestone")
 wall("cobblestone_wall", "cobblestone")

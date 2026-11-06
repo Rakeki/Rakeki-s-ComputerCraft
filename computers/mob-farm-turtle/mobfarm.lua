@@ -572,6 +572,7 @@ local function persist(attempt, t)
   while true do
     local ok, err = attempt()
     if ok then return true end
+    if err == nav.TOO_FAR then return false, nav.sayTooFar() end -- the job skips what's past its range
     if err ~= "nofuel" and dist(here(), t) <= 1 then return false, err end
     tries = tries + 1
     if err == "nofuel" then

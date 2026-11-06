@@ -676,6 +676,21 @@
     };
   }
 
+  // computers/furnace-turtle: the row ahead of the turtle, with the lanes it
+  // digs above and below it, the chest behind and the output chest on its left
+  function furnaceScene() {
+    const w = new World();
+    w.box(-2, 7, -2, 0, -1, 2, "stone");
+    w.box(0, 6, 0, 0, 0, 0, null); // the lane underneath
+    w.set(-1, 1, 0, "chest"); w.set(0, 1, -1, "chest"); w.set(0, 1, 0, "turtle");
+    for (let x = 1; x <= 5; x++) w.set(x, 1, 0, "furnace");
+    return {
+      world: w,
+      labels: [[-1, 2.4, 0, "ore + fuel in", "#f2b233"], [0, 2.4, -1, "smelted out", "#7fcc19"],
+        [3, 2.4, 0, "furnaces: ore from above", "#f0f0f0"], [3, -0.6, 0, "fuel in, results out from below", "#cc4c4c"]],
+    };
+  }
+
   //---------------------------------------------------------------- storage layouts
 
   // Example layouts for computers/storage-computer (see its README's
@@ -853,7 +868,7 @@
     };
   }
 
-  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, gpsSatellite, gpsSatellites, automine: automineScene, treefarm, cropfarm, level, crafter, builder, crate: crateScene,
+  const SCENES = { excavate, excavateAtrium, stripmine, nethertunnel, gps, gpsSatellite, gpsSatellites, automine: automineScene, treefarm, cropfarm, level, crafter, builder, crate: crateScene, furnace: furnaceScene,
     storageChests, storageUpgrades, storageBase, storageAe, cookerOne, cookerChain };
 
   //---------------------------------------------------------------- mounting

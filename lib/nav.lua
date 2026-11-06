@@ -93,6 +93,17 @@ local function anchor(moved)
   end
 end
 
+-- For a job that skips cells it can't reach: say once, the first time a
+-- move is refused for being too far, that what's past the range is left out.
+local toldTooFar = false
+function nav.sayTooFar()
+  if not toldTooFar then
+    toldTooFar = true
+    print(("That's past my range (%d blocks from where I started), so I'll leave out what's beyond it. 'set nav.range <blocks>' changes it."):format(nav.range() or 0))
+  end
+  return TOO_FAR
+end
+
 -- Start the range from here (e.g. a turtle given a new home).
 function nav.resetOrigin()
   origin = { x = pos.x, z = pos.z, world = onMap }
