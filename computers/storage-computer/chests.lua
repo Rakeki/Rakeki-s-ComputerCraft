@@ -58,6 +58,7 @@ function M.new(setup)
   local sizes = {} -- store name -> number of slots
   local limits = {} -- store name -> items one slot holds (64 for a plain chest, more with stack upgrades)
   local details = {} -- item key -> { displayName, maxCount }
+  local itemsCache = nil -- B.items()'s last answer, until a chest is read again (it's asked for on every redraw and request)
 
   local function isStorage(name)
     for _, which in ipairs({ "input", "output", "delivery", "crafter", "fuel", "transfer" }) do
@@ -89,6 +90,7 @@ function M.new(setup)
   local function rescan(name)
     local ok, list = pcall(peripheral.call, name, "list")
     contents[name] = ok and list or {}
+    itemsCache = nil
     for slot, item in pairs(contents[name]) do
       local key = keyOf(item)
       if not details[key] then
@@ -104,7 +106,7 @@ function M.new(setup)
   end
 
   function B.scan()
-    stores = {}
+    stores, itemsCache = {}, nil
     for _, name in ipairs(peripheral.getNames()) do
       if isInventory(name) and isStorage(name) then stores[#stores + 1] = name end
     end
@@ -125,9 +127,12 @@ function M.new(setup)
     for name in pairs(contents) do
       if not sizes[name] or not peripheral.isPresent(name) then contents[name], sizes[name], limits[name] = nil, nil, nil end
     end
+    itemsCache = nil
   end
 
+  -- Callers only read it: the same table comes back until something changes.
   function B.items()
+    if itemsCache then return itemsCache end
     local out = {}
     for _, name in ipairs(stores) do
       for _, item in pairs(contents[name] or {}) do
@@ -142,6 +147,7 @@ function M.new(setup)
         it.count = it.count + item.count
       end
     end
+    itemsCache = out
     return out
   end
 

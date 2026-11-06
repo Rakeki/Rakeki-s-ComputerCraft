@@ -82,6 +82,8 @@ local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept 
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local DUMP_WAIT = 2 -- seconds between looks at a full dump chest (and for a new dump job)
+local REDRAW_EVERY = 5 -- seconds between redraws when nothing happens (services going quiet)
+local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local MONITOR_AMOUNTS = { 1, 16, 64 } -- the monitor's buttons for how many of the picked item to send
 local MONITOR_COLUMN = 26 -- fewest characters per column of items on the monitor (wide monitors get more columns)
@@ -346,9 +348,10 @@ local function hit(it, q)
 end
 
 -- The search hits in the open tab, plus those in each tab (for their counts).
-local function matches()
+-- all: totals(), if the caller has it already.
+local function matches(all)
   local q, stored, craft = query:lower(), {}, {}
-  for _, it in ipairs(totals()) do
+  for _, it in ipairs(all or totals()) do
     if hit(it, q) then
       if it.craftable then craft[#craft + 1] = it else stored[#stored + 1] = it end
     end
@@ -370,10 +373,10 @@ end
 local termScreen = screen.new(term.current()) -- this program's terminal (its own tab on an advanced computer)
 local monScreen = screen.find({ setting = "storage.monitor", scales = { MONITOR_SCALE } }) -- the monitor's, if there is one
 
-local function drawTerminal()
+local function drawTerminal(all)
   local t, w, h = termScreen:frame()
   if tab == "craft" and not canCraftAny() then tab = "stored" end
-  local list, stored, craft = matches()
+  local list, stored, craft = matches(all)
   put(t, 1, 1, (" "):rep(w), "white", "gray")
   put(t, 2, 1, "Storage", "yellow", "gray")
   local _, _, stat = store.space()
@@ -502,7 +505,7 @@ local function shortCount(n)
   return ("%.1fM"):format(n / 1000000)
 end
 
-local function drawMonitor()
+local function drawMonitor(all)
   -- cheap while the monitor is still there; picks one up (and scales it once) when it's attached
   monScreen:refresh()
   if not monScreen.target then return end
@@ -517,7 +520,6 @@ local function drawMonitor()
     zones[#zones + 1] = { x, x + #label - 1, y, action }
   end
 
-  local all = totals()
   local q, list = mon.query:lower(), {}
   for _, it in ipairs(all) do
     if hit(it, q) then list[#list + 1] = it end
@@ -678,12 +680,17 @@ local function drawMonitor()
   monScreen:show()
 end
 
+-- What's stored is gathered and sorted once a frame, for both screens and
+-- the status: with a full store that's most of a redraw's work.
 local function redraw()
-  drawTerminal()
-  drawMonitor()
+  local all = totals()
+  drawTerminal(all)
+  drawMonitor(all)
   if report then
     local items = 0
-    for _, it in pairs(allItems()) do items = items + it.count end
+    for _, it in ipairs(all) do
+      if not it.craftable then items = items + it.count end
+    end
     local _, _, text = store.space()
     report.set(store.problem and "error" or "running", store.problem or ("%d items; %s"):format(items, text))
   end
@@ -736,15 +743,39 @@ local function setupScreen()
   end
 end
 
+-- Typing, clicks and taps: drawn straight away.
+local INPUT_EVENTS = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true,
+  monitor_touch = true, term_resize = true, monitor_resize = true }
+-- What changes the screens without the player: drawn REDRAW_GAP later, so a
+-- burst of them draws once. Everything else (rednet messages, the other
+-- loops' timers) leaves the screens alone: redrawing on every event kept the
+-- computer busy sorting the item list.
+local CHANGE_EVENTS = { storage_changed = true, storage_view = true, peripheral = true, peripheral_detach = true }
+
 local function uiLoop()
+  local soon, beat, draw = nil, os.startTimer(REDRAW_EVERY), true
   while true do
-    redraw()
+    if draw then
+      draw = false
+      redraw()
+    end
     if mon.setup then
       mon.setup = false
       setupScreen()
       redraw()
     end
     local ev = { os.pullEvent() }
+    if ev[1] == "timer" then
+      if ev[2] == soon then
+        soon, draw = nil, true
+      elseif ev[2] == beat then
+        beat, draw = os.startTimer(REDRAW_EVERY), true
+      end
+    elseif CHANGE_EVENTS[ev[1]] then
+      soon = soon or os.startTimer(REDRAW_GAP)
+    elseif INPUT_EVENTS[ev[1]] then
+      draw = true
+    end
     -- 'storage setup' in another tab: open it here, where the monitor is
     if ev[1] == "storage_open_setup" then
       os.queueEvent("storage_setup_opened")
