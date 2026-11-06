@@ -303,7 +303,7 @@ if args[1] == "resume" or args[1] == "here" then
   buildPlan()
   if args[1] == "here" then
     local x, y, z = toWorld(plan.start)
-    nav.setPosition(x, y, z, job.origin.heading)
+    nav.setPosition(x, y, z, job.origin.heading, job.gps)
     print("Position reset to the start block.")
   elseif useGps then
     print("Checked my position with GPS.")

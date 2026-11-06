@@ -2184,7 +2184,7 @@ if args[1] == "resume" or args[1] == "here" or args[1] == "grow" then
   if args[1] == "here" then
     local h = home()
     local x, y, z = toWorld({ x = h.x, y = h.y, z = h.z })
-    nav.setPosition(x, y, z, (job.origin.heading + h.h) % 4)
+    nav.setPosition(x, y, z, (job.origin.heading + h.h) % 4, job.gps)
     print("Position reset to home.")
   elseif args[1] == "grow" then
     local r = tonumber(args[2])

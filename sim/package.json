@@ -1,0 +1,14 @@
+{
+  "name": "cc-sim",
+  "private": true,
+  "type": "module",
+  "description": "Headless CC: Tweaked world that runs every program together (tests + the website's network map)",
+  "scripts": {
+    "postinstall": "node patch-fengari.mjs && node fetch-rom.mjs",
+    "test": "node test/all.mjs",
+    "map": "node map.mjs"
+  },
+  "dependencies": {
+    "fengari": "0.1.5"
+  }
+}

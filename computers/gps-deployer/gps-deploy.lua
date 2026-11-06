@@ -359,7 +359,7 @@ local function askPosition()
     write("Facing (north/east/south/west): ")
     local facing = read():lower():gsub("%s", "")
     if nav.HEADINGS[facing] then
-      nav.setPosition(x, y, z, facing)
+      nav.setPosition(x, y, z, facing, true) -- read off F3: world coordinates
       return
     end
     print("Please type north, east, south or west.")

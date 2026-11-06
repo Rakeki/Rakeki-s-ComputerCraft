@@ -634,8 +634,13 @@ end
 
 ---------------------------------------------------------------- screen
 
+-- Only a monitor touching this computer, unless one is named with 'set
+-- overseer.monitor': it sits on the storage cable, and a monitor there is
+-- usually the storage computer's.
+local SIDES = {}
+for _, side in ipairs(rs.getSides()) do SIDES[side] = true end
 local display = screen.find({ setting = "overseer.monitor", scales = MONITOR_SCALES, minW = 39, minH = 15,
-  fallback = term.current() })
+  filter = function(name) return SIDES[name] == true end, fallback = term.current() })
 local put, fit = screen.put, screen.fit
 
 local function missingText(short)

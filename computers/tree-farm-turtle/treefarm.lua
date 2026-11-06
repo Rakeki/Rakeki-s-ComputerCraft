@@ -268,8 +268,12 @@ reach = function(p)
     if ok then return end
     tries = tries + 1
     if err == "nofuel" then
-      print("Out of fuel here. Put coal in my inventory.")
-      report.set("waiting", "out of fuel")
+      -- the coal it carries first (a new turtle starts with none burnt)
+      refuelWith(isFuel, 500)
+      if fuelLevel() == 0 then
+        print("Out of fuel here. Put coal in my inventory.")
+        report.set("waiting", "out of fuel")
+      end
       while fuelLevel() == 0 do
         refuelWith(isFuel, 500)
         if fuelLevel() == 0 then os.pullEvent("turtle_inventory") end
@@ -415,7 +419,7 @@ if args[1] == "resume" or args[1] == "here" then
   buildPlan()
   if args[1] == "here" then
     local x, y, z = toWorld(plan.start)
-    nav.setPosition(x, y, z, job.origin.heading)
+    nav.setPosition(x, y, z, job.origin.heading, job.gps)
     print("Position reset to the start block.")
   elseif useGps then
     print("Checked my position with GPS.")

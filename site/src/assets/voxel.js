@@ -75,6 +75,15 @@
     sealantern: { c: "#cfe6dc", tex: "noise", amt: 0.12, glow: true },
     slab: { c: "#e8e2d6", tex: "noise", amt: 0.04, box: [0, 1, 0, 0.5, 0, 1], clear: true },
     endrod: { c: "#f4efe6", tex: "flat", box: [0.4, 0.6, 0, 1, 0.4, 0.6], clear: true, glow: true },
+    // the network map (sim/map.mjs)
+    enderchest: { c: "#1f3b38", top: "#2c5a52", tex: "chest", amt: 0.05, box: [0.06, 0.94, 0, 0.88, 0.06, 0.94], clear: true },
+    command: { c: "#b97a3c", tex: "computer", amt: 0.03 },
+    glass: { c: "#cfe8f0", tex: "flat", alpha: 0.4, clear: true },
+    casing: { c: "#5d6b78", tex: "noise", amt: 0.06 }, // Mekanism multiblock casing
+    port: { c: "#3b4f63", tex: "ore", ore: "#6fc3ff", amt: 0.05 }, // a port, adapter or integrator
+    fission: { c: "#4f6152", tex: "noise", amt: 0.08 },
+    fusion: { c: "#6b5d78", tex: "noise", amt: 0.08 },
+    dminer: { c: "#3f4a59", top: "#7fb0d9", tex: "noise", amt: 0.06 },
   };
   const LIGHT = { top: 1, left: 0.8, right: 0.62 };
 

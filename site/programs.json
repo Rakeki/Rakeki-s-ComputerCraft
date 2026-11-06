@@ -1808,9 +1808,10 @@
         ["nav.digUp() / digDown()", "Clear the block above or below, waiting out falling gravel."],
         ["nav.goTo(x, y, z)", "Travel: rise to y, then x, then z, then descend. Climbs and retries if blocked."],
         ["nav.getPos() / getHeading()", "Current position { x, y, z } and heading 0-3."],
-        ["nav.writeFile / readFile / deleteFile", "Crash-safe state files (temp file, then move)."]
+        ["nav.writeFile / readFile / deleteFile", "Crash-safe state files (temp file, then move)."],
+        ["nav.bounds() / inBounds(x, z)", "The area from the nav.bounds setting (set nav.bounds x1,z1,x2,z2): a forward move past it returns false, nav.OUT_OF_BOUNDS, while the position is in world coordinates."]
       ],
-      "notes": "Headings: 0 north (-z), 1 east (+x), 2 south (+z), 3 west (-x). Never dug: chests, barrels, shulker boxes, hoppers, furnaces, spawners and anything from ComputerCraft."
+      "notes": "Headings: 0 north (-z), 1 east (+x), 2 south (+z), 3 west (-x). Never dug: chests, barrels, shulker boxes, hoppers, furnaces, spawners and anything from ComputerCraft. With nav.bounds set, moves never leave that box of world X and Z (up and down always work)."
     },
     {
       "name": "report",

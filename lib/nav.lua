@@ -6,6 +6,8 @@ local nav = {}
 
 local STATE_FILE = "/.nav_state"
 local GPS_RETRY = 5 -- seconds between tries while waiting for GPS
+local BOUNDS_SETTING = "nav.bounds" -- "x1,z1,x2,z2": the world X/Z box no move may leave (both corners inside)
+local OUT_OF_BOUNDS = "the edge of my area (nav.bounds)" -- the error a move past it returns
 
 -- Headings: 0 = north (-z), 1 = east (+x), 2 = south (+z), 3 = west (-x)
 local DIRS = { [0] = { x = 0, z = -1 }, [1] = { x = 1, z = 0 }, [2] = { x = 0, z = 1 }, [3] = { x = -1, z = 0 } }
@@ -17,13 +19,19 @@ local PROTECTED = { "chest", "barrel", "shulker_box", "hopper", "furnace", "comp
 
 local pos = { x = 0, y = 0, z = 0 }
 local heading = 0
+local onMap = false -- pos is in world coordinates (GPS, or typed from F3), so the bounds apply
+
+settings.define(BOUNDS_SETTING, {
+  type = "string",
+  description = "The area this turtle may not leave: x1,z1,x2,z2 (world X and Z from F3, both corners inside).",
+})
 
 -- Crash-safe save files (lib/files.lua): a temp file first, so a crash
 -- mid-save never leaves a broken file.
 nav.writeFile, nav.readFile, nav.deleteFile = files.write, files.read, files.delete
 
 local function save()
-  nav.writeFile(STATE_FILE, { x = pos.x, y = pos.y, z = pos.z, heading = heading })
+  nav.writeFile(STATE_FILE, { x = pos.x, y = pos.y, z = pos.z, heading = heading, world = onMap })
 end
 
 local function load()
@@ -31,7 +39,43 @@ local function load()
   if not s then return false end
   pos = { x = s.x, y = s.y, z = s.z }
   heading = s.heading
+  onMap = s.world == true
   return true
+end
+
+---------------------------------------------------------------- bounds
+
+-- The box from the nav.bounds setting, or nil for none (or a broken one).
+nav.OUT_OF_BOUNDS = OUT_OF_BOUNDS
+
+function nav.bounds()
+  local v = settings.get(BOUNDS_SETTING)
+  if type(v) ~= "string" then return nil end
+  local n = {}
+  for word in v:gmatch("%-?%d+") do n[#n + 1] = tonumber(word) end
+  if #n ~= 4 then return nil end
+  return { x1 = math.min(n[1], n[3]), z1 = math.min(n[2], n[4]), x2 = math.max(n[1], n[3]), z2 = math.max(n[2], n[4]) }
+end
+
+-- How far (in blocks, X plus Z) the column x, z is outside the bounds: 0 inside.
+local function outside(b, x, z)
+  return math.max(0, b.x1 - x, x - b.x2) + math.max(0, b.z1 - z, z - b.z2)
+end
+
+-- True when x, z is inside the bounds, or there are none, or the position
+-- isn't in world coordinates (a job counted from its own start).
+function nav.inBounds(x, z)
+  local b = onMap and nav.bounds()
+  return not b or outside(b, x, z) == 0
+end
+
+-- A move onto column x, z is allowed if it's inside, or (a turtle placed
+-- outside) it gets closer to the area.
+local function mayMoveTo(x, z)
+  local b = onMap and nav.bounds()
+  if not b then return true end
+  local after = outside(b, x, z)
+  return after == 0 or after < outside(b, pos.x, pos.z)
 end
 
 local ACTIONS = {
@@ -71,6 +115,7 @@ end
 
 local function tryMove(dir)
   if not hasFuel() then return false, "nofuel" end
+  if dir == "forward" and not mayMoveTo(pos.x + DIRS[heading].x, pos.z + DIRS[heading].z) then return false, OUT_OF_BOUNDS end
   local a = ACTIONS[dir]
   for _ = 1, 30 do
     if a.move() then return true end
@@ -153,7 +198,8 @@ function nav.goTo(tx, ty, tz)
     if pos.x ~= tx then nav.face(tx > pos.x and 1 or 3) else nav.face(tz > pos.z and 2 or 0) end
     local ok, err = nav.forward()
     if not ok then
-      if err == "nofuel" or detours >= 8 then return false, err end
+      -- going over doesn't help with the boundary: stop at once
+      if err == "nofuel" or err == OUT_OF_BOUNDS or detours >= 8 then return false, err end
       detours = detours + 1
       local upOk, upErr = nav.up()
       if not upOk then return false, upErr end
@@ -211,9 +257,31 @@ end
 -- Work out position and heading from GPS by stepping forward once and back.
 -- Ends facing the way it started: jobs take the start facing as their
 -- forward, so a turn left in here would turn the whole job.
+-- The step needs fuel, and a new turtle has none burnt: without it the step
+-- fails and the heading would be a guess (north). Burn one fuel item it
+-- carries, or say so and wait for some.
+local function fuelForStep()
+  if hasFuel() then return end
+  local function burnOne()
+    for slot = 1, 16 do
+      if turtle.getItemCount(slot) > 0 then
+        turtle.select(slot)
+        if turtle.refuel(1) then turtle.select(1) return true end
+      end
+    end
+    turtle.select(1)
+    return false
+  end
+  if burnOne() then return end
+  print("I need a little fuel to step forward once and find which way I face.")
+  print("Put some coal (or any fuel) in my inventory.")
+  repeat os.pullEvent("turtle_inventory") until burnOne()
+end
+
 local function calibrate()
   local p1 = locate()
   if not p1 then return false end
+  fuelForStep()
   local moved, turns = false, 0
   for _ = 1, 4 do
     if turtle.forward() then moved = true break end
@@ -232,6 +300,7 @@ local function calibrate()
   else
     pos = p1 -- boxed in: position is right, heading is the last saved one
   end
+  onMap = true
   for _ = 1, turns % 4 do nav.turnLeft() end
   save()
   return true
@@ -245,7 +314,10 @@ function nav.init(useGps)
   return loaded
 end
 
-function nav.setPosition(x, y, z, h)
+-- world: these are world coordinates (from GPS or F3), so the bounds apply;
+-- leave it out for a position counted from the job's own start.
+function nav.setPosition(x, y, z, h, world)
+  onMap = world == true
   pos = { x = x, y = y, z = z }
   heading = type(h) == "string" and HEADINGS[h] or h
   save()

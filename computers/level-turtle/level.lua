@@ -528,7 +528,7 @@ if args[1] == "resume" or args[1] == "here" then
   if args[1] == "here" then
     -- the player has put the turtle back on its start block
     local x, y, z = toWorld(plan.start)
-    nav.setPosition(x, y, z, job.origin.heading)
+    nav.setPosition(x, y, z, job.origin.heading, job.gps)
     print("Position reset to the start block.")
   elseif useGps then
     print("Checked my position with GPS.")

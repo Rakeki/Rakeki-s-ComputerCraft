@@ -1,8 +1,10 @@
 # AGENTS.md
 
 Lua programs for ComputerCraft (CC: Tweaked) computers and turtles. There is no
-build, test or lint tooling: code runs in-game only, so read it carefully
-before calling it done and say that it hasn't been run in-game.
+build or lint tooling, and the only test is `sim/` (a simulated CC world, see
+below): it shows programs working together, but it's a model, so read code
+carefully before calling it done and say whether it has been run in the
+simulator and that it hasn't been run in-game.
 
 ## Layout
 
@@ -20,7 +22,8 @@ computers/                  In-game programs, one folder each (never in the repo
                             published on the site for wget, e.g. storage-computer's modpack recipes
 lib/                        Shared modules, copied to /lib/ in-game, loaded with require("lib.<module>")
   README.md                 One line per module: what it does and which programs use it
-  nav.lua                   Turtle position tracking + safe movement (saved across reboots, GPS checks; nav.waitForGps)
+  nav.lua                   Turtle position tracking + safe movement (saved across reboots, GPS checks; nav.waitForGps;
+                            never past the nav.bounds setting, x1,z1,x2,z2, while the position is from GPS)
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
@@ -43,7 +46,15 @@ tools/                      PC-side helpers (Node, no dependencies), published o
   overseer/                 The overseer: server.mjs (takes posts from computers/overseer-bridge, streams them to the page
                             as server-sent events; config and saved state in data/, git-ignored) and public/ (the live
                             map page: app.js, demo.js = the made-up base it plays with no server, style.css)
+sim/                        A headless CC world on the PC (Node + Fengari: `npm install` there): every program installed
+                            with the real installer and run together on simulated time; sim/README.md has the details
+  core/                     The VM bridge, CC's natives (prelude.lua), the world (blocks, turtles, modems, cables,
+                            inventories, http), machines, mod stand-ins, the player's typing and taps (script.mjs)
+  scenarios/                Parts of a base set up the way each README says, with checks; base.mjs is all of it
+  run.mjs, test/all.mjs     Run one scenario (screens at the end) / every scenario's checks (`npm test`)
+  map.mjs                   Runs the whole base and writes site/network.json for the website's network map
 site/                       The website and in-game installer
+  network.json              The network map's data, made by `node sim/map.mjs` (commit it after a run)
   programs.json             Website + installer data for every program and lib (schema below)
   build.mjs                 Builds _site/ (Node, no dependencies)
   serve.mjs                 Local preview of _site/ on http://localhost:8080
@@ -57,6 +68,8 @@ site/                       The website and in-game installer
   src/assets/plans.js       Plan viewer: loads a JSON plan (or a Lua one, run with fengari-web) like lib/plan.lua and draws it;
                             plans/ lists every plan (a 3D picture each, PlanView.thumb; above ground / underground, search, sort),
                             each plan gets a page at plans/<name>/, and viewer/ shows a dropped or pasted plan
+  src/assets/netmap.js      The network map page (network/): network.json drawn with voxel.js, computers marked, what they
+                            sent each other drawn on top by protocol, each computer's last screen
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
 .claude/skills/             Detailed guides for agents (see Skills)
 .claude/launch.json         Preview server config ("site")
@@ -155,6 +168,9 @@ the source of truth.
 4. Add or update its entry in `site/programs.json`. If its sizes or printed
    text changed, update its scene in `voxel.js` or `cc.js` too.
 5. Run `node site/build.mjs`, then `node site/serve.mjs`, and check its page.
+6. Add it to a scenario in `sim/scenarios/` (set up as its README says, with a
+   check), run it (`node sim/run.mjs <scenario>`), and rerun `node sim/map.mjs`
+   so the network map has it.
    Pushing to `main` publishes it to
    https://rakeki.github.io/Rakeki-s-ComputerCraft/.
 

@@ -21,6 +21,7 @@ lib/              Shared modules usable by any computer
 tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the storage system,
                   and overseer/: the server and page for the live network map
 site/             The website and in-game installer (built by GitHub Actions)
+sim/              A simulated CC world on your PC that runs every program together (tests, and the network map)
 ```
 
 ## Computers
@@ -66,7 +67,10 @@ gets its blocks from the storage system (which has the crafter make what it
 lacks, and the factory smelt its ores) and shows its next building through the blueprint projector,
 several builder turtles share one projected building a strip each, and village turtles with GPS can
 join one village as a crew. The
-website has a diagram of it all.
+website has a diagram of it all, and a
+[network map](https://rakeki.github.io/Rakeki-s-ComputerCraft/network/) of a
+whole base run in the [simulator](sim/README.md): where each computer is and
+what they actually send each other.
 
 ## Adding a computer
 

@@ -307,6 +307,9 @@ for (const pl of data.plans || []) {
 }
 page("page.html", "plans/index.html", { KIND: "plans", NAME: "", TITLE: "Plans", DESC: "Every building plan in 3D: houses, towers and underground bases for the blueprint projector, builder turtles and instabuild." });
 page("page.html", "viewer/index.html", { KIND: "viewer", NAME: "", TITLE: "Plan viewer", DESC: "See any building plan in 3D: drop in a JSON or Lua plan file." });
+// the network map: every program on one simulated base (network.json is made by sim/map.mjs)
+page("page.html", "network/index.html", { KIND: "network", NAME: "", TITLE: "Network map", DESC: "Every program on one base, run together in a simulated world: where each computer is and what they send each other." });
+if (fs.existsSync(path.join(ROOT, "site", "network.json"))) fs.copyFileSync(path.join(ROOT, "site", "network.json"), path.join(OUT, "network.json"));
 for (const l of data.libraries) {
   page("page.html", `libraries/${l.name}/index.html`, { KIND: "library", NAME: l.name, TITLE: esc(l.title), DESC: esc(l.tagline) });
 }

@@ -780,6 +780,46 @@
     main.querySelectorAll("[data-plan]").forEach((b) => { b.onclick = () => showPlan(view, PlanView.load(`${ROOT}plans/${b.dataset.plan}`)); });
   }
 
+  //---------------------------------------------------------------- network map
+
+  // Every program on one simulated base (sim/map.mjs ran them together and
+  // wrote network.json): where each computer is and what they sent each other.
+  async function networkPage() {
+    document.body.style.setProperty("--c", cc("lightBlue"));
+    const main = $("main");
+    let data;
+    try { data = await (await fetch(`${ROOT}network.json`)).json(); } catch {
+      main.innerHTML = `<div class="wrap"><p class="loading">The map's data (network.json) isn't on the site yet: run <code>node sim/map.mjs</code>.</p></div>`;
+      return;
+    }
+    const onBase = data.computers.filter((c) => !c.far);
+    const messages = data.links.reduce((n, l) => n + l.count, 0) + data.broadcasts.reduce((n, b) => n + b.count, 0);
+    const programs = new Set(data.computers.map((c) => c.program).filter((p) => byName[p]));
+    const mins = Math.round(data.simulated / 60);
+    main.innerHTML = `
+      <section class="p-hero"><div class="wrap">
+        <div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / Network map</div>
+          <div class="p-title"><img class="icon" src="${ROOT}assets/computer.svg" alt=""><h1>Network map<small>${data.computers.length} computers, ${programs.size} programs</small></h1></div>
+          <p class="lead">One base with every program on it, all running at once: installed with the real installer and run for ${mins} minutes of game time in a simulated world. Each dot is a computer or turtle where it ended up; each line is what they actually sent each other over rednet, thicker for more. Tap one to see what it is, who it talks to and what its screen said at the end.</p>
+          <div class="meta"><span class="pill">${onBase.length} on the base, ${data.computers.length - onBase.length} far away</span><span class="pill">${data.nets.length} cables</span><span class="pill">${messages.toLocaleString("en")} messages</span><span class="pill">simulated ${esc(data.made)}</span></div>
+        </div>
+        <div class="mc-panel install-panel">
+          <h3><img src="${ROOT}assets/computer.svg" alt=""> How it was made</h3>
+          <p>The simulator in <a href="https://github.com/${SITE.repo}/tree/main/sim"><code>sim/</code></a> runs CC: Tweaked's own ROM on a Lua VM, one per computer, with turtles, chests, furnaces, cables, wireless and ender modems, GPS and http. Each program is set up the way its manual says, then left to run.</p>
+          ${field("node sim/map.mjs")}
+        </div>
+      </div></section>
+      <section class="block" style="padding-top:20px"><div class="wrap"><div class="netmap-layout" id="netmap"></div></div></section>
+      <section class="block"><div class="wrap">
+        <div class="sec-head"><h2><small>What the run found</small>Checks</h2><p>Every scenario checks the things players would notice: the miners brought ore home, the smelter's ingots reached storage, the remote terminal's ender chest got its items, the fission guard SCRAMmed when the coolant ran out.</p></div>
+        <div class="box">${data.problems.length || data.errors.length
+          ? `<ul class="netmap-found">${data.problems.map((p) => `<li>${esc(p)}</li>`).join("")}${data.errors.map((e) => `<li>${esc(data.computers.find((c) => c.id === e.id)?.label || "#" + e.id)} at ${Math.floor(e.t / 60)}:${String(e.t % 60).padStart(2, "0")}: <code>${esc(e.msg)}</code></li>`).join("")}</ul>`
+          : `<p>Every check passed and no program stopped with an error.</p>`}</div>
+      </div></section>`;
+    NetMap.mount($("#netmap"), data, { progUrl: (n) => (byName[n] ? progUrl(n) : `${ROOT}#programs`) });
+  }
+
   //---------------------------------------------------------------- go
 
   const kind = document.body.dataset.kind;
@@ -790,6 +830,7 @@
     else if (kind === "plan") planPage((SITE.plans || []).find((p) => p.name === name));
     else if (kind === "viewer") viewerPage();
     else if (kind === "plans") plansPage();
+    else if (kind === "network") networkPage();
     else home();
   };
   // fonts first, so canvases and terminals measure correctly

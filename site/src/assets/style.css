@@ -535,3 +535,57 @@ pre.code, .readme pre {
 body.has-plan-tray footer { padding-bottom: 200px; }
 @media (max-width: 700px) { .plan-tray { bottom: 8px; padding: 10px; gap: 8px; } .plan-tray-picks { display: none; } .plan-tray-head { justify-content: space-between; } }
 .plan-tools .chip { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- network map */
+
+.netmap-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+.netmap { background: var(--bg-card); border: 2px solid #000; box-shadow: 0 0 0 1px var(--line); border-radius: var(--radius); overflow: hidden; }
+.netmap-bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.netmap-bar .grow { flex: 1; }
+.netmap-hint { color: var(--muted); font-size: 14px; }
+.netmap-view { position: relative; height: min(70vh, 640px); overflow: hidden; cursor: grab; touch-action: none; background: radial-gradient(ellipse at 50% 30%, #1d2230, #0f1016 70%); }
+.netmap-view:active { cursor: grabbing; }
+.netmap-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.netmap-stage canvas { display: block; }
+.netmap-over { position: absolute; left: 0; top: 0; overflow: visible; --k: 1; }
+.netmap-line { stroke-width: calc(var(--w) * var(--k)); stroke-linecap: round; opacity: 0.85; pointer-events: stroke; }
+.netmap-line.dashed { stroke-dasharray: calc(6px * var(--k)) calc(5px * var(--k)); }
+.netmap-line:hover { opacity: 1; stroke-width: calc((var(--w) + 2px) * var(--k)); }
+.netmap-mark { cursor: pointer; }
+.netmap-mark .k { transform: scale(var(--k)); }
+.netmap-mark .dot { stroke: #000; stroke-width: 2; }
+.netmap-mark.on .dot { stroke: #fff; stroke-width: 3; r: 9; }
+.netmap-mark .lbl { font: 600 13px var(--font-pixel); fill: #fff; text-anchor: middle; paint-order: stroke; stroke: rgba(0, 0, 0, 0.85); stroke-width: 4px; }
+.netmap-mark .lbl.sub { font-size: 11px; fill: var(--muted); }
+.netmap-mark:hover .lbl { fill: var(--cc-yellow); }
+.netmap-drop { stroke: rgba(255, 255, 255, 0.6); stroke-width: calc(1.5px * var(--k)); stroke-dasharray: calc(4px * var(--k)) calc(4px * var(--k)); }
+.netmap-protos { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); align-items: center; }
+.netmap-proto i, .netmap-talk i, .netmap-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.netmap-proto[aria-pressed="false"] { opacity: 0.45; }
+.netmap-proto[aria-pressed="true"] { background: transparent; color: var(--text); border-color: var(--line-strong); }
+.netmap-key { color: var(--muted); font-size: 13px; margin-left: 6px; }
+.netmap-key .wired { background: #e0e0e0; height: 4px; vertical-align: 2px; }
+.netmap-side { padding: 16px; position: sticky; top: 80px; max-height: calc(100vh - 100px); overflow: auto; }
+.netmap-side p { margin: 0 0 10px; }
+.netmap-side h4 { margin: 14px 0 6px; font-size: 15px; }
+.netmap-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font: 600 20px var(--font-pixel); }
+.netmap-facts { font-size: 14px; }
+.netmap-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.netmap-list .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--cc-lime); margin-right: 6px; }
+.netmap-list .dot.t { background: var(--cc-orange); }
+.netmap-talk { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--mc-panel-text); }
+.netmap-talk td { padding: 3px 4px; border-bottom: 1px solid rgba(0, 0, 0, 0.12); vertical-align: top; }
+.netmap-talk td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.netmap-screen { padding: 8px; }
+.netmap-screen .cc-term { font-size: 13px; overflow-x: auto; }
+.netmap-found { columns: 2; column-gap: 28px; }
+.netmap-found li { break-inside: avoid; margin-bottom: 6px; }
+@media (max-width: 960px) {
+  .netmap-layout { grid-template-columns: 1fr; }
+  .netmap-side { position: static; max-height: none; }
+  .netmap-found { columns: 1; }
+}
+.netmap-mark.quiet .lbl { display: none; }
+.netmap-mark.quiet:hover .lbl, .netmap-mark.quiet.on .lbl { display: inline; }
+.netmap-mark .lbl.sub { display: none; }
+.netmap-mark:hover .lbl.sub, .netmap-mark.on .lbl.sub { display: inline; }

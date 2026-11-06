@@ -38,7 +38,7 @@ in their own frame (forward/right of the start) convert with an origin; see
 
 | Call | Does |
 |---|---|
-| `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading; if blocked it tries the other sides, then turns back, so it always ends facing the way it started). Returns `true` if the position is known. |
+| `nav.init(useGps)` | Loads the saved position. Unless `useGps == false`, also calibrates with GPS (steps forward once and back to learn heading; if blocked it tries the other sides, then turns back, so it always ends facing the way it started). The step needs fuel: with none burnt it burns one fuel item it carries, or says so and waits for one, rather than guess north. Returns `true` if the position is known. |
 | `nav.setPosition(x, y, z, h)` | Sets position/heading outright (h number or name) and saves. |
 | `nav.locate()` | Where GPS says the turtle is, rounded to the block, or nil (no move, no calibration). |
 | `nav.waitForGps()` | Waits until GPS answers (tries every 5 s; prints why, and `report.set("waiting", ...)` if the program loaded `lib.report`). Returns the position. After a server restart the GPS hosts may still be starting, so moving turtles wait here rather than trust a saved position. |
@@ -54,7 +54,8 @@ if not knowsPosition then nav.setPosition(0, 0, 0, "north") end
 ## Movement
 
 All return `ok, err`. `err` is one of `"nofuel"`, `"protected"`, `"bedrock"`,
-`"undiggable"`, `"blocked"`.
+`"undiggable"`, `"blocked"`, or `nav.OUT_OF_BOUNDS` ("the edge of my area
+(nav.bounds)", see Bounds below).
 
 | Call | Notes |
 |---|---|
@@ -68,6 +69,23 @@ All return `ok, err`. `err` is one of `"nofuel"`, `"protected"`, `"bedrock"`,
 Never dug (protected): anything whose name contains `chest`, `barrel`,
 `shulker_box`, `hopper`, `furnace`, `computercraft:` (turtles, computers) or
 `spawner`. Code must handle `ok == false` (stop and report, wait, or skip).
+
+## Bounds
+
+`set nav.bounds x1,z1,x2,z2` (world X and Z, both corners inside, commas: CC's
+`set` keeps only one word) fences a turtle in: `nav.forward` refuses a step
+onto a column outside it and returns `false, nav.OUT_OF_BOUNDS`, and
+`nav.goTo` gives up on it at once instead of climbing round. Up and down
+are never refused. A turtle placed outside may move only towards the area.
+
+It only applies while the position is in world coordinates: after GPS
+calibration (`nav.init`), or `nav.setPosition(x, y, z, h, true)`. A plain
+`nav.setPosition` (a job counted from its own start, no GPS) turns it off, so
+pass `job.gps` when re-anchoring a GPS job (`here`). `nav.bounds()` returns
+`{ x1, z1, x2, z2 }` or nil and `nav.inBounds(x, z)` checks a column, for
+checking a job's size before starting. Raw `turtle.*` moves (the calibration
+step, programs moving without nav) aren't covered: keep turtles a block in
+from the edge when placing them.
 
 ## State files
 

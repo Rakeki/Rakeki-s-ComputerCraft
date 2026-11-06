@@ -222,10 +222,13 @@ local function checkPosition()
 end
 
 -- Long-distance travel: up to this turtle's lane, across, then down.
-local function travelTo(x, y, z)
+-- atLane runs once it's up at its lane: the climb digs through rock and dirt
+-- that hasn't been mined, so going home drops that junk again up there
+local function travelTo(x, y, z, atLane)
   checkPosition()
   local p = nav.getPos()
   check(nav.goTo(p.x, laneY(), p.z))
+  if atLane then atLane() end
   check(nav.goTo(x, laneY(), z))
   check(nav.goTo(x, y, z))
 end
@@ -288,7 +291,7 @@ end
 local function visitHome()
   dropJunk()
   setState("returning")
-  travelTo(home.x, home.y, home.z)
+  travelTo(home.x, home.y, home.z, dropJunk)
   setState("unloading")
   unloadAtHome()
 end

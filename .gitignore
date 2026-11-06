@@ -3,3 +3,9 @@ _site/
 
 # Overseer server settings and saved state (has its key)
 tools/overseer/data/
+
+# The simulator's dependencies, CC's ROM (fetched by npm install) and its runs
+sim/node_modules/
+sim/cc-rom/
+sim/out/
+sim/out-*.txt
