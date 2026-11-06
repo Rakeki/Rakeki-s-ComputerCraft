@@ -82,8 +82,6 @@ local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept 
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local DUMP_WAIT = 2 -- seconds between looks at a full dump chest (and for a new dump job)
-local REDRAW_EVERY = 5 -- seconds between redraws when nothing happens (services going quiet)
-local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local MONITOR_AMOUNTS = { 1, 16, 64 } -- the monitor's buttons for how many of the picked item to send
 local MONITOR_COLUMN = 26 -- fewest characters per column of items on the monitor (wide monitors get more columns)
@@ -743,90 +741,97 @@ local function setupScreen()
   end
 end
 
--- Typing, clicks and taps: drawn straight away.
-local INPUT_EVENTS = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true,
-  monitor_touch = true, term_resize = true, monitor_resize = true }
--- What changes the screens without the player: drawn REDRAW_GAP later, so a
--- burst of them draws once. Everything else (rednet messages, the other
--- loops' timers) leaves the screens alone: redrawing on every event kept the
--- computer busy sorting the item list.
-local CHANGE_EVENTS = { storage_changed = true, storage_view = true, peripheral = true, peripheral_detach = true }
+-- The main chunk is close to Lua's limit of 200 locals, so the screen loop's
+-- settings live in this block instead of at the top of the file.
+local uiLoop
+do
+  local REDRAW_EVERY = 5 -- seconds between redraws when nothing happens (services going quiet)
+  local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
+  -- Typing, clicks and taps: drawn straight away.
+  local INPUT_EVENTS = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true,
+    monitor_touch = true, term_resize = true, monitor_resize = true }
+  -- What changes the screens without the player: drawn REDRAW_GAP later, so a
+  -- burst of them draws once. Everything else (rednet messages, the other
+  -- loops' timers) leaves the screens alone: redrawing on every event kept the
+  -- computer busy sorting the item list.
+  local CHANGE_EVENTS = { storage_changed = true, storage_view = true, peripheral = true, peripheral_detach = true }
 
-local function uiLoop()
-  local soon, beat, draw = nil, os.startTimer(REDRAW_EVERY), true
-  while true do
-    if draw then
-      draw = false
-      redraw()
-    end
-    if mon.setup then
-      mon.setup = false
-      setupScreen()
-      redraw()
-    end
-    local ev = { os.pullEvent() }
-    if ev[1] == "timer" then
-      if ev[2] == soon then
-        soon, draw = nil, true
-      elseif ev[2] == beat then
-        beat, draw = os.startTimer(REDRAW_EVERY), true
+  function uiLoop()
+    local soon, beat, draw = nil, os.startTimer(REDRAW_EVERY), true
+    while true do
+      if draw then
+        draw = false
+        redraw()
       end
-    elseif CHANGE_EVENTS[ev[1]] then
-      soon = soon or os.startTimer(REDRAW_GAP)
-    elseif INPUT_EVENTS[ev[1]] then
-      draw = true
-    end
-    -- 'storage setup' in another tab: open it here, where the monitor is
-    if ev[1] == "storage_open_setup" then
-      os.queueEvent("storage_setup_opened")
-      mon.setup = true
-    end
-    local event, a, x, y = ev[1], ev[2], ev[3], ev[4]
-    local mx, my = monScreen:clicked(ev)
-    if mx then
-      for _, z in ipairs(mon.zones) do
-        if my == z[3] and mx >= z[1] and mx <= z[2] then
-          z[4]()
-          break
+      if mon.setup then
+        mon.setup = false
+        setupScreen()
+        redraw()
+      end
+      local ev = { os.pullEvent() }
+      if ev[1] == "timer" then
+        if ev[2] == soon then
+          soon, draw = nil, true
+        elseif ev[2] == beat then
+          beat, draw = os.startTimer(REDRAW_EVERY), true
         end
+      elseif CHANGE_EVENTS[ev[1]] then
+        soon = soon or os.startTimer(REDRAW_GAP)
+      elseif INPUT_EVENTS[ev[1]] then
+        draw = true
       end
-    elseif event == "char" then
-      query, selected, scroll = query .. a, 1, 0
-    elseif event == "key" then
-      if a == keys.f1 then
+      -- 'storage setup' in another tab: open it here, where the monitor is
+      if ev[1] == "storage_open_setup" then
+        os.queueEvent("storage_setup_opened")
         mon.setup = true
-      elseif a == keys.tab and canCraftAny() then
-        tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
-      elseif a == keys.delete then
-        query, selected, scroll = "", 1, 0
-      elseif a == keys.backspace then
-        query, selected, scroll = query:sub(1, -2), 1, 0
-      elseif a == keys.up then
-        selected = selected - 1
-      elseif a == keys.down then
-        selected = selected + 1
-      elseif a == keys.pageUp then
-        selected = selected - 10
-      elseif a == keys.pageDown then
-        selected = selected + 10
-      elseif a == keys.enter then
-        take(64)
-      elseif a == keys.right then
-        take(1)
       end
-    elseif event == "mouse_scroll" then
-      selected = selected + a
-    elseif event == "mouse_click" then
-      local w, h = term.getSize()
-      if y == 1 and x >= w - 6 then
-        mon.setup = true
-      elseif y == 2 then
-        for name, z in pairs(tabZones) do
-          if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
+      local event, a, x, y = ev[1], ev[2], ev[3], ev[4]
+      local mx, my = monScreen:clicked(ev)
+      if mx then
+        for _, z in ipairs(mon.zones) do
+          if my == z[3] and mx >= z[1] and mx <= z[2] then
+            z[4]()
+            break
+          end
         end
-      elseif y >= 4 and y <= h - 2 then
-        -- clicking the picked row again takes a stack, like Enter
-        if selected == scroll + y - 3 then take(64) else selected = scroll + y - 3 end
+      elseif event == "char" then
+        query, selected, scroll = query .. a, 1, 0
+      elseif event == "key" then
+        if a == keys.f1 then
+          mon.setup = true
+        elseif a == keys.tab and canCraftAny() then
+          tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
+        elseif a == keys.delete then
+          query, selected, scroll = "", 1, 0
+        elseif a == keys.backspace then
+          query, selected, scroll = query:sub(1, -2), 1, 0
+        elseif a == keys.up then
+          selected = selected - 1
+        elseif a == keys.down then
+          selected = selected + 1
+        elseif a == keys.pageUp then
+          selected = selected - 10
+        elseif a == keys.pageDown then
+          selected = selected + 10
+        elseif a == keys.enter then
+          take(64)
+        elseif a == keys.right then
+          take(1)
+        end
+      elseif event == "mouse_scroll" then
+        selected = selected + a
+      elseif event == "mouse_click" then
+        local w, h = term.getSize()
+        if y == 1 and x >= w - 6 then
+          mon.setup = true
+        elseif y == 2 then
+          for name, z in pairs(tabZones) do
+            if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
+          end
+        elseif y >= 4 and y <= h - 2 then
+          -- clicking the picked row again takes a stack, like Enter
+          if selected == scroll + y - 3 then take(64) else selected = scroll + y - 3 end
+        end
       end
     end
   end
@@ -2788,119 +2793,122 @@ end
 -- 'storage test': move one item into the delivery (or output) chest and back,
 -- and say what went wrong if it can't.
 if args[1] == "test" then
-  local _, _, space = store.space()
-  print(("Storage: %s."):format(space))
-  if store.roomInfo then
-    local roomy, most = store.roomInfo()
-    print(roomy > 0 and ("%d of them hold more than 64 a slot (up to %d): bulk items go there."):format(roomy, most)
-      or "Every chest holds 64 a slot (no stack upgrades).")
-  end
-  if store.problem then print(("The %s Bridge says: %s"):format(store.kind, store.problem)) end
-  local turtles = 0
-  for id, name in pairs(setup.deliveries) do
-    print(("Turtle #%s's chest: %s."):format(tostring(id), name))
-    turtles = turtles + 1
-  end
-  if turtles == 0 then print("No turtle has found its own chest yet (they do when they first ask for items).") end
-  for id, name in pairs(setup.works) do
-    print(("Computer #%s's work chest: %s%s."):format(tostring(id), name,
-      peripheral.isPresent(name) and "" or " (not on the network)"))
-  end
-  local to = setup.delivery or setup.output
-  print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "shared delivery" or "output", to))
-  local pick
-  for _, it in ipairs(totals()) do
-    if not it.nbt and not it.craftable then pick = it break end
-  end
-  if not pick then
-    print("Storage is empty: put something in the input chest first.")
-    return
-  end
-  local function moveBack()
-    local okL, list = pcall(peripheral.call, to, "list")
-    for slot, item in pairs(okL and list or {}) do
-      if keyOf(item) == pick.key then
-        putAway(to, slot, item, 1)
-        return
+  -- its own function, so its locals don't count towards the main chunk's 200
+  (function()
+    local _, _, space = store.space()
+    print(("Storage: %s."):format(space))
+    if store.roomInfo then
+      local roomy, most = store.roomInfo()
+      print(roomy > 0 and ("%d of them hold more than 64 a slot (up to %d): bulk items go there."):format(roomy, most)
+        or "Every chest holds 64 a slot (no stack upgrades).")
+    end
+    if store.problem then print(("The %s Bridge says: %s"):format(store.kind, store.problem)) end
+    local turtles = 0
+    for id, name in pairs(setup.deliveries) do
+      print(("Turtle #%s's chest: %s."):format(tostring(id), name))
+      turtles = turtles + 1
+    end
+    if turtles == 0 then print("No turtle has found its own chest yet (they do when they first ask for items).") end
+    for id, name in pairs(setup.works) do
+      print(("Computer #%s's work chest: %s%s."):format(tostring(id), name,
+        peripheral.isPresent(name) and "" or " (not on the network)"))
+    end
+    local to = setup.delivery or setup.output
+    print(("Testing a move into the %s chest (%s)..."):format(setup.delivery and "shared delivery" or "output", to))
+    local pick
+    for _, it in ipairs(totals()) do
+      if not it.nbt and not it.craftable then pick = it break end
+    end
+    if not pick then
+      print("Storage is empty: put something in the input chest first.")
+      return
+    end
+    local function moveBack()
+      local okL, list = pcall(peripheral.call, to, "list")
+      for slot, item in pairs(okL and list or {}) do
+        if keyOf(item) == pick.key then
+          putAway(to, slot, item, 1)
+          return
+        end
       end
     end
-  end
-  local sent, err = fetch(pick.key, 1, to)
-  if sent > 0 then
-    print(("OK: moved 1 %s there."):format(pick.displayName))
-    moveBack()
-    print("Moved it back. Deliveries work.")
-  else
-    print("Couldn't move it: " .. (err or "that chest is full"))
-    print("Check its modem is red and joined by cable to the " .. (setup.backend == "bridge" and "bridge." or "storage chests."))
-  end
-  if setup.backend == "bridge" then
-    -- a move into one slot goes through the transfer chest
-    local okL, list = pcall(peripheral.call, to, "list")
-    local okS, size = pcall(peripheral.call, to, "size")
-    local free
-    for slot = 1, okS and size or 0 do
-      if not (okL and list[slot]) then free = slot break end
+    local sent, err = fetch(pick.key, 1, to)
+    if sent > 0 then
+      print(("OK: moved 1 %s there."):format(pick.displayName))
+      moveBack()
+      print("Moved it back. Deliveries work.")
+    else
+      print("Couldn't move it: " .. (err or "that chest is full"))
+      print("Check its modem is red and joined by cable to the " .. (setup.backend == "bridge" and "bridge." or "storage chests."))
     end
-    if not setup.transfer then
-      print("No transfer chest: the bridge can't load the smelter's furnaces or the crafting turtle. Run 'storage setup'.")
-    elseif free then
-      local got, why = fetch(pick.key, 1, to, free)
-      if got > 0 then
-        print(("OK: moved 1 %s into slot %d through the transfer chest."):format(pick.displayName, free))
-        moveBack()
+    if setup.backend == "bridge" then
+      -- a move into one slot goes through the transfer chest
+      local okL, list = pcall(peripheral.call, to, "list")
+      local okS, size = pcall(peripheral.call, to, "size")
+      local free
+      for slot = 1, okS and size or 0 do
+        if not (okL and list[slot]) then free = slot break end
+      end
+      if not setup.transfer then
+        print("No transfer chest: the bridge can't load the smelter's furnaces or the crafting turtle. Run 'storage setup'.")
+      elseif free then
+        local got, why = fetch(pick.key, 1, to, free)
+        if got > 0 then
+          print(("OK: moved 1 %s into slot %d through the transfer chest."):format(pick.displayName, free))
+          moveBack()
+        else
+          print("Couldn't move it through the transfer chest: " .. (why or "no idea why"))
+        end
+      end
+      print(systemCanCraft(pick.name) and ("The %s system can craft %s."):format(store.kind, pick.displayName)
+        or ("The %s system has no pattern for %s (fine: it's just a test item)."):format(store.kind, pick.displayName))
+    end
+    print(setup.fuel and ("Fuel chest: %s. Fuel stored for %d items."):format(setup.fuel, fuelValue(countAll()))
+      or "No fuel chest: fuel is kept with everything else.")
+    local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
+    print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
+      or "No wireless modem: turtles can't ask me for items.")
+    -- crafting
+    if not crafting then
+      print("crafting.lua is missing, so I can't craft: run 'install update'.")
+    elseif not hasCrafter() then
+      print(("I know %d recipes, but there's no crafter chest yet. Start a crafting"):format(crafting.count()))
+      print("turtle against a chest on my network and it'll find it.")
+    else
+      print(("I know %d recipes."):format(crafting.count()))
+      for id, chest in pairs(setup.crafters) do print(("Crafting turtle #%s's chest: %s."):format(tostring(id), chest)) end
+      if setup.crafter then print(("Shared crafter chest: %s."):format(setup.crafter)) end
+      if packError then
+        print("pack_recipes.lua didn't load: " .. packError)
+      elseif packRecipes > 0 then
+        print(("%d of them come from pack_recipes.lua (the modpack)."):format(packRecipes))
       else
-        print("Couldn't move it through the transfer chest: " .. (why or "no idea why"))
+        print("No pack_recipes.lua: only vanilla recipes. See 'Modded recipes' in the README.")
+      end
+      -- the crafting turtle may answer by wireless or over the cable
+      net.open("any")
+      local overseer = rednet.lookup(OVERSEER_PROTOCOL)
+      print(overseer and ("Crafting overseer #%d runs the crafting queue."):format(overseer)
+        or "No crafting overseer: I run the crafting queue myself, on one turtle.")
+      local ids = { rednet.lookup(CRAFT_PROTOCOL) }
+      for _, id in ipairs(ids) do
+        local ping = { type = "ping" }
+        local ok = net.ask(id, CRAFT_PROTOCOL, ping, { wait = 5,
+          match = function(reply) return reply.type == "pong" and reply.id == ping.id end }) ~= nil
+        print(("Crafting turtle #%d %s%s."):format(id, ok and "answered" or "didn't answer a ping",
+          crafterChest(id) and "" or ", but has no chest here yet"))
+      end
+      if #ids > 0 then
+        -- each one answered (or not) above
+      elseif not modem then
+        print("No crafting turtle answered. It talks by wireless, so put a")
+        print("wireless modem on me (or a full-block wired modem against the")
+        print("turtle, on this cable). Is it running 'crafter'?")
+      else
+        print("No crafting turtle answered: is it running 'crafter', with a modem?")
       end
     end
-    print(systemCanCraft(pick.name) and ("The %s system can craft %s."):format(store.kind, pick.displayName)
-      or ("The %s system has no pattern for %s (fine: it's just a test item)."):format(store.kind, pick.displayName))
-  end
-  print(setup.fuel and ("Fuel chest: %s. Fuel stored for %d items."):format(setup.fuel, fuelValue(countAll()))
-    or "No fuel chest: fuel is kept with everything else.")
-  local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
-  print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
-    or "No wireless modem: turtles can't ask me for items.")
-  -- crafting
-  if not crafting then
-    print("crafting.lua is missing, so I can't craft: run 'install update'.")
-  elseif not hasCrafter() then
-    print(("I know %d recipes, but there's no crafter chest yet. Start a crafting"):format(crafting.count()))
-    print("turtle against a chest on my network and it'll find it.")
-  else
-    print(("I know %d recipes."):format(crafting.count()))
-    for id, chest in pairs(setup.crafters) do print(("Crafting turtle #%s's chest: %s."):format(tostring(id), chest)) end
-    if setup.crafter then print(("Shared crafter chest: %s."):format(setup.crafter)) end
-    if packError then
-      print("pack_recipes.lua didn't load: " .. packError)
-    elseif packRecipes > 0 then
-      print(("%d of them come from pack_recipes.lua (the modpack)."):format(packRecipes))
-    else
-      print("No pack_recipes.lua: only vanilla recipes. See 'Modded recipes' in the README.")
-    end
-    -- the crafting turtle may answer by wireless or over the cable
-    net.open("any")
-    local overseer = rednet.lookup(OVERSEER_PROTOCOL)
-    print(overseer and ("Crafting overseer #%d runs the crafting queue."):format(overseer)
-      or "No crafting overseer: I run the crafting queue myself, on one turtle.")
-    local ids = { rednet.lookup(CRAFT_PROTOCOL) }
-    for _, id in ipairs(ids) do
-      local ping = { type = "ping" }
-      local ok = net.ask(id, CRAFT_PROTOCOL, ping, { wait = 5,
-        match = function(reply) return reply.type == "pong" and reply.id == ping.id end }) ~= nil
-      print(("Crafting turtle #%d %s%s."):format(id, ok and "answered" or "didn't answer a ping",
-        crafterChest(id) and "" or ", but has no chest here yet"))
-    end
-    if #ids > 0 then
-      -- each one answered (or not) above
-    elseif not modem then
-      print("No crafting turtle answered. It talks by wireless, so put a")
-      print("wireless modem on me (or a full-block wired modem against the")
-      print("turtle, on this cable). Is it running 'crafter'?")
-    else
-      print("No crafting turtle answered: is it running 'crafter', with a modem?")
-    end
-  end
+  end)()
   return
 end
 
