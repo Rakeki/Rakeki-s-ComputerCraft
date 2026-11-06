@@ -54,7 +54,10 @@ export function storage(w) {
     ["tapText", "Input chest"], ["until", /Pick: Input/, 10], ["tapText", "minecraft:chest_0 "], ["wait", 1],
     ["tapText", "Output chest"], ["until", /Pick: Output/, 10], ["tapText", "minecraft:chest_1 "], ["wait", 1],
     ["tapText", "Fuel chest"], ["until", /Pick: Fuel/, 10], ["tapText", "minecraft:chest_2 "], ["wait", 1],
-    ["tapText", "Save"], ["wait", 10]]);
+    ["tapText", "Save"], ["wait", 10],
+    // its own search, once things are stored: type, Right sends one of the top match to the output chest, Del clears it
+    ["until", /Spruce Log/, 120], ["type", "spruce"], ["wait", 2], ["key", 262], ["until", /Sent 1 Spruce Log/, 20],
+    ["key", 261]]);
   wk.crafter.boot();
   play(w, wk.crafter, [["wait", 60], ...install("crafter-turtle"), ["reboot"]]);
   wk.factory.boot();
@@ -95,6 +98,7 @@ export function check(s) {
   if (ingots < 30) out.push(`only ${ingots} iron ingots in storage`);
   // what's pulled waits 10 minutes in the ender chest, then goes home: check the pull itself
   if (!/Sent \d+ Iron Ingot/.test(s.remote.term.dump())) out.push("the remote terminal never got its iron ingots");
+  if (s.chests.output.inv.count("minecraft:spruce_log") < 1) out.push("searching on the storage computer and pressing Right sent no spruce log to the output chest");
   if (!/uses my chest|Crafted \d+/.test(s.crafter.term.dump())) out.push("the crafting turtle never claimed its chest or crafted");
   // the craft terminal's order: 2 chests crafted and sent to its chest (in a long run
   // they go back to storage after 10 minutes, so the terminal saying they arrived counts)

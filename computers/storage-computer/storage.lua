@@ -234,17 +234,28 @@ local function allItems()
 end
 
 -- Every stored item, most first, then what could be crafted, most first.
-local function totals()
-  local list, items = {}, allItems()
-  for _, it in pairs(items) do list[#list + 1] = it end
-  table.sort(list, function(a, b) return a.count > b.count end)
-  local crafts = {}
-  for _, it in ipairs(craftView) do
-    if not items[it.key] then crafts[#crafts + 1] = it end
+-- Callers only read it. The store, fuel chest and craft view each hand back
+-- a new table when they change, so the same three tables mean the same list:
+-- typing a search doesn't sort everything again on each key.
+local totals
+do
+  local cached, fromStore, fromFuel, fromView = nil, nil, nil, nil
+
+  function totals()
+    local storeItems = store.items()
+    if cached and fromStore == storeItems and fromFuel == fuelList and fromView == craftView then return cached end
+    local list, items = {}, allItems()
+    for _, it in pairs(items) do list[#list + 1] = it end
+    table.sort(list, function(a, b) return a.count > b.count end)
+    local crafts = {}
+    for _, it in ipairs(craftView) do
+      if not items[it.key] then crafts[#crafts + 1] = it end
+    end
+    table.sort(crafts, function(a, b) return (a.count or 0) > (b.count or 0) end)
+    for _, it in ipairs(crafts) do list[#list + 1] = it end
+    cached, fromStore, fromFuel, fromView = list, storeItems, fuelList, craftView
+    return list
   end
-  table.sort(crafts, function(a, b) return (a.count or 0) > (b.count or 0) end)
-  for _, it in ipairs(crafts) do list[#list + 1] = it end
-  return list
 end
 
 -- "jungle_fence" -> "Jungle Fence", for items not stored (so no name from the game).
@@ -340,9 +351,21 @@ local function canCraftAny()
   return CRAFTABLE_TAB and ((crafting and hasCrafter()) or store.craftables ~= nil) and true or false
 end
 
--- q is lower case already.
-local function hit(it, q)
-  return q == "" or it.displayName:lower():find(q, 1, true) or it.key:lower():find(q, 1, true)
+-- q is lower case already. Each item's lower-case name and id are worked out
+-- once (weak keys: they go with the item), not for every item on every key.
+local hit
+do
+  local lowered = setmetatable({}, { __mode = "k" })
+
+  function hit(it, q)
+    if q == "" then return true end
+    local text = lowered[it]
+    if not text then
+      text = it.displayName:lower() .. "\n" .. it.key:lower()
+      lowered[it] = text
+    end
+    return text:find(q, 1, true) ~= nil
+  end
 end
 
 -- The search hits in the open tab, plus those in each tab (for their counts).
@@ -757,7 +780,9 @@ do
   local CHANGE_EVENTS = { storage_changed = true, storage_view = true, peripheral = true, peripheral_detach = true }
 
   function uiLoop()
-    local soon, beat, draw = nil, os.startTimer(REDRAW_EVERY), true
+    -- queued: a "storage_redraw" is waiting behind the key presses already
+    -- queued, so a burst of typing (a key and a char event each) draws once
+    local soon, beat, draw, queued = nil, os.startTimer(REDRAW_EVERY), true, false
     while true do
       if draw then
         draw = false
@@ -778,7 +803,12 @@ do
       elseif CHANGE_EVENTS[ev[1]] then
         soon = soon or os.startTimer(REDRAW_GAP)
       elseif INPUT_EVENTS[ev[1]] then
-        draw = true
+        if not queued then
+          os.queueEvent("storage_redraw")
+          queued = true
+        end
+      elseif ev[1] == "storage_redraw" then
+        queued, draw = false, true
       end
       -- 'storage setup' in another tab: open it here, where the monitor is
       if ev[1] == "storage_open_setup" then

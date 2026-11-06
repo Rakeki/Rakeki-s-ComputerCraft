@@ -31,6 +31,7 @@ local crafting = {}
 local LEARNT_FILE = "/.storage_recipes"
 local MAX_DEPTH = 6 -- how many crafts deep a plan may go
 local MAX_CRAFTABLE = 4096 -- craftable() never counts higher than this
+local YIELD_AFTER = 0.05 -- seconds of planning before letting the screens and requests have a turn
 
 local learnt = {} -- recipes as taught, saved in LEARNT_FILE
 local byMake = {} -- item -> recipes that make it, learnt ones first
@@ -213,13 +214,17 @@ end
 local planItem -- defined below; the two call each other
 
 -- CC stops a program that runs too long without yielding, and a big plan
--- (or many of them, for counts) can. Yield now and then.
-local calls = 0
+-- (or many of them, for counts) can. Yield now and then: by time, not by
+-- count, since one step can be heavy (a big stock copied), and the storage
+-- computer's screen waits for every yield (the craft terminal's counts kept
+-- the search lagging).
+local calls, yieldedAt = 0, os.clock()
 local function breathe()
   calls = calls + 1
-  if calls % 200 == 0 and os and os.queueEvent then
+  if calls % 10 == 0 and (calls % 1000 == 0 or os.clock() - yieldedAt >= YIELD_AFTER) and os.queueEvent then
     os.queueEvent("crafting_yield")
     os.pullEvent("crafting_yield")
+    yieldedAt = os.clock()
   end
 end
 

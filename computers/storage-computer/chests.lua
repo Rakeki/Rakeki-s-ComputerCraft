@@ -26,19 +26,22 @@ local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer" }
 local BULK = 256 -- items: with this many of an item stored, it goes in the roomiest storage first
 local SMALL = 128 -- items: with fewer than this, it may be moved out of roomy storage to make room for bulk
 local TIDY_MOVES = 16 -- most stacks one tidy moves (each move takes a few ticks)
+local YIELD_AFTER = 0.05 -- seconds of work in a long loop before letting the screens and requests have a turn
 
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
 
 local function shortName(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
 -- Yield now and then in long loops, so CC never stops the program for
--- running too long without yielding.
-local calls = 0
+-- running too long without yielding, and by time, so the screens aren't
+-- kept waiting while a big network is sorted through.
+local calls, yieldedAt = 0, os.clock()
 local function breathe()
   calls = calls + 1
-  if calls % 200 == 0 then
+  if calls % 10 == 0 and (calls % 1000 == 0 or os.clock() - yieldedAt >= YIELD_AFTER) then
     os.queueEvent("chests_yield")
     os.pullEvent("chests_yield")
+    yieldedAt = os.clock()
   end
 end
 
