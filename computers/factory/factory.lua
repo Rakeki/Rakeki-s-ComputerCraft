@@ -462,7 +462,8 @@ local function draw()
     local help = "Furnaces and botany pots on the cable are found by themselves. Mekanism machines"
       .. " (infusers too), Create crushers, washers and fans, Cobblemon cooking pots and the barrels"
       .. " botany pots empty into are added on the setup screen: tap Setup, press F1, or type"
-      .. " 'factory setup' in another tab."
+      .. " 'factory setup' in another tab. A botany computer on a cable of its own: pick its ender chest as the"
+      .. " work chest (Setup, Work chest), and every barrel and chest there is a pot barrel."
     for i, line in ipairs(screen.wrap(help, w - 2, h - 8)) do screen.put(win, 2, 4 + i, screen.fit(line, w - 2), "lightGray") end
     local msg = screen.wrap(message[1], w, 2)
     for i, line in ipairs(msg) do screen.put(win, 1, h - 1 - #msg + i, screen.fit(line, w), message[2]) end
@@ -763,12 +764,15 @@ local function netLoop()
         net.answer(from, PROTOCOL, msg, { ok = true })
         f.wake()
       else
-        -- the storage computer ordering from a part (the infuser)
+        -- the storage computer ordering from a part (the infuser, the essence
+        -- farm); a cancel goes to every part, as only the one with the job acts on it
+        local answered = false
         for _, p in ipairs(parts) do
           local reply = p.request and p.request(from, msg)
-          if reply then
+          if reply and not answered then
             net.answer(from, PROTOCOL, msg, reply)
-            break
+            answered = true
+            if msg.type ~= "cancel" then break end
           end
         end
       end
@@ -928,8 +932,13 @@ end
 term.clear()
 if errlog then errlog.init("factory") end
 if report then report.init("factory") end
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, workLoop, netLoop, function() net.keepOpen("any") end,
-  report and report.loop or function() while true do sleep(3600) end end)
+-- a part may run a loop of its own (the essence farm answers its crafting turtles)
+local loops = { uiLoop, workLoop, netLoop, function() net.keepOpen("any") end,
+  report and report.loop or function() while true do sleep(3600) end end }
+for _, p in ipairs(parts) do
+  if p.loop then loops[#loops + 1] = p.loop end
+end
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, table.unpack(loops))
 term.setBackgroundColor(colors.black)
 term.setTextColor(colors.white)
 term.clear()

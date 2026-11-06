@@ -18,6 +18,10 @@
 -- A machine's recipe looks like any other (a grid of what goes in for one
 -- go), so plans use it like one; its jobs carry recipe.via, and the storage
 -- computer hands them to the machine instead of the crafting turtle.
+-- A machine that keeps its own ingredients (the factory's essence farm,
+-- via = "essence") sends recipes with nothing in the grid and max = how
+-- many goes it has the makings for: plans take nothing from storage for
+-- them and never ask for more goes than that.
 -- reach (from crafting.reachable) is optional: with thousands of modded
 -- recipes, plans only try making ingredients that can be made at all,
 -- which keeps them quick. Work it out once and pass it to many plans.
@@ -52,7 +56,8 @@ local function normalize(r)
       end
     end
   end
-  if not next(grid) then return nil, "the recipe is empty" end
+  -- a machine with its own ingredients (max goes) needs nothing from storage
+  if not next(grid) and not (r.via and r.max) then return nil, "the recipe is empty" end
   return { make = r.make, count = r.count or 1, grid = grid }
 end
 
@@ -60,6 +65,7 @@ local function add(raw, first)
   local r, err = normalize(raw)
   if not r then return nil, err end
   r.via = type(raw.via) == "string" and raw.via or nil
+  r.max = r.via and tonumber(raw.max) or nil
   local list = byMake[r.make] or {}
   byMake[r.make] = list
   if first then table.insert(list, 1, r) else list[#list + 1] = r end
@@ -218,8 +224,21 @@ local function breathe()
 end
 
 -- One recipe, made count times over (rounded up to whole crafts).
+-- Where a machine's goes left are kept in avail while planning, so a plan
+-- that's tried and dropped gives them back like any item. No item is called
+-- this (it starts with a 0 byte), and isItem keeps it out of the matching.
+local function goesKey(r) return "\0goes\0" .. r.via .. "\0" .. r.make .. "\0" end
+local function isItem(name) return name:byte(1) ~= 0 end
+
 local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
   local steps = math.ceil(count / r.count)
+  -- a machine with its own ingredients: only as many goes as it has the makings for
+  local goes = r.max and goesKey(r)
+  if goes then
+    local left = avail[goes] or r.max
+    if steps > left then return false end
+    avail[goes] = left - steps
+  end
   -- cells with the same key use the same item
   local per, order = {}, {}
   for k = 1, 9 do
@@ -237,7 +256,7 @@ local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
     local need = per[key] * steps
     local best, bestN = nil, 0 -- the fitting item there's most of
     for item, n in pairs(avail) do
-      if n > bestN and crafting.matches(key, item) then best, bestN = item, n end
+      if n > bestN and isItem(item) and crafting.matches(key, item) then best, bestN = item, n end
     end
     if bestN < need then
       -- make the rest: of the item there's most of first, then any other
@@ -335,7 +354,7 @@ function crafting.missing(name, avail, reach, depth)
     if key then
       local have = false
       for item, n in pairs(avail) do
-        if n > 0 and crafting.matches(key, item) then have = true break end
+        if n > 0 and isItem(item) and crafting.matches(key, item) then have = true break end
       end
       if not have then
         local options = makeable(key)
@@ -356,7 +375,7 @@ end
 function crafting.reachable(avail)
   local have = {}
   for item, n in pairs(avail) do
-    if n > 0 then have[item] = true end
+    if n > 0 and isItem(item) then have[item] = true end
   end
   local function ok(key)
     if type(key) == "table" then

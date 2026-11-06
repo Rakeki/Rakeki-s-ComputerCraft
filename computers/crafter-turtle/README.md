@@ -77,6 +77,12 @@ The recipes and the planning live on the storage computer (`recipes.lua` and
    the overseer first, which finds its barrel the same way, and says "The
    craft overseer uses my chest (...)".
 
+   **On an essence farm** (a [factory](../factory/README.md#essence-farm)
+   far away with botany pots): put the turtle against an empty barrel on the
+   farm's cable. It asks the farm before anything else, and says "The
+   essence farm uses my chest (...)"; the farm hands it its jobs, from the
+   farm's own essence, and the storage computer never sees it.
+
    ```
    crafter                   -- start (startup.lua does this on boot)
    crafter learn             -- teach the storage system a recipe (see below)

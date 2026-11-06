@@ -1366,6 +1366,7 @@
       "integrates": [
         ["storage-computer", "Plans the crafts and loads the ingredients into the crafter chest, grid-style."],
         ["craft-overseer", "With more than one crafting turtle, hands each its share of the jobs."],
+        ["factory", "On an essence farm (botany pots far away), the farm finds its barrel and hands it the jobs from its own essence."],
         ["village-turtle", "Fences, slabs, beds and lanterns get made as the village builder asks for them."],
         ["status-server", "Shows what it's crafting."]
       ],
@@ -1455,7 +1456,7 @@
         "Mekanism Metallurgic Infusers on request: steel, alloys, circuits, bronze and more, from +1 / +8 / +64 buttons on the Infuser tab or the monitor; the storage computer orders the infusing its crafts need, and a missing in-between step (enriched iron for steel) is made first",
         "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed",
         "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; sculk and honeycomb crafted to keep them coming, when the storage system has recipes; a Candy page on the monitor",
-        "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into",
+        "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into; far away an essence farm that keeps its essence and crafts what the storage computer asks for with its own turtles",
         "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
         "Several factory computers share a cable: each furnace and botany pot belongs to one, and smelters leave the ores an enricher anywhere takes; the Chain page shows what happens where",
         "One setup screen for everything: found machines and whose they are, + Add rows for each kind, output chests picked by dropping an item in",
@@ -1485,7 +1486,7 @@
         ["storage-computer","Holds everything, loads the furnaces, feeders and pot hoppers (or fills the work chest in one go), and takes back what's made through its input chest; crafts washed nuggets and essence orders."],
         ["workchest","One request a round fills the work chest with every furnace's and feeder's load and fuel."],
         ["mekfeed","Reads the Mekanism machines, Create lines and their feeders, sets the machines' sides and tells the storage computer which barrels are feeders."],
-        ["crafter-turtle","Crafts the washers' nuggets back into ingots, and the essence orders."],
+        ["crafter-turtle","Crafts the washers' nuggets back into ingots, and the essence orders; on an essence farm, its own turtles do."],
         ["digital-miner-manager","Digital Miners with silk touch fill storage with ore blocks: 2 ingots each through the chambers."],
         ["tree-farm-turtle","Its logs pile up in storage: burn the spare ones into charcoal."],
         ["status-server","Shows what each factory computer is doing, and when a machine needs attention."]

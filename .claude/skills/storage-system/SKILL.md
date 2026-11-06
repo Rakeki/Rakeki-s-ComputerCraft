@@ -58,7 +58,7 @@ supply:seen(r)
 | `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the factory's pot feed hoppers and chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
 | `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the factory's barrel and chest feeders (`lib/mekfeed.lua`; the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
-| `{ type = "makes", via, recipes = { { make, count, rows, keys } } }` | `ok`, `error` | a machine's recipes (the factory's infuser, `via = "infuse"`), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
+| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok`, `error` | a machine's recipes (the factory's infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine too, once it has made (or given up on) a job it was handed |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery", "crafter" or "hub", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand; `hub` is a far-away overseer's ender chest twin, kept in `setup.crafters[overseer id]` |
@@ -95,7 +95,8 @@ itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
 through its bottom face, and only a hopper pot lets them be taken, so each pot
 stands on a full-block wired modem), or empties a "pot barrel" the pots push into
 (`/.factory_pot_barrels`, named to the storage computer with `feeders` so it isn't
-storage; emptied just before each `feeders` request, since only an empty one is taken), and orders crafts with `prepare` set to
+storage; emptied just before each `feeders` request, since only an empty one is taken); far away (work chest an ender chest)
+it's an essence farm instead (below: it keeps its essence and crafts it itself), and orders crafts with `prepare` set to
 stored + already crafting + wanted (`prepare` tops up to a total). The smelter part's orders (`ORDERS` in smelt.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order, and into Mekanism smelters
@@ -199,6 +200,16 @@ job of its plan (and a machine job behind any earlier step), so `handOver`
 and the local crafter only take crafting jobs whose turn it is. A failed plan
 sends `cancel` for its machine jobs already handed out. A plan made only of
 machine jobs needs no crafting turtle.
+The essence farm (`computers/factory/farm.lua`, a far-away factory) sends
+`makes` with `via = "essence"` and recipes with nothing in them (`rows = {}`,
+`keys = {}`) plus `max` = goes its own essence covers: `normalize` takes an
+empty grid only with `via` and `max`, and `planRecipe` keeps the goes left in
+`avail` under `goesKey(r)` (a name starting with a 0 byte, which `isItem`
+keeps out of the matching), so a dropped plan gives them back and no plan
+asks for more. Its jobs come as `{ type = "essence", job, make, count }`; it
+crafts with its own turtles (they claim their barrel on `factory_crafter`),
+puts the result in its ender chest, sends an empty `fill` (sweep) and then
+`jobdone`. A `cancel` on the `factory` protocol goes to every part.
 
 Recipes: `recipes.lua` (built in), `/.storage_recipes` (taught with
 `crafter learn`), and `pack_recipes.lua` (a modpack's crafting recipes from

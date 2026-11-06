@@ -13,8 +13,14 @@
 -- screen or with 'factory add potbarrel', which this empties instead. It's
 -- named to the storage computer as a feeder, so it isn't storage: else the
 -- storage computer would fill it and the pots would have nowhere to go.
+-- Far away (its work chest an ender chest, on a cable of its own) it's an
+-- essence farm (farm.lua): every barrel and chest on the cable is its own
+-- store, the essence stays there, and its own crafting turtles make what
+-- the storage computer (or the Essence tab) asks for; only what's made
+-- goes home, through the ender chest.
 local screen = require("lib.screen") -- flicker-free drawing
 local files = require("lib.files") -- crash-safe save files
+local farm = require("farm") -- the essence farm, far from the storage system
 
 local M = {}
 
@@ -55,7 +61,8 @@ function M.new(f)
   local barrelState = {} -- barrel name -> { items, took, state, colour } from its last emptying
   local recipes = {} -- best recipe per item made: { make, count, need = { { key, n } }, from }
   local recipesAt -- os.clock() when the recipes last came
-  local counts = {} -- item -> how many are stored
+  local counts = {} -- item -> how many there are to craft from: in storage, or far away in the farm's own store
+  local stored = {} -- item -> how many are in storage (the Stored column)
   local taken, takenSince = {}, os.epoch("utc") -- item -> how many came out of the pots since starting
   local lastCrop = {} -- pot -> what came out of it last, to name its crop
   local news -- { text, colour, untilTime }: how an order went, kept on screen a while
@@ -128,13 +135,43 @@ function M.new(f)
     f.wake() -- the running factory, if this is another tab
   end
 
-  -- added by hand, so always this computer's
-  function self.uses() return readBarrels() end
-  function self.active() return #myPots() > 0 or #readBarrels() > 0 end
+  -- Far away: the work chest is an ender chest on this computer's own cable,
+  -- so nothing on the cable is storage: it's an essence farm (farm.lua),
+  -- which keeps its essence and crafts it into what's asked for itself.
+  local function farAway() return f.work.remote == true end
+  local F = farm.new(f, { pots = POTS, saved = readBarrels })
+
+  -- Far away, the farm's store: every barrel and chest on the cable but the
+  -- ender chests, the pots, the turtles' barrels and other machines' chests.
+  local function autoBarrels()
+    if not farAway() then return {} end
+    local added, out = {}, {}
+    for _, n in ipairs(readBarrels()) do added[n] = true end
+    for _, n in ipairs(F.storeNames()) do
+      if not added[n] then out[#out + 1] = n end
+    end
+    return out
+  end
+
+  -- Every pot barrel: the ones added, or far away the farm's whole store.
+  local function allBarrels()
+    if farAway() then return F.storeNames() end
+    return readBarrels()
+  end
+
+  -- added by hand, so always this computer's (the ones found far away aren't
+  -- claimed: they're whatever no other machine uses)
+  function self.uses()
+    local out = readBarrels()
+    -- the farm's crafting turtles' barrels: not to be offered for another machine
+    for _, barrel in pairs(F.crafters) do out[#out + 1] = barrel end
+    return out
+  end
+  function self.active() return #myPots() > 0 or #allBarrels() > 0 end
   function self.takes() return {} end
 
   function self.summary()
-    local n, b = #myPots(), #readBarrels()
+    local n, b = #myPots(), #allBarrels()
     local out = {}
     if n > 0 then out[#out + 1] = ("%d botany pots"):format(n) end
     if b > 0 then out[#out + 1] = ("%d pot barrel%s"):format(b, b == 1 and "" or "s") end
@@ -195,7 +232,7 @@ function M.new(f)
     table.sort(need, function(a, b) return a[2] > b[2] end)
     local parts = {}
     for i, x in ipairs(need) do parts[i] = ("%d %s"):format(x[2], keyText(x[1])) end
-    return { make = raw.make, count = raw.count or 1, need = need, from = table.concat(parts, " + ") }
+    return { make = raw.make, count = raw.count or 1, need = need, from = table.concat(parts, " + "), raw = raw }
   end
 
   local function loadRecipes()
@@ -237,6 +274,8 @@ function M.new(f)
   -- Have the storage system make crafts more crafts' worth of r.make, on top
   -- of what's stored and already being made. Returns what to tell the player.
   local function order(r, n)
+    -- far away, this farm's turtles make it from its own essence
+    if farAway() then return F.order(r.raw, n) end
     local want = n * r.count
     local fresh = f.ask({ type = "count", items = { r.make } })
     if not fresh or type(fresh.counts) ~= "table" then return "The storage computer didn't answer.", "red" end
@@ -259,8 +298,9 @@ function M.new(f)
 
   ---------------------------------------------------------------- the pots
 
-  -- Empty one pot into the input chest. Fills in p.items (left in it), p.took
-  -- and p.state.
+  -- Empty one pot into the input chest (input: its name), or far away into
+  -- the farm's store (input: a function(pot, slot, item) -> how many went).
+  -- Fills in p.items (left in it), p.took and p.state.
   local function emptyPot(p, input)
     -- seen from any side but below, a pot has no slots at all
     local okS, size = pcall(peripheral.call, p.name, "size")
@@ -275,8 +315,13 @@ function M.new(f)
       -- name the crop by its essence, not a seed it dropped
       if item.name:find(ESSENCE) or not lastCrop[p.name] then lastCrop[p.name] = item.name end
       if not leave(item.name) then
-        local okP, moved = pcall(peripheral.call, p.name, "pushItems", input, slot)
-        moved = okP and moved or 0
+        local moved
+        if type(input) == "function" then
+          moved = input(p.name, slot, item)
+        else
+          local okP, m = pcall(peripheral.call, p.name, "pushItems", input, slot)
+          moved = okP and m or 0
+        end
         if moved > 0 then
           taken[item.name] = (taken[item.name] or 0) + moved
           p.took = p.took + moved
@@ -291,7 +336,7 @@ function M.new(f)
     if stuck > 0 and not p.hopper then
       p.state, p.colour = "not a hopper pot", "red"
     elseif stuck > 0 then
-      p.state, p.colour = "input chest full?", "red"
+      p.state, p.colour = type(input) == "function" and "barrels full" or "input chest full?", "red"
     elseif p.slots >= POT_SLOTS then
       p.state, p.colour = "full", "orange"
     elseif p.took > 0 then
@@ -303,16 +348,24 @@ function M.new(f)
     end
   end
 
-  -- Empty every pot barrel into the input chest. factory.lua calls this just
-  -- before it names the feeders, since the storage computer only takes an
-  -- empty one (until then it's storage, so what's in it is counted anyway).
+  -- Empty every pot barrel into the input chest (far away the farm keeps
+  -- what's in them: farm.lua). factory.lua calls this just before it names the feeders, since the
+  -- storage computer only takes an empty one (until then it's storage, so
+  -- what's in it is counted anyway).
   function self.beforeRegister(input)
+    if farAway() then return end -- the farm keeps its essence
     local now = {}
-    for _, name in ipairs(readBarrels()) do
+    -- the storage input chest is on another cable: nowhere to put anything
+    local canSend = type(input) == "string" and peripheral.isPresent(input)
+    for _, name in ipairs(allBarrels()) do
       local b = { items = 0, took = 0 }
       local ok, list = pcall(peripheral.call, name, "list")
       if not peripheral.isPresent(name) or not ok or type(list) ~= "table" then
         b.state, b.colour = "not on the cable", "red"
+      elseif not canSend then
+        local n = 0
+        for _, item in pairs(list) do n = n + item.count end
+        b.items, b.state, b.colour = n, "nowhere to send it", "red"
       else
         local stuck, crops, seen = 0, {}, {}
         for slot, item in pairs(list) do
@@ -342,8 +395,111 @@ function M.new(f)
 
   function self.read() end
 
+  -- A round far away (farm.lua): read the store, put the pots' harvest in
+  -- it, tell the storage computer what it can make, and let the turtles
+  -- work on the jobs. counts are the store's, stored the storage system's.
+  local function farRound(r)
+    stored = r.stock.counts
+    if not recipesAt or os.clock() - recipesAt > RECIPES_EVERY then
+      local ok, why = loadRecipes()
+      if not ok then note("No recipes yet: " .. why, "orange") end
+    end
+    F.scan()
+    local now = {}
+    for i, name in ipairs(myPots()) do
+      now[i] = { name = name, title = NAMES[name] or ("Botany " .. i), hopper = name:find("hopper", 1, true) ~= nil }
+    end
+    local jobs = {}
+    for _, p in ipairs(now) do
+      jobs[#jobs + 1] = function()
+        emptyPot(p, function(pot, slot, item) return F.toStore(pot, slot, item) end)
+      end
+    end
+    if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+    counts = F.counts
+    stale = true
+    local raws = {}
+    for _, rc in ipairs(recipes) do raws[#raws + 1] = rc.raw end
+    F.offer(raws)
+    local sweepWhy = F.run(r.input)
+    -- what the Pots view shows: the pots, the store's barrels, the turtles
+    for i, s in ipairs(F.stores) do
+      local crops = {}
+      for item in pairs(s.kinds) do
+        if item:find(ESSENCE) then crops[#crops + 1] = cropOf(item) end
+      end
+      table.sort(crops)
+      now[#now + 1] = { name = s.name, title = NAMES[s.name] or ("Barrel " .. i), crop = crops[1] and table.concat(crops, ", "),
+        items = s.items, state = not s.ok and "not on the cable" or s.items > 0 and "holding" or "empty",
+        colour = s.ok and "white" or "red" }
+    end
+    local ids = {}
+    for id in pairs(F.crafters) do ids[#ids + 1] = id end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+      local t = F.turtles[id] or {}
+      now[#now + 1] = { name = F.crafters[id], title = ("Turtle #%d"):format(id), crop = "crafter", items = 0,
+        state = t.state or "idle", colour = t.colour or "lime", turtle = true }
+    end
+    pots = now
+
+    local first
+    for _, p in ipairs(pots) do
+      if p.colour == "red" then first = first or p end
+    end
+    local job = F.jobs[1]
+    if #ids == 0 then
+      note("No crafting turtle here yet: put a crafty turtle running 'crafter' against an empty barrel on this cable.",
+        "orange")
+      status("waiting", "no crafting turtle")
+    elseif F.offerNote() then
+      note("The storage computer can't order from here: " .. F.offerNote(), "orange")
+      status("alert", F.offerNote())
+    elseif sweepWhy then
+      note("What's made isn't going home through the ender chest: " .. sweepWhy, "red")
+      status("alert", "ender chest: " .. sweepWhy)
+    elseif first then
+      note(("%s: %s."):format(first.title, first.state), "red")
+      status("alert", ("%s: %s"):format(first.title, first.state))
+    elseif job then
+      note(("Making %d %s for %s: %d made%s."):format(job.count, nice(job.make), job.by or "?", job.made,
+        #F.jobs > 1 and (", %d more jobs waiting"):format(#F.jobs - 1) or ""), "lightBlue")
+      status("running", ("making %s"):format(nice(job.make)))
+    elseif F.last and os.clock() - (F.last.doneAt or 0) < 30 then
+      local j = F.last
+      note(j.ok and ("Made %d %s for %s: it's gone home."):format(j.made, nice(j.make), j.by or "?")
+        or ("Stopped making %s: %s."):format(nice(j.make), j.why or "?"), j.ok and "lime" or "orange")
+      status("idle", "essence farm")
+    else
+      local can = 0
+      for _, b in ipairs(lookup("")) do
+        if b.items > 0 then can = can + 1 end
+      end
+      note(("Essence farm: the essence here makes %d kind%s of item, for the storage computer to order."):format(can,
+        can == 1 and "" or "s"))
+      status("idle", ("essence farm, %d turtles"):format(#ids))
+    end
+  end
+
+  -- From the storage computer (the factory protocol): far away, jobs for the farm.
+  function self.request(from, msg)
+    if farAway() then return F.request(from, msg) end
+    return nil
+  end
+
+  -- Far away, the turtles find their barrel here (farm.lua); at home there's nothing to answer.
+  function self.loop()
+    while not farAway() do
+      sleep(10)
+      f.work:reload()
+    end
+    F.loop()
+  end
+
   function self.round(r)
+    if farAway() then return farRound(r) end
     counts = r.stock.counts
+    stored = counts
     stale = true -- the recipe list is made again from these counts when it's next drawn
     if not recipesAt or os.clock() - recipesAt > RECIPES_EVERY then
       local ok, why = loadRecipes()
@@ -355,9 +511,10 @@ function M.new(f)
       now[i] = { name = name, title = NAMES[name] or ("Botany " .. i), hopper = name:find("hopper", 1, true) ~= nil }
     end
     local jobs = {}
-    for _, p in ipairs(now) do jobs[#jobs + 1] = function() emptyPot(p, r.stock.input) end end
+    -- far away, the ender chest (r.input), as for the barrels
+    for _, p in ipairs(now) do jobs[#jobs + 1] = function() emptyPot(p, r.input or r.stock.input) end end
     if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
-    for i, name in ipairs(readBarrels()) do
+    for i, name in ipairs(allBarrels()) do
       local b = barrelState[name] or { state = "...", colour = "gray" }
       local p = { name = name, title = NAMES[name] or ("Barrel " .. i), crop = lastCrop[name],
         items = b.items, took = b.took, state = b.state, colour = b.colour }
@@ -379,7 +536,8 @@ function M.new(f)
       end
     end
     if #pots == 0 then
-      note("No botany pots here: stand each on a wired modem, or add the barrel they empty into (Setup).", "orange")
+      note(farAway() and "No botany pots here: put a barrel or chest under them, with a wired modem on it."
+        or "No botany pots here: stand each on a wired modem, or add the barrel they empty into (Setup).", "orange")
       status("waiting", "no pots")
     elseif first then
       local why = {
@@ -387,6 +545,8 @@ function M.new(f)
         ["not a hopper pot"] = "only a Hopper Botany Pot lets its harvest be taken out",
         ["input chest full?"] = "nothing more fits in the storage input chest",
         ["not on the cable"] = "put a wired modem on it, join it to the cable and right-click it",
+        ["nowhere to send it"] = "the storage input chest isn't on this cable. On a cable of its own, pick the"
+          .. " ender chest as the work chest (Setup, Work chest): then every barrel here is a pot barrel",
       }
       note(("%s: %s."):format(first.title, first.why or why[first.state] or first.state), "red")
       status("alert", ("%d of %d botany pots need attention"):format(broken, #pots))
@@ -400,7 +560,7 @@ function M.new(f)
       for _, b in ipairs(lookup("")) do
         if b.items > 0 then can = can + 1 end
       end
-      note(("%s growing. Stored essence makes %d kinds of item."):format(self.summary(), can))
+      note(("%s growing. Stored essence makes %d kind%s of item."):format(self.summary(), can, can == 1 and "" or "s"))
     end
   end
 
@@ -461,7 +621,7 @@ function M.new(f)
         screen.put(win, 2, y, fit(nice(b.r.make), 18), fg, bg)
         screen.put(win, 21, y, fit(b.r.from, w - 34), "lightGray", bg)
         screen.put(win, w - 12, y, ("%5s"):format(b.items > 9999 and "9999+" or b.items), b.items > 0 and "lime" or "gray", bg)
-        screen.put(win, w - 6, y, ("%6s"):format(math.min(counts[b.r.make] or 0, 999999)), "lightGray", bg)
+        screen.put(win, w - 6, y, ("%6s"):format(math.min(stored[b.r.make] or 0, 999999)), "lightGray", bg)
         buttons[#buttons + 1] = { 1, w, y, { pick = scroll + i } }
       end
     end
@@ -546,9 +706,14 @@ function M.new(f)
 
   function self.tiles()
     local tiles = {}
-    local map = { lime = "yellow", white = "lime", gray = "lime", orange = "orange", red = "red" }
+    local map = { lime = "yellow", white = "lime", gray = "lime", yellow = "yellow", orange = "orange", red = "red" }
     for _, p in ipairs(pots) do
-      tiles[#tiles + 1] = { p.title, p.crop or p.state or "...", map[p.colour] or "lime" }
+      -- a turtle shows what it's doing in its own colours (lime idle, yellow crafting, red stuck)
+      if p.turtle then
+        tiles[#tiles + 1] = { p.title, p.state or "idle", p.colour or "lime" }
+      else
+        tiles[#tiles + 1] = { p.title, p.crop or p.state or "...", map[p.colour] or "lime" }
+      end
     end
     return tiles
   end
@@ -771,6 +936,31 @@ function M.new(f)
             end })
           end }
       end
+      -- far away: the crafting turtles, each with its barrel
+      if farAway() then
+        local ids = {}
+        for id in pairs(F.crafters) do ids[#ids + 1] = id end
+        table.sort(ids)
+        for _, id in ipairs(ids) do
+          local barrel = F.crafters[id]
+          out[#out + 1] = { label = ("Crafting turtle #%d"):format(id), value = barrel, colour = "lightGray", act = function()
+            ui:open({ title = ("Crafting turtle #%d"):format(id), hint = "Its barrel: " .. barrel, rows = function()
+              return { { label = "Forget it (it finds its barrel again)", colour = "red", act = function()
+                F.forget(id)
+                ui:back()
+                ui:say(("Forgot turtle #%d."):format(id), "lime")
+              end } }
+            end })
+          end }
+        end
+      end
+      -- far away: every other barrel and chest on the cable, found by itself
+      local n = #readBarrels()
+      for i, name in ipairs(autoBarrels()) do
+        out[#out + 1] = { label = ("Pot barrel %d"):format(n + i), value = name, colour = "lightGray", act = function()
+          ui:say("Far away, every barrel and chest here that no machine uses is a pot barrel.", "lightBlue")
+        end }
+      end
       return out
     end
     -- every free barrel at once, after a look at the list
@@ -791,6 +981,10 @@ function M.new(f)
         end })
     end
     function parts.adds()
+      if farAway() then
+        -- every one is a pot barrel already
+        return { { label = "Far away: every barrel here is the farm's store", dim = true } }
+      end
       return {
         { label = "+ Add a botany pot barrel", colour = "lime", act = add },
         { label = "+ Add every free barrel as a pot barrel", colour = "lime", act = addEvery },
@@ -816,7 +1010,16 @@ function M.new(f)
       print("The storage computer didn't answer. Is it running, on the same cable?")
       return true
     end
-    counts = reply.counts
+    counts, stored = reply.counts, reply.counts
+    if farAway() then
+      -- an essence farm makes from its own essence, and takes orders in the running factory
+      if args[1] == "make" then
+        print("This is an essence farm: order on its Essence tab, or the storage computer orders from it.")
+        return true
+      end
+      F.scan()
+      counts = F.counts
+    end
     local ok, why = loadRecipes()
     if not ok then
       print("No recipes: " .. why)

@@ -519,6 +519,51 @@ barrel (**Botany 1**, **Barrel 1**, ...) with its crop
 **can't see inside** (no modem under it), **not a hopper pot** or **input
 chest full?**, and how much has come out of the pots and how much an hour.
 
+### Essence farm
+
+A factory computer far from the storage system, on a cable of its own with
+the botany pots, can be an **essence farm**: the essence stays there, and its
+own crafting turtles turn it into whatever is asked for. Only what they make
+goes home.
+
+- **What goes where.** On the farm's cable: the factory computer, the Hopper
+  Botany Pots with a barrel (or chest) under each, or piped into barrels,
+  one or more [crafting turtles](../crafter-turtle/README.md), each against
+  an **empty barrel** of its own, and an **ender chest** whose twin is on the
+  storage cable at home. Give every barrel, chest and
+  turtle a wired modem joined to that cable. The factory computer needs an
+  ender modem too, to talk to the storage computer.
+- **Make it far away**: run `factory chest remote` (or **Work chest** on the
+  setup screen) and pick the ender chest, as in
+  [Far from the storage system](#far-from-the-storage-system).
+- **Every barrel and chest is the farm's store.** There's nothing to add:
+  all of them on the cable (but ender chests, the turtles' barrels and
+  what another machine here uses) hold the farm's essence, and a barrel
+  placed later is part of it from the next round. Nothing is taken out of
+  them except to craft. A pot on a modem of its own has its harvest moved
+  into the barrels.
+- **The turtles find their barrel by themselves**, as they would at home:
+  start `crafter` on each and it says "The essence farm uses my chest". The
+  setup screen's **Machines** page lists them; tap one to forget it.
+- **The storage computer orders from it.** Every so often the farm tells
+  it what the essence there can be made into, and how much. When a craft at
+  home needs iron ingots (a turtle's request, the remote terminal, an
+  order, a recipe that uses them), the storage computer can ask the farm
+  for them: the farm loads a turtle's barrel from its store, the turtle
+  crafts, and what it made goes into the ender chest and home. The storage
+  computer takes nothing from storage for these and never asks for more
+  than the farm said it has the essence for.
+- **Or order on its Essence tab**: Can is how many the farm's own essence
+  makes, Stored how many there are at home. What's made goes home the same
+  way.
+- **Only what's asked for is made**; spare essence piles up in the barrels.
+  When they're full, the pots stop: add barrels.
+
+The **Pots** view lists the pots, the store's barrels (with their crops and
+how much is in each) and the turtles with what each is doing; the monitor
+has a tile for each. If the storage computer is older than the farm it
+says it doesn't take essence orders: `install update` it.
+
 ## Example layouts
 
 The website shows each of these in 3D.
@@ -542,6 +587,7 @@ input chest, then into the S pot, and so on up to XL.
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
 - `smelt.lua`, `enrich.lua`, `infuse.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, cooking pots, botany pots)
+- `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
@@ -699,6 +745,9 @@ it with other things, until the pots have nowhere to put their harvest. The
 barrel must be empty for the storage computer to let it go: the factory
 empties it first, and the Pots view shows **still storage** until it has.
 
+**A farm of its own.** Far from the storage system, the pots can have their
+own crafting turtles and keep their essence: see [Essence farm](#essence-farm).
+
 For the
 recipes, the storage computer needs a [crafting turtle](../crafter-turtle/README.md)
 and your modpack's recipes, which include Mystical Agriculture's (see
@@ -741,7 +790,7 @@ factory infuse                 -- the infusing recipes, how many you can make, a
 factory infuse steel 64        -- ask for 64 steel dust (by name, or the number 'factory infuse' lists)
 factory infuse cancel 2        -- cancel request 2 ('factory infuse cancel': all of them)
 factory find iron              -- essence recipes for anything with "iron" in its name, and how many you can make
-factory make 64 iron ingot     -- order 64 iron ingots made from essence
+factory make 64 iron ingot     -- order 64 iron ingots made from essence (an essence farm: its tab)
 factory chest                  -- pick the work chest from the empty chests on the network
 factory chest none             -- stop using one (what's in it goes back into storage)
 factory chest remote           -- far from home: work through an ender chest (see below)
@@ -816,8 +865,9 @@ there's no search.
   far-away one needs an ender modem for the others to hear it (or a smelter
   at home smelts the ores it would take).
 - Cooking pots can be far away too: their feed hoppers are filled from the
-  ender chest, and what's cooked goes home through it. Botany pots can't:
-  they go through the storage input chest.
+  ender chest, and what's cooked goes home through it. Botany pots far away
+  are an [essence farm](#essence-farm): they keep their essence and only
+  what their own crafting turtles make goes home.
 
 If you'd rather send things home separately, `factory chest remote` also
 lets you pick a second, **return** ender chest, whose twin at home is an

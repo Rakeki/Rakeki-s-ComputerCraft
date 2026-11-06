@@ -1725,9 +1725,14 @@ local function handleRequest(from, msg)
       if not maker or maker.key ~= key or maker.id ~= from then
         local n = crafting.setMachine(msg.via, msg.recipes)
         reachCache = nil
-        if n > 0 then message = { ("Factory #%d can make %d things by %s."):format(from, n, msg.via), "lightBlue" } end
+        -- the essence farm sends again whenever its essence changes (how many goes): say so only when what it makes does
+        if n > 0 and (not maker or maker.id ~= from or maker.n ~= n) then
+          message = { ("Factory #%d can make %d things by %s."):format(from, n, msg.via), "lightBlue" }
+        end
+        maker = maker or {}
+        maker.n = n
       end
-      makers[msg.via] = #msg.recipes > 0 and { id = from, at = os.clock(), key = key } or nil
+      makers[msg.via] = #msg.recipes > 0 and { id = from, at = os.clock(), key = key, n = maker and maker.n } or nil
       answer(from, msg, { re = "makes", ok = true })
       os.queueEvent("storage_craft")
     end

@@ -188,6 +188,14 @@ steps ("Asked factory #9 to make 4 Infused alloy."), and the crafting turtle
 takes the later steps once it's in storage. A plan that's all infusing
 needs no crafting turtle.
 
+An [essence farm](../factory/README.md#essence-farm) (a factory computer
+far away with botany pots and crafting turtles of its own) tells the storage
+computer what its essence can be made into and how much, so iron ingots,
+diamonds and the like count as craftable too. A plan that needs them has the
+farm make them ("Asked factory #12 to make 30 Iron Ingot."); nothing goes
+out of storage for it, and it never asks the farm for more than it has the
+essence for. What the farm makes comes home through its ender chest.
+
 You can ask for crafts on the terminal too, with the **Craftable** tab. It's
 off by default, because working out everything that could be made from a
 big store with a big modpack takes a long while. To turn it on, set

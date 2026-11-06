@@ -19,6 +19,9 @@
 -- in 'storage setup'. Far from the storage system, its barrel goes on the
 -- craft overseer's cable instead (the overseer's hub: an ender chest whose
 -- twin is on the storage cable), and the overseer finds it the same way.
+-- Or on an essence farm's cable (a far-away factory computer with botany
+-- pots, computers/factory): the factory finds the barrel, hands out the
+-- jobs from its own essence, and the storage computer never sees it.
 local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer which chest is mine
 local report = fs.exists("lib/report.lua") and require("lib.report")
@@ -28,6 +31,8 @@ local CRAFT_PROTOCOL = "storage_crafter" -- the storage computer sends crafting 
 local STORAGE_PROTOCOL = "storage" -- recipes are taught to the storage computer on this
 local OVERSEER_PROTOCOL = "craft_overseer" -- a craft overseer with an ender chest finds my barrel on this
 local OVERSEER_WAIT = 60 -- seconds to wait for the overseer (each answer may wait its turn at its ender chest)
+local FARM_PROTOCOL = "factory_crafter" -- an essence farm (a far-away factory) finds my barrel on this
+local FARM_WAIT = 10 -- seconds to wait for the essence farm
 local GRID = { 1, 2, 3, 5, 6, 7, 9, 10, 11 } -- turtle slots of the 3x3 crafting grid
 local STAGE = { 4, 8, 12, 13, 14, 15 } -- slots outside the grid, for sorting ingredients into it
 local OUT_SLOT = 16 -- crafted items land here first
@@ -88,6 +93,10 @@ local function askStorage(msg) return (storage:ask(msg)) end
 local overseer = net.peer(OVERSEER_PROTOCOL, { open = "any", wait = OVERSEER_WAIT, retry = 60 })
 local function askOverseer(msg) return (overseer:ask(msg)) end
 
+-- an essence farm with crafting turtles of its own (a far-away factory computer)
+local farm = net.peer(FARM_PROTOCOL, { open = "any", wait = FARM_WAIT, retry = 60 })
+local function askFarm(msg) return (farm:ask(msg)) end
+
 -- Make sure the storage system uses the chest in front of me as my crafter
 -- chest: the overseer's hub if my chest is on its cable, else the storage
 -- computer's own cable. On start, then now and then (it may have been set
@@ -97,7 +106,9 @@ local function claimLoop()
   -- always the overseer first: the storage computer takes an empty chest it
   -- had for me before as still mine (it can't tell two empty chests apart),
   -- so asked first it would keep me from the overseer's barrel for good
-  local ways = { { ask = askOverseer, who = "craft overseer" }, { ask = askStorage, who = "storage system" } }
+  -- an essence farm first: on its cable there's nothing else my barrel could belong to
+  local ways = { { ask = askFarm, who = "essence farm" }, { ask = askOverseer, who = "craft overseer" },
+    { ask = askStorage, who = "storage system" } }
   while true do
     while busy do sleep(1) end
     local ok, why, way
