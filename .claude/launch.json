@@ -16,6 +16,14 @@
         "tools/overseer/server.mjs"
       ],
       "port": 8090
+    },
+    {
+      "name": "sim-viewer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "sim/viewer/serve.mjs"
+      ],
+      "port": 8081
     }
   ]
 }

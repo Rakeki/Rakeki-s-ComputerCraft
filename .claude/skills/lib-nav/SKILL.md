@@ -54,8 +54,8 @@ if not knowsPosition then nav.setPosition(0, 0, 0, "north") end
 ## Movement
 
 All return `ok, err`. `err` is one of `"nofuel"`, `"protected"`, `"bedrock"`,
-`"undiggable"`, `"blocked"`, or `nav.OUT_OF_BOUNDS` ("the edge of my area
-(nav.bounds)", see Bounds below).
+`"undiggable"`, `"blocked"`, or `nav.TOO_FAR` ("too far from where I started
+(nav.range)", see Range below).
 
 | Call | Notes |
 |---|---|
@@ -70,22 +70,25 @@ Never dug (protected): anything whose name contains `chest`, `barrel`,
 `shulker_box`, `hopper`, `furnace`, `computercraft:` (turtles, computers) or
 `spawner`. Code must handle `ok == false` (stop and report, wait, or skip).
 
-## Bounds
+## Range
 
-`set nav.bounds x1,z1,x2,z2` (world X and Z, both corners inside, commas: CC's
-`set` keeps only one word) fences a turtle in: `nav.forward` refuses a step
-onto a column outside it and returns `false, nav.OUT_OF_BOUNDS`, and
-`nav.goTo` gives up on it at once instead of climbing round. Up and down
-are never refused. A turtle placed outside may move only towards the area.
+A turtle never goes more than `nav.range` blocks (along X or Z: a square,
+default 256, `set nav.range 0` for no limit) from where it started: the
+first place it knew its position (GPS calibration, or `nav.setPosition`).
+`nav.forward` refuses a step past it and returns `false, nav.TOO_FAR` ("too
+far from where I started (nav.range)"), and `nav.goTo` gives up on it at
+once instead of climbing round. Up and down are never limited. A turtle
+somehow out of range may only move back towards its start.
 
-It only applies while the position is in world coordinates: after GPS
-calibration (`nav.init`), or `nav.setPosition(x, y, z, h, true)`. A plain
-`nav.setPosition` (a job counted from its own start, no GPS) turns it off, so
-pass `job.gps` when re-anchoring a GPS job (`here`). `nav.bounds()` returns
-`{ x1, z1, x2, z2 }` or nil and `nav.inBounds(x, z)` checks a column, for
-checking a job's size before starting. Raw `turtle.*` moves (the calibration
-step, programs moving without nav) aren't covered: keep turtles a block in
-from the edge when placing them.
+The start is saved with the position. It moves only when the turtle has
+been moved: GPS on boot more than 8 blocks from its saved position (picked
+up and placed elsewhere), or a position given in the other kind of
+coordinates (a job without GPS counts from its own start, so pass `job.gps`
+when re-anchoring a GPS job with `here`). `nav.resetOrigin()` starts it
+from here (a turtle given a new home); `nav.origin()` and
+`nav.inRange(x, z)` let a program check a job fits before starting.
+Raw `turtle.*` moves (the calibration step, programs moving without nav)
+aren't covered.
 
 ## State files
 

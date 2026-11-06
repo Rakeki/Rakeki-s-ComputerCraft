@@ -88,15 +88,6 @@ export function addGps(w, at = [0, 180, 0], spread = 6) {
   });
 }
 
-// Fence turtles into a box of chunks: moves and digs outside it fail (as if
-// it were protected land) and each try is noted in w.outsideTries.
-export function fence(w, cx0, cz0, cx1, cz1) {
-  w.bounds = { x0: cx0 * 16, z0: cz0 * 16, x1: cx1 * 16 + 15, z1: cz1 * 16 + 15 };
-  w.outsideTries = [];
-  w.outside = ([x, , z]) => x < w.bounds.x0 || x > w.bounds.x1 || z < w.bounds.z0 || z > w.bounds.z1;
-  w.noteOutside = (t, pos, what) => { if (w.outsideTries.length < 500) w.outsideTries.push({ t: w.time, id: t.id, label: t.label, pos, what }); };
-}
-
 // An oak tree on the ground at (x, z): a trunk and a canopy, like a grown sapling.
 export function tree(w, x, z, h = 5) {
   const y = 64;

@@ -1809,9 +1809,9 @@
         ["nav.goTo(x, y, z)", "Travel: rise to y, then x, then z, then descend. Climbs and retries if blocked."],
         ["nav.getPos() / getHeading()", "Current position { x, y, z } and heading 0-3."],
         ["nav.writeFile / readFile / deleteFile", "Crash-safe state files (temp file, then move)."],
-        ["nav.bounds() / inBounds(x, z)", "The area from the nav.bounds setting (set nav.bounds x1,z1,x2,z2): a forward move past it returns false, nav.OUT_OF_BOUNDS, while the position is in world coordinates."]
+        ["nav.range() / origin() / inRange(x, z)", "How far it may go from where it started (set nav.range 64; 256 unless set, 0 for no limit), that start, and whether a column is in reach: a forward move past it returns false, nav.TOO_FAR."]
       ],
-      "notes": "Headings: 0 north (-z), 1 east (+x), 2 south (+z), 3 west (-x). Never dug: chests, barrels, shulker boxes, hoppers, furnaces, spawners and anything from ComputerCraft. With nav.bounds set, moves never leave that box of world X and Z (up and down always work)."
+      "notes": "Headings: 0 north (-z), 1 east (+x), 2 south (+z), 3 west (-x). Never dug: chests, barrels, shulker boxes, hoppers, furnaces, spawners and anything from ComputerCraft. A turtle never goes more than nav.range blocks (256 unless set) along X or Z from where it started; up and down always work."
     },
     {
       "name": "report",

@@ -5,8 +5,8 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
 
 - `nav.lua`: turtle position tracking (saved across reboots, checked with GPS, which
   every moving turtle but the gps-deployer waits for: `nav.waitForGps`) and
-  movement that digs through anything except protected blocks, and never past
-  the `nav.bounds` setting (`x1,z1,x2,z2`) when it's set. Used by
+  movement that digs through anything except protected blocks, and never more
+  than `nav.range` blocks (256 unless set) from where the turtle started. Used by
   `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`, `mob-farm-turtle`,
   `tree-farm-turtle`, `crop-farm-turtle`, `mine-turtle`, `gps-deployer` and
   `builder-turtle`.

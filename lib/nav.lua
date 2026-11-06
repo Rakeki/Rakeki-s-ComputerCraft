@@ -6,8 +6,10 @@ local nav = {}
 
 local STATE_FILE = "/.nav_state"
 local GPS_RETRY = 5 -- seconds between tries while waiting for GPS
-local BOUNDS_SETTING = "nav.bounds" -- "x1,z1,x2,z2": the world X/Z box no move may leave (both corners inside)
-local OUT_OF_BOUNDS = "the edge of my area (nav.bounds)" -- the error a move past it returns
+local RANGE_SETTING = "nav.range" -- blocks a turtle may go from where it started, along X or Z (0: no limit)
+local DEFAULT_RANGE = 256 -- the range when nav.range isn't set
+local MOVED_BY = 8 -- GPS this far from the saved position: the player moved it, so that's its new start
+local TOO_FAR = "too far from where I started (nav.range)" -- the error a move past the range returns
 
 -- Headings: 0 = north (-z), 1 = east (+x), 2 = south (+z), 3 = west (-x)
 local DIRS = { [0] = { x = 0, z = -1 }, [1] = { x = 1, z = 0 }, [2] = { x = 0, z = 1 }, [3] = { x = -1, z = 0 } }
@@ -19,11 +21,13 @@ local PROTECTED = { "chest", "barrel", "shulker_box", "hopper", "furnace", "comp
 
 local pos = { x = 0, y = 0, z = 0 }
 local heading = 0
-local onMap = false -- pos is in world coordinates (GPS, or typed from F3), so the bounds apply
+local onMap = false -- pos is in world coordinates (GPS, or typed from F3)
+local origin -- { x, z, world }: where it started, the middle of its range
 
-settings.define(BOUNDS_SETTING, {
-  type = "string",
-  description = "The area this turtle may not leave: x1,z1,x2,z2 (world X and Z from F3, both corners inside).",
+settings.define(RANGE_SETTING, {
+  type = "number",
+  default = DEFAULT_RANGE,
+  description = "How far this turtle may go from where it started, in blocks along X or Z (0: no limit).",
 })
 
 -- Crash-safe save files (lib/files.lua): a temp file first, so a crash
@@ -31,7 +35,7 @@ settings.define(BOUNDS_SETTING, {
 nav.writeFile, nav.readFile, nav.deleteFile = files.write, files.read, files.delete
 
 local function save()
-  nav.writeFile(STATE_FILE, { x = pos.x, y = pos.y, z = pos.z, heading = heading, world = onMap })
+  nav.writeFile(STATE_FILE, { x = pos.x, y = pos.y, z = pos.z, heading = heading, world = onMap, origin = origin })
 end
 
 local function load()
@@ -40,42 +44,59 @@ local function load()
   pos = { x = s.x, y = s.y, z = s.z }
   heading = s.heading
   onMap = s.world == true
+  origin = type(s.origin) == "table" and s.origin or nil
   return true
 end
 
----------------------------------------------------------------- bounds
+---------------------------------------------------------------- range
 
--- The box from the nav.bounds setting, or nil for none (or a broken one).
-nav.OUT_OF_BOUNDS = OUT_OF_BOUNDS
+-- A turtle never goes more than nav.range blocks (along X or Z) from where
+-- it started: the first place it knew its position. Up and down are never
+-- limited, so it can always climb out or dig down.
+nav.TOO_FAR = TOO_FAR
 
-function nav.bounds()
-  local v = settings.get(BOUNDS_SETTING)
-  if type(v) ~= "string" then return nil end
-  local n = {}
-  for word in v:gmatch("%-?%d+") do n[#n + 1] = tonumber(word) end
-  if #n ~= 4 then return nil end
-  return { x1 = math.min(n[1], n[3]), z1 = math.min(n[2], n[4]), x2 = math.max(n[1], n[3]), z2 = math.max(n[2], n[4]) }
+-- The range in blocks, or nil for no limit.
+function nav.range()
+  local r = tonumber(settings.get(RANGE_SETTING))
+  if not r then return DEFAULT_RANGE end
+  if r <= 0 then return nil end
+  return math.floor(r)
 end
 
--- How far (in blocks, X plus Z) the column x, z is outside the bounds: 0 inside.
-local function outside(b, x, z)
-  return math.max(0, b.x1 - x, x - b.x2) + math.max(0, b.z1 - z, z - b.z2)
+-- Where it started, { x, z }, or nil before it knows its position.
+function nav.origin() return origin and { x = origin.x, z = origin.z } end
+
+local function away(x, z) return math.max(math.abs(x - origin.x), math.abs(z - origin.z)) end
+
+-- True when the column x, z is within range of where it started.
+function nav.inRange(x, z)
+  local r = nav.range()
+  return not (r and origin) or away(x, z) <= r
 end
 
--- True when x, z is inside the bounds, or there are none, or the position
--- isn't in world coordinates (a job counted from its own start).
-function nav.inBounds(x, z)
-  local b = onMap and nav.bounds()
-  return not b or outside(b, x, z) == 0
-end
-
--- A move onto column x, z is allowed if it's inside, or (a turtle placed
--- outside) it gets closer to the area.
+-- A move onto column x, z is allowed within range, or (somehow already
+-- out of it) when it brings the turtle closer.
 local function mayMoveTo(x, z)
-  local b = onMap and nav.bounds()
-  if not b then return true end
-  local after = outside(b, x, z)
-  return after == 0 or after < outside(b, pos.x, pos.z)
+  local r = nav.range()
+  if not (r and origin) then return true end
+  local after = away(x, z)
+  return after <= r or after < away(pos.x, pos.z)
+end
+
+-- Make here the start: the first time it knows its position, when its
+-- position changes to another kind of coordinates (a job without GPS counts
+-- from its own start), or when it's been moved.
+local function anchor(moved)
+  if not origin or origin.world ~= onMap or moved then
+    if origin and moved then print("I've been moved: this is my new start.") end
+    origin = { x = pos.x, z = pos.z, world = onMap }
+  end
+end
+
+-- Start the range from here (e.g. a turtle given a new home).
+function nav.resetOrigin()
+  origin = { x = pos.x, z = pos.z, world = onMap }
+  save()
 end
 
 local ACTIONS = {
@@ -115,7 +136,7 @@ end
 
 local function tryMove(dir)
   if not hasFuel() then return false, "nofuel" end
-  if dir == "forward" and not mayMoveTo(pos.x + DIRS[heading].x, pos.z + DIRS[heading].z) then return false, OUT_OF_BOUNDS end
+  if dir == "forward" and not mayMoveTo(pos.x + DIRS[heading].x, pos.z + DIRS[heading].z) then return false, TOO_FAR end
   local a = ACTIONS[dir]
   for _ = 1, 30 do
     if a.move() then return true end
@@ -198,8 +219,8 @@ function nav.goTo(tx, ty, tz)
     if pos.x ~= tx then nav.face(tx > pos.x and 1 or 3) else nav.face(tz > pos.z and 2 or 0) end
     local ok, err = nav.forward()
     if not ok then
-      -- going over doesn't help with the boundary: stop at once
-      if err == "nofuel" or err == OUT_OF_BOUNDS or detours >= 8 then return false, err end
+      -- going over doesn't help with the range: stop at once
+      if err == "nofuel" or err == TOO_FAR or detours >= 8 then return false, err end
       detours = detours + 1
       local upOk, upErr = nav.up()
       if not upOk then return false, upErr end
@@ -281,6 +302,8 @@ end
 local function calibrate()
   local p1 = locate()
   if not p1 then return false end
+  -- far from where it last saved itself (in world coordinates): picked up and placed elsewhere
+  local moved = onMap and (math.abs(p1.x - pos.x) > MOVED_BY or math.abs(p1.z - pos.z) > MOVED_BY)
   fuelForStep()
   local moved, turns = false, 0
   for _ = 1, 4 do
@@ -301,6 +324,7 @@ local function calibrate()
     pos = p1 -- boxed in: position is right, heading is the last saved one
   end
   onMap = true
+  anchor(moved)
   for _ = 1, turns % 4 do nav.turnLeft() end
   save()
   return true
@@ -314,12 +338,14 @@ function nav.init(useGps)
   return loaded
 end
 
--- world: these are world coordinates (from GPS or F3), so the bounds apply;
--- leave it out for a position counted from the job's own start.
+-- world: these are world coordinates (from GPS or F3); leave it out for a
+-- position counted from the job's own start. Either way the range starts
+-- here if it hasn't started yet in that kind of coordinates.
 function nav.setPosition(x, y, z, h, world)
   onMap = world == true
   pos = { x = x, y = y, z = z }
   heading = type(h) == "string" and HEADINGS[h] or h
+  anchor(false)
   save()
 end
 

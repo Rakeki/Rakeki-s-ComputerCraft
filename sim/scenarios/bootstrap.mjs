@@ -1,19 +1,18 @@
-// Four turtles and nothing else, all placed in the middle chunk of 9x9
-// chunks they may not leave: how far towards a whole base do today's
-// programs get on their own?
+// Four turtles and nothing else, placed together in one chunk: how far
+// towards a whole base do today's programs get on their own? Each keeps
+// within nav.range of where it started (lib/nav.lua; 256 blocks unless set).
 //
 // The player places four turtles in the middle chunk, each with an ender
 // modem, a tool and a chest behind it with a starter kit, then types a few
 // commands into each (what a foreman program would have to do for them).
 // Each faces outwards, so its job goes into a quarter of its own.
 // check() prints every step of a full base: done, or what's missing for it.
-import { newWorld, addComputer, addChest, play, install, run, fence, tree } from "../core/base.mjs";
+import { newWorld, addComputer, addChest, play, install, run, tree } from "../core/base.mjs";
 import { DIRS, OPP } from "../core/world.mjs";
 
-const AREA = [0, 0, 8, 8]; // chunks 0..8: x and z 0..143
 const MID = [64, 64]; // the middle chunk (4, 4) runs from x 64, z 64 to x 79, z 79
-// lib/nav.lua keeps each turtle in it (the sim's fence notes any try that gets past)
-const BOUNDS = "set nav.bounds 0,0,143,143";
+// the pathfinder's range: its 100-block tunnel north has to stop 64 blocks out
+const PATHFINDER_RANGE = "set nav.range 64";
 
 const back = (p, f) => { const d = DIRS[OPP[f]]; return [p[0] + d[0], p[1] + d[1], p[2] + d[2]]; };
 
@@ -32,10 +31,11 @@ export const PLACES = {
   leveller: { at: [0, 15], facing: "south", job: "a 24x24 plaza for the village, south-west" },
   forester: { at: [15, 15], facing: "east", job: "a 3x3 tree farm, south-east" },
 };
+// what the replay viewer draws: the four quarters the jobs go into, and the GPS overhead
+export const VIEW = { x0: 34, x1: 100, z0: -4, z1: 108, y0: 40, y1: 130 };
 const spot = (name) => [MID[0] + PLACES[name].at[0], 64, MID[1] + PLACES[name].at[1]];
 
 export function build(w = newWorld()) {
-  fence(w, ...AREA);
   // trees scattered about, as on real land (the same every run), none in the middle chunk
   for (let i = 0; i < 40; i++) {
     const x = 6 + ((i * 37) % 132), z = 6 + ((i * 61 + 17) % 132);
@@ -52,7 +52,7 @@ export function build(w = newWorld()) {
   s.pathfinder.role = "gps-deployer";
   w.on("placed-computer", ({ turtle, computer }) => { if (turtle === s.pathfinder) { computer.role = "gps"; computer.program = "gps host"; computer.deployed = true; } });
   s.pathfinder.boot();
-  play(w, s.pathfinder, [...run(BOUNDS), ...install("gps-deployer"), ...run("refuel all"), ...run("gps-deploy 120"),
+  play(w, s.pathfinder, [...run(PATHFINDER_RANGE), ...install("gps-deployer"), ...run("refuel all"), ...run("gps-deploy 120"),
     ["until", /X:$/, 20], ["type", `${pf[0]}\n`], ["until", /Y:$/, 5], ["type", "64\n"], ["until", /Z:$/, 5], ["type", `${pf[2]}\n`],
     ["until", /Facing/, 5], ["type", "north\n"], ["until", /Enter to start/, 20], ["type", "\n"],
     // a second job on the same turtle: the installer replaces startup.lua
@@ -65,20 +65,27 @@ export function build(w = newWorld()) {
   s.digger = worker(w, "Digger", spot("digger"), PLACES.digger.facing, "minecraft:diamond_pickaxe", { coal: 64, cobblestone: 128 }, { coal: 8 });
   s.digger.role = "excavate-turtle";
   s.digger.boot();
-  play(w, s.digger, [...run(BOUNDS), ["wait", 200], ...install("excavate-turtle"), ...run("install plan cellar"), ["until", /Cellar is installed/, 60],
+  play(w, s.digger, [["wait", 200], ...install("excavate-turtle"), ...run("install plan cellar"), ["until", /Cellar is installed/, 60],
     ...run("excavate cellar down"), ["wait", 5], ["type", "\n"]]);
 
   // 3. The leveller: flattens the plaza where the village would go.
   s.leveller = worker(w, "Leveller", spot("leveller"), PLACES.leveller.facing, "minecraft:diamond_pickaxe", { coal: 64 }, { coal: 8 });
   s.leveller.role = "level-turtle";
   s.leveller.boot();
-  play(w, s.leveller, [...run(BOUNDS), ["wait", 200], ...install("level-turtle"), ...run("level 24 24"), ["wait", 5], ["type", "\n"]]);
+  play(w, s.leveller, [["wait", 200], ...install("level-turtle"), ...run("level 24 24"), ["wait", 5], ["type", "\n"]]);
 
   // 4. The forester: an axe instead of a pickaxe, saplings and bone meal on board.
   s.forester = worker(w, "Forester", spot("forester"), PLACES.forester.facing, "minecraft:diamond_axe", {}, { oak_sapling: 8, bone_meal: 16, coal: 16 });
   s.forester.role = "tree-farm-turtle";
   s.forester.boot();
-  play(w, s.forester, [...run(BOUNDS), ["wait", 200], ...install("tree-farm-turtle"), ...run("treefarm 3 3"), ["wait", 5], ["type", "\n"]]);
+  play(w, s.forester, [["wait", 200], ...install("tree-farm-turtle"), ...run("treefarm 3 3"), ["wait", 5], ["type", "\n"]]);
+  // how far each turtle got from where it was placed (along X or Z)
+  s.farthest = new Map();
+  const starts = new Map([s.pathfinder, s.digger, s.leveller, s.forester].map((t) => [t, [...t.pos]]));
+  w.on("move", ({ turtle, pos }) => {
+    const st = starts.get(turtle);
+    if (st) s.farthest.set(turtle, Math.max(s.farthest.get(turtle) || 0, Math.abs(pos[0] - st[0]), Math.abs(pos[2] - st[2])));
+  });
   return s;
 }
 
@@ -105,9 +112,10 @@ export function check(s) {
     ["Storage cellar dug", said(s.digger, /Excavation complete/), "excavate cellar down"],
     ["Wood coming in", logs > 0, `${logs} logs`],
     ["Ore coming in", ores > 0, ores ? `${ores} ores` : "none: the strip miner started at ground level, and nothing takes a turtle down to mining depth first"],
-    ["One turtle, two jobs (GPS, then mining)", said(s.pathfinder, /Strip mine complete|overall|edge of my area/), "reinstalled by hand"],
-    ["The strip miner stopped at the edge", /edge of my area/.test(s.pathfinder.term.dump()), "its 100-block tunnel reaches Z 0 after 64"],
-    ["Stayed inside the 9x9 chunks", w.outsideTries.length === 0, w.outsideTries.length ? `${w.outsideTries.length} moves/digs outside, first by ${w.outsideTries[0].label} at ${w.outsideTries[0].pos.join(",")}` : "no tries outside"],
+    ["One turtle, two jobs (GPS, then mining)", said(s.pathfinder, /Strip mine complete|overall|too\s+far\s+from/), "reinstalled by hand"],
+    ["The strip miner stopped at its range", /too\s+far\s+from\s+where\s+I\s+started/.test(s.pathfinder.term.dump()), "nav.range 64, a 100-block tunnel"],
+    ["Every turtle stayed within its range", (s.farthest.get(s.pathfinder) || 0) <= 64 && [s.digger, s.leveller, s.forester].every((t) => (s.farthest.get(t) || 0) <= 256),
+      [...s.farthest].map(([t, n]) => `${t.label} ${n}`).join(", ") + " blocks out at most"],
     // nothing in the repo does these yet
     ["Storage hall built (chests, cable, modems, computer, monitor)", false, "missing: no program places them and installs the storage computer"],
     ["Storage set up with nobody there", false, "missing: the first 'storage' run needs its setup screen"],

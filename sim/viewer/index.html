@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Turtle replay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@500;600&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <header>
+    <h1>Turtle replay <small id="title"></small></h1>
+    <span id="summary"></span>
+  </header>
+  <main>
+    <section class="view-wrap">
+      <div class="view" id="view"><div class="stage" id="stage"><canvas id="world"></canvas><canvas id="over"></canvas></div></div>
+      <div class="controls">
+        <button id="play" aria-label="Play">▶</button>
+        <select id="speed" aria-label="Speed">
+          <option value="1">1×</option><option value="5">5×</option><option value="20" selected>20×</option><option value="60">60×</option><option value="200">200×</option>
+        </select>
+        <input id="time" type="range" min="0" max="1" step="0.5" value="0" aria-label="Time">
+        <span id="clock">0:00</span>
+        <button id="turn" title="Turn the view">⟳</button>
+        <button id="fit" title="Whole area">⤢</button>
+      </div>
+      <ol class="ticker" id="ticker"></ol>
+    </section>
+    <aside id="side">
+      <div id="list"></div>
+      <div id="detail"></div>
+    </aside>
+  </main>
+  <script src="voxel.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>

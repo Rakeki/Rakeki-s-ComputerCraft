@@ -43,8 +43,6 @@ export function turtleApi(t, w) {
     if (!unlimited() && t.fuel <= 0) return [false, "Out of fuel"];
     const to = where === "back" ? (() => { const d = DIRS[OPP[t.facing]]; return [t.pos[0] + d[0], t.pos[1] + d[1], t.pos[2] + d[2]]; })() : at(where);
     if (to[1] < -64 || to[1] > 319) return [false, to[1] < -64 ? "Too low to move" : "Too high to move"];
-    // a scenario's boundary (w.bounds): turtles may not leave it; tries are noted
-    if (w.outside && w.outside(to)) { w.noteOutside(t, to, "move"); return [false, "Movement obstructed"]; }
     const b = w.block(...to);
     if (solid(b)) return [false, "Movement obstructed"];
     const here = w.block(...t.pos);
@@ -60,7 +58,6 @@ export function turtleApi(t, w) {
 
   const dig = (where) => {
     const p = at(where);
-    if (w.outside && w.outside(p)) { w.noteOutside(t, p, "dig"); return [false, "Cannot break protected block"]; }
     const b = w.block(...p);
     if (!b || items.FLUIDS.has(b.name)) return [false, "Nothing to dig here"];
     if (items.UNBREAKABLE.has(b.name) || b.computer) return [false, "Cannot break unbreakable block"];

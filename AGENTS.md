@@ -23,7 +23,7 @@ computers/                  In-game programs, one folder each (never in the repo
 lib/                        Shared modules, copied to /lib/ in-game, loaded with require("lib.<module>")
   README.md                 One line per module: what it does and which programs use it
   nav.lua                   Turtle position tracking + safe movement (saved across reboots, GPS checks; nav.waitForGps;
-                            never past the nav.bounds setting, x1,z1,x2,z2, while the position is from GPS)
+                            never more than the nav.range setting, 256 unless set, from where it started)
   report.lua                Sends status to the status server; no-op without a modem
   errlog.lua                Saves errors to /errors.log in one format for every program
   screen.lua                Flicker-free drawing on monitors and terminals (hidden frame, shown in one go); finds and scales monitors
