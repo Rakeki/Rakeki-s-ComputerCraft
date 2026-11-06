@@ -2,7 +2,7 @@
 // world, all running at once. `node sim/run.mjs base 1800` runs it for half
 // an hour of game time; `node sim/map.mjs` turns the result into the map.
 import { newWorld, addComputer, addChest, addGps, play, install, run } from "../core/base.mjs";
-import { addCreativeCrate } from "../core/machines.mjs";
+import { addCreativeCrate, addEnderChest } from "../core/machines.mjs";
 import { DIRS, OPP, CCW } from "../core/world.mjs";
 import { statusServer, autoMine } from "./mining.mjs";
 import { storage } from "./storage.mjs";
@@ -64,9 +64,13 @@ export function build(w = newWorld()) {
   play(w, s.control, [["wait", 160], ...install("build-control"), ...run("install plan cottage"), ["until", /Cottage is installed/, 60],
     ...run("build cottage 26 64 -30"), ["until", /\?/, 30], ["type", "y\n"]]);
 
-  // standalone turtles; the excavator digs a room up from where it stands, underground
+  // the excavator digs a room up from where it stands, underground: its chest is an
+  // ender chest whose twin is on the storage cable (README "With a storage system"),
+  // empty, so it claims it, orders its coal from storage and its loot goes home
   w.setBlock(40, 40, 40, null);
-  s.excavator = turtleAt(w, [40, 40, 40], "north", { coal: 32 }, { role: "excavate-turtle" });
+  s.excavator = turtleAt(w, [40, 40, 40], "north", null, { role: "excavate-turtle", ender: true });
+  s.excavator.homeChest = addEnderChest(w, back([40, 40, 40], "north"), "orange-orange-black");
+  s.excavatorTwin = addEnderChest(w, [13, 64, 3], "orange-orange-black", { net: s.net });
   s.excavator.boot();
   play(w, s.excavator, [["wait", 40], ...install("excavate-turtle"), ...run("excavate 5 5 3"), ["wait", 5], ["type", "\n"]]);
 
@@ -103,6 +107,8 @@ export function check(s) {
   const out = [];
   const seen = (c, re, what) => { if (!re.test(c.term.dump())) out.push(`${c.label || c.role}: ${what}`); };
   if (!s.posts.length) out.push("overseer bridge: posted nothing");
+  seen(s.excavator, /hooked up to the storage\s+system/, "never hooked its ender chest up to the storage system");
+  if (s.excavator.fuel < 1000) out.push(`excavator: fuel ${s.excavator.fuel}, so it got no coal from storage`);
   if (s.crateChest.inv.count("minecraft:cobblestone") < 64) out.push(`crate turtle: its chest has ${s.crateChest.inv.count("minecraft:cobblestone")} cobblestone, want 64`);
   return out;
 }

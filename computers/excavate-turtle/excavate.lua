@@ -24,8 +24,15 @@
 -- the turtle faces, so build-control can fill it unturned. It prints where
 -- the builder turtle goes (the plan's "home") and the build command when
 -- it's done.
+--
+-- With a storage computer in range, the chest behind the start can be one of
+-- its chests (a wired modem on its cable, or an ender chest whose twin is on
+-- it): the turtle claims it as its delivery chest, orders fuel and
+-- cobblestone into it, and the loot it leaves there goes home on its own.
 local nav = require("lib.nav")
 local inv = require("lib.inv") -- inventory and fuel
+local net = require("lib.net") -- asking the storage computer for fuel and cobblestone
+local claim = require("lib.claim") -- tells the storage computer the chest behind the start is mine
 local report = require("lib.report") -- status server; does nothing without a modem
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 
@@ -52,6 +59,17 @@ local PATCH_BLOCKS = { ["minecraft:cobblestone"] = true, ["minecraft:cobbled_dee
 -- Fuel it tops up to from the chest behind the start (coal it has mined,
 -- or any fuel you put in there).
 local REFUEL_TO = 5000
+
+-- Order fuel and cobblestone from a storage computer, delivered to the chest
+-- behind the start (it must be on the storage cable, or an ender chest whose
+-- twin is), which also sends my loot home. False: the chest is all there is.
+local USE_STORAGE = true
+local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
+local CLAIM_RETRY = 300 -- seconds before trying again to hook my chest up, if it didn't work
+-- Fuel asked for when low, in this order, and how much of it.
+local STORAGE_FUEL = { { "minecraft:coal", 64 }, { "minecraft:charcoal", 64 }, { "minecraft:coal_block", 8 } }
+-- Asked for when patching runs out, in this order (SEAL_SPARE of it).
+local STORAGE_PATCH = { "minecraft:cobblestone", "minecraft:cobbled_deepslate" }
 
 -- Thrown away instead of carried back to the chest.
 local JUNK = {}
@@ -308,6 +326,54 @@ local function refuelFromChest(target)
   turtle.select(1)
 end
 
+---------------------------------------------------------------- the storage system
+
+-- the storage computer, looked up again a minute after none answered
+local storage = net.peer("storage", { retry = 60, wait = STORAGE_WAIT })
+local supply = claim.tracker("delivery", CLAIM_RETRY) -- whether the storage system knows my chest
+local saidHooked -- the chest last reported as hooked up, so it's said once
+
+local function askStorage(msg)
+  if not USE_STORAGE then return nil end
+  return (storage:ask(msg))
+end
+
+-- Facing the chest: make sure the storage system knows it's mine. From then
+-- on it takes away whatever I leave there, and sends my orders there.
+local function hookChest()
+  if not USE_STORAGE or not supply:due() then return end
+  local ok, why = supply:check(askStorage, "front")
+  if ok then
+    if saidHooked ~= why then print(("My chest is hooked up to the storage system (%s): loot goes home from it."):format(why)) end
+    saidHooked = why
+  elseif ok == false then
+    print("Couldn't hook my chest up to the storage system: " .. why)
+  end
+end
+
+-- Facing the chest: have the storage system put up to n of the first of
+-- choices ({ name, n } each) it has into my chest. True if some are there.
+local function orderOne(choices)
+  hookChest()
+  if not supply.done then return false end -- never into someone else's chest
+  for _, c in ipairs(choices) do
+    local r = askStorage({ type = "deliver", items = { [c[1]] = c[2] } })
+    if not r then return false end
+    supply:seen(r) -- not sent to my own chest: find it again next time
+    if r.to ~= "own" then return false end
+    if type(r.ready) == "table" and (r.ready[c[1]] or 0) > 0 then return true end
+  end
+  return false
+end
+
+-- Facing the chest: fuel from it, and from the storage system if that's short.
+local function topUpFuel(target)
+  refuelFromChest(target)
+  if fuelLevel() < target and orderOne(STORAGE_FUEL) then refuelFromChest(target) end
+end
+
+---------------------------------------------------------------- trips home
+
 local function unload()
   print("Inventory full, emptying into the chest")
   report.set("unloading", "inventory full")
@@ -316,6 +382,7 @@ local function unload()
   nav.face(job.origin.heading)
   dropJunk()
   faceChest()
+  hookChest()
   local warned = false
   while true do
     local full = false
@@ -324,25 +391,27 @@ local function unload()
     end)
     if not full then break end
     if not warned then
-      print("Chest behind the start is missing or full. Waiting...")
+      print(supply.done and "My chest is full and the storage system isn't emptying it (is storage full?). Waiting..."
+        or "Chest behind the start is missing or full. Waiting...")
       report.set("waiting", "chest full or missing")
       warned = true
     end
     sleep(5)
   end
   -- while here, top up from any fuel in the chest
-  if fuelLevel() < REFUEL_TO then refuelFromChest(REFUEL_TO) end
+  if fuelLevel() < REFUEL_TO then topUpFuel(REFUEL_TO) end
 end
 
--- Go home and refuel from the chest there. If it hasn't got enough, wait for
--- the player to add fuel to the chest or to the turtle.
+-- Go home and refuel from the chest there (and the storage system). If that
+-- hasn't got enough, wait for the player to add fuel.
 local function waitForFuel(target)
   reach(plan.start)
   faceChest()
   if emptySlots() < 2 then dropItems(function() return true end, turtle.drop) end
-  refuelFromChest(math.max(target, REFUEL_TO))
+  topUpFuel(math.max(target, REFUEL_TO))
   if fuelLevel() >= target then return end
-  print(("Need %d fuel, have %d. Put fuel in the chest behind me or in my inventory."):format(target, fuelLevel()))
+  print(("Need %d fuel, have %d. Put fuel in the chest behind me or in my inventory%s."):format(target, fuelLevel(),
+    supply.done and ", or coal in the storage system" or ""))
   report.set("waiting", ("needs fuel (%d)"):format(target))
   while fuelLevel() < target do
     local timer = os.startTimer(10) -- the chest doesn't announce changes, so check it every 10s
@@ -350,7 +419,7 @@ local function waitForFuel(target)
       local event, value = os.pullEvent()
     until event == "turtle_inventory" or (event == "timer" and value == timer)
     refuelFromInventory(target)
-    refuelFromChest(math.max(target, REFUEL_TO))
+    topUpFuel(math.max(target, REFUEL_TO))
   end
 end
 
@@ -446,13 +515,53 @@ local function digCell(box, p)
   end
 end
 
--- Out of cobblestone mid-seal (a really big cave): go home and ask for more.
+-- Facing the chest: take cobblestone from it, up to SEAL_SPARE. Anything
+-- else taken out goes back in.
+local function takePatchBlocks()
+  local putBack = {}
+  for slot = 1, 16 do
+    if inv.count(PATCH_BLOCKS) >= SEAL_SPARE then break end
+    if turtle.getItemCount(slot) == 0 then
+      turtle.select(slot)
+      if not turtle.suck() then break end -- chest is empty
+      local item = turtle.getItemDetail(slot)
+      if item and not PATCH_BLOCKS[item.name] then putBack[#putBack + 1] = slot end
+    end
+  end
+  for _, slot in ipairs(putBack) do
+    turtle.select(slot)
+    turtle.drop()
+  end
+  turtle.select(1)
+end
+
+-- Out of cobblestone mid-seal (a really big cave): go home for more, from
+-- the chest, the storage system or the player.
 local function restockBlocks()
   reach(plan.start)
   faceChest()
-  print("Out of cobblestone for patching walls. Add some to my inventory.")
-  report.set("waiting", "needs cobblestone")
-  while not selectPatchBlock() do os.pullEvent("turtle_inventory") end
+  -- room to take them: loot goes in the chest
+  if emptySlots() < 4 then dropItems(function(item) return not PATCH_BLOCKS[item.name] end, turtle.drop) end
+  local said = false
+  while true do
+    takePatchBlocks()
+    if not selectPatchBlock() then
+      local choices = {}
+      for i, name in ipairs(STORAGE_PATCH) do choices[i] = { name, SEAL_SPARE } end
+      if orderOne(choices) then takePatchBlocks() end
+    end
+    if selectPatchBlock() then return end
+    if not said then
+      print(("Out of cobblestone for patching walls. Put some in my inventory or the chest behind me%s."):format(
+        supply.done and ", or in the storage system" or ""))
+      report.set("waiting", "needs cobblestone")
+      said = true
+    end
+    local timer = os.startTimer(10) -- the chest doesn't announce changes, so check it every 10s
+    repeat
+      local event, value = os.pullEvent()
+    until event == "turtle_inventory" or (event == "timer" and value == timer)
+  end
 end
 
 -- Fill any gap on the outward sides of an edge cell. Standing in the cell
@@ -678,11 +787,17 @@ else
   if SEAL_WALLS then print("Then I wall in every gap and dry it out.") end
   print(("Needs about %d fuel (have %s). I refuel from the chest"):format(fuel, tostring(turtle.getFuelLevel())))
   print("behind me, so put coal in it. Mined coal goes there too.")
+  if USE_STORAGE then
+    print("If it's on a storage system's cable (or")
+    print("an ender chest twin of one), I order fuel")
+    print("through it and the loot goes home.")
+  end
   print("Chest goes directly behind me. Press Enter to start.")
   read()
   save()
   faceChest()
-  refuelFromChest(REFUEL_TO)
+  hookChest()
+  topUpFuel(REFUEL_TO)
   nav.face(job.origin.heading)
 end
 

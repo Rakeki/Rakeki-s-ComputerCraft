@@ -17,7 +17,7 @@
       "deviceLabel": "Mining turtle",
       "color": "orange",
       "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "net", "claim"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -30,11 +30,12 @@
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
         "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress, cavern, deephold) and prints where the builder goes and the build command",
-        "Resumes after reboots, chunk unloads, or being picked up"
+        "Resumes after reboots, chunk unloads, or being picked up",
+        "With a storage system: its chest on the storage cable (or an ender chest twin of one) sends the loot home and gets fuel and cobblestone ordered into it"
       ],
       "setup": [
         "Place the turtle at floor level in one corner of the hole-to-be. The hole grows forward and to the right.",
-        "Put a chest directly behind it with some coal in. Loot goes in there too.",
+        "Put a chest directly behind it with some coal in. Loot goes in there too. With a storage computer, make it a chest on the storage cable, or an ender chest whose twin is.",
         "Run the command. It prints the size and the fuel it needs, then gets to work."
       ],
       "commands": [
@@ -53,6 +54,7 @@
       "integrates": [
         ["status-server", "Shows its progress, position and fuel on the dashboard."],
         ["gps-deployer", "Needs GPS: it checks its position every 20 steps and finds its way back if moved."],
+        ["storage-computer", "Its chest can be one on the storage cable (or an ender chest twin of one): it claims it as its delivery chest, so the loot it leaves goes home, and orders coal and cobblestone into it when short."],
         ["builder-turtle", "Builds whatever goes inside the hole from a plan sent by build control or the projector: inner walls, decorative walls and details. After excavate <plan>, that plan: any of the fourteen underground plans, from the bunker to the deep hold."]
       ],
       "render": { "kind": "voxel", "scene": "excavate", "caption": "Cut-away of the default hole: empty, with cobblestone where it sealed caves in the walls and floor." },
@@ -69,6 +71,9 @@
           ["Then I wall in every gap and dry it out.", "", "white"],
           ["Needs about 6000 fuel (have 5000). I refuel from the chest", "", "white"],
           ["behind me, so put coal in it. Mined coal goes there too.", "", "white"],
+          ["If it's on a storage system's cable (or", "", "white"],
+          ["an ender chest twin of one), I order fuel", "", "white"],
+          ["through it and the loot goes home.", "", "white"],
           ["Chest goes directly behind me. Press Enter to start.", "", "yellow"]
         ]
       }

@@ -1,6 +1,6 @@
 # excavate-turtle
 
-- **Type:** mining turtle, plus a wireless or ender modem for GPS and the [status server](../status-server/README.md)
+- **Type:** mining turtle, plus a wireless or ender modem for GPS, the [status server](../status-server/README.md) and (if you have one) the [storage computer](../storage-computer/README.md)
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
@@ -31,7 +31,8 @@ digging it also turns any water or lava source blocks it finds above or below
 it into cobblestone and digs them out.
 
 It carries 3 stacks of cobblestone for patching from what it digs. If a big
-cave needs more, it goes back to the start and asks for some. To skip sealing,
+cave needs more, it goes back to the start for some: from the chest, the
+[storage system](#with-a-storage-system), or you. To skip sealing,
 set `SEAL_WALLS = false` at the top of `excavate.lua`; it saves a few thousand
 fuel, but then water and lava can get in.
 
@@ -45,6 +46,8 @@ fuel, but then water and lava can get in.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- [`lib/net.lua`](../../lib/net.lua): asks the storage computer for fuel and cobblestone (copy to `/lib/net.lua`). Needed; without a storage computer it just finds none.
+- [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer the chest behind the start is this turtle's (copy to `/lib/claim.lua`). Needed.
 
 ## Use
 
@@ -77,6 +80,34 @@ fuel, but then water and lava can get in.
 It digs the hole from the top down in 3-high layers, then seals it from the
 top down, and finally returns to the start. If the chest fills up, or it runs
 out of fuel or cobblestone, it waits at the start until you fix it.
+
+## With a storage system
+
+If you run a [storage computer](../storage-computer/README.md), the chest
+behind the start can be part of it, and you never have to empty it or fill it
+with coal:
+
+- **A chest on the storage cable:** put a wired modem on the chest, cabled to
+  the storage network, and right-click the modem to connect it.
+- **Far from storage:** use an ender chest, with its twin (same colours) on
+  the storage cable with a wired modem. Give the turtle an ender modem so the
+  storage computer hears it from far away.
+
+When it starts, and the first time it's back at the chest, the turtle tells
+the storage computer that chest is its own (its delivery chest; nothing to
+pick in `storage setup`). After that:
+
+- **Loot goes home.** Whatever it drops in the chest is put away into storage
+  within a few seconds, so the chest never fills.
+- **Fuel comes from storage.** When the chest has no fuel for it, it orders
+  coal (or charcoal, or coal blocks) into the chest and burns that. Coal you
+  put in the chest yourself is put away too, so stock storage instead.
+- **Cobblestone comes from storage.** When patching runs out, it orders 3
+  stacks of cobblestone (or cobbled deepslate) the same way.
+
+If the storage system has none, it waits at the start and says so, as without
+one. To turn all this off, set `USE_STORAGE = false` at the top of
+`excavate.lua`.
 
 A job started by an older version (the one with rooms, a ledge and stairs)
 carries on as just the hole: if it was already past the hall, it goes straight

@@ -37,7 +37,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
   chest), so nothing has to be picked in `storage setup`. Used by
-  `village-turtle`, `builder-turtle`, `crafter-turtle`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `craft-overseer`
+  `village-turtle`, `builder-turtle`, `excavate-turtle`, `crafter-turtle`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `craft-overseer`
   (role `hub`: its ender chest's twin, for crafting turtles far away) and `workchest.lua`
   (role `work`: a far-away work chest, through an ender chest).
 - `mekfeed.lua`: Mekanism machines fed through a hopper or barrel (CC can't
@@ -81,7 +81,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `mine-server`, `mine-turtle`, `status-server`, `blueprint-projector`,
   `builder-turtle`, `storage-computer`, `crafter-turtle`, `craft-overseer`,
   `factory`,
-  `crate-turtle` (for `crate stock`), `build-control`, `instabuild`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `turtle-finder` and `update-watcher`.
+  `crate-turtle` (for `crate stock`), `excavate-turtle` (fuel and cobblestone from storage), `build-control`, `instabuild`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `turtle-finder` and `update-watcher`.
 - `files.lua`: crash-safe save files: a table written to a temp file and moved
   into place, so a crash mid-save never leaves a broken file. `lib/nav.lua`'s
   `writeFile` / `readFile` / `deleteFile` are these. Used by
