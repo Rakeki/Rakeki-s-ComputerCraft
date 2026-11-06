@@ -5,7 +5,7 @@ import path from "node:path";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // scenario → seconds of game time it needs for its checks
-const SCENARIOS = { mining: 1700, storage: 400, machines: 1300, gps: 620, extras: 900, bootstrap: 3200 };
+const SCENARIOS = { mining: 1700, storage: 400, machines: 1300, gps: 620, extras: 900, bootstrap: 3200, updates: 600 };
 const pick = process.argv.slice(2);
 let failed = 0;
 for (const [name, secs] of Object.entries(SCENARIOS)) {

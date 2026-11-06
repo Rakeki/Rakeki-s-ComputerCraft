@@ -21,7 +21,16 @@ wireless/ender modem it silently does nothing, so it is always safe to include.
 | `report.init(role)` | Role is a short "what this is for", e.g. `"excavator"`, `"auto miner"`. Call once before the main loop. |
 | `report.set(state, detail, extra)` | Current state and what it's doing. Cheap: only sends when something changed (at most every 2 s) or as a 10 s heartbeat. Call it as often as you like, e.g. every cell/step. |
 | `report.log(text)` | One-off line for the computer's activity list. |
-| `report.loop()` | Heartbeat loop; run it beside the program. |
+| `report.loop()` | Heartbeat loop; run it beside the program. It also answers the update watcher. |
+| `report.handle(ev)` | For a program with its own event loop and no `report.loop` (mine-server): pass every event; `true` when it was an update request (it may reboot the computer). |
+| `report.updateNow()` | Runs `install boot` with its text hidden and reboots if anything changed; else `false, why`. The update watcher uses it on itself. |
+
+Every report carries `versions` (the installer's `/.installed_versions`,
+program -> version, re-read every minute). On `cc_update` the update watcher
+sends `update`; the computer answers `ok` (or `why`: `install.remote` /
+`install.autoupdate` off, no http, no `/install.lua`), sets state `updating`,
+and reboots if `install boot` changed anything, else carries on and logs
+why. A reboot mid-job is fine: programs here resume after one anyway.
 
 `extra` is a table of extra fields. `{ pos = nav.getPos() }` sends a tracked
 position; add `posFrom = "fixed"` for a computer that never moves. Only pass

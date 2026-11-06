@@ -36,6 +36,11 @@ export function build(w = newWorld()) {
   play(w, s.bridge, [["wait", 30], ...install("overseer-bridge"),
     ...run("set overseer.url http://127.0.0.1:8090"), ...run("set overseer.key simkey"), ["wait", 1], ["reboot"]]);
 
+  // update watcher: ender modem, so it hears the whole base (sim/scenarios/updates.mjs pushes a version)
+  s.updates = addComputer(w, { pos: [-7, 64, -6], label: "Updates", role: "update-watcher", facing: "south", ender: true });
+  s.updates.boot();
+  play(w, s.updates, [["wait", 35], ...install("update-watcher"), ["reboot"]]);
+
   // craft overseer, on the storage cable
   s.overseer = addComputer(w, { pos: [8, 64, -7], label: "Overseer", role: "craft-overseer", facing: "north" });
   s.overseer.attach("back", w.wiredModem(s.net));

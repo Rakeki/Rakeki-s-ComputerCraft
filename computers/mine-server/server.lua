@@ -328,6 +328,8 @@ local function handle(ev)
       local reply = handlers[msg.type](id, msg)
       if reply then rednet.send(id, reply, PROTOCOL) end
     end
+  elseif report.handle(ev) then
+    -- the update watcher asked: it updated and rebooted, or there was nothing newer
   elseif view.display:clicked(ev) then
     apply(view:click(view.display:clicked(ev))) -- x, y, and whether it's a drag
   elseif name == "key" then

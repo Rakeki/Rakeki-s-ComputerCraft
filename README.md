@@ -30,6 +30,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [mine-turtle](computers/mine-turtle/README.md): AutoMine mining turtle (same code on every miner)
 - [status-server](computers/status-server/README.md): monitor dashboard showing every computer's status and what it's doing
 - [overseer-bridge](computers/overseer-bridge/README.md): listens to every rednet message and status report and posts them to the overseer server on your PC, a live browser map of every computer and turtle, what each is doing, and the messages flying between them
+- [update-watcher](computers/update-watcher/README.md): watches the website for new versions and has every computer and turtle in range that's out of date update and reboot, one at a time
 - [turtle-finder](computers/turtle-finder/README.md): pocket computer that finds a lost turtle: lists every turtle it hears, nearest first, and points an arrow to the one you pick
 - [gps-deployer](computers/gps-deployer/README.md): turtle that builds and starts a 4-computer GPS system, optionally each host inside a satellite
 - [excavate-turtle](computers/excavate-turtle/README.md): standalone turtle that digs a hole of any size and walls it in so it stays dry, ready for the builder turtles; `excavate <plan>` digs the hole an underground plan needs (fourteen of them, from a small bunker to a Create base and train station by bedrock)

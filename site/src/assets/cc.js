@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
 // the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
-// the cannon feeder, build control and the turtle finder on a pocket computer, and instabuild.
+// the cannon feeder, build control and the turtle finder on a pocket computer, instabuild, and the update watcher.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -2306,5 +2306,85 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder } };
+  //---------------------------------------------------------------- update watcher
+
+  // The update watcher's screen: same layout as computers/update-watcher/updates.lua.
+  // A new version lands on the website, and the computers that have it
+  // installed are asked one at a time, update and come back up to date.
+  function updateWatcher(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const base = [
+      ["Storage", "storage", ["storage-computer"]], ["Factory", "factory", ["factory"]],
+      ["Crafter-21", "crafter", ["crafter-turtle"]], ["Crafter-22", "crafter", ["crafter-turtle"]],
+      ["Miner-31", "auto miner", ["mine-turtle"]], ["Miner-32", "auto miner", ["mine-turtle"]],
+      ["Mine server", "mining server", ["mine-server"]], ["Builder-40", "builder", ["builder-turtle"]],
+      ["Reactor", "fission guard", ["fission-guard"]], ["Excavator-9", "excavator", ["excavate-turtle"]],
+      ["Old farm", "tree farm", null],
+    ];
+    const st = { tick: 0, pushed: null, auto: true, checked: 0 };
+    const pcs = base.map(([name, role, progs]) => ({ name, role, progs, state: progs ? "ok" : "none", at: 0 }));
+
+    // every so often a new version of one program goes up
+    const pushes = [["crafter-turtle", "mine-turtle"], ["storage-computer"], ["factory", "builder-turtle"]];
+    let p = 0;
+    function step() {
+      st.tick++; st.checked++;
+      if (st.tick % 26 === 1) {
+        st.pushed = pushes[p++ % pushes.length];
+        st.checked = 0;
+        for (const c of pcs) if (c.progs && c.progs.some((n) => st.pushed.includes(n))) c.state = "needs";
+      }
+      if (!st.auto || st.tick % 2) return;
+      // one at a time: the next out-of-date computer is asked, then updates
+      const busy = pcs.find((c) => c.state === "asking" || c.state === "updating");
+      if (busy) { busy.state = busy.state === "asking" ? "updating" : "ok"; return; }
+      const next = pcs.find((c) => c.state === "needs");
+      if (next) next.state = "asking";
+    }
+
+    function describe(c) {
+      const list = c.progs ? c.progs.join(", ") : "";
+      if (c.state === "none") return ["doesn't send versions: updates on its next boot", "gray", 3];
+      if (c.state === "needs") return [`needs ${list}`, "orange", 1];
+      if (c.state === "asking") return [`asked to update: ${list}`, "yellow", 2];
+      if (c.state === "updating") return [`updating ${list}`, "yellow", 2];
+      return ["up to date", "lime", 4];
+    }
+
+    function draw() {
+      s.clear();
+      const rows = pcs.map((c) => ({ c, d: describe(c) })).sort((a, b) => a.d[2] - b.d[2] || a.c.name.localeCompare(b.c.name));
+      const good = rows.filter((r) => r.d[1] === "lime").length;
+      s.put(1, 1, fitT(" Update watcher", W), "white", "blue");
+      const sum = `${good} up to date, ${rows.length - good} not `;
+      s.put(W - sum.length + 1, 1, sum, "white", "blue");
+      const ago = st.checked < 60 ? `${st.checked}s ago` : `${Math.floor(st.checked / 60)}m ago`;
+      s.put(1, 2, fitT(`Website: 37 programs, checked ${ago}`, W), "lightGray");
+      s.put(1, 3, fitT("this computer is up to date", W), "lightGray");
+      rows.forEach((r, i) => {
+        const y = 5 + i;
+        if (y > H - 1) return;
+        s.put(1, y, fitT(r.c.name, 16), "white");
+        s.put(18, y, fitT(r.d[0], W - 17), r.d[1]);
+      });
+      let x = 1;
+      for (const [label, bg, action] of [[" Update all ", "orange", () => {}], [" Check now ", "lightGray", () => { st.checked = 0; }],
+        [` Auto: ${st.auto ? "on " : "off"}`, "lightGray", () => { st.auto = !st.auto; }]]) {
+        s.put(x, H, label, "black", bg);
+        s.zones.push({ x1: x, x2: x + label.length - 1, y1: H, y2: H, action });
+        x += label.length + 1;
+      }
+      s.render();
+    }
+
+    setInterval(() => { step(); draw(); }, 1000);
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
+    draw();
+    return s;
+  }
+
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
 })();

@@ -79,7 +79,8 @@ what a player would notice.
 | `gps` | No GPS: the GPS deployer builds the hosts | 4 hosts on, a probe gets a fix |
 | `extras` | Tree and crop farms, mob farm, village, Nether tunnel, projector + instabuild, cobble breeder | instabuild placed blocks, the farms harvested |
 | `bootstrap` | Four turtles placed together in one chunk, each with an ender modem and a chest: GPS deployer then strip miner (`set nav.range 64`), leveller, excavator, tree farm; and a crafty furnace turtle behind the strip miner's chest | what today's programs get done alone (ore mined at Y -54, furnaces crafted, the ore smelted), and that each turtle stays within its range; prints every step of a whole base, done or what's missing |
-| `base` | All the above together, plus builders + build control, excavator, leveller, strip miner, crate turtle, turtle finder, overseer bridge, craft overseer | via `map.mjs` |
+| `updates` | The update watcher (with a monitor), a power dashboard, the AutoMine server and a dashboard set to `install.remote false`; a new version of two programs goes up on the site 4 minutes in | both updated and rebooted, the one set to say no did neither, and the watcher shows each |
+| `base` | All the above together, plus builders + build control, excavator, leveller, strip miner, crate turtle, turtle finder, overseer bridge, craft overseer, update watcher | via `map.mjs` |
 
 ## Things to know
 

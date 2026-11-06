@@ -871,6 +871,111 @@
       }
     },
     {
+      "name": "update-watcher",
+      "group": "network",
+      "mods": [],
+      "title": "Update Watcher",
+      "command": "updates",
+      "device": "computer",
+      "deviceLabel": "Computer + wireless or ender modem",
+      "color": "lime",
+      "tagline": "Publish a new version and every computer in range picks it up: the watcher sees who is out of date and has each one update and reboot, one at a time.",
+      "libs": [
+        "screen",
+        "net",
+        "report",
+        "errlog"
+      ],
+      "autostart": true,
+      "stats": [
+        [
+          "Checks the website",
+          "every 2 min"
+        ],
+        [
+          "Updates",
+          "one computer every 5 s"
+        ],
+        [
+          "Retries",
+          "5 per new version"
+        ],
+        [
+          "Listens",
+          "lib/report.lua, on every computer"
+        ]
+      ],
+      "features": [
+        "Every computer sends the versions it has installed with its status report; the watcher compares them with the website",
+        "Out-of-date computers fetch the new files in the background and reboot, then carry on with their job",
+        "One at a time, so the base never goes down all at once; then it updates itself",
+        "A list on the terminal and an optional monitor: up to date, out of date, updating, no answer",
+        "updates auto off only shows what is behind, and U updates them when you are ready",
+        "set install.remote false on any computer it should leave alone"
+      ],
+      "setup": [
+        "Place a computer with a wireless modem (an ender modem reaches every computer with one, anywhere).",
+        "Optional: put a monitor next to it or on its cable.",
+        "Install it and reboot."
+      ],
+      "commands": [
+        [
+          "updates",
+          "run the watcher (startup.lua does this on boot)"
+        ],
+        [
+          "updates auto on|off",
+          "update by itself, or only show what is out of date"
+        ],
+        [
+          "updates every <minutes>",
+          "how often to look at the website (default 2)"
+        ],
+        [
+          "updates monitor [name|none]",
+          "pick the monitor it shows the list on"
+        ],
+        [
+          "set install.remote false",
+          "on another computer: say no to the watcher"
+        ]
+      ],
+      "integrates": [
+        [
+          "report",
+          "Sends each computer's installed versions and answers the watcher, so every program that reports its status can be updated."
+        ],
+        [
+          "status-server",
+          "Shows a computer as updating while it fetches the new files."
+        ],
+        [
+          "mine-server",
+          "Answers the watcher from its own event loop."
+        ]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "updateWatcher",
+        "caption": "The watcher's screen: computers that need you first, then the ones up to date."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          [
+            "> ",
+            "updates auto off",
+            "cmd"
+          ],
+          [
+            "It will only show what's out of date. Press U to update them.",
+            "",
+            "white"
+          ]
+        ]
+      }
+    },
+    {
       "name": "gps-deployer",
       "group": "network",
       "title": "GPS Deployer",
