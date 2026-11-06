@@ -1783,6 +1783,63 @@
   // The remote terminal: same layout as computers/remote-terminal/remote.lua.
   // "iron" is typed into the search, the iron ingots are picked and a stack
   // is pulled through the ender chest, then the search clears again.
+  // The craft terminal, as computers/craft-terminal/crafts.lua draws it:
+  // "chest" typed, Enter, 16 typed, Enter; then it's being made.
+  function crafts(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const items = [
+      ["Barrel", 0, 21], ["Bowl", 0, 192], ["Bread", 61, 4], ["Bucket", 0, 16], ["Chest", 3, 24], ["Chest Minecart", 0, 3],
+      ["Crafting Table", 2, 96], ["Furnace", 6, 999], ["Iron Bars", 27, 999], ["Iron Pickaxe", 1, 99], ["Ladder", 0, 128],
+      ["Lantern", 0, 72], ["Oak Planks", 380, 999], ["Stick", 52, 999], ["Torch", 448, 664], ["Trapped Chest", 0, 3],
+    ];
+    const script = ["", "c", "ch", "che", "ches", "chest", "chest", "chest", "chest", "chest", "chest", "chest", "chest", ""];
+    let t = 0;
+    const short = (n) => (n >= 10000 ? Math.floor(n / 1000) + "k" : String(n));
+
+    function draw() {
+      const step = t % script.length;
+      const query = script[step];
+      const list = items.filter(([n]) => n.toLowerCase().includes(query));
+      const asking = step === 6 || step === 7;
+      const ordered = step >= 8;
+      const arrived = step >= 11;
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Crafting", "yellow", "gray");
+      s.put(W - 11, 1, "to chest_14", "lightGray", "gray");
+      s.put(1, 2, "Search: ", "lightGray");
+      s.put(9, 2, query, "white");
+      list.slice(0, H - 5).forEach(([n, stored, can], i) => {
+        const bg = i === 0 ? "blue" : "black";
+        const c = "make " + short(can);
+        const st = stored > 0 ? short(stored) + " stored  " : "";
+        const right = st + c;
+        s.put(1, 3 + i, fitT(" " + n, W - right.length - 2), "white", bg);
+        s.put(W - right.length - 1, 3 + i, " " + st, i === 0 ? "white" : "gray", bg);
+        s.put(W - c.length, 3 + i, c + " ", i === 0 ? "white" : "lightBlue", bg);
+      });
+      const busy = ordered && !arrived ? ["Making: 16 Chest, 16 Oak Planks", "lightBlue"] : ["Nothing being crafted.", "gray"];
+      s.put(1, H - 2, fitT(busy[0], W), busy[1]);
+      const message = arrived ? ["16 Chest: it's in the chest.", "lime"]
+        : ordered ? ["Crafting 16 Chest: it comes to the chest.", "lightBlue"] : ["", "lightGray"];
+      s.put(1, H - 1, fitT(message[0], W), message[1]);
+      if (asking) {
+        s.fill(H, "gray");
+        s.put(1, H, "How many Chest? ", "yellow", "gray");
+        s.put(17, H, step === 7 ? "16" : "24", step === 7 ? "white" : "lightGray", "gray");
+      } else {
+        s.put(1, H, fitT("Enter: craft  Right: one  Tab: to chest/storage", W), "gray");
+      }
+      s.render();
+    }
+
+    setInterval(() => { t++; draw(); }, 800);
+    draw();
+    return s;
+  }
+
   function remote(el) {
     const W = 51, H = 19;
     const s = new Screen(W, H, el);
@@ -2249,5 +2306,5 @@
     draw();
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, cannon, essence, buildControl, instabuild, finder } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder } };
 })();

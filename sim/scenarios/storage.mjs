@@ -67,7 +67,17 @@ export function storage(w) {
   play(w, remote, [["wait", 80], ...install("remote-terminal"), ["reboot"], ["until", /Iron Ingot/, 120],
     // search, then Enter: a stack of the top match into the ender chest
     ["type", "iron ingot"], ["wait", 1], ["key", 257], ["wait", 30]]);
-  return { ...st, ...wk, remote };
+
+  // the craft terminal: on the cable (wired modem on its back, no wireless), a chest on its right on the cable
+  const crafts = addComputer(w, { pos: [11, 64, -3], label: "Crafts", role: "craft-terminal", facing: "north", modem: false });
+  crafts.attach("back", w.wiredModem(st.net));
+  const craftsChest = addChest(w, [12, 64, -3], {}, { net: st.net });
+  crafts.boot();
+  play(w, crafts, [["wait", 90], ...install("craft-terminal"), ["reboot"], ["until", /make \d+/, 180],
+    // search, Enter, type how many, Enter: two chests crafted into the chest next to it
+    ["type", "chest"], ["wait", 2], ["key", 257], ["until", /How many Chest/, 10], ["type", "2"], ["key", 257],
+    ["until", /Crafting 2 Chest/, 30], ["until", /2 Chest: it's in the chest/, 240]]);
+  return { ...st, ...wk, remote, crafts, craftsChest };
 }
 
 export function build(w = newWorld()) {
@@ -86,6 +96,10 @@ export function check(s) {
   // what's pulled waits 10 minutes in the ender chest, then goes home: check the pull itself
   if (!/Sent \d+ Iron Ingot/.test(s.remote.term.dump())) out.push("the remote terminal never got its iron ingots");
   if (!/uses my chest|Crafted \d+/.test(s.crafter.term.dump())) out.push("the crafting turtle never claimed its chest or crafted");
+  // the craft terminal's order: 2 chests crafted and sent to its chest (in a long run
+  // they go back to storage after 10 minutes, so the terminal saying they arrived counts)
+  const made = s.craftsChest.inv.count("minecraft:chest");
+  if (made < 2 && !/2 Chest: it's in the chest/.test(s.crafts.term.dump())) out.push(`the craft terminal's chest has ${made} of 2 chests: ${s.crafts.term.dump().split("\n").slice(-3).join(" / ")}`);
   if (!process.env.SHOW) return out;
   const show = (label, inv) => console.log(`${label}: ${inv.slots.filter(Boolean).map((i) => `${i.count} ${i.name.replace("minecraft:", "")}`).join(", ") || "empty"}`);
   console.log();

@@ -1275,6 +1275,67 @@
       }
     },
     {
+      "name": "craft-terminal",
+      "group": "storage",
+      "mods": [],
+      "worksWith": ["Advanced Peripherals", "EnderStorage"],
+      "title": "Craft Terminal",
+      "command": "crafts",
+      "device": "computer",
+      "deviceLabel": "Computer on the storage cable",
+      "color": "lightBlue",
+      "tagline": "A computer just for ordering crafts: everything the storage system can make, with how many, made into a chest next to it or into storage.",
+      "libs": ["report", "errlog", "screen", "net", "files", "claim"],
+      "autostart": true,
+      "stats": [
+        ["Lists", "every craftable item"],
+        ["Order", "any amount, up to 9999"],
+        ["Crafts go", "to its chest or storage"],
+        ["List refresh", "10 s"]
+      ],
+      "features": [
+        "Lists everything the storage system can craft from what's stored, A to Z, with how many it could make and how many are stored",
+        "Type to search; Enter asks how many (a stack to start), Right orders one",
+        "Crafts come to a chest next to it as they're made, or stay in storage (Tab switches)",
+        "Shows what's being crafted right now, or why crafting is stuck",
+        "Uses the crafting turtles, the craft overseer, the factory's infusers and an ME or RS system's patterns, whatever the storage computer has",
+        "Finds its chest by itself: nothing to pick in storage setup",
+        "crafts make 64 torch orders from the command line"
+      ],
+      "setup": [
+        "Update the storage computer (install update): older ones don't answer a craft terminal.",
+        "Put this computer by the storage system with a wired modem on the storage cable (right-click it red).",
+        "Optional: a chest touching it with a full-block wired modem on the same cable, for the crafts to come to.",
+        "Install and reboot."
+      ],
+      "commands": [
+        ["crafts", "start (runs on boot)"],
+        ["crafts make 64 torch", "craft 64 of the first craftable item matching the text"],
+        ["crafts chest", "pick the chest crafts go to, from a list"],
+        ["crafts chest none", "keep crafts in storage, even with a chest next to it"]
+      ],
+      "integrates": [
+        ["storage-computer", "Works out what can be crafted while a craft terminal is running, plans each order and sends what's made to the terminal's chest."],
+        ["crafter-turtle", "Makes the crafts."],
+        ["craft-overseer", "Shares the orders between several crafting turtles."],
+        ["claim", "Tells the storage computer which chest is this terminal's."],
+        ["remote-terminal", "The other half: search and take what's stored. This one is for having things made."],
+        ["status-server", "Shows how many things can be crafted and each order."]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "crafts",
+        "caption": "The craft terminal: search what can be made, say how many, and it's crafted into the chest next to it."
+      },
+      "terminal": {
+        "device": "computer",
+        "lines": [
+          ["> ", "crafts make 16 chest", "cmd"],
+          ["Crafting 16 Chest: it comes to the chest.", "", "white"]
+        ]
+      }
+    },
+    {
       "name": "cannon-feeder",
       "group": "storage",
       "title": "Cannon Feeder",

@@ -196,6 +196,13 @@ farm make them ("Asked factory #12 to make 30 Iron Ingot."); nothing goes
 out of storage for it, and it never asks the farm for more than it has the
 essence for. What the farm makes comes home through its ender chest.
 
+For a computer just for ordering crafts, put a
+[craft terminal](../craft-terminal/README.md) on the cable: it lists
+everything that can be made (stored or not) with how many, and has what you
+pick crafted into a chest next to it or into storage. While one is running,
+this computer works out that list in the background, the same way as the
+Craftable tab below, without the tab having to be on.
+
 You can ask for crafts on the terminal too, with the **Craftable** tab. It's
 off by default, because working out everything that could be made from a
 big store with a big modpack takes a long while. To turn it on, set

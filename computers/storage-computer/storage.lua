@@ -16,6 +16,10 @@
 -- turtles asking for coal are served from it, and the smelter
 -- (computers/factory) fuels its furnaces from it.
 --
+-- A craft terminal (computers/craft-terminal) asks for the list of what can
+-- be crafted ("craftable": worked out here in the background while one has
+-- asked lately) and orders crafts ("craft"), sent to its chest or kept here.
+--
 -- Turtles find their own chest: a village builder, builder or crafting turtle
 -- placed against a chest on this network tells me which one it is
 -- (lib/claim.lua), and its items go there. No need to pick it in setup.
@@ -136,13 +140,28 @@ local planCount = 0
 local jobCount = 0
 local runId = os.epoch("utc") -- makes job ids unique across restarts (the overseer keeps its queue)
 local systemCrafts = {} -- name -> how many the ME/RS system is crafting for turtles
--- Items that aren't stored but could be crafted, for the list:
--- { key, name, count (nil: the ME/RS system has a pattern), displayName, craftable = true }.
+-- Items that could be crafted, for the list: { key, name, count (nil: the
+-- ME/RS system has a pattern), stored, displayName, craftable = true }. Only
+-- ones that aren't stored, unless a craft terminal wants the list (then all).
 local craftView = {}
 local craftViewReady = false -- the first count is done
--- Crafts asked for on the terminal, sent to the output chest once made:
--- name -> { want, sent }.
+-- Crafts asked for on the terminal or by a craft terminal, sent on once made:
+-- name .. "\0" .. chest -> { name, to (chest), who (computer id, nil: here), want, sent }.
 local outputOrders = {}
+-- Craft terminals, in one table (this file is near Lua's limit of 200 locals).
+local craftTerm = {
+  KEEP = 120, -- seconds the craftable list is kept worked out after a craft terminal last asked for it
+  MAX = 9999, -- most of one item a craft terminal may order at once
+  wanted = -math.huge, -- when a craft terminal last asked for the list
+}
+function craftTerm.wantsView() return os.clock() - craftTerm.wanted < craftTerm.KEEP end
+function craftTerm.viewOn() return CRAFTABLE_TAB or craftTerm.wantsView() end
+function craftTerm.order(name, to, who, n)
+  local key = name .. "\0" .. to
+  local o = outputOrders[key] or { name = name, to = to, who = who, want = 0, sent = 0 }
+  o.want = o.want + n
+  outputOrders[key] = o
+end
 
 -- Items with NBT (enchanted books, named tools) are kept apart from plain ones.
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
@@ -682,9 +701,7 @@ function takeItem(it, amount)
     -- not stored: have it made, and outputLoop sends it on once it's ready
     local made, why = orderCraft(it.name, it.count and math.min(amount, it.count) or amount)
     if made then
-      local o = outputOrders[it.name] or { want = 0, sent = 0 }
-      o.want = o.want + made
-      outputOrders[it.name] = o
+      craftTerm.order(it.name, setup.output, nil, made)
       message = { ("Crafting %d %s for the output chest..."):format(made, it.displayName), "lightBlue" }
     else
       message = { ("Can't craft %s: %s."):format(it.displayName, why), "red" }
@@ -1766,6 +1783,37 @@ local function handleRequest(from, msg)
       if not it.nbt then items[#items + 1] = { name = it.name, label = it.displayName, count = it.count } end
     end
     answer(from, msg, { re = "list", items = items })
+  elseif type(msg) == "table" and msg.type == "craftable" then
+    -- a craft terminal: everything that can be crafted (worked out in
+    -- craftViewLoop, which runs while one keeps asking) and what's being made
+    local wasOn = craftTerm.viewOn()
+    craftTerm.wanted = os.clock()
+    if not wasOn then
+      craftViewReady = false -- the last list (if any) left out stored items
+      os.queueEvent("storage_view_wanted")
+    end
+    local items, making = {}, {}
+    for _, it in ipairs(craftView) do
+      items[#items + 1] = { name = it.name, label = it.displayName, count = it.count, stored = it.stored or 0 }
+    end
+    for name, n in pairs(pendingCraft) do
+      if n > 0 then making[#making + 1] = { name = name, label = nameOf(name), count = n } end
+    end
+    answer(from, msg, { re = "craftable", items = items, ready = craftViewReady, making = making, queue = #craftQueue,
+      problem = craftProblem, crafter = (crafting and hasCrafter()) or store.craftables ~= nil, chest = setup.deliveries[from] })
+  elseif type(msg) == "table" and msg.type == "craft" and type(msg.item) == "string" then
+    -- a craft terminal's order: count more of item, into its chest (to = "chest") or into storage
+    local n = math.max(1, math.min(craftTerm.MAX, math.floor(tonumber(msg.count) or 1)))
+    local to = msg.to == "chest" and setup.deliveries[from] or nil
+    local made, why = orderCraft(msg.item, n)
+    if made and to then craftTerm.order(msg.item, to, from, made) end
+    answer(from, msg, { re = "craft", making = made or 0, why = why, to = to and "own" or "storage" })
+    if made then
+      message = { ("Crafting %d %s for computer #%d."):format(made, nameOf(msg.item), from), "lightBlue" }
+    else
+      message = { ("Can't craft %s for computer #%d: %s."):format(nameOf(msg.item), from, why), "orange" }
+    end
+    os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "work" then
     answer(from, msg, workChest(from, msg))
   elseif type(msg) == "table" and msg.type == "fill" and type(msg.items) == "table" then
@@ -1971,19 +2019,26 @@ end
 -- Keep the list of what could be crafted (but isn't stored) up to date: after
 -- storage changes, at most every VIEW_EVERY seconds. Counting is a plan per
 -- try, so it runs here rather than on every redraw.
+-- Off (no Craftable tab, no craft terminal asking) it waits for a craft
+-- terminal's first "craftable" request.
 local function craftViewLoop()
-  if not CRAFTABLE_TAB then
-    while true do sleep(3600) end
-  end
   while true do
-    local view, avail = {}, planningStock()
+    while not craftTerm.viewOn() do os.pullEvent("storage_view_wanted") end
+    -- a craft terminal orders more of stored items too; the Craftable tab lists only the rest
+    local all = craftTerm.wantsView()
+    local view, avail, items = {}, planningStock(), allItems()
+    local function entry(name, count)
+      local it = items[name]
+      return { key = name, name = name, count = count, stored = math.max(0, avail[name] or 0),
+        displayName = it and it.displayName or titleName(name), craftable = true }
+    end
     if crafting and hasCrafter() then
       local reach = crafting.reachable(avail)
       reachCache, reachAt = reach, os.clock()
       for _, name in ipairs(crafting.names()) do
-        if (avail[name] or 0) <= 0 and reach[name] then
+        if (all or (avail[name] or 0) <= 0) and reach[name] then
           local n = crafting.craftable(name, avail, VIEW_MAX, reach)
-          if n > 0 then view[#view + 1] = { key = name, name = name, count = n, displayName = titleName(name), craftable = true } end
+          if n > 0 then view[#view + 1] = entry(name, n) end
         end
       end
     end
@@ -1991,37 +2046,51 @@ local function craftViewLoop()
       local listed = {}
       for _, it in ipairs(view) do listed[it.name] = true end
       for _, name in ipairs(store.craftables()) do
-        if not listed[name] and (avail[name] or 0) <= 0 then
-          view[#view + 1] = { key = name, name = name, displayName = titleName(name), craftable = true }
-        end
+        if not listed[name] and (all or (avail[name] or 0) <= 0) then view[#view + 1] = entry(name, nil) end
       end
     end
-    craftView, craftViewReady = view, true
+    -- a craft terminal asked while this was being worked out without stored items: again, at once
+    craftView, craftViewReady = view, all or not craftTerm.wantsView()
     os.queueEvent("storage_view")
     sleep(VIEW_EVERY)
-    os.pullEvent("storage_changed")
+    -- then wait for a change, unless a craft terminal has just turned the list on (it wants it now)
+    while craftTerm.viewOn() and craftViewReady do
+      local event = os.pullEvent()
+      if event == "storage_changed" or event == "storage_view_wanted" then break end
+    end
   end
 end
 
--- Send crafts asked for on the terminal to the output chest as they're made.
--- Once nothing more is being made, whatever didn't turn up is given up on
--- (the footer has already said why the craft failed).
+-- Send crafts asked for on the terminal to the output chest, and a craft
+-- terminal's to its chest, as they're made. Once nothing more is being made,
+-- whatever didn't turn up is given up on (the footer has already said why
+-- the craft failed).
 local function outputLoop()
   while true do
     sleep(OUTPUT_EVERY)
-    for name, o in pairs(outputOrders) do
+    for key, o in pairs(outputOrders) do
+      local name = o.name
       local have = countAll()[name] or 0
       if have > 0 then
-        o.sent = o.sent + fetch(name, math.min(have, o.want - o.sent), setup.output)
+        local got = fetch(name, math.min(have, o.want - o.sent), o.to)
+        o.sent = o.sent + got
+        -- a craft terminal's chest is swept like a turtle's: hold what it ordered
+        if got > 0 and o.to ~= setup.output then
+          reserved[o.to] = reserved[o.to] or {}
+          local r = reserved[o.to][name]
+          reserved[o.to][name] = { n = (r and r.n or 0) + got, at = os.clock() }
+        end
       end
+      local where = o.who and ("for computer #%d"):format(o.who) or "in the output chest"
       if o.sent >= o.want then
-        outputOrders[name] = nil
-        message = { ("Crafted %d %s: it's in the output chest."):format(o.sent, nameOf(name)), "lime" }
+        outputOrders[key] = nil
+        message = { o.who and ("Crafted %d %s %s: sent to its chest."):format(o.sent, nameOf(name), where)
+          or ("Crafted %d %s: it's %s."):format(o.sent, nameOf(name), where), "lime" }
         os.queueEvent("storage_changed")
       elseif (pendingCraft[name] or 0) == 0 and have == 0 then
-        outputOrders[name] = nil
+        outputOrders[key] = nil
         if o.sent > 0 then
-          message = { ("Only %d of %d %s were made: they're in the output chest."):format(o.sent, o.want, nameOf(name)), "orange" }
+          message = { ("Only %d of %d %s were made, %s."):format(o.sent, o.want, nameOf(name), where), "orange" }
         end
         os.queueEvent("storage_changed")
       end

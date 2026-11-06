@@ -74,7 +74,7 @@ what a player would notice.
 | Scenario | What's in it | Checked |
 |---|---|---|
 | `mining` | GPS, the status server, AutoMine and two miners (chunks queued by clicking the map) | ore in the miners' chests |
-| `storage` | Storage computer set up from its monitor, crafting turtle, factory with furnaces, a far-away remote terminal | 30 raw iron smelted into storage, the remote terminal's pull |
+| `storage` | Storage computer set up from its monitor, crafting turtle, factory with furnaces, a far-away remote terminal, a craft terminal on the cable | 30 raw iron smelted into storage, the remote terminal's pull, 2 chests crafted into the craft terminal's chest |
 | `machines` | Power dashboard, fission guard, fusion control, digital miners, colony dashboard | the reactor started, then SCRAMmed when its coolant ran out |
 | `gps` | No GPS: the GPS deployer builds the hosts | 4 hosts on, a probe gets a fix |
 | `extras` | Tree and crop farms, mob farm, village, Nether tunnel, projector + instabuild, cobble breeder | instabuild placed blocks, the farms harvested |
