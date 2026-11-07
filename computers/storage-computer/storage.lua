@@ -578,13 +578,25 @@ local function drawMonitor(all)
     zones[#zones + 1] = { x, x + #label - 1, y, action }
   end
 
-  local q, list = mon.query:lower(), {}
-  for _, it in ipairs(all) do
-    if hit(it, q) then list[#list + 1] = it end
+  -- the hits, worked out again only when what's stored, the search or the
+  -- sort changed: with thousands of items an A-Z sort on every redraw was
+  -- most of the screen's work
+  local q = mon.query:lower()
+  local c = mon.listCache
+  if not (c and c.all == all and c.q == q and c.sort == mon.sort) then
+    local list = {}
+    for _, it in ipairs(all) do
+      if hit(it, q) then list[#list + 1] = it end
+    end
+    if mon.sort == "name" then
+      local lower = {}
+      for _, it in ipairs(list) do lower[it] = it.displayName:lower() end
+      table.sort(list, function(a, b) return lower[a] < lower[b] end)
+    end
+    c = { all = all, q = q, sort = mon.sort, list = list }
+    mon.listCache = c
   end
-  if mon.sort == "name" then
-    table.sort(list, function(a, b) return a.displayName:lower() < b.displayName:lower() end)
-  end
+  local list = c.list
   local picked
   for _, it in ipairs(all) do
     if it.key == mon.pick then picked = it end
@@ -767,14 +779,14 @@ end
 local editSetup -- in the setup section below
 
 -- Send amount of an item from the list to the output chest (from the
--- terminal or a monitor button).
+-- terminal or a monitor button). Queued for the screen loop's sender: each
+-- pull takes a game tick (more while the other loops are moving items), and
+-- the screens froze until it was done.
+mon.takes = {}
 function takeItem(it, amount)
-  local sent = fetch(it.key, amount, setup.output)
-  if sent > 0 then
-    message = { ("Sent %d %s to the output chest."):format(sent, it.displayName), "lime" }
-  else
-    message = { "Couldn't send it: is the output chest full?", "red" }
-  end
+  mon.takes[#mon.takes + 1] = { it = it, amount = amount }
+  message = { ("Sending %d %s..."):format(amount, it.displayName), "lightGray" }
+  os.queueEvent("storage_take")
 end
 
 -- The terminal's picked row.
@@ -803,6 +815,7 @@ local uiLoop
 do
   local REDRAW_EVERY = 5 -- seconds between redraws when nothing happens (services going quiet)
   local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
+  local CHANGE_EVERY = 1 -- fewest seconds between redraws for changes (busy turtles change it all the time); input draws at once
   -- Typing, clicks and taps: drawn straight away.
   local INPUT_EVENTS = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true,
     monitor_touch = true, term_resize = true, monitor_resize = true }
@@ -812,14 +825,31 @@ do
   -- computer busy sorting the item list.
   local CHANGE_EVENTS = { storage_changed = true, storage_links = true, peripheral = true, peripheral_detach = true }
 
-  function uiLoop()
+  -- The Get buttons' and Enter's moves, one after another, beside the screens.
+  local function takeLoop()
+    while true do
+      while #mon.takes == 0 do os.pullEvent("storage_take") end
+      local job = table.remove(mon.takes, 1)
+      local sent = fetch(job.it.key, job.amount, setup.output)
+      if sent > 0 then
+        message = { ("Sent %d %s to the output chest."):format(sent, job.it.displayName), "lime" }
+      else
+        message = { "Couldn't send it: is the output chest full?", "red" }
+      end
+      os.queueEvent("storage_changed")
+    end
+  end
+
+  local function screenLoop()
     -- queued: a "storage_redraw" is waiting behind the key presses already
     -- queued, so a burst of typing (a key and a char event each) draws once
     local soon, beat, draw, queued = nil, os.startTimer(REDRAW_EVERY), true, false
+    local drawnAt = -math.huge
     while true do
       if draw then
         draw = false
         redraw()
+        drawnAt = os.clock()
       end
       if mon.setup then
         mon.setup = false
@@ -834,7 +864,7 @@ do
           beat, draw = os.startTimer(REDRAW_EVERY), true
         end
       elseif CHANGE_EVENTS[ev[1]] then
-        soon = soon or os.startTimer(REDRAW_GAP)
+        soon = soon or os.startTimer(math.max(REDRAW_GAP, drawnAt + CHANGE_EVERY - os.clock()))
       elseif INPUT_EVENTS[ev[1]] then
         if not queued then
           os.queueEvent("storage_redraw")
@@ -892,6 +922,8 @@ do
       end
     end
   end
+
+  function uiLoop() parallel.waitForAny(screenLoop, takeLoop) end
 end
 
 local function inputLoop()
