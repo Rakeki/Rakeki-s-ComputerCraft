@@ -78,6 +78,7 @@ local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage 
 -- way: anything they ask for that isn't stored is crafted on request.
 local CRAFTABLE_TAB = false
 local VIEW_EVERY = 30 -- fewest seconds between recounts of what could be crafted (the Craftable tab)
+local VIEW_REST = 3 -- and at least this many times as long as the last count took (a modpack's take a minute)
 local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept before working it out again
 local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
 local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
@@ -2092,6 +2093,7 @@ local function craftViewLoop()
     while not craftTerm.viewOn() do os.pullEvent("storage_view_wanted") end
     -- a craft terminal orders more of stored items too; the Craftable tab lists only the rest
     local all = craftTerm.wantsView()
+    local started = os.clock()
     local view, avail, items = {}, planningStock(), allItems()
     local function entry(name, count)
       local it = items[name]
@@ -2118,7 +2120,9 @@ local function craftViewLoop()
     -- a craft terminal asked while this was being worked out without stored items: again, at once
     craftView, craftViewReady = view, all or not craftTerm.wantsView()
     os.queueEvent("storage_view")
-    sleep(VIEW_EVERY)
+    -- counting thousands of modded items is most of the computer's work while
+    -- it runs: rest long enough after it that requests and screens come first
+    sleep(craftViewReady and math.max(VIEW_EVERY, (os.clock() - started) * VIEW_REST) or VIEW_EVERY)
     -- then wait for a change, unless a craft terminal has just turned the list on (it wants it now)
     while craftTerm.viewOn() and craftViewReady do
       local event = os.pullEvent()

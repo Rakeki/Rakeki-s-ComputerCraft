@@ -37,6 +37,9 @@ local learnt = {} -- recipes as taught, saved in LEARNT_FILE
 local byMake = {} -- item -> recipes that make it, learnt ones first
 local tags = {} -- tag -> { [item] = true }, from a modpack's recipes ("#minecraft:planks")
 local makeableCache = {} -- recipe key -> items with a recipe that fit it
+local fitsCache = {} -- recipe key -> item names that fit it, or false for a key with * in it
+local recolourCache = setmetatable({}, { __mode = "k" }) -- recipe -> the group it recolours (see planRecipe), or false
+local version = 0 -- goes up whenever the recipes change (reachable's cache)
 
 ---------------------------------------------------------------- recipes
 
@@ -70,7 +73,7 @@ local function add(raw, first)
   local list = byMake[r.make] or {}
   byMake[r.make] = list
   if first then table.insert(list, 1, r) else list[#list + 1] = r end
-  makeableCache = {}
+  makeableCache, version = {}, version + 1
   return r
 end
 
@@ -90,12 +93,12 @@ function crafting.setMachine(via, list)
       if add(raw) then added = added + 1 end
     end
   end
-  makeableCache = {}
+  makeableCache, version = {}, version + 1
   return added
 end
 
 function crafting.load(builtIn)
-  byMake = {}
+  byMake, makeableCache, version = {}, {}, version + 1
   for _, raw in ipairs(builtIn or {}) do add(raw) end
   learnt = files.read(LEARNT_FILE) or {}
   for _, raw in ipairs(learnt) do add(raw, true) end
@@ -117,7 +120,7 @@ function crafting.learn(raw)
   byMake[raw.make] = list
   r.learnt = true
   table.insert(list, 1, r)
-  makeableCache = {}
+  makeableCache, version = {}, version + 1
   return r
 end
 
@@ -143,14 +146,45 @@ end
 
 ---------------------------------------------------------------- matching
 
+local globCache = {} -- "create:*_sheet" -> the Lua pattern it becomes
+
 local function glob(pattern, name)
   if pattern:sub(1, 1) == "#" then
     local set = tags[pattern:sub(2)]
     return set ~= nil and set[name] == true
   end
   if not pattern:find("*", 1, true) then return pattern == name end
-  local lua = "^" .. pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0"):gsub("%*", ".*") .. "$"
+  local lua = globCache[pattern]
+  if not lua then
+    lua = "^" .. pattern:gsub("[%^%$%(%)%%%.%[%]%+%-%?]", "%%%0"):gsub("%*", ".*") .. "$"
+    globCache[pattern] = lua
+  end
   return name:find(lua) ~= nil
+end
+
+-- The item names that fit key, or nil when it has a * in it (then every
+-- item has to be tried). Plans look these up in the stock instead of going
+-- through all of it for each ingredient: with a modpack's 1000s of stored
+-- items that was most of the storage computer's time.
+local function fits(key)
+  local hit = fitsCache[key]
+  if hit ~= nil then return hit or nil end
+  local list, seen, wild = {}, {}, false
+  local function addKey(k)
+    if k:sub(1, 1) == "#" then
+      for item in pairs(tags[k:sub(2)] or {}) do
+        if not seen[item] then seen[item], list[#list + 1] = true, item end
+      end
+    elseif k:find("*", 1, true) then
+      wild = true
+    elseif not seen[k] then
+      seen[k], list[#list + 1] = true, k
+    end
+  end
+  for _, k in ipairs(type(key) == "table" and key or { key }) do addKey(k) end
+  table.sort(list) -- the same pick every time when two fit equally well
+  fitsCache[key] = not wild and list or false
+  return fitsCache[key] or nil
 end
 
 -- Does item name fit a recipe key (a name, a name with *, a #tag, or a list of them)?
@@ -200,22 +234,31 @@ end
 
 ---------------------------------------------------------------- planning
 
-local function copyInto(dst, src)
-  for k in pairs(dst) do dst[k] = nil end
-  for k, v in pairs(src) do dst[k] = v end
+-- A plan works on the caller's stock (p.avail) and notes every change it
+-- makes (p.keys / p.olds), so a recipe that's tried and dropped is undone
+-- by putting back just what it changed. Copying the whole stock for each
+-- recipe tried cost as much as the stock is long: 1000s of items in a
+-- modpack, for every step of every plan.
+local function put(p, k, v)
+  local n = p.n + 1
+  p.n, p.keys[n], p.olds[n] = n, k, p.avail[k]
+  p.avail[k] = v
 end
 
-local function copy(t)
-  local c = {}
-  for k, v in pairs(t) do c[k] = v end
-  return c
+local function undo(p, mark)
+  local avail, keys, olds = p.avail, p.keys, p.olds
+  for i = p.n, mark + 1, -1 do
+    avail[keys[i]] = olds[i]
+    keys[i], olds[i] = nil, nil
+  end
+  p.n = mark
 end
 
 local planItem -- defined below; the two call each other
 
 -- CC stops a program that runs too long without yielding, and a big plan
 -- (or many of them, for counts) can. Yield now and then: by time, not by
--- count, since one step can be heavy (a big stock copied), and the storage
+-- count, since one step can be heavy (a big tag searched), and the storage
 -- computer's screen waits for every yield (the craft terminal's counts kept
 -- the search lagging).
 local calls, yieldedAt = 0, os.clock()
@@ -235,14 +278,53 @@ end
 local function goesKey(r) return "\0goes\0" .. r.via .. "\0" .. r.make .. "\0" end
 local function isItem(name) return name:byte(1) ~= 0 end
 
-local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
+-- A recipe that makes one of a group from any of the group (black wool
+-- from any wool and a black dye; modpacks have dozens: placards, seats,
+-- concrete): the group's names joined, or false. Cached per recipe.
+local function recolours(r)
+  local hit = recolourCache[r]
+  if hit ~= nil then return hit end
+  hit = false
+  for _, key in pairs(r.grid) do
+    local names = fits(key)
+    if names and #names > 1 then
+      for _, item in ipairs(names) do
+        if item == r.make then hit = table.concat(names, ",") break end
+      end
+    end
+    if hit then break end
+  end
+  recolourCache[r] = hit
+  return hit
+end
+
+local planRecipeIn -- planRecipe's work, below
+
+-- Never recolour inside a recolouring of the same group: if any of the
+-- group will do, one made by recolouring could have been the one recoloured.
+-- Without this a plan short of something went black placard <- orange <-
+-- red <- ... six deep through all 16 colours: millions of tries, minutes
+-- for one item. A plain recipe for one of them is still tried (black wool
+-- from white wool, made from string).
+local function planRecipe(r, count, p, depth)
+  local group = recolours(r)
+  if not group then return planRecipeIn(r, count, p, depth) end
+  if p.recolouring[group] then return false end
+  p.recolouring[group] = true
+  local ok = planRecipeIn(r, count, p, depth)
+  p.recolouring[group] = nil
+  return ok
+end
+
+planRecipeIn = function(r, count, p, depth)
+  local avail = p.avail
   local steps = math.ceil(count / r.count)
   -- a machine with its own ingredients: only as many goes as it has the makings for
   local goes = r.max and goesKey(r)
   if goes then
     local left = avail[goes] or r.max
     if steps > left then return false end
-    avail[goes] = left - steps
+    put(p, goes, left - steps)
   end
   -- cells with the same key use the same item
   local per, order = {}, {}
@@ -260,8 +342,16 @@ local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
   for _, key in ipairs(order) do
     local need = per[key] * steps
     local best, bestN = nil, 0 -- the fitting item there's most of
-    for item, n in pairs(avail) do
-      if n > bestN and isItem(item) and crafting.matches(key, item) then best, bestN = item, n end
+    local names = fits(key)
+    if names then
+      for _, item in ipairs(names) do
+        local n = avail[item] or 0
+        if n > bestN then best, bestN = item, n end
+      end
+    else -- a name with * in it: try everything
+      for item, n in pairs(avail) do
+        if n > bestN and isItem(item) and crafting.matches(key, item) then best, bestN = item, n end
+      end
     end
     if bestN < need then
       -- make the rest: of the item there's most of first, then any other
@@ -272,48 +362,53 @@ local function planRecipe(r, count, avail, jobs, depth, visiting, reach)
       end
       local made = false
       for _, item in ipairs(tries) do
-        if planItem(item, need - math.max(0, avail[item] or 0), avail, jobs, depth + 1, visiting, reach) then
+        if planItem(item, need - math.max(0, avail[item] or 0), p, depth + 1) then
           best, made = item, true
           break
         end
       end
       if not made then return false end
     end
-    avail[best] = avail[best] - need
+    put(p, best, avail[best] - need)
     choice[key] = best
   end
   local grid = {}
   for k = 1, 9 do
     if r.grid[k] then grid[k] = choice[r.grid[k]] end
   end
-  jobs[#jobs + 1] = { name = r.make, recipe = r, steps = steps, grid = grid }
-  avail[r.make] = (avail[r.make] or 0) + steps * r.count
+  p.jobs[#p.jobs + 1] = { name = r.make, recipe = r, steps = steps, grid = grid }
+  put(p, r.make, (avail[r.make] or 0) + steps * r.count)
   return true
 end
 
 -- Add to jobs the crafts that make count of name, using up avail. On failure
 -- avail and jobs are left as they were.
-planItem = function(name, count, avail, jobs, depth, visiting, reach)
+planItem = function(name, count, p, depth)
   if count <= 0 then return true end
   breathe()
+  local visiting, jobs = p.visiting, p.jobs
   if depth > MAX_DEPTH or visiting[name] then return false end
-  if reach and not reach[name] then return false end -- can't be made from what's there at all
+  if p.reach and not p.reach[name] then return false end -- can't be made from what's there at all
   for _, r in ipairs(byMake[name] or {}) do
-    local saved, savedJobs = copy(avail), #jobs
+    local mark, savedJobs = p.n, #jobs
     visiting[name] = true
-    local ok = planRecipe(r, count, avail, jobs, depth, visiting, reach)
+    local ok = planRecipe(r, count, p, depth)
     visiting[name] = nil
     if ok then return true end
-    copyInto(avail, saved)
+    undo(p, mark)
     for i = #jobs, savedJobs + 1, -1 do jobs[i] = nil end
   end
   return false
 end
 
 -- The crafts (in order) that make count of name from avail, or nil.
+-- avail is left as it was (every change is undone at the end).
 function crafting.plan(name, count, avail, reach)
-  local jobs = {}
-  if not planItem(name, count, copy(avail), jobs, 0, {}, reach) then return nil end
+  local p = { avail = avail, jobs = {}, visiting = {}, reach = reach, n = 0, keys = {}, olds = {}, recolouring = {} }
+  local ok = planItem(name, count, p, 0)
+  undo(p, 0)
+  if not ok then return nil end
+  local jobs = p.jobs
   -- the same craft twice in a row becomes one
   local merged = {}
   for _, j in ipairs(jobs) do
@@ -357,9 +452,15 @@ function crafting.missing(name, avail, reach, depth)
   for k = 1, 9 do
     local key = r.grid[k]
     if key then
-      local have = false
-      for item, n in pairs(avail) do
-        if n > 0 and isItem(item) and crafting.matches(key, item) then have = true break end
+      local have, names = false, fits(key)
+      if names then
+        for _, item in ipairs(names) do
+          if (avail[item] or 0) > 0 then have = true break end
+        end
+      else
+        for item, n in pairs(avail) do
+          if n > 0 and isItem(item) and crafting.matches(key, item) then have = true break end
+        end
       end
       if not have then
         local options = makeable(key)
@@ -377,31 +478,45 @@ end
 -- Everything that could possibly be made from avail, ignoring amounts:
 -- what's there, plus anything with a recipe whose every ingredient is
 -- (over and over, so planks count once logs do, then sticks).
+-- It only changes when a new kind of item is stored or the last of one goes
+-- (or the recipes change), so the last answer is kept and given again until
+-- then. Don't change the table it returns.
+local reachLast = { version = -1, base = {}, size = 0 }
 function crafting.reachable(avail)
-  local have = {}
+  local base, size = {}, 0
   for item, n in pairs(avail) do
-    if n > 0 and isItem(item) then have[item] = true end
+    if n > 0 and isItem(item) then base[item], size = true, size + 1 end
   end
+  if reachLast.version == version and reachLast.size == size then
+    local same = true
+    for item in pairs(base) do
+      if not reachLast.base[item] then same = false break end
+    end
+    if same then return reachLast.have end
+  end
+  local have = {}
+  for item in pairs(base) do have[item] = true end
+  local known = {} -- keys found to fit something there: have only grows, so they stay fitting
   local function ok(key)
+    if known[key] then return true end
+    local yes = false
     if type(key) == "table" then
       for _, k in ipairs(key) do
-        if ok(k) then return true end
+        if ok(k) then yes = true break end
       end
-      return false
-    end
-    if key:sub(1, 1) == "#" then
+    elseif key:sub(1, 1) == "#" then
       for item in pairs(tags[key:sub(2)] or {}) do
-        if have[item] then return true end
+        if have[item] then yes = true break end
       end
-      return false
-    end
-    if key:find("*", 1, true) then
+    elseif key:find("*", 1, true) then
       for item in pairs(have) do
-        if glob(key, item) then return true end
+        if glob(key, item) then yes = true break end
       end
-      return false
+    else
+      yes = have[key] == true
     end
-    return have[key] == true
+    if yes then known[key] = true end
+    return yes
   end
   local changed = true
   while changed do
@@ -425,6 +540,7 @@ function crafting.reachable(avail)
       end
     end
   end
+  reachLast = { version = version, base = base, size = size, have = have }
   return have
 end
 
@@ -458,7 +574,8 @@ function crafting.loadPack(pack)
     for row in (tostring(r[3]) .. "/"):gmatch("([^/]*)/") do rows[#rows + 1] = row end
     if names[r[1]] and add({ make = names[r[1]], count = r[2], rows = rows, keys = keys }) then added = added + 1 end
   end
-  makeableCache = {}
+  makeableCache, fitsCache, version = {}, {}, version + 1
+  recolourCache = setmetatable({}, { __mode = "k" })
   return added
 end
 

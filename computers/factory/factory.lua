@@ -62,6 +62,9 @@ local REPLY_WAIT = 30 -- seconds to wait for the storage computer to answer (a b
 local PEER_EVERY = 30 -- seconds between asking the other factory computers what they take and own
 local PEER_WAIT = 2 -- seconds to wait for each of them
 local PEER_FORGET = 600 -- seconds another factory computer may go unheard before its items are taken here
+local ACTIVE_EVERY = 2 -- seconds a part's "has it got machines here" is kept (each look goes through every peripheral)
+local REDRAW_EVERY = 2 -- seconds between redraws when nothing happens (the parts' messages as they work)
+local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
 local CLAIMS_FILE = "/.factory_claims" -- { mine = { name = when }, released = { name = true }, off = { part = true } }
 local OLD_NAMES = { "smelter", "enricher", "cooker" } -- the programs this replaced: their monitor settings carry on
 
@@ -170,7 +173,20 @@ function f.taken(name)
 end
 
 -- A part that's switched on (the Chain page) and has machines here.
-local function running(p) return not claims.off[p.id] and p.active() end
+-- active() looks through every peripheral on the cable, and this is asked
+-- for each item in the chain and on every redraw, so it's kept a moment
+-- (and forgotten when a peripheral comes or goes, or a machine is added).
+local activeKept = {} -- part id -> { at = os.clock(), yes = bool }
+local function running(p)
+  if claims.off[p.id] then return false end
+  local kept = activeKept[p.id]
+  if not kept or os.clock() - kept.at >= ACTIVE_EVERY then
+    kept = { at = os.clock(), yes = p.active() and true or false }
+    activeKept[p.id] = kept
+  end
+  return kept.yes
+end
+local function forgetActive() activeKept = {} end
 
 -- True when an earlier part of the chain (a lower rank), here or on another
 -- factory computer, takes the item: a part of rank leaves it alone.
@@ -686,13 +702,36 @@ end
 
 ---------------------------------------------------------------- loops
 
+-- Typing, clicks and taps: drawn straight away.
+local INPUT_EVENTS = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true,
+  monitor_touch = true, term_resize = true, monitor_resize = true }
+-- What changes the screens without the player: drawn REDRAW_GAP later, so a
+-- burst draws once. Everything else (rednet messages, other loops' timers)
+-- leaves the screens alone: on a busy network redrawing on every event kept
+-- the computer busy.
+local CHANGE_EVENTS = { factory_changed = true, factory_added = true, factory_monitor = true, peripheral = true, peripheral_detach = true }
+
 local function uiLoop()
+  local soon, beat, redraw = nil, os.startTimer(REDRAW_EVERY), true
   while true do
-    draw()
-    drawBoard()
+    if redraw then
+      redraw = false
+      draw()
+      drawBoard()
+    end
     local ev = { os.pullEvent() }
     local event = ev[1]
+    if event == "peripheral" or event == "peripheral_detach" or event == "factory_added" then forgetActive() end
     if event == "peripheral" or event == "peripheral_detach" or event == "factory_monitor" then board:refresh() end
+    if event == "timer" and ev[2] == soon then
+      soon, redraw = nil, true
+    elseif event == "timer" and ev[2] == beat then
+      beat, redraw = os.startTimer(REDRAW_EVERY), true
+    elseif CHANGE_EVENTS[event] then
+      soon = soon or os.startTimer(REDRAW_GAP)
+    elseif INPUT_EVENTS[event] then
+      redraw = true
+    end
     local bx, by = board:clicked(ev)
     local tx, ty = display:clicked(ev)
     local function zoneAt(zones, x)
@@ -704,6 +743,7 @@ local function uiLoop()
     local tapBoard = bx and by == 1 and zoneAt(boardZones, bx)
     if setupui.wanted("factory", ev) or tapTab == "setup" or tapBoard == "setup" or (event == "key" and ev[2] == keys.f1) then
       setupScreen({ display, board })
+      redraw = true
     elseif tapTab then
       tab = tapTab
     elseif tapBoard then
@@ -721,7 +761,7 @@ local function uiLoop()
       end
     elseif byId[tab] and running(byId[tab]) and event ~= "factory_added" then
       -- everything else goes to the page showing (typing, its keys, clicks)
-      if byId[tab].event(ev, tx, ty) then display.last = nil end
+      if byId[tab].event(ev, tx, ty) then display.last, redraw = nil, true end
     end
   end
 end

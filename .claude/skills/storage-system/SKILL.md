@@ -219,9 +219,21 @@ Recipes: `recipes.lua` (built in), `/.storage_recipes` (taught with
 installed by the installer). Keys are item names, `*` globs, `#tags` or lists.
 With thousands of recipes, plans must pass `reach` (`crafting.reachable(avail)`,
 cached by `reachNow()` for 10 s): it prunes everything that can't be made
-from what's stored. Work it out once per request, never per item. The
+from what's stored. Work it out once per request, never per item
+(`crafting.reachable` also keeps its last answer until the set of stored
+item names or the recipes change, so asking again is cheap). The
 Craftable tab (`CRAFTABLE_TAB`) is off by default because listing every
 craftable item takes too long.
+
+Keep planning's cost to the recipe tree, never to how much is stored (a
+modpack base stores 1000s of item types, and the craft terminal's counts run
+~10 plans per craftable item): `planRecipe` finds an ingredient through
+`fits(key)` (the names a key stands for, cached) and looks each up in
+`avail`, and only scans all of `avail` for a `*` key; a plan works on the
+caller's `avail` and undoes its own changes (`put` / `undo`, a journal)
+instead of copying the stock for each recipe it tries. Timed with
+crafting.lua alone under Fengari (the trekt-mons pack, 1500 stored items),
+that took `craftable` for 400 items from 177 s to 4 s, with the same counts.
 
 ## Inside storage-computer
 

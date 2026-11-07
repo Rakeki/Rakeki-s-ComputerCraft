@@ -215,7 +215,10 @@ Right for one): it's crafted and sent to the output chest when it's ready.
 The monitor lists craftable items in light blue after the stored ones, and
 with an [ME or RS system](#me-and-rs-systems), items it has a pattern for
 are listed too, marked "pattern". The list is worked out in the
-background, again within 30 seconds of anything changing.
+background, again within 30 seconds of anything changing. With a big
+modpack counting everything takes a while (around a minute with a few
+thousand recipes), so it then waits three times as long as the last count
+took before counting again, and searches and requests stay quick meanwhile.
 
 When a turtle asks how much of something there is, what could be crafted
 counts as well, so the village builder doesn't wait for blocks that can be

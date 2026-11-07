@@ -51,10 +51,17 @@ UI modules keep the window being drawn in `self.win` for helpers like
 `self:button()` (see `computers/blueprint-projector/ui.lua`), and use
 `self.display:size()` for layout outside `draw`.
 
-A monitor redrawn on every event (storage.lua's `drawMonitor`, the status
-server's dashboard): build `key` from what it shows (title, counts, the
-rows' text, "5s ago" times) and return early when `display:same(key)`;
-each real change is sent to every player who can see the monitor.
+Don't redraw on every event: a computer that opens its modems hears every
+rednet message in range (two events each), and on a busy base building a
+frame for each kept the storage computer, the factory and the status
+server busy. Draw straight away on input (`char`, `key`, `mouse_click`,
+`monitor_touch`, resizes), a short timer (0.2-0.5 s) after events that
+change what's shown (so a burst draws once), and on a slow beat (1-5 s) for
+"5s ago" times and progress text; leave rednet messages and other loops'
+timers alone (storage.lua's `uiLoop`, factory.lua's `uiLoop`, the status
+server's main loop). Then build `key` from what it shows (title, counts, the
+rows' text, times) and return early when `display:same(key)`; each real
+change is sent to every player who can see the monitor.
 
 ### Status boards
 

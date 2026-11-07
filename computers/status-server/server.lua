@@ -10,6 +10,7 @@ local STATE_FILE = "/.status_state"
 local OFFLINE_AFTER = 30 -- seconds without a heartbeat
 local SAVE_INTERVAL = 30
 local MAX_EVENTS = 25
+local REDRAW_GAP = 0.5 -- seconds a status waits to be drawn: with many computers reporting, a burst draws once
 
 -- computers: id -> { label, kind, role, state, detail, fuel, fuelLimit, pos,
 --                    uptime, lastSeen, offline, events = { { t, text } } }
@@ -101,19 +102,33 @@ local function handle(ev)
   end
 end
 
-local timer = os.startTimer(1)
+-- Drawn every second, at once for taps and the monitor coming or going, and
+-- REDRAW_GAP after a status. Not on every event: every rednet message heard
+-- (two events each) redrew the whole grid, which kept a busy base's
+-- dashboard working all the time and slowed the computers around it.
+local timer, soon = os.startTimer(1), nil
 view:draw(computers, now())
 while true do
   local ev = { os.pullEvent() }
+  local redraw = false
   if ev[1] == "timer" and ev[2] == timer then
     checkOffline()
     if saveDue and now() - lastSave > SAVE_INTERVAL then save() end
-    timer = os.startTimer(1)
-  else
+    timer, redraw = os.startTimer(1), true
+  elseif ev[1] == "timer" and ev[2] == soon then
+    soon, redraw = nil, true
+  elseif ev[1] ~= "timer" then
     -- one bad message or touch shouldn't take the dashboard down
     local ok, err = errlog.pcall(handle, ev)
     if not ok and view.display.name then print("Error: " .. tostring(err)) end
+    if ev[1] == "rednet_message" then
+      if ev[4] == PROTOCOL then soon = soon or os.startTimer(REDRAW_GAP) end
+    elseif ev[1] ~= "modem_message" then
+      redraw = true -- taps, the monitor, the terminal
+    end
   end
-  local ok, err = errlog.pcall(view.draw, view, computers, now())
-  if not ok and view.display.name then print("Display error: " .. tostring(err)) end
+  if redraw then
+    local ok, err = errlog.pcall(view.draw, view, computers, now())
+    if not ok and view.display.name then print("Display error: " .. tostring(err)) end
+  end
 end

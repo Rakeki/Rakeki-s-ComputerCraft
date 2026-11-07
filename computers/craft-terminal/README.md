@@ -38,7 +38,9 @@ the ones stored are sent at once and the new ones top storage back up.
 The list is worked out by the storage computer while a craft terminal is
 running, again within 30 seconds of anything stored changing. With a big
 modpack the first list can take a little while; the screen says "Working
-out what can be crafted..." until it's there.
+out what can be crafted..." until it's there, and after that the list is
+counted again less often (three times as long as the last count took), so
+the storage system isn't kept busy counting.
 
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
