@@ -2513,10 +2513,10 @@
       "name": "deephold",
       "file": "deephold.lua",
       "title": "Deep Hold",
-      "tagline": "A base for Create by bedrock: a 27-high contraption hall with a gallery, a two-track through station with an island platform and footbridge, and an upper hall over it with loading hatches down to the trains.",
+      "tagline": "A rustic base for Create by bedrock, deepslate framed in spruce: a 27-high contraption hall with a gallery and an elevator up to it, a two-track through station with an island platform and footbridge, and an upper hall over it with loading hatches down to the trains.",
       "size": "57 × 57 × 29",
       "hole": "57 × 57 × 30",
-      "blocks": 17400
+      "blocks": 17588
     },
     {
       "name": "factory",
