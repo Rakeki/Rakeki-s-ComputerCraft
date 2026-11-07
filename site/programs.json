@@ -7,10 +7,15 @@
     { "id": "mekanism", "title": "Mekanism & power", "tagline": "Reactors kept safe, power watched, digital miners run from one monitor." },
     { "id": "network", "title": "Network & dashboards", "tagline": "GPS, the status dashboard every program reports to, and a MineColonies overview." }
   ],
+  "sections": [
+    { "id": "vanilla", "title": "Vanilla & ComputerCraft", "tagline": "Needs nothing but CC: Tweaked. Some of these work with mods too, if you have them." },
+    { "id": "modded", "title": "Modded", "tagline": "Built around another mod's blocks: Create, Mekanism, Cobblemon, MineColonies and more." }
+  ],
   "programs": [
     {
       "name": "excavate-turtle",
       "group": "mining",
+      "mods": [],
       "title": "Excavator",
       "command": "excavate",
       "device": "turtle",
@@ -81,6 +86,7 @@
     {
       "name": "strip-mine-turtle",
       "group": "mining",
+      "mods": [],
       "title": "Strip Miner",
       "command": "stripmine",
       "device": "turtle",
@@ -136,6 +142,7 @@
     {
       "name": "nether-tunnel-turtle",
       "group": "mining",
+      "mods": [],
       "title": "Nether Tunnel",
       "command": "nethertunnel",
       "device": "turtle",
@@ -191,6 +198,7 @@
     {
       "name": "level-turtle",
       "group": "building",
+      "mods": [],
       "title": "Land Leveller",
       "command": "level",
       "device": "turtle",
@@ -247,6 +255,7 @@
     {
       "name": "village-turtle",
       "group": "building",
+      "mods": [],
       "title": "Village Builder",
       "command": "village",
       "device": "turtle",
@@ -327,6 +336,7 @@
     {
       "name": "mob-farm-turtle",
       "group": "building",
+      "mods": [],
       "title": "Mob Farm Builder",
       "command": "mobfarm",
       "device": "turtle",
@@ -385,6 +395,7 @@
     {
       "name": "tree-farm-turtle",
       "group": "farming",
+      "mods": [],
       "title": "Tree Farm",
       "command": "treefarm",
       "device": "turtle",
@@ -442,6 +453,7 @@
     {
       "name": "crop-farm-turtle",
       "group": "farming",
+      "mods": [],
       "title": "Crop Farm",
       "command": "cropfarm",
       "device": "turtle",
@@ -497,6 +509,7 @@
     {
       "name": "cobble-breeder",
       "group": "farming",
+      "mods": ["Cobblemon", "Cobbreeding"],
       "title": "Cobblemon Breeder",
       "command": "breed",
       "device": "computer",
@@ -544,6 +557,7 @@
     {
       "name": "mine-server",
       "group": "mining",
+      "mods": [],
       "title": "AutoMine Server",
       "command": "server",
       "device": "computer",
@@ -585,6 +599,7 @@
     {
       "name": "mine-turtle",
       "group": "mining",
+      "mods": [],
       "title": "AutoMine Turtle",
       "command": "miner",
       "device": "turtle",
@@ -639,6 +654,7 @@
     {
       "name": "status-server",
       "group": "network",
+      "mods": [],
       "title": "Status Dashboard",
       "command": "server",
       "device": "computer",
@@ -674,6 +690,7 @@
     {
       "name": "turtle-finder",
       "group": "network",
+      "mods": [],
       "title": "Turtle Finder",
       "command": "finder",
       "device": "computer",
@@ -756,6 +773,7 @@
     {
       "name": "overseer-bridge",
       "group": "network",
+      "mods": [],
       "title": "Overseer",
       "command": "overseer",
       "device": "computer",
@@ -988,6 +1006,7 @@
     {
       "name": "gps-deployer",
       "group": "network",
+      "mods": [],
       "title": "GPS Deployer",
       "command": "gps-deploy",
       "device": "turtle",
@@ -1045,6 +1064,7 @@
     {
       "name": "blueprint-projector",
       "group": "building",
+      "mods": ["CC: Spatial Projector"],
       "title": "Blueprint Projector",
       "command": "projector",
       "device": "computer",
@@ -1111,6 +1131,7 @@
     {
       "name": "builder-turtle",
       "group": "building",
+      "mods": [],
       "title": "Builder",
       "command": "builder",
       "device": "turtle",
@@ -1166,6 +1187,7 @@
     {
       "name": "build-control",
       "group": "building",
+      "mods": [],
       "title": "Build Control",
       "command": "build",
       "device": "computer",
@@ -1217,6 +1239,7 @@
     {
       "name": "instabuild",
       "group": "building",
+      "mods": [],
       "title": "Instabuild",
       "command": "instabuild",
       "device": "computer",
@@ -1266,6 +1289,8 @@
     {
       "name": "storage-computer",
       "group": "storage",
+      "mods": [],
+      "worksWith": ["Applied Energistics 2", "Refined Storage", "Advanced Peripherals"],
       "title": "Storage System",
       "command": "storage",
       "device": "computer",
@@ -1339,6 +1364,7 @@
     {
       "name": "remote-terminal",
       "group": "storage",
+      "mods": ["EnderStorage"],
       "title": "Remote Terminal",
       "command": "remote",
       "device": "computer",
@@ -1454,6 +1480,8 @@
     {
       "name": "cannon-feeder",
       "group": "storage",
+      "mods": ["Create"],
+      "worksWith": ["Advanced Peripherals", "EnderStorage"],
       "title": "Cannon Feeder",
       "command": "cannon",
       "device": "computer",
@@ -1513,6 +1541,7 @@
     {
       "name": "crafter-turtle",
       "group": "storage",
+      "mods": [],
       "title": "Crafter",
       "command": "crafter",
       "device": "turtle",
@@ -1568,6 +1597,8 @@
     {
       "name": "craft-overseer",
       "group": "storage",
+      "mods": [],
+      "worksWith": ["EnderStorage"],
       "title": "Craft Overseer",
       "command": "overseer",
       "device": "computer",
@@ -1621,6 +1652,9 @@
     {
       "name": "factory",
       "group": "storage",
+      "mods": [],
+      "parts": ["vanilla", "modded"],
+      "worksWith": ["Mekanism", "Create", "Cobblemon", "Botany Pots", "Mystical Agriculture", "EnderStorage"],
       "title": "Factory",
       "command": "factory",
       "device": "computer",
@@ -1699,6 +1733,7 @@
     {
       "name": "colony-dashboard",
       "group": "network",
+      "mods": ["MineColonies", "Advanced Peripherals"],
       "title": "Colony Dashboard",
       "command": "colony",
       "device": "computer",
@@ -1741,6 +1776,7 @@
     {
       "name": "fission-guard",
       "group": "mekanism",
+      "mods": ["Mekanism"],
       "title": "Fission Guard",
       "command": "fission",
       "device": "computer",
@@ -1786,6 +1822,7 @@
     {
       "name": "power-dashboard",
       "group": "mekanism",
+      "mods": ["Mekanism"],
       "title": "Power Dashboard",
       "command": "power",
       "device": "computer",
@@ -1830,6 +1867,7 @@
     {
       "name": "fusion-control",
       "group": "mekanism",
+      "mods": ["Mekanism"],
       "title": "Fusion Control",
       "command": "fusion",
       "device": "computer",
@@ -1874,6 +1912,7 @@
     {
       "name": "digital-miner-manager",
       "group": "mekanism",
+      "mods": ["Mekanism"],
       "title": "Digital Miner Manager",
       "command": "dminer",
       "device": "computer",
@@ -1924,6 +1963,7 @@
     {
       "name": "furnace-turtle",
       "group": "storage",
+      "mods": [],
       "title": "Furnace Turtle",
       "command": "furnace",
       "device": "turtle",
@@ -1986,6 +2026,7 @@
     {
       "name": "crate-turtle",
       "group": "storage",
+      "mods": ["Create"],
       "title": "Creative Crate Tap",
       "command": "crate",
       "device": "turtle",

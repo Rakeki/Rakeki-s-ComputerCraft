@@ -9,6 +9,11 @@
   const icon = (device) => `${ROOT}assets/${device === "turtle" ? "turtle" : "computer"}.svg`;
   const progUrl = (name) => `${ROOT}programs/${name}/`;
   const groupById = Object.fromEntries((SITE.groups || []).map((g) => [g.id, g]));
+  // which parts of the home page a program is in: modded if it needs a mod
+  // besides CC: Tweaked, or the ones its "parts" names (the factory: both)
+  const partsOf = (p) => p.parts || [(p.mods || []).length ? "modded" : "vanilla"];
+  const partOf = (p) => partsOf(p)[0];
+  const partById = Object.fromEntries((SITE.sections || []).map((k) => [k.id, k]));
   const planUrl = (name) => `${ROOT}plans/${name}/`;
   const libUrl = (name) => `${ROOT}libraries/${name}/`;
   const byName = Object.fromEntries(SITE.programs.map((p) => [p.name, p]));
@@ -108,24 +113,37 @@
     $("#stat-libs").textContent = SITE.libraries.length;
     $("#stat-lines").textContent = lines.toLocaleString("en");
 
-    // a section per group, in the order of "groups"; chips show one group
+    // two parts (vanilla & CC, modded: "sections"), each with a section per
+    // group in the order of "groups"; chips show one part, one group, or both
     const holder = $("#program-groups");
     const filters = $("#group-filters");
-    const sections = {};
-    for (const g of SITE.groups || []) {
-      const members = SITE.programs.filter((p) => p.group === g.id);
-      if (!members.length) continue;
-      const sec = h(`<section class="group" id="group-${g.id}" data-group="${g.id}">
-        <div class="group-head"><h3>${esc(g.title)} <span class="count">${members.length}</span></h3><p>${esc(g.tagline)}</p></div>
-        <div class="grid"></div></section>`);
-      holder.append(sec);
-      sections[g.id] = $(".grid", sec);
+    const sections = {}, usedGroups = new Set();
+    const parts = SITE.sections || [{ id: "vanilla", title: "", tagline: "" }];
+    for (const k of parts) {
+      const inPart = SITE.programs.filter((p) => partsOf(p).includes(k.id));
+      if (!inPart.length) continue;
+      const part = h(`<section class="part" id="part-${k.id}" data-part="${k.id}">
+        <div class="part-head"><h3>${esc(k.title)} <span class="count">${inPart.length}</span></h3><p>${esc(k.tagline)}</p></div></section>`);
+      holder.append(part);
+      for (const g of SITE.groups || []) {
+        const members = inPart.filter((p) => p.group === g.id);
+        if (!members.length) continue;
+        usedGroups.add(g.id);
+        const sec = h(`<section class="group" id="group-${k.id}-${g.id}" data-group="${g.id}" data-part="${k.id}">
+          <div class="group-head"><h3>${esc(g.title)} <span class="count">${members.length}</span></h3><p>${esc(g.tagline)}</p></div>
+          <div class="grid"></div></section>`);
+        part.append(sec);
+        sections[`${k.id}/${g.id}`] = $(".grid", sec);
+      }
     }
-    const chip = (id, label) => `<button class="chip" data-filter="${id}" aria-pressed="${id === "all"}">${esc(label)}</button>`;
-    filters.innerHTML = chip("all", "All") + (SITE.groups || []).filter((g) => sections[g.id]).map((g) => chip(g.id, g.title)).join("");
-    for (const p of SITE.programs) {
-      const grid = sections[p.group];
+    const chip = (kind, id, label) => `<button class="chip" data-${kind}="${id}" aria-pressed="${id === "all"}">${esc(label)}</button>`;
+    filters.innerHTML = `<div class="filters" role="group" aria-label="Show vanilla or modded">${chip("part", "all", "Everything")}${parts.filter((k) => holder.querySelector(`#part-${k.id}`)).map((k) => chip("part", k.id, k.title)).join("")}</div>`
+      + `<div class="filters" role="group" aria-label="Show one group">${chip("group", "all", "All")}${(SITE.groups || []).filter((g) => usedGroups.has(g.id)).map((g) => chip("group", g.id, g.title)).join("")}</div>`;
+    for (const p of SITE.programs) for (const part of partsOf(p)) {
+      const grid = sections[`${part}/${p.group}`];
       if (!grid) continue;
+      // in the modded part, a program that needs no mod shows the ones it works with
+      const mods = (p.mods || []).length ? p.mods.map((m) => [m, ""]) : part === "modded" ? (p.worksWith || []).map((m) => [m, " soft"]) : [];
       const card = h(`
         <a class="card" href="${progUrl(p.name)}" style="--c:${cc(p.color)}" data-device="${p.device}">
           <div class="thumb"><span class="tag">${esc(p.deviceLabel)}</span></div>
@@ -133,6 +151,7 @@
             <h3>${esc(p.title)} <code>${esc(p.command)}</code></h3>
             <p>${esc(p.tagline)}</p>
             <div class="meta">
+              ${mods.map(([m, soft]) => `<span class="pill mod${soft}">${esc(m)}</span>`).join("")}
               ${p.libs.map((l) => `<span class="pill lib">lib/${l}</span>`).join("")}
               ${p.files.length ? `<span class="pill">${p.files.length} files</span>` : ""}
               <span class="go">Open &rarr;</span>
@@ -142,16 +161,25 @@
       grid.append(card);
       thumb(p, $(".thumb", card));
     }
-    const pick = (f) => {
-      filters.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", c.dataset.filter === f));
-      holder.querySelectorAll(".group").forEach((s) => { s.hidden = f !== "all" && s.dataset.group !== f; });
+    const shown = { part: "all", group: "all" };
+    const pick = (kind, f) => {
+      shown[kind] = f;
+      filters.querySelectorAll(`[data-${kind}]`).forEach((c) => c.setAttribute("aria-pressed", c.dataset[kind] === f));
+      holder.querySelectorAll(".group").forEach((s) => {
+        s.hidden = (shown.part !== "all" && s.dataset.part !== shown.part) || (shown.group !== "all" && s.dataset.group !== shown.group);
+      });
+      holder.querySelectorAll(".part").forEach((k) => { k.hidden = !k.querySelector(".group:not([hidden])"); });
     };
-    filters.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => pick(c.dataset.filter)));
-    // a link to #group-<id> (from a program page) shows just that group
+    filters.querySelectorAll("[data-part]").forEach((c) => c.addEventListener("click", () => pick("part", c.dataset.part)));
+    filters.querySelectorAll("[data-group]").forEach((c) => c.addEventListener("click", () => pick("group", c.dataset.group)));
+    // a link to #group-<id> or #part-<id> (from a program page) shows just that
     const follow = (wait) => {
-      const linked = location.hash.match(/^#group-(\w+)$/);
-      if (!linked || !sections[linked[1]]) return;
-      pick(linked[1]);
+      const linked = location.hash.match(/^#(group|part)-(\w+)$/);
+      if (!linked) return;
+      const [, kind, id] = linked;
+      if (kind === "group" ? !usedGroups.has(id) : !holder.querySelector(`#part-${id}`)) return;
+      pick(kind === "group" ? "part" : "group", "all");
+      pick(kind, id);
       // once the cards have laid out, or the page jumps under it
       setTimeout(() => $("#programs").scrollIntoView(), wait);
     };
@@ -446,11 +474,13 @@
     main.innerHTML = `
       <section class="p-hero"><div class="wrap">
         <div>
-          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#programs">Programs</a> / ${groupById[p.group] ? `<a href="${ROOT}#group-${p.group}">${esc(groupById[p.group].title)}</a> / ` : ""}${esc(p.title)}</div>
+          <div class="crumbs"><a href="${ROOT}">Home</a> / <a href="${ROOT}#programs">Programs</a> / ${partById[partOf(p)] ? `<a href="${ROOT}#part-${partOf(p)}">${esc(partById[partOf(p)].title)}</a> / ` : ""}${groupById[p.group] ? `<a href="${ROOT}#group-${p.group}">${esc(groupById[p.group].title)}</a> / ` : ""}${esc(p.title)}</div>
           <div class="p-title"><img class="icon" src="${icon(p.device)}" alt=""><h1>${esc(p.title)}<small>computers/${esc(p.name)}</small></h1></div>
           <p class="lead">${esc(p.tagline)}</p>
           <div class="meta">
             <span class="pill">${esc(p.deviceLabel)}</span>
+            ${(p.mods || []).map((m) => `<span class="pill mod" title="Needs this mod">Needs ${esc(m)}</span>`).join("")}
+            ${(p.worksWith || []).map((m) => `<span class="pill mod soft" title="Optional: used if you have it">Works with ${esc(m)}</span>`).join("")}
             ${p.libs.map((l) => `<a class="pill lib" href="${libUrl(l)}">lib/${l}</a>`).join("")}
             <a class="pill" href="https://github.com/${SITE.repo}/tree/main/computers/${p.name}">Source on GitHub</a>
           </div>

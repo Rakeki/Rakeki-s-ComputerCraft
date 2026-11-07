@@ -138,6 +138,9 @@ One entry per program under `programs`, in the order they appear on the site:
 |---|---|
 | `name` | Folder name under `computers/` |
 | `group` | Which section of the home page it's in: an `id` from `groups` (mining, building, farming, storage, mekanism, network); the build stops if it's missing |
+| `mods` | Mods it needs besides CC: Tweaked (`[]` for none). Any at all puts it in the home page's Modded part (`sections`); none, in Vanilla & ComputerCraft |
+| `parts` | Optional: the home page parts it's shown in, overriding `mods` (the factory: `["vanilla", "modded"]`, as it runs plain furnaces and modded machines alike) |
+| `worksWith` | Optional: mods it uses if they're there but doesn't need (shown on its page, doesn't move it) |
 | `title`, `tagline` | Card title and one-sentence summary |
 | `command` | The program file (`<command>.lua`) and what the player types |
 | `device`, `deviceLabel` | `"turtle"` or `"computer"`, and the label shown on the card |

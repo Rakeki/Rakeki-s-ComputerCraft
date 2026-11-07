@@ -510,6 +510,18 @@ pre.code, .readme pre {
 .group-head h3 { font-family: var(--font-pixel); font-size: 26px; margin: 0; }
 .group-head .count { font-family: var(--font-body); font-size: 14px; color: var(--faint); margin-left: 6px; }
 .group-head p { margin: 0; color: var(--muted); }
+/* the two parts the groups sit in: vanilla & CC, modded */
+.part { display: grid; gap: 46px; }
+.part[hidden] { display: none; }
+.part-head { padding: 14px 18px; border-left: 6px solid var(--cc-lime); background: rgba(255, 255, 255, 0.04); }
+.part[data-part="modded"] .part-head { border-left-color: var(--cc-purple); }
+.part-head h3 { font-family: var(--font-pixel); font-size: 34px; margin: 0 0 4px; }
+.part-head .count { font-family: var(--font-body); font-size: 15px; color: var(--faint); margin-left: 6px; }
+.part-head p { margin: 0; color: var(--muted); }
+.filter-rows { display: grid; gap: 8px; justify-items: end; }
+@media (max-width: 700px) { .filter-rows { justify-items: start; } }
+.pill.mod { color: var(--cc-purple); border-color: rgba(178, 102, 229, 0.45); }
+.pill.mod.soft { color: var(--muted); border-style: dashed; }
 
 /* the plans page */
 .plan-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 22px; }
