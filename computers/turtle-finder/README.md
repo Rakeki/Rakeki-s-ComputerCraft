@@ -33,8 +33,11 @@ last known spot while it's out of range.
 - [`lib/net.lua`](../../lib/net.lua): opens the modem (copy to `/lib/net.lua`)
 - [`lib/files.lua`](../../lib/files.lua): remembers where it last heard each turtle (copy to `/lib/files.lua`)
 - [`lib/errlog.lua`](../../lib/errlog.lua): optional; saves any error to `/errors.log`
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![The turtle finder: a pocket computer with a modem, turtles that report, GPS in range](preview/setup.svg)
 
 1. Put a wireless or ender modem on a pocket computer (craft them together).
    An ender modem reaches any distance and dimension; a wireless one reaches a

@@ -109,8 +109,11 @@ builder turtles without a projector.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/plan.lua`](../../lib/plan.lua): loads plans and places them in the world (copy to `/lib/plan.lua`). Needed.
 - [`lib/crew.lua`](../../lib/crew.lua): hands the plan to the builder turtles and follows them (copy to `/lib/crew.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The projector: an advanced computer, the Spatial Projector next to it, an advanced monitor, and the projection south of it](preview/setup.svg)
 
 1. Place an advanced computer with a Spatial Projector next to it (or connect
    the projector with a wired modem), and an advanced monitor touching the

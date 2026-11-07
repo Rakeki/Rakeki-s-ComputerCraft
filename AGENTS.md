@@ -72,6 +72,9 @@ site/                       The website and in-game installer
   src/assets/netmap.js      The network map page (network/): network.json drawn with voxel.js, computers marked, what they
                             sent each other drawn on top by protocol, each computer's last screen
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
+  diagrams/                 Setup diagrams: build.mjs has a scene per program (where each block goes, from its
+                            README's Setup / Use) and writes computers/<name>/preview/setup.svg; render.mjs draws
+                            them with voxel.js's blocks plus numbered markers and a legend. Rerun after a setup change
 .claude/skills/             Detailed guides for agents (see Skills)
 .claude/launch.json         Preview server config ("site")
 .github/workflows/pages.yml Builds and publishes the website on every push to main
@@ -167,7 +170,10 @@ the source of truth.
    table below, and the protocol table if it talks over rednet.
 3. If it uses a lib, add it to that lib's "Used by" line in `lib/README.md`.
 4. Add or update its entry in `site/programs.json`. If its sizes or printed
-   text changed, update its scene in `voxel.js` or `cc.js` too.
+   text changed, update its scene in `voxel.js` or `cc.js` too. If what goes
+   where changed (or it's new), update its scene in `site/diagrams/build.mjs`
+   and run `node site/diagrams/build.mjs <name>`; the README shows
+   `preview/setup.svg` at the top of its Setup / Use section.
 5. Run `node site/build.mjs`, then `node site/serve.mjs`, and check its page.
 6. Add it to a scenario in `sim/scenarios/` (set up as its README says, with a
    check), run it (`node sim/run.mjs <scenario>`), and rerun `node sim/map.mjs`

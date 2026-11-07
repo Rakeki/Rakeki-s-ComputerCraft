@@ -602,8 +602,11 @@ input chest, then into the S pot, and so on up to XL.
 - [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen (copy to `/lib/setupui.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagrams (pictures, not installed)
 
 ## Setup
+
+![The factory's machines on the storage cable: furnaces, an enrichment chamber and an infuser with their feeders and output chests, a Create line, botany pots, the work chest](preview/setup.svg)
 
 1. Set up the [storage system](../storage-computer/README.md) first, and
    update it (`install update`) if it was installed before the factory.
@@ -830,6 +833,8 @@ to see them); the botany pots don't.
   one doesn't know work chests, and the factory carries on without.
 
 ### Far from the storage system
+
+![The factory far away: an ender chest pair as the work chest, the machines on the factory's own cable](preview/setup-far.svg)
 
 With ender chests that are shared by colour (EnderStorage or a mod like
 it), the machines can be at another base. You need one ender chest pair:

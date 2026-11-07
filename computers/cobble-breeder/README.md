@@ -56,8 +56,11 @@ The monitor shows:
 - [`lib/files.lua`](../../lib/files.lua): saves the setup, the breeders and the egg history (copy to `/lib/files.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The cobble breeder: the pasture over a hopper into the egg chest, the incubator with a hopper on top, the command computer and monitor](preview/setup.svg)
 
 1. **Turn egg encryption off.** By default Cobbreeding scrambles what's in
    an egg so nothing can read it before it hatches. In

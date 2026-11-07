@@ -45,8 +45,11 @@ and your own JSON or Lua plans go in `/plans` too.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Build control: the north-west bottom corner you type, and the builders at their homes](preview/setup.svg)
 
 1. Set up the builder turtles first, each on its home block with its supply
    and spoil chests ([builder setup](../builder-turtle/README.md#setup)).

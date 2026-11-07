@@ -356,8 +356,11 @@ and set **Store items in** to the ME system. A Refined Storage system with an
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen, on the monitor and the computer (copy to `/lib/setupui.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The storage system: chests joined by full-block modems and cable, the input, output, fuel and transfer chests, the computer and monitor](preview/setup.svg)
 
 1. Place the computer and at least three chests (an input, an output, and one
    or more for storage). Double chests and barrels work. With an ME or RS

@@ -60,8 +60,11 @@ have blaze spawners) or ComputerCraft blocks.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Where to put the Nether tunnel turtle: facing the way to dig, its chest behind it](preview/setup.svg)
 
 1. Place the turtle on the floor where the tunnel should start, facing the way
    to dig.

@@ -38,8 +38,11 @@ Vanilla ender chests are each player's own, and CC can't reach into them.
 - [`lib/crafts.lua`](../../lib/crafts.lua): has the craft overseer make the rest when storage runs out (copy to `/lib/crafts.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The remote terminal: an ender chest on the storage cable at home, its twin next to this computer far away](preview/setup.svg)
 
 1. Update the [storage system](../storage-computer/README.md) (`install
    update`): older ones can't list their items for the terminal. Give the

@@ -44,8 +44,11 @@ chest hasn't got it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- `preview/`: the pictures: the setup diagram and the farm render (not installed)
 
 ## Use
+
+![Where to put the mob farm turtle: on the ground, the supply chest behind it, the optional buffer chest under it, the shaft in front](preview/setup.svg)
 
 1. Pick a spot with open sky above. Ideally build over an ocean or far from
    caves, because mobs spawning anywhere else nearby use up the mob cap.

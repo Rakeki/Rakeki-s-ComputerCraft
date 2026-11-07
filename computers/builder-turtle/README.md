@@ -69,8 +69,11 @@ which strip it's on, e.g. "Building Cottage (strip 2 of 3): 410 blocks."
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![A builder's home: the supply chest behind it, the spoil chest on its left, an optional buffer chest under it, next to the storage or with an ender chest](preview/setup.svg)
 
 1. Put the turtle on its **home** block, near where you'll build (up to 256
    blocks away). Give it a wireless or ender modem and some coal.

@@ -159,6 +159,8 @@ Copy these to the turtle:
 
 ## Setting up
 
+![The village centre: the turtle, the supply chest behind it, the spoil chest on its left, an optional buffer chest under it](preview/setup.svg)
+
 1. Pick the village centre: fairly flat open ground. Stand the turtle on it,
    facing the way you want the village's "forward" to be.
 2. Put the **supply chest** directly **behind** the turtle (a double chest is

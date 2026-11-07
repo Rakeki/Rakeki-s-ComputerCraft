@@ -23,6 +23,7 @@ keeps track of their progress, and shows a chunk map for planning.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Restarts
 
@@ -51,6 +52,8 @@ Both are optional:
 Monitors can be added or removed while the server is running.
 
 ## Setup
+
+![The AutoMine server: a computer with a modem, optional monitors, and the miners at their homes](preview/setup.svg)
 
 1. Place the computer and attach a modem and any monitors.
 2. Copy the files on and reboot.

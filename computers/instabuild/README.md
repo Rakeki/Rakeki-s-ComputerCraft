@@ -37,8 +37,11 @@ same block along a row goes in with one `fill`.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files, for the undo list (copy to `/lib/files.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers, for `instabuild serve` (copy to `/lib/net.lua`). Needed.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Instabuild: the command computer, the north-west bottom corner, and the optional projector](preview/setup.svg)
 
 1. In a creative world, get a command computer:
    `/give @s computercraft:computer_command`. Place it anywhere: it can

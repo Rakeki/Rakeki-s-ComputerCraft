@@ -38,6 +38,7 @@ blocks, including other turtles.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 Position is saved to `/.nav_state`, the current job to `/.automine_job` and
 its home to `/.automine_home`, so a turtle picks up where it left off after a
@@ -48,6 +49,8 @@ If the server goes down, turtles keep mining their current chunk (and unload
 at home as usual) and wait for it to come back before asking for a new job.
 
 ## Setup
+
+![A miner's home: the turtle with its chest behind it and an optional fuel chest beside it, open sky above](preview/setup.svg)
 
 1. Craft a mining turtle and an ender modem (or wireless modem) together.
 2. Place it where it should live, with open sky above it, and put a chest

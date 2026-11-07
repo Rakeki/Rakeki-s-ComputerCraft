@@ -84,8 +84,11 @@ A double chest holds 54 kinds.
 - [`lib/plan.lua`](../../lib/plan.lua): reads building plans for `cannon plan` (copy to `/lib/plan.lua`). Needed for `cannon plan`.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The cannon feeder: the chest against the Schematicannon, the computer against the chest, the Block Reader facing the cannon; near the storage or with an ender chest](preview/setup.svg)
 
 1. Put a **chest** against the Schematicannon, and this computer against the
    chest.

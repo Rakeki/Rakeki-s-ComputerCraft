@@ -37,8 +37,11 @@ It saves its job, so after a reboot or chunk reload it carries on by itself.
 - [`lib/net.lua`](../../lib/net.lua): asks the storage computer for counts (copy to `/lib/net.lua`). Only `crate stock` needs it.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Where to put the crate turtle: the Creative Crate and the chest on its front, top or bottom; for crate stock, the storage input chest](preview/setup.svg)
 
 1. Place the **Creative Crate** and right-click the **filter slot on its top**
    with the item you want (the item shows in that slot).

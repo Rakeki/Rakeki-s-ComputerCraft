@@ -416,6 +416,19 @@
         else if ((m = abs.match(/^plans\/([\w-]+)\.(lua|json)$/)) && (SITE.plans || []).some((pl) => pl.name === m[1])) a.href = planUrl(m[1]);
         else { a.href = ROOT + abs; a.target = "_blank"; }
       });
+      // pictures (preview/setup.svg): relative to the README, and open full size when clicked
+      div.querySelectorAll("img[src]").forEach((img) => {
+        const src = img.getAttribute("src");
+        if (/^(https?:|data:|\/)/.test(src)) return;
+        img.src = ROOT + new URL(src, `https://x/${baseDir}/`).pathname.slice(1);
+        img.loading = "lazy";
+        if (!img.closest("a")) {
+          const a = h(`<a class="readme-pic" target="_blank" rel="noopener"></a>`);
+          a.href = img.src;
+          img.replaceWith(a);
+          a.append(img);
+        }
+      });
       div.querySelectorAll("pre code").forEach((c) => { if (!c.className) c.className = /^\s*(local|--|report\.|nav\.)/.test(c.textContent) ? "language-lua" : "language-plaintext"; });
       holder.replaceChildren(div);
       highlight();

@@ -40,8 +40,11 @@ Mekanism's default config has it), or joules if you prefer.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![Fusion control: the logic adapter in the reactor casing, the computer touching it, the monitor](preview/setup.svg)
 
 1. Put a **Fusion Reactor Logic Adapter** in the reactor's casing (a Reactor
    Port works too).

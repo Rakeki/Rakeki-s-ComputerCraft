@@ -51,8 +51,11 @@ Low fuel only shows a warning: an empty reactor just stops.
 - [`lib/files.lua`](../../lib/files.lua): saves the latch so a reboot doesn't clear it (copy to `/lib/files.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The fission guard: the logic adapter in the reactor casing, the computer touching it, the monitor, an optional induction port](preview/setup.svg)
 
 1. Build the reactor and put a **Fission Reactor Logic Adapter** in its
    casing (a Reactor Port works too). Leave the adapter's redstone mode on

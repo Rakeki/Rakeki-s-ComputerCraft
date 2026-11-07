@@ -36,7 +36,6 @@ torches, deepslate tiles, sandstone, glass panes and more; the list is in
 [`recipes.lua`](../craft-overseer/recipes.lua) on the craft overseer).
 Smelted blocks like smooth sandstone can't be crafted. Teach it anything else
 with `crafter learn`.
-
 ## Files
 
 - `crafter.lua`: the program
@@ -46,11 +45,14 @@ with `crafter learn`.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is its crafter chest (copy to `/lib/claim.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/crafts.lua`](../../lib/crafts.lua): sends a recipe taught with `crafter learn` to the craft overseer (copy to `/lib/crafts.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 The recipes and the planning live on the [craft overseer](../craft-overseer/README.md)
 (`recipes.lua` and `crafting.lua` there), not on this turtle.
 
 ## Setup
+
+![The crafting turtle: its chest directly in front, a full-block wired modem touching the chest, cable to the storage](preview/setup.svg)
 
 1. Craft a **crafty turtle** (a turtle with a crafting table) and put a
    **wireless or ender modem** on its other side.

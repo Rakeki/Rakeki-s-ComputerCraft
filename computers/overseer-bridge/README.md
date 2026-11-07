@@ -49,8 +49,11 @@ With no server behind it, the page plays a made-up base.
 - [`tools/overseer/server.mjs`](../../tools/overseer/server.mjs): the server, for your PC (Node.js, nothing else to install).
 - [`tools/overseer/public/`](../../tools/overseer/public/index.html): the page it serves (`index.html`, `app.js`, `style.css`, `demo.js`).
 - `tools/overseer/data/`: made by the server: `config.json` (port, address, key) and `state.json` (every computer it has seen).
+- `preview/`: pictures of the page and the setup (not installed)
 
 ## Setup
+
+![The overseer bridge: a computer with an ender modem, an optional wired modem on a cable, and the computers it hears](preview/setup.svg)
 
 These steps are for the usual case: Minecraft (single player, or a server you
 run yourself) on the same PC as the overseer server. See

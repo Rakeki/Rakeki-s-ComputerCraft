@@ -39,8 +39,11 @@ shows it as an alert.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The colony dashboard: an advanced computer, a Colony Integrator touching it, an advanced monitor](preview/setup.svg)
 
 1. You need the **Advanced Peripherals** mod alongside MineColonies.
 2. Place an advanced computer **inside your colony's borders**, with a

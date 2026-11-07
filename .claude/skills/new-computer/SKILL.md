@@ -50,6 +50,12 @@ repo root.
    the installer (title, command, device, group, libs, keep, stats, setup, commands,
    render, optional layouts). Add a scene to `voxel.js` or `cc.js` for its
    render. Run `node site/build.mjs` to check it builds.
+9. Add a setup diagram: a scene in `site/diagrams/build.mjs` showing where
+   every block goes (the computer or turtle and its facing, chests, modems
+   and cable, monitors, machines), then `node site/diagrams/build.mjs <name>`
+   writes `preview/setup.svg`. Put `![<what it shows>](preview/setup.svg)`
+   at the top of the README's Setup / Use section and a `preview/` line in
+   Files; for a `gallery` render, add it to `images` in programs.json too.
 
 ## Things every program does
 

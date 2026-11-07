@@ -294,7 +294,7 @@
       ],
       "render": {
         "kind": "gallery",
-        "caption": "Rendered from the real blueprints and from a 12-building village built in the simulator.",
+        "caption": "Rendered from the real blueprints and from a 12-building village built in the simulator. Setup shows where the turtle and its chests go.",
         "images": [
           ["Medieval village", "computers/village-turtle/preview/example-medieval.svg"],
           ["Desert village", "computers/village-turtle/preview/example-desert.svg"],
@@ -305,7 +305,8 @@
           ["Medieval buildings", "computers/village-turtle/preview/medieval.svg"],
           ["Desert buildings", "computers/village-turtle/preview/desert.svg"],
           ["Nordic buildings", "computers/village-turtle/preview/nordic.svg"],
-          ["Japanese buildings", "computers/village-turtle/preview/japanese.svg"]
+          ["Japanese buildings", "computers/village-turtle/preview/japanese.svg"],
+          ["Setup", "computers/village-turtle/preview/setup.svg"]
         ]
       },
       "terminal": {
@@ -365,8 +366,8 @@
       ],
       "render": {
         "kind": "gallery",
-        "caption": "The default farm: finished, cut open, and a close-up of the bottom of the shaft.",
-        "images": [["Mob farm", "computers/mob-farm-turtle/preview/mobfarm.svg"]]
+        "caption": "The default farm: finished, cut open, and a close-up of the bottom of the shaft. Setup shows where the turtle and its chests go before it starts.",
+        "images": [["Mob farm", "computers/mob-farm-turtle/preview/mobfarm.svg"], ["Setup", "computers/mob-farm-turtle/preview/setup.svg"]]
       },
       "terminal": {
         "device": "turtle",
@@ -841,11 +842,15 @@
       ],
       "render": {
         "kind": "gallery",
-        "caption": "The overseer page in a browser: the map, the fleet, traffic and the packet stream. The real page is animated: try the demo.",
+        "caption": "The overseer page in a browser: the map, the fleet, traffic and the packet stream. The real page is animated: try the demo. Setup shows where the bridge and its modems go.",
         "images": [
           [
             "Overseer page",
             "computers/overseer-bridge/preview/overseer.svg"
+          ],
+          [
+            "Setup",
+            "computers/overseer-bridge/preview/setup.svg"
           ]
         ]
       },

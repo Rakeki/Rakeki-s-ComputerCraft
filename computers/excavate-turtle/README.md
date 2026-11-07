@@ -48,8 +48,11 @@ fuel, but then water and lava can get in.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): asks the storage computer for fuel and cobblestone (copy to `/lib/net.lua`). Needed; without a storage computer it just finds none.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer the chest behind the start is this turtle's (copy to `/lib/claim.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Where to put the excavator: the turtle in a corner, its chest behind it, the hole forward and to its right](preview/setup.svg)
 
 1. Place the turtle at floor level in one corner of the hole-to-be, facing
    along one edge. The hole extends **forward** and to the **right** of it.

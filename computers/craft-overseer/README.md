@@ -137,8 +137,11 @@ storage computer's footer says so while it's there).
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is its ender chest's twin, when it has one (copy to `/lib/claim.lua`). Needed.
+- `preview/`: the setup diagrams (pictures, not installed)
 
 ## Setup
+
+![The craft overseer on the storage cable, with crafting turtles and their chests](preview/setup.svg)
 
 1. Set up the [storage computer](../storage-computer/README.md) first.
 2. Place an advanced computer with a **wired modem** joined to the storage
@@ -161,6 +164,8 @@ storage computer's footer says so while it's there).
    ```
 
 ## Far from the storage system
+
+![The craft overseer far away: an ender chest pair, the overseer's own cable, each turtle's barrel](preview/setup-far.svg)
 
 The crafting turtles can work somewhere else entirely (another base,
 another dimension) with **one pair of ender chests** for all of them:

@@ -51,8 +51,11 @@ until you make room.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Use
+
+![Where to put the leveller: on the ground in a corner, its chest behind it, the area forward and to its right](preview/setup.svg)
 
 1. Stand the turtle **on the ground** in one corner of the area, at the
    height you want the platform: the block under it is the platform's top.

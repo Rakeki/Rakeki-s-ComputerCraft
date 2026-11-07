@@ -49,8 +49,11 @@ The list is saved to `/.status_state`, so a restart keeps it.
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screen without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed.
+- `preview/`: the setup diagram (a picture, not installed)
 
 ## Setup
+
+![The status server: an advanced computer with a modem and an advanced monitor](preview/setup.svg)
 
 1. Place an advanced computer with a modem and an advanced monitor.
 2. Copy the files on and reboot.
