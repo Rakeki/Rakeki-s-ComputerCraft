@@ -25,6 +25,7 @@ local farm = require("farm") -- the essence farm, far from the storage system
 local M = {}
 
 local RECIPES_EVERY = 300 -- seconds between asking the craft overseer for its recipes again
+local RECIPES_RETRY = 30 -- seconds before asking again when it had none
 local POT_SLOTS = 12 -- harvest slots in a pot
 local BARRELS_FILE = "/.factory_pot_barrels" -- the pot barrels: { name, ... }
 
@@ -235,7 +236,11 @@ function M.new(f)
     return { make = raw.make, count = raw.count or 1, need = need, from = table.concat(parts, " + "), raw = raw }
   end
 
-  local function loadRecipes()
+  -- Why there are no recipes, kept for the Recipes view: the round's own
+  -- notes would hide it.
+  local recipeWhy
+
+  local function fetchRecipes()
     local reply, err = f.craft({ type = "recipes", uses = ESSENCE })
     if not reply then return false, err end
     if type(reply.recipes) ~= "table" then return false, "the craft overseer is too old: run 'install update' on it" end
@@ -244,8 +249,19 @@ function M.new(f)
     for _, raw in ipairs(reply.recipes) do
       if type(raw.make) == "string" and type(raw.grid) == "table" then list[#list + 1] = prepare(raw) end
     end
-    recipes, recipesAt = list, os.clock()
+    recipes = list
+    -- none: asked again sooner, as the overseer may still be loading its pack
+    recipesAt = os.clock() - (#list == 0 and RECIPES_EVERY - RECIPES_RETRY or 0)
+    if #list == 0 then
+      return false, "the craft overseer knows no essence recipes: give it the modpack's pack_recipes.lua"
+    end
     return true
+  end
+
+  local function loadRecipes()
+    local ok, why = fetchRecipes()
+    recipeWhy = not ok and why or nil
+    return ok, why
   end
 
   -- The recipes for items whose name has text in it (all of them for ""),
@@ -626,10 +642,10 @@ function M.new(f)
       end
     end
     if #list == 0 then
-      local text = #recipes == 0 and "No essence recipes yet (see Things to know)."
+      local text = #recipes == 0 and ("No essence recipes yet: %s."):format(recipeWhy or "see Things to know")
         or query ~= "" and "No recipe makes that."
         or "Not enough essence for anything yet."
-      screen.put(win, 2, 4, text, "gray")
+      for i, line in ipairs(screen.wrap(text, w - 2, 4)) do screen.put(win, 2, 3 + i, line, "gray") end
     end
     local b = current()
     if b then

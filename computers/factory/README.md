@@ -1000,7 +1000,7 @@ botany pots over, and machines added there can be added again on the other.
   as they take either different items (one each, at most 5) or one item
   several times; with Create, a recipe for XS candy from experience nuggets
   is there, commented out.
-- **Essence.** No recipes? The craft overseer has to know Mystical
+- **Essence.** No recipes? The Recipes view says why. The craft overseer has to know Mystical
   Agriculture's: they come from `pack_recipes.lua`, or teach one by hand
   with `crafter learn` on the crafting turtle. The list is fetched again
   every 5 minutes. The storage system picks its own recipe for an item: if
