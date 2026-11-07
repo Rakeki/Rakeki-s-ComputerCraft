@@ -33,7 +33,10 @@ running, mean the storage computer has the wrong chest, and it claims again
 (the cannon feeder does). Concurrent searches never share a probe item
 (`markersInUse`: the same marker in two searches once handed a cannon feeder
 another program's ender chest), and `assign` puts away what waited in a
-turtle's old chest unless another turtle has it. Ask through a
+turtle's old chest unless another turtle has it. A delivery claim whose
+probe arrived wins a chest a crafter holds (an empty wrong crafter chest
+passes the crafter's `sameItems` check forever): the crafter record is
+dropped and the crafter probes for its real one next time. Ask through a
 [[lib-net]] peer:
 
 ```lua

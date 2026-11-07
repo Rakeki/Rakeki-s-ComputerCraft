@@ -1175,13 +1175,24 @@ local function assign(from, role, chest)
     end
     return recordWork(from, chest)
   end
-  if role == "delivery" then
-    for _, c in ipairs(crafterChests()) do
-      if c == chest then return { re = "claim", ok = false, error = "that chest is a crafting turtle's" } end
-    end
-  end
   local s = loadSetup() or setup
   s.deliveries, s.crafters = s.deliveries or {}, s.crafters or {}
+  if role == "delivery" then
+    -- A crafting turtle has it, yet the probe just turned up in this turtle's
+    -- chest: the crafter's claim is the wrong one (an ender chest whose twin
+    -- is here, taken back when two searches shared a probe item; two empty
+    -- chests look alike, so the crafter kept confirming it). This turtle gets
+    -- it, and the crafter finds its real chest on its next claim.
+    for _, t in ipairs({ setup, s }) do
+      for id, name in pairs(t.crafters) do
+        if name == chest then
+          t.crafters[id] = nil
+          if t == setup and report then report.log(("crafter #%d lost %s to turtle #%d"):format(id, chest, from)) end
+        end
+      end
+      if t.crafter == chest then t.crafter = nil end
+    end
+  end
   -- the chest it had before (a wrong one, say: items waited there that never
   -- reached it): what's in it goes home, or it would sit there for good
   local before = (role == "crafter" or role == "hub") and setup.crafters[from] or setup.deliveries[from]
