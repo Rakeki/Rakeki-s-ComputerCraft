@@ -62,20 +62,20 @@ local SIDE_WAYS = {
   { side = "bottom", drop = turtle and turtle.dropDown, suck = turtle and turtle.suckDown },
   { side = "top", drop = turtle and turtle.dropUp, suck = turtle and turtle.suckUp },
 }
-local way = SIDE_WAYS[1]
+local chestWay = SIDE_WAYS[1]
 
 local function findChest()
   for _, w in ipairs(SIDE_WAYS) do
     local c = peripheral.wrap(w.side)
     if c and c.list then
-      way = w
+      chestWay = w
       return c
     end
   end
 end
 
 local function myChest()
-  local c = peripheral.wrap(way.side)
+  local c = peripheral.wrap(chestWay.side)
   if c and c.list then return c end
 end
 
@@ -87,7 +87,7 @@ local function emptyOut()
   for slot = 1, 16 do
     turtle.select(slot)
     while turtle.getItemCount(slot) > 0 do
-      if not way.drop() then
+      if not chestWay.drop() then
         if not warned then
           print("My chest is full. Waiting...")
           status("waiting", "chest full")
@@ -134,7 +134,7 @@ local function claimLoop()
     local ok, why, way
     local refused = {} -- why each one that answered didn't take it
     for _, w in ipairs(ways) do
-      ok, why = claim.chest(w.ask, "crafter", way.side)
+      ok, why = claim.chest(w.ask, "crafter", chestWay.side)
       way = w
       if ok then break end
       if ok == false then refused[#refused + 1] = ("%s: %s"):format(w.who, why) end
@@ -181,7 +181,7 @@ local function layOut(grid, steps)
     end
     if not free or sucks >= MAX_SUCKS then return false, "my chest has things in it the recipe doesn't use" end
     turtle.select(free)
-    if not way.suck() then return false, "not enough ingredients in my chest" end
+    if not chestWay.suck() then return false, "not enough ingredients in my chest" end
     sucks = sucks + 1
     -- hand the stack out to the cells that need it
     local item = turtle.getItemDetail(free)
@@ -195,7 +195,7 @@ local function layOut(grid, steps)
   -- what's left over goes back
   for _, s in ipairs(STAGE) do
     turtle.select(s)
-    way.drop()
+    chestWay.drop()
   end
   return true
 end
@@ -219,7 +219,7 @@ local function craft(steps, grid)
     for k = 1, 9 do
       if list[k] then
         turtle.select(GRID[k])
-        way.suck(list[k].count)
+        chestWay.suck(list[k].count)
       end
     end
   end
