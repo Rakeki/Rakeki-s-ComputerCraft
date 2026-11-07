@@ -26,7 +26,14 @@ wired modem on the storage cable. Facing it, the turtle calls
 from then on its deliveries go there (each turtle has its own; nothing is
 picked in `storage setup`). Claim again when a `deliver` reply's `to`
 isn't `"own"` (the storage computer was set up again): `claim.tracker`
-does all of that (see builder.lua's `orderFromStorage`). Ask through a
+does all of that (see builder.lua's `orderFromStorage`). A program whose chest
+is an ender chest twin should also call `supply:arrived(r, contents)` after
+each `deliver`: `ready` items that never show up in its chest, three times
+running, mean the storage computer has the wrong chest, and it claims again
+(the cannon feeder does). Concurrent searches never share a probe item
+(`markersInUse`: the same marker in two searches once handed a cannon feeder
+another program's ender chest), and `assign` puts away what waited in a
+turtle's old chest unless another turtle has it. Ask through a
 [[lib-net]] peer:
 
 ```lua

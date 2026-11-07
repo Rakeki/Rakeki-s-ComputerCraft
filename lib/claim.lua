@@ -67,6 +67,7 @@ end
 --   local supply = claim.tracker("delivery", 300)
 --   if supply:due() then faceSupply(); local ok, why = supply:check(askStorage, "front") ... end
 --   local r = askStorage({ type = "deliver", ... }); supply:seen(r)
+--   if supply:arrived(r, whatsInMyChest) then ... end  -- it has the wrong chest: claimed again next time
 --
 -- check returns the same as claim.chest. After no answer at all (no storage
 -- system yet) it tries again in a minute; after a refusal, in retry seconds.
@@ -84,6 +85,24 @@ function claim.tracker(role, retry)
   end
   function t:seen(reply)
     if reply and reply.to ~= "own" then self.done = false end
+  end
+  -- After a delivery: have is what's in my own chest now (name -> count).
+  -- The storage computer says items are ready in my chest, yet none of them
+  -- are in it, three times running: it has the wrong chest for me (an ender
+  -- chest whose twin is somewhere else). Find it again. True when it will.
+  function t:arrived(reply, have)
+    if not (reply and reply.to == "own" and type(reply.ready) == "table") then return false end
+    local said, there = 0, 0
+    for name, n in pairs(reply.ready) do
+      if type(n) == "number" and n > 0 then
+        said = said + 1
+        if (have[name] or 0) > 0 then there = there + 1 end
+      end
+    end
+    self.misses = (said > 0 and there == 0) and (self.misses or 0) + 1 or 0
+    if self.misses < 3 then return false end
+    self.misses, self.done, self.after = 0, false, -math.huge
+    return true
   end
   return t
 end

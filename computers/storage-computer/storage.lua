@@ -1113,10 +1113,27 @@ local function takeMarker(c)
   c.at = nil
 end
 
+-- Markers other turtles' searches are using right now. Two searches at
+-- once must never use the same item: the probe for one could land in the
+-- other's chest (an ender chest's twin), and that turtle would take the
+-- chest being tried for the first as its own. It did: every search picked
+-- the same first item, and a cannon feeder got another's ender chest.
+local CLAIM_IDLE = 60 -- seconds a search may go quiet before its marker is free again
+local function markersInUse(from)
+  local used = {}
+  for id, other in pairs(claims) do
+    if id ~= from and other.marker and os.clock() - (other.last or 0) < CLAIM_IDLE then used[other.marker] = true end
+  end
+  return used
+end
+
 -- Put one item in the next chest to try. The item is one that chest
--- doesn't already hold, so the turtle can tell it arrived.
+-- doesn't already hold, and no other search is using, so the turtle can
+-- tell it arrived.
 local function nextProbe(from, c)
   local items = allItems()
+  local used = markersInUse(from)
+  c.last = os.clock()
   while c.i < #c.candidates do
     c.i = c.i + 1
     local name = c.candidates[c.i]
@@ -1124,10 +1141,10 @@ local function nextProbe(from, c)
     if ok then
       local has = {}
       for _, item in pairs(list) do has[item.name] = true end
-      local marker = c.marker and not has[c.marker] and items[c.marker] and c.marker
+      local marker = c.marker and not has[c.marker] and not used[c.marker] and items[c.marker] and c.marker
       if not marker then
         for key, it in pairs(items) do
-          if not it.nbt and it.count > 0 and not has[key] then marker = key break end
+          if not it.nbt and it.count > 0 and not has[key] and not used[key] then marker = key break end
         end
       end
       if marker and fetch(marker, 1, name) > 0 then
@@ -1165,6 +1182,21 @@ local function assign(from, role, chest)
   end
   local s = loadSetup() or setup
   s.deliveries, s.crafters = s.deliveries or {}, s.crafters or {}
+  -- the chest it had before (a wrong one, say: items waited there that never
+  -- reached it): what's in it goes home, or it would sit there for good
+  local before = (role == "crafter" or role == "hub") and setup.crafters[from] or setup.deliveries[from]
+  local othersToo = false -- it may be another turtle's real chest: then it stays as it is
+  for id, name in pairs(setup.deliveries) do
+    if name == before and id ~= from then othersToo = true end
+  end
+  for id, name in pairs(setup.crafters) do
+    if name == before and id ~= from then othersToo = true end
+  end
+  if before and before ~= chest and not othersToo then
+    local okB, listB = pcall(peripheral.call, before, "list")
+    for slot, item in pairs(okB and listB or {}) do putAway(before, slot, item, item.count) end
+    reserved[before] = nil
+  end
   for _, t in ipairs({ setup, s }) do
     if role == "crafter" or role == "hub" then
       -- each crafting turtle has a chest of its own

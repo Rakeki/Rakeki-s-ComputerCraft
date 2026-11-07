@@ -133,6 +133,11 @@ A double chest holds 54 kinds.
 
 ## Things to know
 
+- If the storage computer says it sent items that never turn up in the
+  chest, three rounds running, the feeder takes it that the storage computer
+  has the wrong chest for it (an ender chest whose twin is elsewhere) and
+  finds its chest again ("finding my chest again"); what was sent to the
+  wrong one goes back into storage.
 - CC can't ask the cannon anything or read its schematic. The Block Reader
   only shows the item it's waiting for right now, so with a Block Reader
   alone the cannon stops once for each new kind of block while that's

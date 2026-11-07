@@ -323,18 +323,24 @@ end
 
 -- Put one item the barrel doesn't hold into it (in withHub), borrowed from
 -- storage if the ender chest has none. Its name, or nil and why.
-local function probeInto(barrel, has)
+-- Never the item another turtle's search is using (its probe could land
+-- in this turtle's barrel and be taken for this one's).
+local function probeInto(barrel, has, from)
+  local used = {}
+  for id, other in pairs(claims) do
+    if id ~= from and other.marker and os.clock() - (other.last or 0) <= CLAIM_IDLE then used[other.marker] = true end
+  end
   local function pick()
     local ok, list = pcall(peripheral.call, hub.name, "list")
     for slot, item in pairs(ok and list or {}) do
-      if not has[item.name] then return slot, item.name end
+      if not has[item.name] and not used[item.name] then return slot, item.name end
     end
   end
   local slot, marker = pick()
   if not slot then
     local want
     for name, n in pairs(stock or {}) do
-      if n > 0 and not has[name] then want = name break end
+      if n > 0 and not has[name] and not used[name] then want = name break end
     end
     if not want then return nil, "the storage system is empty: I need one item to find your barrel with" end
     local r = askStorage({ type = "load", crafter = MY_ID, grid = { want }, steps = 1 }, LOAD_WAIT)
@@ -360,7 +366,7 @@ local function nextProbe(from, c)
     if ok and not inUse(name) then
       local has = {}
       for _, item in pairs(list) do has[item.name] = true end
-      local marker, why = withHub(function() return probeInto(name, has) end)
+      local marker, why = withHub(function() return probeInto(name, has, from) end)
       if marker then
         c.at, c.marker = name, marker
         return { probe = marker }

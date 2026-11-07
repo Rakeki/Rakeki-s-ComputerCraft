@@ -179,6 +179,10 @@ turtle sees it turn up (then takes it back). The footer then says e.g.
 "Turtle #14's delivery chest is minecraft:chest_7." That chest stops being
 storage, and it's remembered. Move the turtle to another chest and it finds
 the new one the next time it asks. This needs at least one item in storage.
+Several turtles can look for their chests at once: each search uses an item
+none of the others is using, so one can't take another's for its own. When a
+turtle's chest changes, what was waiting in its old one goes back into
+storage.
 The chest can also be a linked ender chest whose twin is on this cable (a
 [builder](../builder-turtle/README.md#far-from-the-storage-system-an-ender-chest)
 at a far-away site): the item comes out of the twin next to the turtle, and

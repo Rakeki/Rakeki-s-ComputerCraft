@@ -458,6 +458,11 @@ local function feed()
   end
   -- what each item is up to, for the screen
   have = contents()
+  if supply:arrived(r, have) then
+    say("Storage says it sent items my chest never got: finding my chest again.", "orange")
+    status("waiting", "finding my chest again")
+    return
+  end
   local crafting, cant = r.crafting or {}, r.cantCraft or {}
   local left = 0
   for _, it in ipairs(job.items) do
@@ -478,6 +483,8 @@ local function feed()
       say(("Sent %s: the cannon carries on."):format(nice(waits)), "lightBlue")
     elseif s.crafting then
       say(("The cannon waits for %s: crafting it."):format(nice(waits)), "lightBlue")
+    elseif (s.stock or 0) > 0 then
+      say(("The cannon waits for %s: storage has %d, none in my chest yet."):format(nice(waits), s.stock), "orange")
     else
       say(("The cannon waits for %s: %s."):format(nice(waits), s.why or "none stored"), "red")
     end
