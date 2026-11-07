@@ -18,7 +18,8 @@ computers/
     README.md     What it does, where it is, its computer ID, peripherals
     startup.lua   Runs automatically when the computer boots
 lib/              Shared modules usable by any computer
-tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the craft overseer,
+tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the craft overseer
+                  (essence-recipes.mjs: just the essence ones, for the factory),
                   and overseer/: the server and page for the live network map
 site/             The website and in-game installer (built by GitHub Actions)
 sim/              A simulated CC world on your PC that runs every program together (tests, and the network map)

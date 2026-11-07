@@ -4,9 +4,10 @@
 -- ingots, dirt, diamonds, ...), so you can order it: the storage system's
 -- crafting turtle makes it.
 --
--- The recipes come from the craft overseer: Mystical Agriculture's are in
--- the modpack's pack_recipes.lua (tools/recipes.mjs), or teach one with
--- 'crafter learn'. A pot shows CC only its harvest, and only through its
+-- The recipes come from /essence_recipes.lua on this computer if it's there
+-- (tools/essence-recipes.mjs; packs/ has ready-made ones), else from the
+-- craft overseer: Mystical Agriculture's are in the modpack's
+-- pack_recipes.lua (tools/recipes.mjs), or teach one with 'crafter learn'. A pot shows CC only its harvest, and only through its
 -- bottom, so each pot stands on a full-block wired modem; the seed and soil
 -- are never touched. Or the pots empty themselves into a barrel (or chest)
 -- under them or at the end of a pipe: a "pot barrel", added on the setup
@@ -26,6 +27,7 @@ local M = {}
 
 local RECIPES_EVERY = 300 -- seconds between asking the craft overseer for its recipes again
 local RECIPES_RETRY = 30 -- seconds before asking again when it had none
+local RECIPES_FILE = "/essence_recipes.lua" -- the essence recipes kept here (tools/essence-recipes.mjs), else the overseer's
 local POT_SLOTS = 12 -- harvest slots in a pot
 local BARRELS_FILE = "/.factory_pot_barrels" -- the pot barrels: { name, ... }
 
@@ -240,20 +242,34 @@ function M.new(f)
   -- notes would hide it.
   local recipeWhy
 
-  local function fetchRecipes()
+  -- essence_recipes.lua here (tools/essence-recipes.mjs) if there is one,
+  -- else the craft overseer's: { { make, count, grid } }, or nil and why.
+  local function recipeList()
+    if fs.exists(RECIPES_FILE) then
+      local ok, list = pcall(dofile, RECIPES_FILE)
+      if not ok or type(list) ~= "table" then return nil, RECIPES_FILE .. " didn't load: " .. tostring(list) end
+      return list
+    end
     local reply, err = f.craft({ type = "recipes", uses = ESSENCE })
-    if not reply then return false, err end
-    if type(reply.recipes) ~= "table" then return false, "the craft overseer is too old: run 'install update' on it" end
-    if reply.error then return false, reply.error end
+    if not reply then return nil, err end
+    if type(reply.recipes) ~= "table" then return nil, "the craft overseer is too old: run 'install update' on it" end
+    if reply.error then return nil, reply.error end
+    return reply.recipes
+  end
+
+  local function fetchRecipes()
+    local got, err = recipeList()
+    if not got then return false, err end
     local list = {}
-    for _, raw in ipairs(reply.recipes) do
+    for _, raw in ipairs(got) do
       if type(raw.make) == "string" and type(raw.grid) == "table" then list[#list + 1] = prepare(raw) end
     end
     recipes = list
     -- none: asked again sooner, as the overseer may still be loading its pack
     recipesAt = os.clock() - (#list == 0 and RECIPES_EVERY - RECIPES_RETRY or 0)
     if #list == 0 then
-      return false, "the craft overseer knows no essence recipes: give it the modpack's pack_recipes.lua"
+      return false, fs.exists(RECIPES_FILE) and RECIPES_FILE .. " has no recipes in it"
+        or "no essence_recipes.lua here, and the craft overseer knows none (see Things to know)"
     end
     return true
   end

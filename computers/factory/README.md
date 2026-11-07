@@ -533,6 +533,9 @@ goes home.
   storage cable at home. Give every barrel, chest and
   turtle a wired modem joined to that cable. The factory computer needs an
   ender modem too, to talk to the storage computer.
+- **The recipes**: put `essence_recipes.lua` on the farm computer, as in
+  [Botany pots](#botany-pots). The craft overseer doesn't need them: the
+  farm tells it what it can make.
 - **Make it far away**: run `factory chest remote` (or **Work chest** on the
   setup screen) and pick the ender chest, as in
   [Far from the storage system](#far-from-the-storage-system).
@@ -591,6 +594,7 @@ input chest, then into the S pot, and so on up to XL.
 - `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
+- `essence_recipes.lua`: optional, your modpack's essence recipes (see [Botany pots](#botany-pots)); `packs/` has ready-made ones
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screens without flashing (copy to `/lib/screen.lua`). Needed.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
@@ -753,12 +757,23 @@ empties it first, and the Pots view shows **still storage** until it has.
 **A farm of its own.** Far from the storage system, the pots can have their
 own crafting turtles and keep their essence: see [Essence farm](#essence-farm).
 
-For the
-recipes, the [craft overseer](../craft-overseer/README.md) needs a [crafting turtle](../crafter-turtle/README.md)
-and your modpack's recipes, which include Mystical Agriculture's (see
-[Modded recipes](../craft-overseer/README.md#modded-recipes)); a
-`pack_recipes.lua` made before the essence recipes were added has none of
-them, so get it again.
+**The recipes.** Put the essence recipes on this computer as
+`essence_recipes.lua` (76 KB for the TRekt Mons pack, rather than the whole
+pack's 680 KB on the craft overseer):
+
+```
+wget https://rakeki.github.io/Rakeki-s-ComputerCraft/computers/factory/packs/trekt-mons-essence.lua essence_recipes.lua
+reboot
+```
+
+For another pack, make its `pack_recipes.lua` (see
+[Modded recipes](../craft-overseer/README.md#modded-recipes)), then on your
+PC `node tools/essence-recipes.mjs pack_recipes.lua essence_recipes.lua`
+and copy the file it writes here (drag it onto the open computer screen).
+`install update` never touches it. Without the file the factory asks the
+[craft overseer](../craft-overseer/README.md) for them, which needs your
+modpack's `pack_recipes.lua` there. Either way, at home the crafting is done
+by the storage system's [crafting turtle](../crafter-turtle/README.md).
 
 ### Commands
 
@@ -1000,10 +1015,11 @@ botany pots over, and machines added there can be added again on the other.
   as they take either different items (one each, at most 5) or one item
   several times; with Create, a recipe for XS candy from experience nuggets
   is there, commented out.
-- **Essence.** No recipes? The Recipes view says why. The craft overseer has to know Mystical
-  Agriculture's: they come from `pack_recipes.lua`, or teach one by hand
-  with `crafter learn` on the crafting turtle. The list is fetched again
-  every 5 minutes. The storage system picks its own recipe for an item: if
+- **Essence.** No recipes? The Recipes view says why. Put
+  `essence_recipes.lua` on this computer (see [Botany pots](#botany-pots));
+  without it the craft overseer has to know Mystical Agriculture's, from
+  its `pack_recipes.lua`, or teach one by hand with `crafter learn` on the
+  crafting turtle. The list is read again every 5 minutes. The storage system picks its own recipe for an item: if
   you have iron blocks stored, an order for iron ingots may break those up
   instead of using essence. Spare seeds go to storage too; add `"_seeds$"`
   to `leave` under `essence` to leave them in the pots (a pot barrel is

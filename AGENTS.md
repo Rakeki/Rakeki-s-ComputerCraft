@@ -44,6 +44,7 @@ plans/                      Building plans (JSON, or Lua for plans made by code)
                             and "home" (the builder's clear spot); programs.json's entry has "hole" too
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
+  essence-recipes.mjs       Pulls the essence recipes out of a pack_recipes.lua into the factory's essence_recipes.lua
   overseer/                 The overseer: server.mjs (takes posts from computers/overseer-bridge, streams them to the page
                             as server-sent events; config and saved state in data/, git-ignored) and public/ (the live
                             map page: app.js, demo.js = the made-up base it plays with no server, style.css)

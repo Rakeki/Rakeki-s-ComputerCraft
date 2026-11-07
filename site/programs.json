@@ -1687,7 +1687,8 @@
       "setup": [
         "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
         "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves (pots that empty into a barrel: add the barrel as a pot barrel).",
-        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines and cooking pots. Pick a work chest if you have many machines."
+        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines and cooking pots. Pick a work chest if you have many machines.",
+        "With botany pots: put your modpack's essence recipes on this computer as essence_recipes.lua (packs/ has the TRekt Mons ones)."
       ],
       "commands": [
         ["factory","start (runs on boot)"],
