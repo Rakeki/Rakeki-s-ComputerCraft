@@ -1563,7 +1563,7 @@
         "Never crafts an order twice while it's being made"
       ],
       "setup": [
-        "A crafty turtle with a wireless modem, and a chest directly in front of it.",
+        "A crafty turtle with a wireless modem, and a chest directly in front of it (or below or above it).",
         "Connect the chest to the storage network with a full-block wired modem.",
         "Install and reboot the turtle: it tells the storage computer that chest is the crafter chest, so there's nothing to pick in storage setup."
       ],

@@ -13,7 +13,7 @@
 -- Needs a crafty turtle (a crafting table on one side) with a wireless or
 -- ender modem on the other, or a full-block wired modem against it joined
 -- to the storage cable (then the storage computer needs no wireless modem).
--- Put its chest directly in front of it and connect the chest to the storage
+-- Put its chest directly in front of it (or below or above it) and connect the chest to the storage
 -- network with a full-block wired modem: the turtle tells the storage
 -- computer which chest is its own (lib/claim.lua), so there's nothing to pick
 -- in 'storage setup'. Far from the storage system, its barrel goes on the
@@ -55,20 +55,39 @@ local function status(state, detail)
   if report then report.set(state, detail) end
 end
 
-local function frontChest()
-  local c = peripheral.wrap("front")
+-- My chest's side: in front, else below, else above (a turtle facing down
+-- into a barrel). Found at start, with the turtle functions for that side.
+local SIDE_WAYS = {
+  { side = "front", drop = turtle and turtle.drop, suck = turtle and turtle.suck },
+  { side = "bottom", drop = turtle and turtle.dropDown, suck = turtle and turtle.suckDown },
+  { side = "top", drop = turtle and turtle.dropUp, suck = turtle and turtle.suckUp },
+}
+local way = SIDE_WAYS[1]
+
+local function findChest()
+  for _, w in ipairs(SIDE_WAYS) do
+    local c = peripheral.wrap(w.side)
+    if c and c.list then
+      way = w
+      return c
+    end
+  end
+end
+
+local function myChest()
+  local c = peripheral.wrap(way.side)
   if c and c.list then return c end
 end
 
 local function shortName(name) return (name:gsub("^minecraft:", ""):gsub("_", " ")) end
 
--- Empty everything into the chest in front, waiting if it's full.
+-- Empty everything into my chest, waiting if it's full.
 local function emptyOut()
   local warned = false
   for slot = 1, 16 do
     turtle.select(slot)
     while turtle.getItemCount(slot) > 0 do
-      if not turtle.drop() then
+      if not way.drop() then
         if not warned then
           print("My chest is full. Waiting...")
           status("waiting", "chest full")
@@ -98,7 +117,7 @@ local function askOverseer(msg) return (overseer:ask(msg)) end
 local farm = net.peer(FARM_PROTOCOL, { open = "any", wait = FARM_WAIT, retry = 60 })
 local function askFarm(msg) return (farm:ask(msg)) end
 
--- Make sure the storage system uses the chest in front of me as my crafter
+-- Make sure the storage system uses my chest as my crafter
 -- chest: the overseer's hub if my chest is on its cable, else the storage
 -- computer's own cable. On start, then now and then (it may have been set
 -- up again), waiting while it's not running.
@@ -115,7 +134,7 @@ local function claimLoop()
     local ok, why, way
     local refused = {} -- why each one that answered didn't take it
     for _, w in ipairs(ways) do
-      ok, why = claim.chest(w.ask, "crafter", "front")
+      ok, why = claim.chest(w.ask, "crafter", way.side)
       way = w
       if ok then break end
       if ok == false then refused[#refused + 1] = ("%s: %s"):format(w.who, why) end
@@ -162,7 +181,7 @@ local function layOut(grid, steps)
     end
     if not free or sucks >= MAX_SUCKS then return false, "my chest has things in it the recipe doesn't use" end
     turtle.select(free)
-    if not turtle.suck() then return false, "not enough ingredients in my chest" end
+    if not way.suck() then return false, "not enough ingredients in my chest" end
     sucks = sucks + 1
     -- hand the stack out to the cells that need it
     local item = turtle.getItemDetail(free)
@@ -176,7 +195,7 @@ local function layOut(grid, steps)
   -- what's left over goes back
   for _, s in ipairs(STAGE) do
     turtle.select(s)
-    turtle.drop()
+    way.drop()
   end
   return true
 end
@@ -186,8 +205,8 @@ end
 -- older storage program) chest slot k holds cell k's ingredients, taken in
 -- order (suck always takes the first non-empty slot).
 local function craft(steps, grid)
-  local chest = frontChest()
-  if not chest then return 0, "no chest in front of me" end
+  local chest = myChest()
+  if not chest then return 0, "my chest is gone" end
   emptyOut()
   if grid then
     local ok, err = layOut(grid, steps)
@@ -200,7 +219,7 @@ local function craft(steps, grid)
     for k = 1, 9 do
       if list[k] then
         turtle.select(GRID[k])
-        turtle.suck(list[k].count)
+        way.suck(list[k].count)
       end
     end
   end
@@ -370,10 +389,11 @@ if not openModems() then
   print("ender modem, or a full-block wired modem on its cable.")
   return
 end
-if not frontChest() then
-  print("Put my chest directly in front of me (with a full-block wired")
-  print("modem on it, on the storage cable or the craft overseer's),")
-  print("then start me again.")
+if not findChest() then
+  print("Put my chest directly in front of me, or below or above")
+  print("me (with a full-block wired modem on it, on the storage")
+  print("cable, the craft overseer's or the essence farm's), then")
+  print("start me again.")
   return
 end
 rednet.host(CRAFT_PROTOCOL, os.getComputerLabel())

@@ -57,7 +57,8 @@ The recipes and the planning live on the [craft overseer](../craft-overseer/READ
 1. Craft a **crafty turtle** (a turtle with a crafting table) and put a
    **wireless or ender modem** on its other side.
 2. Place it near the storage network with a **chest directly in front of
-   it**.
+   it** (or directly below or above it: it uses the one in front if
+   there is one, else below, else above).
 3. Connect that chest to the storage network: a **full-block wired modem**
    touching the chest (not between the chest and the turtle), networking cable
    back to the storage, and right-click the modem so it turns red.
@@ -66,7 +67,7 @@ The recipes and the planning live on the [craft overseer](../craft-overseer/READ
    wired modem** against the back of the turtle, joined to the storage
    cable, and they talk over the cable.
 5. Install this program on the turtle and reboot it. It tells the storage
-   computer that the chest in front of it is the **crafter chest** (the
+   computer that its chest is the **crafter chest** (the
    storage computer drops one item into each chest that could be it until
    the turtle sees it arrive), and says "The storage system uses my chest
    (...)". There's nothing to pick in `storage setup`. It checks again

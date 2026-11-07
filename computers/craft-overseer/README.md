@@ -178,7 +178,7 @@ another dimension) with **one pair of ender chests** for all of them:
    **wired modem**, and its own cable joining:
    - the other ender chest of the pair, with a wired modem on it;
    - each crafting turtle's **barrel** (or chest), directly in front of the
-     turtle, with a wired modem on it.
+     turtle (or below or above it), with a wired modem on it.
 3. Each crafting turtle needs an ender or wireless modem too.
 4. On the overseer, type `overseer hub` (it picks the ender chest on its
    cable, or lists them if there are several), then reboot it. It tells the

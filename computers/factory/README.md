@@ -529,7 +529,7 @@ goes home.
 - **What goes where.** On the farm's cable: the factory computer, the Hopper
   Botany Pots with a barrel (or chest) under each, or piped into barrels,
   one or more [crafting turtles](../crafter-turtle/README.md), each against
-  an **empty barrel** of its own, and an **ender chest** whose twin is on the
+  an **empty barrel** of its own (in front of it, or below or above it), and an **ender chest** whose twin is on the
   storage cable at home. Give every barrel, chest and
   turtle a wired modem joined to that cable. The factory computer needs an
   ender modem too, to talk to the storage computer.
