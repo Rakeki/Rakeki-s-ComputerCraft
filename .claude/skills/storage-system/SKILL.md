@@ -1,6 +1,6 @@
 ---
 name: storage-system
-description: How programs get items from the storage system (the storage protocol, deliveries, crafting on request, fuel) and how storage-computer works inside (chest / ME / RS backends, fuel chest, crafter, smelter, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer or the factory.
+description: How programs get items from the storage system (the storage protocol, deliveries, fuel) and have things crafted (the craft overseer, lib/crafts.lua), and how storage-computer and craft-overseer work inside (chest / ME / RS backends, fuel chest, the monitor's network view, planning, crafters, machines, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer or the factory.
 ---
 
 # The storage system
@@ -10,6 +10,13 @@ read or empty storage chests (or an AE2 / RS system) themselves: they ask the
 storage computer over rednet, protocol `storage`, and it moves items into a
 chest they can reach. That's what lets every program work with chests, AE2 or
 Refined Storage without changes.
+
+It keeps items only and **knows no recipes**. Crafting is the **craft
+overseer's** (`computers/craft-overseer`, protocol `craft_overseer`): the
+recipe server. A program asks the storage computer for what's stored and the
+overseer for the rest, through `lib/crafts.lua`, which adds the overseer's
+answers to a storage reply. Keep it that way: planning in the storage
+computer's single request loop made every item request wait behind it.
 
 ## Asking for items (client side)
 
@@ -43,26 +50,24 @@ supply:seen(r)
   it needs no wireless.
 - nil means "no storage system" (the second value says why): carry on with
   the home chests and tell the player, never wait forever.
+- Crafting: right after the storage request, `crafts.deliver(r, order, most)`
+  (has what's short and not stored made: `r.crafting`, `r.cantCraft`,
+  `r.craftProblem`) or `crafts.count(r, names, need)` (`r.craftable`).
+  Add `crafts` to the program's `libs`. With no overseer the replies say
+  "no craft overseer answered".
 
 | Request | Reply fields | Use |
 |---|---|---|
-| `{ type = "count", items = { name, ... }, need = { [name] = n } }` | `counts`, `craftable` (how many more could be crafted, up to `need`) | before starting: is there enough? Add `craftable` to `counts`. |
-| `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `crafting`, `cantCraft` (name → why), `craftProblem`, `to` (`"own"`, `"delivery"` or `"output"`), `error` | tops the turtle's chest **up to** n of each (what's already there counts) and **starts crafting** what's missing. Ask again every ~10 s while waiting. Optional `most = { [name] = n }` moves (and crafts) no more than n of that item this time: for a chest something else empties while the request is on its way (the cannon feeder sends what's left of each amount, so a top-up never goes past it). |
-| `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft`, `craftProblem` | start crafting what a coming job lacks, before it's needed |
-| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts), `work` (the asker's work chest, if any), `workRemote` (it's an ender chest: `storage config remote` picked it, or a probe found it) | the smelter, cooker and enricher |
+| `{ type = "count", items = { name, ... } }` | `counts` | before starting: is there enough? (`crafts.count` adds `craftable`) |
+| `{ type = "deliver", items = { [name] = n } }` | `sent`, `ready` (now in the chest), `stock` (left), `to` (`"own"`, `"delivery"` or `"output"`), `error` | tops the turtle's chest **up to** n of each (what's already there counts). Then `crafts.deliver` has what's missing made. Ask again every ~10 s while waiting. Optional `most = { [name] = n }` moves no more than n of that item this time: for a chest something else empties while the request is on its way (the cannon feeder sends what's left of each amount, so a top-up never goes past it). From the overseer, `for = id`: into that computer's own chest only (a craft terminal's order) |
+| `{ type = "stock" }` | `counts` (every plain item), `input`, `fuelChest`, `fuel` (items the stored fuel smelts), `work` (the asker's work chest, if any), `workRemote` (it's an ender chest: `storage config remote` picked it, or a probe found it), `patterns` (what an ME/RS system can craft), `syscrafting` (what it's making) | the smelter, cooker and enricher; the overseer's planning stock |
 | `{ type = "list" }` | `items` (each `{ name, label, count }`, plain items) | the remote terminal's search |
-| `{ type = "craftable" }` | `items` (each `{ name, label, count, stored }`; `count` nil = an ME/RS pattern), `ready` (false while the first list is still being worked out: ask again in a few seconds), `making` (each `{ name, label, count }` being crafted), `queue`, `problem`, `crafter`, `chest` (the asker's own chest, if any) | the craft terminal. Asking keeps `craftViewLoop` running for `VIEW_KEEP` seconds, stored items included |
-| `{ type = "craft", item, count, to }` | `making` (how many, 0 = none), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` an `outputOrders` entry sends them on and reserves them against the sweep |
 | `{ type = "work", chest = name }` / `{ type = "work" }` | `ok`, `chest`, `error` | name this computer's work chest (empty chests only), or stop using it (its contents are put away); use `lib/workchest.lua` |
 | `{ type = "work", items = list() }`, then `{ type = "work", seen }` | as `claim` | a far-away work chest's twin, found by probe (`claim.chest(ask, "work", side)`) |
 | `{ type = "fill", items = { [name] = n }, fuel = n, sweep = true or nil }` | `sent`, `ready`, `fuel`, `error`, `nochest`, `swept` | top the asker's work chest up to n of each and fuel for n smelts (what's in it counts), in one go; no crafting; `sweep` first puts away everything else in it (one ender chest both ways) |
 | `{ type = "send", to = furnace, slot = 1, items = {...} }` / `slot = 2, fuel = n, item` | `sent`, `fuel`, `error` | load a furnace (only furnaces are accepted) |
 | `{ type = "send", to = hopper, slot = n or nil, items = {...} }` | `sent`, `fuel`, `error` | fill a hopper (the factory's pot feed hoppers and chamber hoppers), or one of the asker's `feeders`; no slot = any slot |
 | `{ type = "feeders", chests = { name, ... } }` | `ok`, `error` | the factory's barrel and chest feeders (`lib/mekfeed.lua`; the whole list each time it changes): kept out of storage (`setup.feeders[id]`) and open to `send`; a new one must be empty |
-| `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn` |
-| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok`, `error` | a machine's recipes (the factory's infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
-| `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine too, once it has made (or given up on) a job it was handed |
-| `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", role = "delivery", "crafter" or "hub", items = list() }`, then `{ type = "claim", role, seen }` | `ok` + `chest`, or `probe` (an item just put in a chest it could be), or `ok = false` + `error` | use `lib/claim.lua`, never by hand; `hub` is a far-away overseer's ender chest twin, kept in `setup.crafters[overseer id]` |
 
 The craft overseer's own requests (same protocol; only it sends these):
@@ -70,12 +75,25 @@ The craft overseer's own requests (same protocol; only it sends these):
 | Request | Reply fields | Use |
 |---|---|---|
 | `{ type = "crafters" }` | `crafters` (turtle id → its chest, present ones only), `shared` (`setup.crafter`) | which turtles can take a job |
-| `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest; when short, the storage computer orders what's `missing` (beyond `pendingCraft`), since a plan counts on stock a delivery can take before its step runs |
+| `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest; when short, the overseer orders what's `missing` (beyond `pending`), since a plan counts on stock a delivery can take before its step runs |
 | `{ type = "clear", crafter = id }` | `ok` | empty its chest back into storage |
-| `{ type = "jobdone", job = id, ok, why }` | `ok` | → `jobFinished` (fixes `pendingCraft`, drops the rest of a failed plan) |
-| `{ type = "problem", text }` | `ok` | why crafting is stuck (nil: it isn't); shown to turtles as `craftProblem` |
+| `{ type = "syscraft", item, count }` | `ok`, `error` | the ME/RS system crafts it from its pattern (`store.craft`); counted in `stock.syscrafting` until `isCrafting` says it's done |
 
-Protocol `storage_crafter` (storage computer or overseer → crafter-turtle):
+Protocol `craft_overseer` (everyone → craft-overseer, through `lib/crafts.lua`):
+
+| Request | Reply fields | Use |
+|---|---|---|
+| `{ type = "canmake", items = { name, ... }, need = { [name] = n } }` | `counts` (how many more could be made, up to `need`, being made included), `problem` | `crafts.count` |
+| `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft` (name → why), `craftProblem` | start crafting so there'll be n in all (stored and being made count); `crafts.prepare`, `crafts.deliver` |
+| `{ type = "craftable" }` | `items` (each `{ name, label, count, stored }`; `count` nil = an ME/RS pattern), `ready` (false while the first list is still being worked out: ask again in a few seconds), `making` (each `{ name, label, count }` being crafted), `queue`, `problem`, `crafter` | the craft terminal. Asking keeps `viewLoop` running for `VIEW_KEEP` seconds |
+| `{ type = "craft", item, count, to }` | `making` (how many, 0 = none), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` `orderLoop` has the storage computer `deliver` them `for` it (`most` = what's left of the order) |
+| `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn`; saved in `/.overseer_recipes` |
+| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
+| `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine, once it has made (or given up on) a job it was handed |
+| `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
+| `{ type = "claim", ... }` | as on `storage` | a crafting turtle finding its barrel on a far-away overseer's cable (hub) |
+
+Protocol `storage_crafter` (overseer or an essence farm → crafter-turtle):
 `{ type = "craft", steps, grid }` → `{ re = "crafted", made, item, error }`,
 and `{ type = "ping" }` → `pong`.
 
@@ -98,7 +116,7 @@ through its bottom face, and only a hopper pot lets them be taken, so each pot
 stands on a full-block wired modem), or empties a "pot barrel" the pots push into
 (`/.factory_pot_barrels`, named to the storage computer with `feeders` so it isn't
 storage; emptied just before each `feeders` request, since only an empty one is taken); far away (work chest an ender chest)
-it's an essence farm instead (below: it keeps its essence and crafts it itself), and orders crafts with `prepare` set to
+it's an essence farm instead (below: it keeps its essence and crafts it itself), and orders crafts from the overseer (`f.craft`) with `prepare` set to
 stored + already crafting + wanted (`prepare` tops up to a total). The smelter part's orders (`ORDERS` in smelt.lua: charcoal from logs into
 the fuel chest, stone from cobblestone) each have their own save file and go
 into plain furnaces ahead of ores, in that order, and into Mekanism smelters
@@ -144,36 +162,37 @@ enricher here, or on another factory computer (`factory` protocol, `hello` →
 `stages` with `takes` = Lua patterns), and smelts the dust.
 The infuser part (rank 0) runs Metallurgic Infusers only on request: a file
 per request in `/.factory_infuse/` (its page's buttons, `factory infuse`, or
-the storage computer's `infuse` on the `factory` protocol, carrying `job`).
+the craft overseer's `infuse` on the `factory` protocol, carrying `job`).
 Each infuser has two feeders (`opts.extra` in mekfeed: the infusion feeder
 goes in its Extra side) and needs an output chest, where what comes out is
 counted (`credit`). Its `takes` are the inputs and infusion items of open
 requests, so the smelter leaves them alone. A request whose input isn't
 stored but is infused here too gets a child request (`parent`).
 
-## Crafting on request
+## Crafting (the craft overseer)
 
-Crafting is never a separate step for clients: `deliver` and `prepare` plan
-and queue crafts for anything missing. Inside storage.lua `orderCraft` uses
-the ME/RS system's patterns first (bridge mode), then the crafting turtle
-(`crafting.lua` plans, `storage_crafter` protocol carries one batch at a
-time; the job's `grid` names each cell's item and the crafter sorts its chest
-by name, since barrels ignore slots; it replies with the `item` it made).
-`pendingCraft` stops an order being queued twice.
+Clients never plan: `lib/crafts.lua` asks the overseer to `prepare` what a
+storage reply came up short of. Inside overseer.lua `orderCraft` plans with
+`freshStock()` (the storage computer's `stock`, at most `STOCK_FRESH` old)
+minus what the queue uses and plus what it makes (`planningStock`), the
+ME/RS system's `patterns` first (`syscraft` to the storage computer), then
+`crafting.lua`. Jobs carry `id` (unique across restarts), `plan`, `grid`,
+`steps`, `left`, `count`, `via` and on the last `top` (how many were asked
+for); `pending(name)` (the queue's `top`s plus `syscrafting`) stops an order
+being queued twice. A free turtle takes the first job whose earlier steps
+are done (`nextJob`; one plan's jobs in order), has the storage computer
+`load` its chest one batch at a time (`steps` back, or 0 with `missing`, which
+it orders), crafts over `storage_crafter` (the job's `grid` names each cell's
+item and the crafter sorts its chest by name, since barrels ignore slots; it
+replies with the `item` it made), and has it `clear` the chest.
+
+Requests go into an `inbox` (`netReceive`) and `netLoop` answers them one at
+a time, like the storage computer, so none is missed while a plan runs.
 
 Crafting turtles each claim a chest (`claim` role `crafter` →
-`setup.crafters[id]`; `setup.crafter` is the shared one picked in setup).
-With a **craft overseer** (`computers/craft-overseer`, protocol
-`craft_overseer`) the storage computer still plans, then `handOver` sends
-the unsent jobs (`id` unique across restarts, `plan`, `grid`, `steps`,
-`count`, `top`). The overseer picks a free turtle per job (one plan's jobs
-in order), asks the storage computer to `load` that turtle's chest one batch
-at a time (`steps` back, or 0 with `missing`), crafts over `storage_crafter`,
-asks it to `clear` the chest, and sends `jobdone` (→ `jobFinished`, which
-fixes `pendingCraft` and drops the rest of a failed plan). Without an
-overseer, `craftLoop` runs jobs on one turtle itself. Never clear crafter
-chests from the storage computer while an overseer is about: a batch may be
-loaded.
+`setup.crafters[id]` on the storage computer; `setup.crafter` is the shared
+one picked in setup). Never clear crafter
+chests from the storage computer: a batch may beloaded.
 
 **Hub** (`overseer hub`, setting `overseer.hub`): an overseer far from the
 storage system has an ender chest on its own cable, and each crafting
@@ -194,12 +213,11 @@ through to the storage computer.
 **Machine jobs.** A factory computer sends `makes` with its infuser's
 recipes as ordinary grids (input cells plus enough infusion items for one
 go), tagged `via`. Plans use them like any recipe, and their jobs have
-`job.recipe.via`: `runMachineJobs` (each `craftLoop` pass) sends each one whose
-turn it is to the maker (`factory` protocol, `{ type = via, job, make,
-count, grid }` → `ok` / `why`) and marks it `sent`; the factory answers with
-`jobdone`. `blocked(job)` holds back any job behind an unfinished machine
-job of its plan (and a machine job behind any earlier step), so `handOver`
-and the local crafter only take crafting jobs whose turn it is. A failed plan
+`job.via`: `runMachineJobs` (`machineLoop`) sends each one that's first of its
+plan to the maker (`factory` protocol, `{ type = via, job, make, count, grid }`
+→ `ok` / `why`) and marks it `sent`; the factory answers with `jobdone` on
+`craft_overseer`. `nextJob` never gives a turtle a machine job, and a later
+step of its plan waits behind it. A failed plan
 sends `cancel` for its machine jobs already handed out. A plan made only of
 machine jobs needs no crafting turtle.
 The essence farm (`computers/factory/farm.lua`, a far-away factory) sends
@@ -213,17 +231,17 @@ crafts with its own turtles (they claim their barrel on `factory_crafter`),
 puts the result in its ender chest, sends an empty `fill` (sweep) and then
 `jobdone`. A `cancel` on the `factory` protocol goes to every part.
 
-Recipes: `recipes.lua` (built in), `/.storage_recipes` (taught with
+Recipes (all on the overseer): `recipes.lua` (built in), `/.overseer_recipes` (taught with
 `crafter learn`), and `pack_recipes.lua` (a modpack's crafting recipes from
-`tools/recipes.mjs`, published in `computers/storage-computer/packs/`, not
+`tools/recipes.mjs`, published in `computers/craft-overseer/packs/`, not
 installed by the installer). Keys are item names, `*` globs, `#tags` or lists.
 With thousands of recipes, plans must pass `reach` (`crafting.reachable(avail)`,
 cached by `reachNow()` for 10 s): it prunes everything that can't be made
 from what's stored. Work it out once per request, never per item
 (`crafting.reachable` also keeps its last answer until the set of stored
-item names or the recipes change, so asking again is cheap). The
-Craftable tab (`CRAFTABLE_TAB`) is off by default because listing every
-craftable item takes too long.
+item names or the recipes change, so asking again is cheap). The craft
+terminal's list (`viewLoop`) runs only while a terminal keeps asking, and
+rests `VIEW_REST` times as long as the last count took.
 
 Keep planning's cost to the recipe tree, never to how much is stored (a
 modpack base stores 1000s of item types, and the craft terminal's counts run
@@ -231,9 +249,12 @@ modpack base stores 1000s of item types, and the craft terminal's counts run
 `fits(key)` (the names a key stands for, cached) and looks each up in
 `avail`, and only scans all of `avail` for a `*` key; a plan works on the
 caller's `avail` and undoes its own changes (`put` / `undo`, a journal)
-instead of copying the stock for each recipe it tries. Timed with
-crafting.lua alone under Fengari (the trekt-mons pack, 1500 stored items),
-that took `craftable` for 400 items from 177 s to 4 s, with the same counts.
+instead of copying the stock for each recipe it tries; and it never
+recolours inside a recolouring of the same group (`recolours(r)`: a recipe
+whose make fits one of its own keys, black placard from any placard), which
+otherwise went through all 16 colours six deep. Timed with crafting.lua
+alone under Fengari (the trekt-mons pack, 1500 stored items), that took
+`craftable` for 400 items from 200 s to 3 s, with the same counts.
 
 ## Inside storage-computer
 
@@ -254,11 +275,21 @@ that took `craftable` for 400 items from 177 s to 4 s, with the same counts.
   `storage setup` keeps them). `reserved` is per chest. Only input and output are required; a missing optional one
   turns its feature off with a footer message.
 - **Loops** run in `parallel`: UI, input, rescan, `netReceive` (files requests
-  in `inbox`) + `netLoop` (answers them one at a time), sweep (keeps the
-  delivery chest to what turtles reserved), craft, tidy, output, craft view.
-  Anything that waits has a deadline and a footer message.
+  in `inbox`) + `netLoop` (answers them one at a time, timing each), sweep
+  (keeps the delivery chest to what turtles reserved), links (the network
+  view), tidy, ME/RS crafts done (`sysCraftLoop`), dump. Anything that waits
+  has a deadline and a footer message.
 - **Screens** draw through `lib/screen.lua` (`termScreen`, `monScreen`); the
   monitor skips unchanged frames with `same()` ([[lib-screen]]).
+- **The network view** (`links`): `links.note(chest, name, n, dir)` in
+  `fetch` ("out") and `putAway` ("in") keeps each served chest's moves for
+  `links.WINDOW`; `links.list()` is every chest that isn't storage (setup's,
+  turtles' and computers' from `setup.deliveries` / `crafters` / `works` /
+  `feeders`, a dump, any ender chest), ender chests first; `linksLoop` reads
+  them all at once (`links.scan`, a `list()` each) every `links.EVERY` s, only
+  while a monitor shows the view; `netLoop` sets `links.busy` / `links.slow`.
+  `links.draw` colours a row red (gone, full), orange (3/4 full: piling
+  up), lime (moved in `ACTIVE` s). The Items view is the old item grid.
 - `storage test` / `storage tidy` are the diagnostics to point players at.
 - `storage dump [chest|stop]` saves `/.storage_dump` ({ chest, at, moved });
   `dumpLoop` in the running program `fetch`es everything (biggest piles

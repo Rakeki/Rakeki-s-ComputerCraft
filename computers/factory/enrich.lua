@@ -175,10 +175,10 @@ function M.new(f)
     for nugget, ingot in pairs(NUGGETS) do
       local n = math.floor(((counts[nugget] or 0) - (KEEP[nugget] or 0)) / 9)
       if n > 0 then
-        local now = f.ask({ type = "prepare", items = { [ingot] = 0 } })
+        local now = f.craft({ type = "prepare", items = { [ingot] = 0 } })
         local making = now and type(now.crafting) == "table" and now.crafting[ingot] or 0
         if now and making == 0 then
-          local reply = f.ask({ type = "prepare", items = { [ingot] = (counts[ingot] or 0) + n } })
+          local reply = f.craft({ type = "prepare", items = { [ingot] = (counts[ingot] or 0) + n } })
           local why = reply and type(reply.cantCraft) == "table" and reply.cantCraft[ingot]
           if why then
             compactNote = ("%ss aren't crafted into ingots: %s"):format(nice(nugget), why)

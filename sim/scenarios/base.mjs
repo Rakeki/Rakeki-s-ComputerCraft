@@ -41,11 +41,7 @@ export function build(w = newWorld()) {
   s.updates.boot();
   play(w, s.updates, [["wait", 35], ...install("update-watcher"), ["reboot"]]);
 
-  // craft overseer, on the storage cable
-  s.overseer = addComputer(w, { pos: [8, 64, -7], label: "Overseer", role: "craft-overseer", facing: "north" });
-  s.overseer.attach("back", w.wiredModem(s.net));
-  s.overseer.boot();
-  play(w, s.overseer, [["wait", 90], ...install("craft-overseer"), ["reboot"]]);
+  // the craft overseer comes with storage() (it has the recipes)
 
   // two builder turtles, supply chests on the storage cable, spoil chest on the left
   s.builders = [];

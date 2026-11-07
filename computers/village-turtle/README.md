@@ -150,6 +150,7 @@ Copy these to the turtle:
 - [`lib/report.lua`](../../lib/report.lua): status server reporting (copy to `/lib/report.lua`); does nothing without a modem
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`).
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is the supply chest (copy to `/lib/claim.lua`)
+- [`lib/crafts.lua`](../../lib/crafts.lua): has the craft overseer make what storage hasn't got (copy to `/lib/crafts.lua`)
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): crash-safe save files (copy to `/lib/files.lua`). Needed by lib/nav.lua.
 - [`lib/inv.lua`](../../lib/inv.lua): inventory and fuel helpers (copy to `/lib/inv.lua`). Needed.
@@ -233,11 +234,12 @@ blocks and coal into the storage system's input chest rather than the supply
 chest (anything put in the supply chest just gets moved into storage, and
 comes back when the turtle asks for it).
 
-With a [crafting turtle](../crafter-turtle/README.md) on the storage system,
+With a [craft overseer](../craft-overseer/README.md) (the storage system's
+recipe server) and a [crafting turtle](../crafter-turtle/README.md),
 blocks that aren't stored but can be crafted from what is (fences from logs,
 slabs from smooth sandstone, lanterns from iron and coal...) count as
-available too. While it waits for a building's materials it asks the storage
-system to start crafting what's short, and its screen says what's being made
+available too. While it waits for a building's materials it asks the
+overseer to start crafting what's short, and its screen says what's being made
 (or why it can't be, such as no crafter chest set, or only enough to make
 some). If the crafting turtle is off, it says crafting is stuck, and carries
 on by itself once it's back.

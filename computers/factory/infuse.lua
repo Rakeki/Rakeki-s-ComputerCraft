@@ -28,7 +28,7 @@ local M = {}
 local REQUEST_DIR = "/.factory_infuse" -- a file per request, so a request typed in another tab is never lost
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
 local GIVE_UP = 600 -- seconds a storage computer's request may wait with nothing to load before it's handed back
-local MAKES_EVERY = 60 -- seconds between telling the storage computer what can be infused here
+local MAKES_EVERY = 60 -- seconds between telling the craft overseer what can be infused here
 local EXTRA_STUCK = 60 -- seconds infusion items may sit in their feeder over an empty slot before they're put back
 local EXTRA_FILL = 64 -- most infusion items kept waiting in a feeder
 local QUEUE_SHOWN = 3 -- requests listed under the recipes
@@ -365,7 +365,7 @@ function M.new(f)
 
   ---------------------------------------------------------------- the storage computer
 
-  -- The recipes as the storage computer plans them: a grid of the input and
+  -- The recipes as the craft overseer plans them: a grid of the input and
   -- enough of the cheapest infusion items for one go (only types that come
   -- in small items, and only recipes that fit nine cells).
   local function asCrafts()
@@ -398,13 +398,13 @@ function M.new(f)
     local crafts = self.active() and asCrafts() or {}
     local key = tostring(#crafts)
     if key == makesKey and os.clock() - makesAt < MAKES_EVERY then return end
-    local reply = f.ask({ type = "makes", via = "infuse", recipes = crafts }, 5)
+    local reply = f.craft({ type = "makes", via = "infuse", recipes = crafts }, 5)
     makesAt = os.clock()
     if reply and reply.ok then
       makesKey, makesNote = key, nil
     else
       makesKey = nil
-      makesNote = reply and reply.error or "the storage computer doesn't take infusing orders: 'install update' it"
+      makesNote = reply and reply.error or "the craft overseer doesn't take infusing orders: is it running, and updated?"
     end
   end
 
@@ -412,7 +412,7 @@ function M.new(f)
   -- True once it has heard.
   local function report(q)
     if not q.job then return true end
-    local reply = f.ask({ type = "jobdone", job = q.job, ok = q.ok, why = q.why }, 5)
+    local reply = f.craft({ type = "jobdone", job = q.job, ok = q.ok, why = q.why }, 5)
     return reply ~= nil
   end
 
@@ -1033,7 +1033,7 @@ function M.new(f)
     if not stock then print("(The storage computer didn't answer, so no counts.)") end
     for i, q in ipairs(queued) do
       print(("Request %d: %s %d/%d%s"):format(i, q.recipe and q.recipe.title or q.key, q.made, q.count,
-        q.job and " (for the storage computer)" or ""))
+        q.job and " (for the craft overseer)" or ""))
     end
     print("Usage: factory infuse <number or name> <count>, factory infuse cancel [n]")
     return true

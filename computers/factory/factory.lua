@@ -158,6 +158,9 @@ end
 ---------------------------------------------------------------- the parts
 
 local f = { work = work, ask = ask, event = "factory_added", config = section }
+-- crafting goes to the craft overseer, the recipe server (the storage computer only keeps items):
+-- prepare, recipes, and the machines' makes and jobdone
+f.craft = require("lib.crafts").ask
 local parts -- the parts below, in the chain's order
 
 function f.wake() os.queueEvent("factory_added") end

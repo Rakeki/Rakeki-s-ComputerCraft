@@ -1,6 +1,6 @@
 -- Craft terminal. Lists everything the storage system can craft from what's
 -- stored (and how many, and how many are stored already), and orders crafts:
--- pick an item, say how many, and the storage computer has them made. They
+-- pick an item, say how many, and the craft overseer has them made. They
 -- turn up in the chest next to this computer, or stay in storage. The
 -- storage computer's own terminal (or a remote terminal) is for taking out
 -- what's stored; this one is for having things made.
@@ -9,22 +9,25 @@
 --   crafts make <n> <text>     craft n of the first craftable item matching text
 --   crafts chest [name|none]   pick the chest crafts go to (no name: from a list; none: keep them in storage)
 --
--- Talks to the storage computer on the "storage" protocol ("craftable",
--- "craft"; over the storage cable's wired modem, or a wireless or ender
--- modem). The chest is found the way turtles find theirs (lib/claim.lua):
+-- Asks the craft overseer (computers/craft-overseer, the recipe server) for
+-- the list and orders on "craft_overseer" ("craftable", "craft": lib/crafts.lua),
+-- and the storage computer for its chest on "storage"; over the storage
+-- cable's wired modem, or a wireless or ender modem. The overseer sends what's
+-- made into the chest through the storage computer. The chest is found the way turtles find theirs (lib/claim.lua):
 -- it needs a wired modem on the storage cable, or it can be a linked ender
 -- chest whose twin is on that cable.
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local claim = require("lib.claim") -- tells the storage computer which chest is ours
+local crafts = require("lib.crafts") -- the craft overseer: the list and orders
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
 local STORAGE_PROTOCOL = "storage" -- the storage computer answers on this
 local CHEST_FILE = "/.crafts_chest" -- { chest } (or chest = "none"): picked with 'crafts chest'
 local REFRESH = 10 -- seconds between fresh lists of what can be crafted
-local NOT_READY_WAIT = 3 -- seconds between asks while the storage computer is still working the list out
+local NOT_READY_WAIT = 3 -- seconds between asks while the overseer is still working the list out
 local REPLY_WAIT = 10 -- seconds to wait for the storage computer to answer
 local STACK = 64 -- how many an order is for unless you type a number
 local MAX_ORDER = 9999 -- most you can type (the storage computer caps it too)
@@ -103,15 +106,15 @@ end
 
 -- A fresh list of what can be crafted and what's being made.
 local function refresh()
-  local r, why = ask({ type = "craftable" })
+  local r, why = crafts.ask({ type = "craftable" })
   if not r then
-    say("Storage: " .. why, "orange")
+    say("Crafting: " .. why, "orange")
     status("waiting", why)
     return false
   end
   if type(r.items) ~= "table" then
-    say("The storage computer is too old for a craft terminal: 'install update' on it.", "orange")
-    status("waiting", "storage computer too old")
+    say("The craft overseer is too old for a craft terminal: 'install update' on it.", "orange")
+    status("waiting", "craft overseer too old")
     return false
   end
   items, making = r.items, type(r.making) == "table" and r.making or {}
@@ -153,14 +156,14 @@ local function order(it, n)
     end
   end
   local base = to == "chest" and inChest(it.name) or 0
-  local r, whyNot = ask({ type = "craft", item = it.name, count = n, to = to })
+  local r, whyNot = crafts.ask({ type = "craft", item = it.name, count = n, to = to })
   if not r then
-    say("Storage: " .. whyNot, "red")
+    say("Crafting: " .. whyNot, "red")
     return
   end
   local made = tonumber(r.making) or 0
   if made <= 0 then
-    say(("Can't craft %s: %s."):format(it.label, r.why or "the storage computer didn't say why"), "red")
+    say(("Can't craft %s: %s."):format(it.label, r.why or "the craft overseer didn't say why"), "red")
   elseif to == "chest" and r.to == "own" then
     waiting[it.name] = { label = it.label, want = made + (waiting[it.name] and waiting[it.name].want or 0),
       base = waiting[it.name] and waiting[it.name].base or base }

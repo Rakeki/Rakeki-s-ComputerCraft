@@ -1,5 +1,6 @@
--- Crafting plans for the storage system: which recipe makes an item, and
--- the list of crafts needed to make some of it from what's in storage,
+-- Crafting plans for the craft overseer (the storage system's recipe
+-- server): which recipe makes an item, and the list of crafts needed to
+-- make some of it from what's in storage,
 -- ingredients first (logs into planks into sticks into fences).
 --
 --   crafting.load(builtIn)          the recipes from recipes.lua, plus learnt ones
@@ -16,8 +17,8 @@
 --                                   infuser: via = "infuse"), replacing that machine's earlier ones
 --
 -- A machine's recipe looks like any other (a grid of what goes in for one
--- go), so plans use it like one; its jobs carry recipe.via, and the storage
--- computer hands them to the machine instead of the crafting turtle.
+-- go), so plans use it like one; its jobs carry recipe.via, and the overseer
+-- hands them to the machine instead of a crafting turtle.
 -- A machine that keeps its own ingredients (the factory's essence farm,
 -- via = "essence") sends recipes with nothing in the grid and max = how
 -- many goes it has the makings for: plans take nothing from storage for
@@ -28,7 +29,7 @@
 local files = require("lib.files") -- crash-safe save files
 local crafting = {}
 
-local LEARNT_FILE = "/.storage_recipes"
+local LEARNT_FILE = "/.overseer_recipes"
 local MAX_DEPTH = 6 -- how many crafts deep a plan may go
 local MAX_CRAFTABLE = 4096 -- craftable() never counts higher than this
 local YIELD_AFTER = 0.05 -- seconds of planning before letting the screens and requests have a turn
@@ -165,7 +166,7 @@ end
 -- The item names that fit key, or nil when it has a * in it (then every
 -- item has to be tried). Plans look these up in the stock instead of going
 -- through all of it for each ingredient: with a modpack's 1000s of stored
--- items that was most of the storage computer's time.
+-- items that was most of the planning time.
 local function fits(key)
   local hit = fitsCache[key]
   if hit ~= nil then return hit or nil end
@@ -258,9 +259,9 @@ local planItem -- defined below; the two call each other
 
 -- CC stops a program that runs too long without yielding, and a big plan
 -- (or many of them, for counts) can. Yield now and then: by time, not by
--- count, since one step can be heavy (a big tag searched), and the storage
--- computer's screen waits for every yield (the craft terminal's counts kept
--- the search lagging).
+-- count, since one step can be heavy (a big tag searched), and the
+-- overseer's requests and screen wait for every yield (the craft
+-- terminal's counts).
 local calls, yieldedAt = 0, os.clock()
 local function breathe()
   calls = calls + 1

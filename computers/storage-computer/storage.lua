@@ -8,17 +8,14 @@
 --
 -- Turtles and computers ask it for items over rednet ("storage" protocol)
 -- and never see which kind of store is behind it, so the village builder,
--- crafter and smelter work with either. With a crafting turtle
--- (computers/crafter-turtle), anything asked for that isn't stored but can be
--- made from what is gets crafted (recipes.lua, plus recipes taught in-game);
--- an ME or RS system crafts from its own patterns first. An optional fuel
--- chest holds the coal and charcoal: fuel that comes in is put there first,
--- turtles asking for coal are served from it, and the smelter
+-- crafter and smelter work with either. It only keeps items: it knows no
+-- recipes. Crafting is the craft overseer's (computers/craft-overseer, the
+-- recipe server): it plans from this computer's stock, and has this computer
+-- load its crafting turtles' chests ("load", "clear") and, with an ME or RS
+-- system, start the system's own crafts from its patterns ("syscraft"). An
+-- optional fuel chest holds the coal and charcoal: fuel that comes in is put
+-- there first, turtles asking for coal are served from it, and the smelter
 -- (computers/factory) fuels its furnaces from it.
---
--- A craft terminal (computers/craft-terminal) asks for the list of what can
--- be crafted ("craftable": worked out here in the background while one has
--- asked lately) and orders crafts ("craft"), sent to its chest or kept here.
 --
 -- Turtles find their own chest: a village builder, builder or crafting turtle
 -- placed against a chest on this network tells me which one it is
@@ -32,7 +29,7 @@
 --                    transfer chests, the extra input chests and far-away enrichers' and smelters' ender chests
 --                    (on the monitor and the terminal; in a running storage program if there is one)
 --   storage config   the same; 'storage config fuel [chest|none]' changes one setting by typing
---   storage test     check deliveries (one item there and back), the fuel chest and the crafting turtle
+--   storage test     check deliveries (one item there and back) and the fuel chest
 --   storage tidy     show the storage's slot sizes and sort bulk items into the roomiest now
 --   storage dump [chest]  move everything stored into an ender chest whose twin is another
 --                         storage system's input chest (no chest: pick one); runs until it's all gone
@@ -47,21 +44,6 @@ local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
-local crafting = fs.exists("crafting.lua") and require("crafting")
-if crafting then crafting.load(fs.exists("recipes.lua") and require("recipes") or {}) end
--- a modpack's recipes, made with tools/recipes.mjs (see the README)
-local packRecipes, packError = 0, nil
-if crafting and fs.exists("pack_recipes.lua") then
-  print("Loading the modpack's recipes...")
-  local ok, pack = pcall(require, "pack_recipes")
-  if ok and type(pack) == "table" then
-    packRecipes = crafting.loadPack(pack)
-    print(("Loaded %d modpack recipes."):format(packRecipes))
-  else
-    packError = tostring(pack)
-    print("pack_recipes.lua didn't load: " .. packError)
-  end
-end
 local chests = require("chests")
 local setupui = require("lib.setupui") -- the setup screen, on the monitor and the terminal
 local bridges = fs.exists("bridge.lua") and require("bridge")
@@ -72,16 +54,6 @@ local DUMP_FILE = "/.storage_dump" -- { chest, at, moved }: a 'storage dump' tha
 local INPUT_EVERY = 2 -- seconds between checks of the input chest
 local RESCAN_EVERY = 60 -- seconds between full rescans of the chests (catches items moved by hand)
 local TIDY_EVERY = 10 -- seconds between tidies (moving bulk items into storage with stack upgrades)
--- A Craftable tab listing everything that could be crafted from what's
--- stored. Off by default: with a big modpack it takes a long while to work
--- out. Turtles (village builder, builder, smelter) get crafted items either
--- way: anything they ask for that isn't stored is crafted on request.
-local CRAFTABLE_TAB = false
-local VIEW_EVERY = 30 -- fewest seconds between recounts of what could be crafted (the Craftable tab)
-local VIEW_REST = 3 -- and at least this many times as long as the last count took (a modpack's take a minute)
-local REACH_EVERY = 10 -- seconds the list of what could be made at all is kept before working it out again
-local VIEW_MAX = 999 -- the Craftable tab counts no higher than this (fewer tries per item)
-local OUTPUT_EVERY = 2 -- seconds between checks for crafted items to send to the output chest
 local DUMP_WAIT = 2 -- seconds between looks at a full dump chest (and for a new dump job)
 local MONITOR_SCALE = 0.5 -- text size on the monitor
 local MONITOR_AMOUNTS = { 1, 16, 64 } -- the monitor's buttons for how many of the picked item to send
@@ -89,9 +61,6 @@ local MONITOR_COLUMN = 26 -- fewest characters per column of items on the monito
 local NET_PROTOCOL = "storage" -- rednet protocol turtles ask for items on
 local SWEEP_EVERY = 5 -- seconds between clear-outs of the delivery chest
 local HOLD = 600 -- seconds items a turtle asked for wait in the delivery chest before going back
-local CRAFT_PROTOCOL = "storage_crafter" -- rednet protocol the crafting turtle takes jobs on
-local CRAFT_WAIT = 60 -- seconds to wait for the crafting turtle to finish one batch
-local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they must fit in the turtle)
 -- far-away computers with a work chest host these (enricher and smelter: before they were the factory)
 local WORKER_PROTOCOLS = { factory = "factory", enricher = "enricher", smelter = "smelter" }
 local STATUS_PROTOCOL = "cc_status" -- lib/report.lua's broadcasts: the services' states for the monitor
@@ -100,12 +69,7 @@ local SERVICE_ROLES = { factory = true, smelter = true, enricher = true, cooker 
   essence = true, crate = true, remote = true, ["digital miners"] = true }
 local SERVICE_QUIET = 30 -- seconds without a status before a service shows as offline
 local SERVICE_FORGET = 900 -- seconds without a status or a request before it's dropped from the monitor
-local OVERSEER_PROTOCOL = "craft_overseer" -- a crafting overseer (computers/craft-overseer) takes the queue on this
-local OVERSEER_EVERY = 30 -- seconds between looks for a crafting overseer while there isn't one
-local OVERSEER_WAIT = 5 -- seconds to wait for the overseer to take the jobs
-local MACHINE_PROTOCOL = "factory" -- a factory computer takes machine jobs (infusing) on this
-local MACHINE_WAIT = 5 -- seconds to wait for it to take one
-local MACHINE_FORGET = 300 -- seconds a machine's recipes are kept after it last sent them
+local SYSCRAFT_EVERY = 10 -- seconds between looks at whether the ME/RS system has finished its crafts
 -- Kinds of inventory a turtle may claim as its chest (matched against the
 -- peripheral type, e.g. "minecraft:chest"): never furnaces or hoppers.
 local CLAIM_TYPES = { "chest", "barrel", "shulker_box", "crate" }
@@ -130,38 +94,37 @@ local message = { "", "lightGray" } -- shown in the footer
 -- Items waiting in a delivery chest for a turtle: chest -> name -> { n, at }.
 -- Everything else in those chests goes back into storage.
 local reserved = {}
--- Crafting: jobs waiting for the crafting turtle (from crafting.plan), and
--- how many of each item asked for by a turtle are already being made.
-local craftQueue = {}
-local pendingCraft = {}
--- Machines that run some recipes instead of the crafting turtle (the
--- factory's infuser): via -> { id, at, key }.
-local makers = {}
-local planCount = 0
-local jobCount = 0
-local runId = os.epoch("utc") -- makes job ids unique across restarts (the overseer keeps its queue)
-local systemCrafts = {} -- name -> how many the ME/RS system is crafting for turtles
--- Items that could be crafted, for the list: { key, name, count (nil: the
--- ME/RS system has a pattern), stored, displayName, craftable = true }. Only
--- ones that aren't stored, unless a craft terminal wants the list (then all).
-local craftView = {}
-local craftViewReady = false -- the first count is done
--- Crafts asked for on the terminal or by a craft terminal, sent on once made:
--- name .. "\0" .. chest -> { name, to (chest), who (computer id, nil: here), want, sent }.
-local outputOrders = {}
--- Craft terminals, in one table (this file is near Lua's limit of 200 locals).
-local craftTerm = {
-  KEEP = 120, -- seconds the craftable list is kept worked out after a craft terminal last asked for it
-  MAX = 9999, -- most of one item a craft terminal may order at once
-  wanted = -math.huge, -- when a craft terminal last asked for the list
+-- What the ME/RS system is crafting from its patterns for the craft
+-- overseer ("syscraft"): name -> how many, until it's done (the overseer
+-- reads them in "stock").
+local systemCrafts = {}
+-- The monitor's network view: every chest the storage system serves (not
+-- its own storage: ender chests, turtles' and computers' chests, input,
+-- output, fuel), what's waiting in each and what's been moved into or out
+-- of each lately, and the request being answered. Items piling up in one,
+-- or requests queueing, show where things are stuck.
+local links = {
+  WINDOW = 300, -- seconds of moves each chest's row adds up
+  EVERY = 10, -- seconds between looks at what's waiting in each chest (only with a monitor)
+  ACTIVE = 30, -- seconds after a move that a chest shows as busy
+  moves = {}, -- chest -> { { at, name, n, dir = "out" or "in" }, ... }, oldest first
+  seen = {}, -- chest -> { used, size, count, top, topN, at } or { missing = true }
+  sizes = {}, -- chest -> slots (asked once)
+  rows = {}, -- the chests, from the last look: { chest, kind, owner, ender }
+  busy = nil, -- the request being answered: { type, from, at }
+  slow = nil, -- the slowest lately: { type, from, took, at }
+  view = "network", -- what the monitor shows: "network" or "items"
+  page = 1,
 }
-function craftTerm.wantsView() return os.clock() - craftTerm.wanted < craftTerm.KEEP end
-function craftTerm.viewOn() return CRAFTABLE_TAB or craftTerm.wantsView() end
-function craftTerm.order(name, to, who, n)
-  local key = name .. "\0" .. to
-  local o = outputOrders[key] or { name = name, to = to, who = who, want = 0, sent = 0 }
-  o.want = o.want + n
-  outputOrders[key] = o
+
+-- Note a move into (dir "out": sent from storage) or out of ("in": put away) a chest.
+function links.note(chest, name, n, dir)
+  if type(chest) ~= "string" or not n or n <= 0 then return end
+  local list = links.moves[chest] or {}
+  links.moves[chest] = list
+  list[#list + 1] = { at = os.clock(), name = name, n = n, dir = dir }
+  local old = os.clock() - links.WINDOW
+  while #list > 0 and (list[1].at < old or #list > 60) do table.remove(list, 1) end
 end
 
 -- Items with NBT (enchanted books, named tools) are kept apart from plain ones.
@@ -201,7 +164,6 @@ local function crafterChest(id)
   return id and setup.crafters[id] or setup.crafter
 end
 
-local function hasCrafter() return setup.crafter ~= nil or next(setup.crafters) ~= nil end
 
 local function crafterChests()
   local list, seen = {}, {}
@@ -234,34 +196,22 @@ local function allItems()
   return out
 end
 
--- Every stored item, most first, then what could be crafted, most first.
--- Callers only read it. The store, fuel chest and craft view each hand back
--- a new table when they change, so the same three tables mean the same list:
--- typing a search doesn't sort everything again on each key.
+-- Every stored item, most first. Callers only read it. The store and fuel
+-- chest each hand back a new table when they change, so the same two tables
+-- mean the same list: typing a search doesn't sort everything again on each key.
 local totals
 do
-  local cached, fromStore, fromFuel, fromView = nil, nil, nil, nil
+  local cached, fromStore, fromFuel = nil, nil, nil
 
   function totals()
     local storeItems = store.items()
-    if cached and fromStore == storeItems and fromFuel == fuelList and fromView == craftView then return cached end
-    local list, items = {}, allItems()
-    for _, it in pairs(items) do list[#list + 1] = it end
+    if cached and fromStore == storeItems and fromFuel == fuelList then return cached end
+    local list = {}
+    for _, it in pairs(allItems()) do list[#list + 1] = it end
     table.sort(list, function(a, b) return a.count > b.count end)
-    local crafts = {}
-    for _, it in ipairs(craftView) do
-      if not items[it.key] then crafts[#crafts + 1] = it end
-    end
-    table.sort(crafts, function(a, b) return (a.count or 0) > (b.count or 0) end)
-    for _, it in ipairs(crafts) do list[#list + 1] = it end
-    cached, fromStore, fromFuel, fromView = list, storeItems, fuelList, craftView
+    cached, fromStore, fromFuel = list, storeItems, fuelList
     return list
   end
-end
-
--- "jungle_fence" -> "Jungle Fence", for items not stored (so no name from the game).
-local function titleName(name)
-  return (shortName(name):gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end))
 end
 
 ---------------------------------------------------------------- moving items
@@ -278,6 +228,7 @@ local function putAway(from, slot, item, count)
     end
   end
   if left > 0 then left = store.putAway(from, slot, item, left) end
+  links.note(from, item.name, count - left, "in")
   return left
 end
 
@@ -337,20 +288,13 @@ local function fetch(key, amount, to, toSlot, fuelFirst)
     fromStore()
     fromFuel()
   end
+  links.note(to, (key:gsub("#.*", "")), sent, "out")
   return sent, err
 end
 
 ---------------------------------------------------------------- screens
 
 local query, selected, scroll = "", 1, 0
-local tab = "stored" -- the terminal's tab: "stored", or "craft" for what could be crafted
-local tabZones = {} -- tab -> { x1, x2 } on the tab row, for mouse clicks
-
--- A Craftable tab only when it's turned on and something can craft: a
--- crafting turtle, or an ME/RS system's patterns.
-local function canCraftAny()
-  return CRAFTABLE_TAB and ((crafting and hasCrafter()) or store.craftables ~= nil) and true or false
-end
 
 -- q is lower case already. Each item's lower-case name and id are worked out
 -- once (weak keys: they go with the item), not for every item on every key.
@@ -369,16 +313,13 @@ do
   end
 end
 
--- The search hits in the open tab, plus those in each tab (for their counts).
--- all: totals(), if the caller has it already.
+-- The search hits. all: totals(), if the caller has it already.
 local function matches(all)
-  local q, stored, craft = query:lower(), {}, {}
+  local q, list = query:lower(), {}
   for _, it in ipairs(all or totals()) do
-    if hit(it, q) then
-      if it.craftable then craft[#craft + 1] = it else stored[#stored + 1] = it end
-    end
+    if hit(it, q) then list[#list + 1] = it end
   end
-  return tab == "craft" and craft or stored, stored, craft
+  return list
 end
 
 local put, fitText = screen.put, screen.fit
@@ -397,8 +338,7 @@ local monScreen = screen.find({ setting = "storage.monitor", scales = { MONITOR_
 
 local function drawTerminal(all)
   local t, w, h = termScreen:frame()
-  if tab == "craft" and not canCraftAny() then tab = "stored" end
-  local list, stored, craft = matches(all)
+  local list = matches(all)
   put(t, 1, 1, (" "):rep(w), "white", "gray")
   put(t, 2, 1, "Storage", "yellow", "gray")
   local _, _, stat = store.space()
@@ -406,18 +346,7 @@ local function drawTerminal(all)
   put(t, w - 6, 1, " Setup ", "black", "lightGray")
   if #stat + 18 <= w then put(t, w - #stat - 8, 1, stat, "lightGray", "gray") end
 
-  -- tabs: what's stored, and (light blue) what could be crafted
-  tabZones = {}
-  local x = 1
-  local function tabButton(name, label, onColour)
-    local text = " " .. label .. " "
-    local on = tab == name
-    put(t, x, 2, text, on and "black" or "white", on and onColour or "gray")
-    tabZones[name] = { x, x + #text - 1 }
-    x = x + #text + 1
-  end
-  tabButton("stored", ("Stored %d"):format(#stored), "white")
-  if canCraftAny() then tabButton("craft", ("Craftable %d"):format(#craft), "lightBlue") end
+  put(t, 1, 2, (" Stored %d "):format(#list), "black", "white")
   put(t, 1, 3, "Search: ", "lightGray")
   put(t, 9, 3, query, "white")
 
@@ -430,25 +359,21 @@ local function drawTerminal(all)
     if it then
       local sel = scroll + i == selected
       local bg = sel and "blue" or "black"
-      local count = it.craftable and (it.count and ("can make " .. it.count) or "pattern") or countText(it.count)
-      put(t, 1, 3 + i, fitText(" " .. it.displayName, w - #count - 1), it.craftable and not sel and "lightBlue" or "white", bg)
-      put(t, w - #count, 3 + i, count .. " ", sel and "white" or it.craftable and "lightBlue" or "lightGray", bg)
+      local count = countText(it.count)
+      put(t, 1, 3 + i, fitText(" " .. it.displayName, w - #count - 1), "white", bg)
+      put(t, w - #count, 3 + i, count .. " ", sel and "white" or "lightGray", bg)
     end
   end
   if #list == 0 then
     local empty
     if query ~= "" then empty = "No matches."
-    elseif tab == "stored" then empty = "Nothing stored yet."
-    elseif not craftViewReady then empty = "Working out what can be crafted..."
-    else empty = "Nothing can be crafted from what's stored." end
+    else empty = "Nothing stored yet." end
     put(t, 2, 5, empty, "lightGray")
   end
 
   put(t, 1, h - 1, fitText(message[1], w), message[2])
   -- while searching, how to clear it matters more than the Tab hint (both don't fit)
-  local other = query ~= "" and "  Del: clear"
-    or canCraftAny() and (tab == "craft" and "  Tab: stored" or "  Tab: craftable") or ""
-  local keysText = (tab == "craft" and "Enter: craft a stack  Right: craft one" or "Enter: a stack  Right: one") .. other
+  local keysText = "Enter: a stack  Right: one" .. (query ~= "" and "  Del: clear" or "")
   if #keysText + 11 <= w then keysText = keysText .. "  F1: setup" end
   put(t, 1, h, fitText(keysText, w), "gray")
   t.setCursorPos(9 + #query, 3)
@@ -459,7 +384,7 @@ end
 
 -- The monitor is a touch screen of its own: sort, a search typed on an
 -- on-screen keyboard, pages of items, and a bar for the picked item with
--- buttons that send that many to the output chest (or craft them).
+-- buttons that send that many to the output chest.
 local mon = {
   sort = "count", -- "count" (most first) or "name"
   query = "",
@@ -527,6 +452,117 @@ local function shortCount(n)
   return ("%.1fM"):format(n / 1000000)
 end
 
+-- Who a chest is for, in a few words: "Builder-16's chest", "ender chest", "input".
+local LINK_WORDS = { delivery = "chest", crafter = "crafter chest", work = "work chest", feeder = "feeder",
+  dump = "dump", input = "input", output = "output", fuel = "fuel", transfer = "transfer", ender = "ender chest" }
+local function linkName(r)
+  local s = r.owner and services[r.owner]
+  local who = r.owner and (s and (s.label or s.role) or ("#" .. r.owner))
+  local what = LINK_WORDS[r.kind] or r.kind
+  if r.ender and r.kind ~= "ender" then what = "ender " .. what end
+  return who and (who .. " " .. what) or what
+end
+
+-- What's been moved lately: "> 128 cobblestone, 64 coal" (sent) and "< 30 raw iron" (put away).
+local function flowText(r)
+  local out, inn, last = {}, {}, nil
+  for _, m in ipairs(links.moves[r.chest] or {}) do
+    if os.clock() - m.at <= links.WINDOW then
+      local t = m.dir == "out" and out or inn
+      t[m.name] = (t[m.name] or 0) + m.n
+      last = m.at
+    end
+  end
+  local function words(t, sign)
+    local list = {}
+    for name, n in pairs(t) do list[#list + 1] = { name, n } end
+    if #list == 0 then return nil end
+    table.sort(list, function(a, b) return a[2] > b[2] end)
+    local parts = {}
+    for i = 1, math.min(3, #list) do parts[i] = shortCount(list[i][2]) .. " " .. shortName(list[i][1]) end
+    if #list > 3 then parts[#parts + 1] = ("+%d more"):format(#list - 3) end
+    return sign .. " " .. table.concat(parts, ", ")
+  end
+  local o, i = words(out, ">"), words(inn, "<")
+  return (o and i) and (o .. "  " .. i) or o or i or "nothing moved lately", last
+end
+
+-- How it's doing: a colour and a word. Red when it's gone or full, orange
+-- when things pile up in it, lime while items are moving, grey when idle.
+local PILES = { ender = true, delivery = true, crafter = true, work = true, feeder = true, input = true, dump = true }
+local function linkState(r, last)
+  local seen = links.seen[r.chest]
+  if seen and seen.missing then return "red", "gone" end
+  if seen and seen.size and seen.size > 0 then
+    if seen.used >= seen.size then return "red", "full" end
+    if PILES[r.kind] and seen.used / seen.size >= 0.75 then return "orange", "piling" end
+  end
+  if last and os.clock() - last <= links.ACTIVE then return "lime", "busy" end
+  return "lightGray", "idle"
+end
+
+local function ago(t)
+  if not t then return "" end
+  local s = math.floor(os.clock() - t)
+  return s < 60 and (s .. "s") or s < 3600 and (math.floor(s / 60) .. "m") or (math.floor(s / 3600) .. "h")
+end
+
+-- The network view, between the title and the service tiles (bottom = last row).
+function links.draw(text, button, w, h, bottom)
+  -- requests: how many wait, what's being answered, the slowest lately
+  local waiting = #(links.inbox or {})
+  local line = ("Requests: %d waiting"):format(waiting)
+  if links.busy then
+    line = line .. ("  now %s for #%d, %ds"):format(links.busy.type, links.busy.from, math.floor(os.clock() - links.busy.at))
+  end
+  if links.slow and links.slow.took >= 1 and os.clock() - links.slow.at <= links.WINDOW then
+    line = line .. ("  slowest %s %.1fs"):format(links.slow.type, links.slow.took)
+  end
+  local busyFor = links.busy and os.clock() - links.busy.at or 0
+  text(1, 3, fitText(" " .. line, w), (waiting >= 5 or busyFor >= 5) and "red" or (waiting > 0 or busyFor >= 1) and "orange" or "lightGray")
+
+  local rows = links.rows
+  local top = 4
+  local space = math.max(0, bottom - top + 1)
+  local pages = math.max(1, math.ceil(#rows / math.max(1, space)))
+  links.page = math.max(1, math.min(links.page, pages))
+  if pages > 1 then
+    local pageText = ("%d/%d"):format(links.page, pages)
+    local px = w - #pageText - 5
+    button(px, 3, " < ", "white", links.page > 1 and "gray" or "black", function() links.page = links.page - 1 end)
+    text(px + 3, 3, pageText, "lightGray")
+    button(px + 3 + #pageText, 3, " > ", "white", links.page < pages and "gray" or "black", function() links.page = links.page + 1 end)
+  end
+  text(1, h - 1, fitText(message[1], w), message[2])
+  text(1, h, fitText(" Tap a chest to see what's in it and what moved.", w), "gray")
+  if #rows == 0 then
+    text(2, top, "Looking at the chests...", "lightGray")
+    return
+  end
+  -- columns: who it's for | slots used | what moved lately | how long ago
+  local nameW = math.max(10, math.min(26, math.floor(w * 0.4)))
+  for i = 1, space do
+    local r = rows[(links.page - 1) * space + i]
+    if not r then break end
+    local y = top + i - 1
+    local seen = links.seen[r.chest] or {}
+    local flow, last = flowText(r)
+    local colour, word = linkState(r, last)
+    local slots = seen.missing and "gone" or seen.size and ("%d/%d"):format(seen.used, seen.size) or "?"
+    local when = ago(last)
+    text(nameW + 1, y, fitText(slots, 7), colour == "lightGray" and "gray" or colour)
+    local flowX = nameW + 9
+    text(flowX, y, fitText(flow, math.max(0, w - flowX - #when - 1)), last and "white" or "gray")
+    if when ~= "" then text(w - #when, y, when, "lightGray") end
+    local name = linkName(r)
+    button(1, y, fitText(" " .. name, nameW - 1), colour, "black", function()
+      local holds = seen.top and (", most of it %d %s"):format(seen.topN, shortName(seen.top)) or ""
+      message = { ("%s (%s): %s, %s%s; %s."):format(name, r.chest, word, seen.missing and "gone" or
+        ("%d items in %s slots"):format(seen.count or 0, slots), holds, flow), colour == "lightGray" and "white" or colour }
+    end)
+  end
+end
+
 local function drawMonitor(all)
   -- cheap while the monitor is still there; picks one up (and scales it once) when it's attached
   monScreen:refresh()
@@ -560,7 +596,14 @@ local function drawMonitor(all)
   text(1, 1, (" "):rep(w), "white", "gray")
   text(2, 1, "Storage", "yellow", "gray")
   button(w - 6, 1, " Setup ", "black", "lightGray", function() mon.setup = true end)
-  if #stat + 19 <= w then text(w - #stat - 8, 1, stat, "lightGray", "gray") end
+  -- network view (where things go) or items view (what's stored)
+  local other = links.view == "network" and " Items " or " Network "
+  local ox = w - 7 - #other
+  button(ox, 1, other, "black", "lightBlue", function()
+    links.view, mon.typing, links.page = links.view == "network" and "items" or "network", false, 1
+    if links.view == "network" then os.queueEvent("storage_links_now") end
+  end)
+  if #stat + #other + 19 <= w then text(ox - #stat - 1, 1, stat, "lightGray", "gray") end
   if used and total and total > 0 then
     local frac = math.min(1, used / total)
     local filled = math.floor(frac * w + 0.5)
@@ -589,6 +632,9 @@ local function drawMonitor(all)
     end
   end
 
+  if links.view == "network" then
+    links.draw(text, button, w, h, #svc > 0 and h - 3 or h - 2)
+  else
   -- the item area: columns of rows, filled down then across
   local top, bottom = 4, mon.typing and h - 5 or #svc > 0 and h - 3 or h - 2
   local rows = math.max(0, bottom - top + 1)
@@ -605,11 +651,11 @@ local function drawMonitor(all)
       local it = list[first + (c - 1) * rows + r]
       if it then
         local y = top + r - 1
-        local count = it.craftable and (it.count and ("+" .. shortCount(it.count)) or "craft") or shortCount(it.count)
+        local count = shortCount(it.count)
         local on = it.key == mon.pick
         local bg = on and "blue" or "black"
-        text(x0, y, fitText(" " .. it.displayName, cw - #count - 1), it.craftable and not on and "lightBlue" or "white", bg)
-        text(x0 + cw - #count - 1, y, count .. " ", on and "white" or it.craftable and "lightBlue" or "lightGray", bg)
+        text(x0, y, fitText(" " .. it.displayName, cw - #count - 1), "white", bg)
+        text(x0 + cw - #count - 1, y, count .. " ", on and "white" or "lightGray", bg)
         local key = it.key
         zones[#zones + 1] = { x0, x0 + cw - 1, y, function() mon.pick = mon.pick ~= key and key or nil end }
       end
@@ -678,19 +724,19 @@ local function drawMonitor(all)
       labels[#labels] = nil
     end
     local bx = w - width + 1
-    local verb = picked.craftable and "Craft" or "Get"
-    local name = picked.displayName .. " " .. (picked.craftable and (picked.count and ("can make " .. picked.count) or "pattern")
-      or tostring(picked.count))
-    text(1, h, fitText(" " .. name, math.max(0, bx - #verb - 2)), picked.craftable and "lightBlue" or "white")
+    local verb = "Get"
+    local name = picked.displayName .. " " .. tostring(picked.count)
+    text(1, h, fitText(" " .. name, math.max(0, bx - #verb - 2)), "white")
     if bx - #verb - 1 > 1 then text(bx - #verb - 1, h, verb, "lightGray") end
     for i, label in ipairs(labels) do
       local n = MONITOR_AMOUNTS[i]
-      button(bx, h, label, "black", picked.craftable and "lightBlue" or "lime", function() takeItem(picked, n) end)
+      button(bx, h, label, "black", "lime", function() takeItem(picked, n) end)
       bx = bx + #label + 1
     end
     button(bx, h, " x ", "white", "red", function() mon.pick = nil end)
   else
     text(1, h, fitText(" Tap an item to send some to the output chest.", w), "gray")
+  end
   end
 
   mon.zones = zones
@@ -710,9 +756,7 @@ local function redraw()
   drawMonitor(all)
   if report then
     local items = 0
-    for _, it in ipairs(all) do
-      if not it.craftable then items = items + it.count end
-    end
+    for _, it in ipairs(all) do items = items + it.count end
     local _, _, text = store.space()
     report.set(store.problem and "error" or "running", store.problem or ("%d items; %s"):format(items, text))
   end
@@ -720,23 +764,11 @@ end
 
 ---------------------------------------------------------------- loops
 
-local orderCraft -- in the crafting section below
 local editSetup -- in the setup section below
 
--- Send amount of an item from the list to the output chest, or have it
--- crafted if it isn't stored (from the terminal or a monitor button).
+-- Send amount of an item from the list to the output chest (from the
+-- terminal or a monitor button).
 function takeItem(it, amount)
-  if it.craftable then
-    -- not stored: have it made, and outputLoop sends it on once it's ready
-    local made, why = orderCraft(it.name, it.count and math.min(amount, it.count) or amount)
-    if made then
-      craftTerm.order(it.name, setup.output, nil, made)
-      message = { ("Crafting %d %s for the output chest..."):format(made, it.displayName), "lightBlue" }
-    else
-      message = { ("Can't craft %s: %s."):format(it.displayName, why), "red" }
-    end
-    return
-  end
   local sent = fetch(it.key, amount, setup.output)
   if sent > 0 then
     message = { ("Sent %d %s to the output chest."):format(sent, it.displayName), "lime" }
@@ -778,7 +810,7 @@ do
   -- burst of them draws once. Everything else (rednet messages, the other
   -- loops' timers) leaves the screens alone: redrawing on every event kept the
   -- computer busy sorting the item list.
-  local CHANGE_EVENTS = { storage_changed = true, storage_view = true, peripheral = true, peripheral_detach = true }
+  local CHANGE_EVENTS = { storage_changed = true, storage_links = true, peripheral = true, peripheral_detach = true }
 
   function uiLoop()
     -- queued: a "storage_redraw" is waiting behind the key presses already
@@ -830,8 +862,6 @@ do
       elseif event == "key" then
         if a == keys.f1 then
           mon.setup = true
-        elseif a == keys.tab and canCraftAny() then
-          tab, selected, scroll = tab == "craft" and "stored" or "craft", 1, 0
         elseif a == keys.delete then
           query, selected, scroll = "", 1, 0
         elseif a == keys.backspace then
@@ -855,10 +885,6 @@ do
         local w, h = term.getSize()
         if y == 1 and x >= w - 6 then
           mon.setup = true
-        elseif y == 2 then
-          for name, z in pairs(tabZones) do
-            if x >= z[1] and x <= z[2] and tab ~= name then tab, selected, scroll = name, 1, 0 end
-          end
         elseif y >= 4 and y <= h - 2 then
           -- clicking the picked row again takes a stack, like Enter
           if selected == scroll + y - 3 then take(64) else selected = scroll + y - 3 end
@@ -875,86 +901,15 @@ local function inputLoop()
   end
 end
 
----------------------------------------------------------------- crafting
+---------------------------------------------------------------- crafter chests
+
+-- The craft overseer (computers/craft-overseer) plans and runs every craft.
+-- What it needs from here is items: its turtles' chests loaded and emptied,
+-- and with an ME or RS system the system's own crafts started.
 
 local function nameOf(item)
   local it = allItems()[item]
   return it and it.displayName or shortName(item)
-end
-
--- Every plain item in storage, minus what queued crafts will use up, plus
--- what they'll make: what a new plan can count on.
-local function planningStock()
-  local avail = {}
-  for _, it in pairs(allItems()) do
-    if not it.nbt then avail[it.name] = (avail[it.name] or 0) + it.count end
-  end
-  for _, job in ipairs(craftQueue) do
-    for _, item in pairs(job.grid) do avail[item] = (avail[item] or 0) - job.steps end
-    avail[job.name] = (avail[job.name] or 0) + job.steps * job.recipe.count
-  end
-  return avail
-end
-
--- What could be made at all from what's stored (crafting.reachable): plans
--- only try those, which keeps thousands of modded recipes quick. Kept a few
--- seconds, since a turtle's request may plan many items in a row.
-local reachCache, reachAt = nil, -math.huge
-local function reachNow()
-  if not reachCache or os.clock() - reachAt > REACH_EVERY then
-    reachCache, reachAt = crafting.reachable(planningStock()), os.clock()
-  end
-  return reachCache
-end
-
--- The ME/RS system has a pattern for it.
-local function systemCanCraft(name) return store.canCraft ~= nil and store.canCraft(name) end
-
--- Have count of name made, or as many as can be: by the ME/RS system if it
--- has a pattern, otherwise by queueing crafts for the crafting turtle.
--- Returns how many it's making (and why not all of them), or false and why.
-function orderCraft(name, count)
-  if systemCanCraft(name) then
-    local ok, err = store.craft(name, count)
-    if not ok then return false, err end
-    systemCrafts[name] = (systemCrafts[name] or 0) + count
-    pendingCraft[name] = (pendingCraft[name] or 0) + count
-    return count
-  end
-  if not crafting then return false, "crafting.lua is missing: run 'install update'" end
-  if not crafting.canMake(name) then return false, "no recipe for it" end
-  local stock, reach = planningStock(), reachNow()
-  local jobs, why = crafting.plan(name, count, stock, reach), nil
-  if not jobs then
-    -- make what we can, so a build gets as far as it can meanwhile
-    local can = crafting.craftable(name, stock, count - 1, reach)
-    if can == 0 then
-      local none = crafting.missing and crafting.missing(name, stock, reach)
-      if type(none) == "table" then none = none[1] end
-      if type(none) == "string" then return false, "no " .. (none:sub(1, 1) == "#" and none or nameOf(none)) .. " stored, and no way to make it" end
-      return false, "not enough to make it from"
-    end
-    count, why = can, ("only enough to make %d"):format(can)
-    jobs = crafting.plan(name, count, stock, reach)
-    if not jobs then return false, "not enough to make it from" end
-  end
-  -- a plan only machines run (steel dust from the infuser) needs no crafting turtle
-  for _, job in ipairs(jobs) do
-    if not job.recipe.via and not hasCrafter() then
-      return false, "no crafter chest: start a crafting turtle against one on my network"
-    end
-  end
-  planCount = planCount + 1
-  for _, job in ipairs(jobs) do
-    job.plan = planCount
-    jobCount = jobCount + 1
-    job.id = ("%d:%d"):format(runId, jobCount) -- the overseer says which job is done by this
-    craftQueue[#craftQueue + 1] = job
-  end
-  jobs[#jobs].top = count -- the item asked for: counted in pendingCraft until it's made
-  pendingCraft[name] = (pendingCraft[name] or 0) + count
-  os.queueEvent("storage_craft")
-  return count, why
 end
 
 -- Once the ME/RS system stops crafting something, what it made is stored
@@ -963,10 +918,16 @@ local function checkSystemCrafts()
   for name, n in pairs(systemCrafts) do
     if not store.isCrafting(name) then
       systemCrafts[name] = nil
-      pendingCraft[name] = math.max(0, (pendingCraft[name] or 0) - n)
-      message = { ("The %s system is done crafting %s."):format(store.kind, nameOf(name)), "lime" }
+      message = { ("The %s system is done crafting %d %s."):format(store.kind, n, nameOf(name)), "lime" }
       os.queueEvent("storage_changed")
     end
+  end
+end
+
+local function sysCraftLoop()
+  while true do
+    sleep(SYSCRAFT_EVERY)
+    if next(systemCrafts) then checkSystemCrafts() end
   end
 end
 
@@ -1023,213 +984,12 @@ local function loadCrafter(chest, grid, steps)
   return batch
 end
 
-local crafterId -- the crafting turtle this computer uses itself (no overseer), once found
--- Why crafting is stuck right now (nil when it's working), so turtles
--- waiting on a craft can say so.
-local craftProblem
-
--- A crafting turtle that answers and has a chest.
-local function findCrafter()
-  if crafterId and crafterChest(crafterId) then return crafterId end
-  crafterId = nil
-  for _, id in ipairs({ rednet.lookup(CRAFT_PROTOCOL) }) do
-    if crafterChest(id) then
-      crafterId = id
-      return id
-    end
-  end
-end
-
--- One job on my own crafting turtle: in batches that fit the turtle, put
--- the ingredients in its chest, have it craft, and put the results away.
-local function runJob(job)
-  local r = job.recipe
-  local chest = crafterChest(crafterId)
-  local left = job.steps
-  while left > 0 do
-    local batch, err = loadCrafter(chest, job.grid, math.min(left, 64, math.floor(MAX_BATCH_OUTPUT / r.count)))
-    if batch == 0 then return false, err end
-    -- grid tells the turtle which item goes in which cell, so it lays them
-    -- out right whatever order its chest keeps them in
-    local craft = { type = "craft", steps = batch, grid = job.grid }
-    local reply = net.ask(crafterId, CRAFT_PROTOCOL, craft, { wait = CRAFT_WAIT,
-      match = function(msg) return msg.type == "crafted" and msg.id == craft.id end })
-    clearCrafter(chest)
-    if not reply then
-      crafterId = nil
-      craftProblem = "its crafting turtle didn't answer"
-      return false, "the crafting turtle didn't answer"
-    end
-    craftProblem = nil
-    if (reply.made or 0) == 0 then return false, reply.error or "the recipe didn't work" end
-    if reply.item and reply.item ~= job.name then
-      return false, ("the crafting turtle made %s instead"):format(nameOf(reply.item))
-    end
-    left = left - batch
-  end
-  return true
-end
-
--- A job is finished, here or by the overseer: it no longer counts as
--- coming, and if it failed the rest of its plan (which needed it) goes too.
-local function jobFinished(job, ok, why)
-  for i = #craftQueue, 1, -1 do
-    if craftQueue[i] == job then table.remove(craftQueue, i) end
-  end
-  local n = job.steps * job.recipe.count
-  if job.top then pendingCraft[job.name] = math.max(0, (pendingCraft[job.name] or 0) - job.top) end
-  if ok then
-    message = { ("Crafted %d %s."):format(n, nameOf(job.name)), "lime" }
-    if report then report.log(("crafted %d %s"):format(n, nameOf(job.name))) end
-  else
-    message = { ("Couldn't craft %s: %s"):format(nameOf(job.name), tostring(why)), "red" }
-    for i = #craftQueue, 1, -1 do
-      local other = craftQueue[i]
-      if other.plan == job.plan then
-        if other.top then pendingCraft[other.name] = math.max(0, (pendingCraft[other.name] or 0) - other.top) end
-        -- a machine already making its part stops
-        local maker = other.recipe.via and other.sent and makers[other.recipe.via]
-        if maker then rednet.send(maker.id, { type = "cancel", job = other.id }, MACHINE_PROTOCOL) end
-        table.remove(craftQueue, i)
-      end
-    end
-  end
-  os.queueEvent("storage_changed")
-  os.queueEvent("storage_craft") -- the steps that waited on it can go now
-end
-
--- A job that has to wait: an earlier step of its plan (a machine's, for a
--- crafting turtle's job; any, for a machine's) isn't done yet. The crafting
--- turtles' own steps are run in order by whoever runs them.
-local function blocked(job)
-  for _, other in ipairs(craftQueue) do
-    if other == job then return false end
-    if other.plan == job.plan and (job.recipe.via or other.recipe.via) then return true end
-  end
-  return false
-end
-
--- Hand each machine's jobs whose turn it is to the machine (the factory's
--- infuser), which reports back with 'jobdone' like the overseer. A machine
--- not heard from for a while is forgotten, with its recipes.
-local function runMachineJobs()
-  for via, maker in pairs(makers) do
-    if os.clock() - maker.at > MACHINE_FORGET then
-      makers[via] = nil
-      crafting.setMachine(via, {})
-      reachCache = nil
-    end
-  end
-  for _, job in ipairs(craftQueue) do
-    local via = job.recipe.via
-    if via and not job.sent and not blocked(job) then
-      local maker = makers[via]
-      if not maker then
-        jobFinished(job, false, "no factory computer can make it any more")
-        return -- the queue changed
-      end
-      local n = job.steps * job.recipe.count
-      local reply = net.ask(maker.id, MACHINE_PROTOCOL,
-        { type = via, job = job.id, make = job.name, count = n, grid = job.grid }, { wait = MACHINE_WAIT })
-      if reply and reply.ok then
-        job.sent = true
-        message = { ("Asked factory #%d to make %d %s."):format(maker.id, n, nameOf(job.name)), "lightBlue" }
-        os.queueEvent("storage_changed")
-      elseif reply then
-        jobFinished(job, false, reply.why or "the factory computer said no")
-        return
-      else
-        message = { ("Factory #%d didn't answer: %s waits."):format(maker.id, nameOf(job.name)), "orange" }
-        os.queueEvent("storage_changed")
-      end
-    end
-  end
-end
-
--- The crafting overseer (computers/craft-overseer), if there is one: it
--- takes the queue and shares it between the crafting turtles.
-local overseerId, overseerAt = nil, -math.huge
-local function findOverseer()
-  if not overseerId and os.clock() - overseerAt > OVERSEER_EVERY then
-    overseerAt = os.clock()
-    overseerId = rednet.lookup(OVERSEER_PROTOCOL)
-  end
-  return overseerId
-end
-
--- Send the overseer the jobs it hasn't got yet. False if it didn't answer.
-local function handOver()
-  local list = {}
-  local handed = {}
-  for _, job in ipairs(craftQueue) do
-    if not job.sent and not job.recipe.via and not blocked(job) then
-      list[#list + 1] = { id = job.id, plan = job.plan, name = job.name, steps = job.steps, count = job.recipe.count,
-        grid = job.grid, top = job.top }
-      handed[#handed + 1] = job
-    end
-  end
-  if #list == 0 then return true end
-  if net.ask(overseerId, OVERSEER_PROTOCOL, { type = "jobs", jobs = list }, { wait = OVERSEER_WAIT }) then
-    for _, job in ipairs(handed) do job.sent = true end
-    message = { ("Gave the crafting overseer (#%d) %d crafts."):format(overseerId, #list), "lightBlue" }
-    os.queueEvent("storage_changed")
-    return true
-  end
-  overseerId, overseerAt = nil, os.clock()
-  message = { "The crafting overseer didn't answer: crafting here.", "orange" }
-  os.queueEvent("storage_changed")
-  return false
-end
-
-local function craftLoop()
-  while true do
-    checkSystemCrafts()
-    if rednet.isOpen() then runMachineJobs() end
-    local unsent
-    for _, job in ipairs(craftQueue) do
-      if not job.sent and not job.recipe.via and not blocked(job) then unsent = job break end
-    end
-    if not (hasCrafter() and unsent) then
-      local timer = os.startTimer(10)
-      repeat
-        local event, value = os.pullEvent()
-      until event == "storage_craft" or (event == "timer" and value == timer)
-      -- the turtle's leftovers (never with an overseer: it may be mid-batch)
-      if #craftQueue == 0 and rednet.isOpen() and not findOverseer() then
-        for _, chest in ipairs(crafterChests()) do clearCrafter(chest) end
-      end
-    elseif not rednet.isOpen() then
-      sleep(5) -- netReceive opens the modems
-    elseif findOverseer() then
-      if not handOver() then sleep(1) end
-    elseif not findCrafter() then
-      message = { net.hasWireless() and "No crafting turtle answered: is it running 'crafter'?"
-        or "Crafter not answering: put a wireless modem on me.", "orange" }
-      craftProblem = "its crafting turtle isn't answering"
-      os.queueEvent("storage_changed")
-      sleep(10)
-    else
-      -- out of the queue while it runs, as planning stock doesn't count it twice
-      local job = unsent
-      for i, j in ipairs(craftQueue) do
-        if j == job then table.remove(craftQueue, i) break end
-      end
-      message = { ("Crafting %d %s..."):format(job.steps * job.recipe.count, nameOf(job.name)), "lightBlue" }
-      os.queueEvent("storage_changed")
-      local ok, why = runJob(job)
-      jobFinished(job, ok, why)
-    end
-  end
-end
-
 -- Requests from turtles over rednet:
 --   { type = "count", items = { name, ... } }      -> { re = "count", counts = { [name] = n } }
---   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n } }
+--   { type = "deliver", items = { [name] = n } }   -> { re = "deliver", sent = { [name] = n }, ready, stock }
 --                                                     (optional most = { [name] = n }: move no more than that now)
---   { type = "prepare", items = { [name] = n } }   -> { re = "prepare", crafting, cantCraft }  (start crafting)
---   { type = "learn", recipe = { make, count, rows, keys } } -> { re = "learn", ok }  (from 'crafter learn')
---   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel }  (smelter, cooker)
---   { type = "recipes", uses = pattern }            -> { re = "recipes", recipes = { { make, count, grid } } }  (essence computer)
+--   { type = "stock" }                              -> { re = "stock", counts, input, fuelChest, fuel, patterns,
+--                                                     syscrafting }  (smelter, cooker, the craft overseer)
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
@@ -1241,21 +1001,16 @@ end
 --   { type = "work", items } / { type = "work", seen } -> found through an ender chest, like "claim"
 --   { type = "fill", items = { [name] = n }, fuel = n, sweep } -> { re = "fill", sent, ready, fuel, error, nochest, swept }  (top it up;
 --                                                     sweep: first put away everything else in it, for one ender chest both ways)
---   { type = "makes", via, recipes = { { make, count, rows, keys } } } -> { re, ok }  (a machine's recipes, e.g. the
---                                                     factory's infuser: plans use them, and their jobs go to it)
---   { type = "jobdone", job, ok, why }              -> { re, ok }  (from that machine too)
--- From the crafting overseer, which runs the crafting queue when there is one:
+-- From the craft overseer, which plans and runs every craft:
 --   { type = "crafters" }                           -> { re, crafters = { [turtle id] = chest }, shared }
 --   { type = "load", crafter, grid, steps }         -> { re, steps (0: not loaded), error, missing = { [item] = n } }
 --   { type = "clear", crafter }                     -> { re, ok }  (put its chest's contents away)
---   { type = "jobdone", job, ok, why }              -> { re, ok }  (job: the id it was handed it with)
---   { type = "problem", text }                      -> { re, ok }  (why crafting is stuck, or nil)
+--   { type = "syscraft", item, count }              -> { re, ok, error }  (the ME/RS system crafts it from a pattern)
+--   { type = "deliver", items, for = computer id }  -> as above, into that computer's chest (a craft terminal's order)
 -- deliver sends to the turtle's own chest if it has claimed one ("own"),
 -- else the shared delivery chest, else the output chest (reply field to).
--- Requests may carry an id, which the reply repeats. count may carry need
--- (name -> how many the turtle wants), which keeps craftable quick.
--- count also answers craftable (how many more could be crafted), and deliver
--- answers crafting (how many it has started making).
+-- Requests may carry an id, which the reply repeats. Nothing here knows
+-- recipes: what isn't stored, ask the craft overseer for (lib/crafts.lua).
 -- Items with extra data (enchantments, names) are never counted or sent.
 
 -- Every plain item stored, the fuel chest included: name -> count.
@@ -1428,7 +1183,6 @@ local function assign(from, role, chest)
     end
   end
   saveSetup(s)
-  if role == "crafter" then crafterId = from end
   store.scan() -- it may have been storage until now
   message = { role == "hub" and ("Craft overseer #%d's ender chest is %s."):format(from, chest)
     or ("Turtle #%d's %s chest is %s."):format(from, role, chest), "lime" }
@@ -1457,7 +1211,6 @@ local function claimChest(from, msg, role)
     local ok, list = pcall(peripheral.call, mine, "list")
     if ok and sameItems(list, msg.items) then
       claims[from] = nil
-      if role == "crafter" then crafterId = from end
       return { re = "claim", ok = true, chest = mine }
     end
   end
@@ -1685,6 +1438,7 @@ end
 -- can take a while (moving items, planning crafts). Messages that arrive
 -- meanwhile wait here, so none are missed.
 local inbox = {}
+links.inbox = inbox -- for the monitor: how many requests are waiting
 
 local function netReceive()
   -- turtles reach us by wireless; the smelter can by the wired network's cable
@@ -1715,52 +1469,7 @@ local function answer(to, request, reply) net.answer(to, NET_PROTOCOL, request, 
 
 local function handleRequest(from, msg)
   if type(msg) == "table" and msg.type == "count" and type(msg.items) == "table" then
-    local craftable = {}
-    local avail = crafting and hasCrafter() and planningStock()
-    local reach = avail and reachNow()
-    for _, name in ipairs(msg.items) do
-      if type(name) == "string" then
-        local need = type(msg.need) == "table" and tonumber(msg.need[name]) or nil
-        local n = avail and crafting.craftable(name, avail, need, reach) or 0
-        -- the ME/RS system doesn't say how many it could make: take it that
-        -- it can make what's needed
-        if systemCanCraft(name) then n = math.max(n, need or 64) end
-        craftable[name] = n + (pendingCraft[name] or 0)
-      end
-    end
-    answer(from, msg, { re = "count", counts = countPlain(msg.items), craftable = craftable })
-  elseif type(msg) == "table" and msg.type == "prepare" and type(msg.items) == "table" then
-    -- a turtle waiting for materials: start crafting what it'll need,
-    -- beyond what's stored and what's already being made
-    local stock, making, cantCraft = planningStock(), {}, {}
-    for name, n in pairs(msg.items) do
-      if type(name) == "string" and type(n) == "number" then
-        local missing = math.floor(n) - math.max(0, stock[name] or 0) - (pendingCraft[name] or 0)
-        if missing > 0 then
-          local made, why = orderCraft(name, missing)
-          if made then making[name] = made end
-          if why then cantCraft[name] = why end
-          stock = planningStock()
-        end
-        if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
-      end
-    end
-    answer(from, msg, { re = "prepare", crafting = making, cantCraft = cantCraft, craftProblem = craftProblem })
-    local first, why = next(cantCraft)
-    local kinds = 0
-    for _ in pairs(making) do kinds = kinds + 1 end
-    if kinds > 0 then
-      message = { ("Crafting %d kinds of item for turtle #%d."):format(kinds, from), "lightBlue" }
-    elseif first and why ~= "no recipe for it" then
-      message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(first), from, why), "orange" }
-    end
-    os.queueEvent("storage_changed")
-  elseif type(msg) == "table" and msg.type == "learn" then
-    local okL, err = false, "this storage computer can't craft (crafting.lua is missing)"
-    if crafting then okL, err = crafting.learn(msg.recipe) end
-    answer(from, msg, { re = "learn", ok = okL and true or false, error = not okL and err or nil })
-    if okL then message = { ("Learnt how to make %s."):format(nameOf(msg.recipe.make)), "lime" } end
-    os.queueEvent("storage_changed")
+    answer(from, msg, { re = "count", counts = countPlain(msg.items) })
   elseif type(msg) == "table" and msg.type == "claim" then
     answer(from, msg, claimChest(from, msg))
   elseif type(msg) == "table" and msg.type == "crafters" then
@@ -1778,71 +1487,30 @@ local function handleRequest(from, msg)
     else
       local steps, why, missing = loadCrafter(chest, msg.grid, math.max(1, math.min(64, math.floor(tonumber(msg.steps) or 1))))
       answer(from, msg, { re = "load", steps = steps, error = why, missing = missing })
-      -- planned with ingredients that have gone since (a delivery took them):
-      -- have them made, or the job waits for something no one is making
-      if steps == 0 and type(missing) == "table" then
-        for item, n in pairs(missing) do
-          local more = n - (pendingCraft[item] or 0)
-          if more > 0 then
-            local made, whyNot = orderCraft(item, more)
-            if made then
-              message = { ("A craft ran short of %s: making %d."):format(nameOf(item), made), "lightBlue" }
-            elseif whyNot then
-              message = { ("A craft ran short of %s: %s."):format(nameOf(item), whyNot), "orange" }
-            end
-          end
-        end
-      end
     end
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "clear" then
     local chest = crafterChest(tonumber(msg.crafter))
     answer(from, msg, { re = "clear", ok = chest ~= nil and clearCrafter(chest) })
     os.queueEvent("storage_changed")
-  elseif type(msg) == "table" and msg.type == "makes" and type(msg.via) == "string" and type(msg.recipes) == "table" then
-    -- a factory computer: what its machines can make (sent again every so often)
-    if not crafting then
-      answer(from, msg, { re = "makes", ok = false, error = "crafting.lua is missing: run 'install update'" })
-    else
-      local key = textutils.serialize(msg.recipes)
-      local maker = makers[msg.via]
-      if not maker or maker.key ~= key or maker.id ~= from then
-        local n = crafting.setMachine(msg.via, msg.recipes)
-        reachCache = nil
-        -- the essence farm sends again whenever its essence changes (how many goes): say so only when what it makes does
-        if n > 0 and (not maker or maker.id ~= from or maker.n ~= n) then
-          message = { ("Factory #%d can make %d things by %s."):format(from, n, msg.via), "lightBlue" }
-        end
-        maker = maker or {}
-        maker.n = n
-      end
-      makers[msg.via] = #msg.recipes > 0 and { id = from, at = os.clock(), key = key, n = maker and maker.n } or nil
-      answer(from, msg, { re = "makes", ok = true })
-      os.queueEvent("storage_craft")
-    end
-  elseif type(msg) == "table" and msg.type == "jobdone" then
-    -- the overseer (or a factory computer) finished, or gave up on, a job it was given
-    for _, job in ipairs(craftQueue) do
-      if job.id == msg.job then
-        jobFinished(job, msg.ok, msg.why)
-        break
-      end
-    end
-    answer(from, msg, { re = "jobdone", ok = true })
-  elseif type(msg) == "table" and msg.type == "problem" then
-    -- the overseer: why crafting is stuck (nil: it isn't), for turtles waiting on it
-    craftProblem = type(msg.text) == "string" and msg.text or nil
-    answer(from, msg, { re = "problem", ok = true })
-  elseif type(msg) == "table" and msg.type == "recipes" and type(msg.uses) == "string" then
-    -- the essence computer: every recipe that uses an item matching a pattern
-    local okR, list = false, nil
-    if crafting then okR, list = pcall(crafting.using, msg.uses) end
-    answer(from, msg, { re = "recipes", recipes = okR and list or {},
-      error = not crafting and "this storage computer can't craft (crafting.lua is missing)" or not okR and tostring(list) or nil })
   elseif type(msg) == "table" and msg.type == "stock" then
     local counts = countAll()
+    local okP, patterns = false, nil
+    if store.craftables then okP, patterns = pcall(store.craftables) end
     answer(from, msg, { re = "stock", counts = counts, input = setup.input, fuelChest = setup.fuel, fuel = fuelValue(counts),
-      work = setup.works[from], workRemote = setup.works[from] ~= nil and isEnder(setup.works[from]) or nil })
+      work = setup.works[from], workRemote = setup.works[from] ~= nil and isEnder(setup.works[from]) or nil,
+      patterns = okP and patterns or nil, syscrafting = systemCrafts })
+  elseif type(msg) == "table" and msg.type == "syscraft" and type(msg.item) == "string" then
+    -- the craft overseer: the ME/RS system crafts it from its own pattern
+    local n = math.max(1, math.floor(tonumber(msg.count) or 1))
+    local okC, err = false, ("this is a %s store: it has no patterns"):format(store.kind)
+    if store.craft then okC, err = store.craft(msg.item, n) end
+    if okC then
+      systemCrafts[msg.item] = (systemCrafts[msg.item] or 0) + n
+      message = { ("The %s system is crafting %d %s."):format(store.kind, n, nameOf(msg.item)), "lightBlue" }
+    end
+    answer(from, msg, { re = "syscraft", ok = okC and true or false, error = not okC and tostring(err) or nil })
+    os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "list" then
     -- every plain item with the name the game shows, for the remote terminal
     local items = {}
@@ -1850,37 +1518,6 @@ local function handleRequest(from, msg)
       if not it.nbt then items[#items + 1] = { name = it.name, label = it.displayName, count = it.count } end
     end
     answer(from, msg, { re = "list", items = items })
-  elseif type(msg) == "table" and msg.type == "craftable" then
-    -- a craft terminal: everything that can be crafted (worked out in
-    -- craftViewLoop, which runs while one keeps asking) and what's being made
-    local wasOn = craftTerm.viewOn()
-    craftTerm.wanted = os.clock()
-    if not wasOn then
-      craftViewReady = false -- the last list (if any) left out stored items
-      os.queueEvent("storage_view_wanted")
-    end
-    local items, making = {}, {}
-    for _, it in ipairs(craftView) do
-      items[#items + 1] = { name = it.name, label = it.displayName, count = it.count, stored = it.stored or 0 }
-    end
-    for name, n in pairs(pendingCraft) do
-      if n > 0 then making[#making + 1] = { name = name, label = nameOf(name), count = n } end
-    end
-    answer(from, msg, { re = "craftable", items = items, ready = craftViewReady, making = making, queue = #craftQueue,
-      problem = craftProblem, crafter = (crafting and hasCrafter()) or store.craftables ~= nil, chest = setup.deliveries[from] })
-  elseif type(msg) == "table" and msg.type == "craft" and type(msg.item) == "string" then
-    -- a craft terminal's order: count more of item, into its chest (to = "chest") or into storage
-    local n = math.max(1, math.min(craftTerm.MAX, math.floor(tonumber(msg.count) or 1)))
-    local to = msg.to == "chest" and setup.deliveries[from] or nil
-    local made, why = orderCraft(msg.item, n)
-    if made and to then craftTerm.order(msg.item, to, from, made) end
-    answer(from, msg, { re = "craft", making = made or 0, why = why, to = to and "own" or "storage" })
-    if made then
-      message = { ("Crafting %d %s for computer #%d."):format(made, nameOf(msg.item), from), "lightBlue" }
-    else
-      message = { ("Can't craft %s for computer #%d: %s."):format(nameOf(msg.item), from, why), "orange" }
-    end
-    os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "work" then
     answer(from, msg, workChest(from, msg))
   elseif type(msg) == "table" and msg.type == "fill" and type(msg.items) == "table" then
@@ -1925,7 +1562,13 @@ local function handleRequest(from, msg)
     os.queueEvent("storage_changed")
   elseif type(msg) == "table" and msg.type == "deliver" and type(msg.items) == "table" then
     -- top the chest up to n of each item: what's already there counts
-    local own = setup.deliveries[from]
+    local forId = tonumber(msg["for"])
+    local own = setup.deliveries[forId or from]
+    -- for another computer (a craft terminal's order, from the overseer): only ever into its own chest
+    if forId and not own then
+      answer(from, msg, { re = "deliver", sent = {}, ready = {}, stock = {}, error = ("computer #%d has no chest here"):format(forId) })
+      return
+    end
     local to, sent, total = own or setup.delivery or setup.output, {}, 0
     local held = to ~= setup.output and (reserved[to] or {}) or nil
     reserved[to] = held
@@ -1962,22 +1605,7 @@ local function handleRequest(from, msg)
         if held then held[name] = { n = ready[name], at = os.clock() } end
       end
     end
-    -- what isn't there yet and isn't already being made: craft it if we can
-    local making, cantCraft = {}, {}
-    for _, name in ipairs(names) do
-      local missing = math.floor(msg.items[name]) - ready[name]
-      local cap = type(msg.most) == "table" and tonumber(msg.most[name])
-      if cap then missing = math.min(missing, math.floor(cap) - sent[name]) end
-      missing = missing - (pendingCraft[name] or 0)
-      if missing > 0 then
-        local made, why = orderCraft(name, missing)
-        if made then making[name] = made end
-        if why then cantCraft[name] = why end
-      end
-      if (pendingCraft[name] or 0) > 0 then making[name] = pendingCraft[name] end
-    end
-    answer(from, msg, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), crafting = making,
-      cantCraft = cantCraft, craftProblem = craftProblem, error = failed,
+    answer(from, msg, { re = "deliver", sent = sent, ready = ready, stock = countPlain(names), error = failed,
       to = own and "own" or setup.delivery and "delivery" or "output" })
     if failed then
       message = { "Couldn't move items for a turtle: " .. failed, "red" }
@@ -1985,20 +1613,7 @@ local function handleRequest(from, msg)
       message = { ("Sent %d items to the output chest for turtle #%d: it has no chest here."):format(total, from), "orange" }
     elseif total > 0 then
       message = { ("Sent %d items to turtle #%d."):format(total, from), "lightBlue" }
-    elseif short and next(making) then
-      message = { ("Turtle #%d asked for items I'm crafting now."):format(from), "lightBlue" }
-    elseif short and next(cantCraft) then
-      -- name the item and why: a reason other than "no recipe" first, as
-      -- that's one more stock (or a recipe further down) would fix
-      local item, why
-      for name, w in pairs(cantCraft) do
-        if not item or (why == "no recipe for it" and w ~= why) then item, why = name, w end
-      end
-      if why == "no recipe for it" then
-        why = "no recipe for it (teach one with 'crafter learn')"
-      end
-      message = { ("Can't craft %s for turtle #%d: %s."):format(nameOf(item), from, why), "orange" }
-    elseif short then
+    elseif short and not forId then
       message = { ("Turtle #%d asked for items I don't have."):format(from), "orange" }
     end
     if total > 0 and report then report.log(("sent %d items to turtle #%d"):format(total, from)) end
@@ -2010,7 +1625,102 @@ local function netLoop()
   while true do
     while #inbox == 0 do os.pullEvent("storage_inbox") end
     local req = table.remove(inbox, 1)
+    local kind = type(req.msg) == "table" and tostring(req.msg.type) or "?"
+    links.busy = { type = kind, from = req.from, at = os.clock() }
     handleRequest(req.from, req.msg)
+    -- the slowest request in the last few minutes: where the queue comes from
+    local took = os.clock() - links.busy.at
+    if not links.slow or took >= links.slow.took or os.clock() - links.slow.at > links.WINDOW then
+      links.slow = { type = kind, from = req.from, took = took, at = os.clock() }
+    end
+    links.busy = nil
+  end
+end
+
+---------------------------------------------------------------- the network view
+
+-- Every chest the storage system serves, ender chests first: { chest, kind, owner (computer id) }.
+local LINK_ORDER = { ender = 1, delivery = 2, crafter = 3, work = 4, feeder = 5, dump = 6, input = 7, output = 8,
+  fuel = 9, transfer = 10 }
+function links.list()
+  local out, have = {}, {}
+  local function add(chest, kind, owner)
+    if type(chest) ~= "string" or have[chest] then return end
+    have[chest] = true
+    local ok, ender = pcall(isEnder, chest)
+    out[#out + 1] = { chest = chest, kind = kind, owner = owner, ender = ok and ender or false }
+  end
+  for id, c in pairs(setup.deliveries or {}) do add(c, "delivery", id) end
+  for id, c in pairs(setup.crafters or {}) do add(c, "crafter", id) end
+  for id, c in pairs(setup.works or {}) do add(c, "work", id) end
+  for id, list in pairs(setup.feeders or {}) do
+    for _, c in ipairs(type(list) == "table" and list or {}) do add(c, "feeder", id) end
+  end
+  local dump = files.read(DUMP_FILE)
+  if type(dump) == "table" then add(dump.chest, "dump") end
+  for _, c in ipairs(inputChests()) do add(c, "input") end
+  add(setup.output, "output")
+  add(setup.delivery, "delivery")
+  add(setup.crafter, "crafter")
+  add(setup.fuel, "fuel")
+  add(setup.transfer, "transfer")
+  -- any other ender chest on the cable: shared with a chest somewhere else
+  for _, name in ipairs(peripheral.getNames()) do
+    local ok, ender = pcall(isEnder, name)
+    if ok and ender and isInventory(name) then add(name, "ender") end
+  end
+  table.sort(out, function(a, b)
+    local ra, rb = a.ender and 0 or LINK_ORDER[a.kind] or 99, b.ender and 0 or LINK_ORDER[b.kind] or 99
+    if ra ~= rb then return ra < rb end
+    return a.chest < b.chest
+  end)
+  return out
+end
+
+-- Look in every one at once (a game tick each), for the monitor.
+function links.scan()
+  local rows, jobs = links.list(), {}
+  for _, r in ipairs(rows) do
+    jobs[#jobs + 1] = function()
+      local okL, list = pcall(peripheral.call, r.chest, "list")
+      if not okL then
+        links.seen[r.chest] = { missing = true, at = os.clock() }
+        return
+      end
+      if not links.sizes[r.chest] then
+        local okS, size = pcall(peripheral.call, r.chest, "size")
+        links.sizes[r.chest] = okS and size or 0
+      end
+      local used, count, by = 0, 0, {}
+      for _, it in pairs(list) do
+        used, count = used + 1, count + it.count
+        by[it.name] = (by[it.name] or 0) + it.count
+      end
+      local top, topN = nil, 0
+      for name, n in pairs(by) do
+        if n > topN then top, topN = name, n end
+      end
+      links.seen[r.chest] = { used = used, size = links.sizes[r.chest], count = count, top = top, topN = topN, at = os.clock() }
+    end
+  end
+  if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+  links.rows = rows
+  os.queueEvent("storage_links")
+end
+
+local function linksLoop()
+  while true do
+    -- only worth the reads while a monitor shows it
+    -- (a turtle driving past fires peripheral events too: at most one look every 2 s)
+    if monScreen.target and links.view == "network" and setup and os.clock() - (links.at or -math.huge) >= 2 then
+      links.at = os.clock()
+      links.scan()
+    end
+    -- again in a while, or at once when the monitor switches to this view or comes back
+    local timer = os.startTimer(links.EVERY)
+    repeat
+      local event, value = os.pullEvent()
+    until (event == "timer" and value == timer) or event == "storage_links_now" or event == "peripheral"
   end
 end
 
@@ -2079,91 +1789,6 @@ local function tidyLoop()
       message = { what and ("Moved %s into roomier storage."):format(what)
         or "Made room in the roomiest storage for bulk items.", "lightGray" }
       os.queueEvent("storage_changed")
-    end
-  end
-end
-
--- Keep the list of what could be crafted (but isn't stored) up to date: after
--- storage changes, at most every VIEW_EVERY seconds. Counting is a plan per
--- try, so it runs here rather than on every redraw.
--- Off (no Craftable tab, no craft terminal asking) it waits for a craft
--- terminal's first "craftable" request.
-local function craftViewLoop()
-  while true do
-    while not craftTerm.viewOn() do os.pullEvent("storage_view_wanted") end
-    -- a craft terminal orders more of stored items too; the Craftable tab lists only the rest
-    local all = craftTerm.wantsView()
-    local started = os.clock()
-    local view, avail, items = {}, planningStock(), allItems()
-    local function entry(name, count)
-      local it = items[name]
-      return { key = name, name = name, count = count, stored = math.max(0, avail[name] or 0),
-        displayName = it and it.displayName or titleName(name), craftable = true }
-    end
-    if crafting and hasCrafter() then
-      local reach = crafting.reachable(avail)
-      reachCache, reachAt = reach, os.clock()
-      for _, name in ipairs(crafting.names()) do
-        if (all or (avail[name] or 0) <= 0) and reach[name] then
-          local n = crafting.craftable(name, avail, VIEW_MAX, reach)
-          if n > 0 then view[#view + 1] = entry(name, n) end
-        end
-      end
-    end
-    if store.craftables then
-      local listed = {}
-      for _, it in ipairs(view) do listed[it.name] = true end
-      for _, name in ipairs(store.craftables()) do
-        if not listed[name] and (all or (avail[name] or 0) <= 0) then view[#view + 1] = entry(name, nil) end
-      end
-    end
-    -- a craft terminal asked while this was being worked out without stored items: again, at once
-    craftView, craftViewReady = view, all or not craftTerm.wantsView()
-    os.queueEvent("storage_view")
-    -- counting thousands of modded items is most of the computer's work while
-    -- it runs: rest long enough after it that requests and screens come first
-    sleep(craftViewReady and math.max(VIEW_EVERY, (os.clock() - started) * VIEW_REST) or VIEW_EVERY)
-    -- then wait for a change, unless a craft terminal has just turned the list on (it wants it now)
-    while craftTerm.viewOn() and craftViewReady do
-      local event = os.pullEvent()
-      if event == "storage_changed" or event == "storage_view_wanted" then break end
-    end
-  end
-end
-
--- Send crafts asked for on the terminal to the output chest, and a craft
--- terminal's to its chest, as they're made. Once nothing more is being made,
--- whatever didn't turn up is given up on (the footer has already said why
--- the craft failed).
-local function outputLoop()
-  while true do
-    sleep(OUTPUT_EVERY)
-    for key, o in pairs(outputOrders) do
-      local name = o.name
-      local have = countAll()[name] or 0
-      if have > 0 then
-        local got = fetch(name, math.min(have, o.want - o.sent), o.to)
-        o.sent = o.sent + got
-        -- a craft terminal's chest is swept like a turtle's: hold what it ordered
-        if got > 0 and o.to ~= setup.output then
-          reserved[o.to] = reserved[o.to] or {}
-          local r = reserved[o.to][name]
-          reserved[o.to][name] = { n = (r and r.n or 0) + got, at = os.clock() }
-        end
-      end
-      local where = o.who and ("for computer #%d"):format(o.who) or "in the output chest"
-      if o.sent >= o.want then
-        outputOrders[key] = nil
-        message = { o.who and ("Crafted %d %s %s: sent to its chest."):format(o.sent, nameOf(name), where)
-          or ("Crafted %d %s: it's %s."):format(o.sent, nameOf(name), where), "lime" }
-        os.queueEvent("storage_changed")
-      elseif (pendingCraft[name] or 0) == 0 and have == 0 then
-        outputOrders[key] = nil
-        if o.sent > 0 then
-          message = { ("Only %d of %d %s were made, %s."):format(o.sent, o.want, nameOf(name), where), "orange" }
-        end
-        os.queueEvent("storage_changed")
-      end
     end
   end
 end
@@ -2894,7 +2519,7 @@ if args[1] == "test" then
           print("Couldn't move it through the transfer chest: " .. (why or "no idea why"))
         end
       end
-      print(systemCanCraft(pick.name) and ("The %s system can craft %s."):format(store.kind, pick.displayName)
+      print(store.canCraft and store.canCraft(pick.name) and ("The %s system can craft %s."):format(store.kind, pick.displayName)
         or ("The %s system has no pattern for %s (fine: it's just a test item)."):format(store.kind, pick.displayName))
     end
     print(setup.fuel and ("Fuel chest: %s. Fuel stored for %d items."):format(setup.fuel, fuelValue(countAll()))
@@ -2902,53 +2527,22 @@ if args[1] == "test" then
     local modem = peripheral.find("modem", function(_, m) return m.isWireless() end)
     print(modem and ("Wireless modem on %s: turtles can ask me for items."):format(peripheral.getName(modem))
       or "No wireless modem: turtles can't ask me for items.")
-    -- crafting
-    if not crafting then
-      print("crafting.lua is missing, so I can't craft: run 'install update'.")
-    elseif not hasCrafter() then
-      print(("I know %d recipes, but there's no crafter chest yet. Start a crafting"):format(crafting.count()))
-      print("turtle against a chest on my network and it'll find it.")
-    else
-      print(("I know %d recipes."):format(crafting.count()))
-      for id, chest in pairs(setup.crafters) do print(("Crafting turtle #%s's chest: %s."):format(tostring(id), chest)) end
-      if setup.crafter then print(("Shared crafter chest: %s."):format(setup.crafter)) end
-      if packError then
-        print("pack_recipes.lua didn't load: " .. packError)
-      elseif packRecipes > 0 then
-        print(("%d of them come from pack_recipes.lua (the modpack)."):format(packRecipes))
-      else
-        print("No pack_recipes.lua: only vanilla recipes. See 'Modded recipes' in the README.")
-      end
-      -- the crafting turtle may answer by wireless or over the cable
-      net.open("any")
-      local overseer = rednet.lookup(OVERSEER_PROTOCOL)
-      print(overseer and ("Crafting overseer #%d runs the crafting queue."):format(overseer)
-        or "No crafting overseer: I run the crafting queue myself, on one turtle.")
-      local ids = { rednet.lookup(CRAFT_PROTOCOL) }
-      for _, id in ipairs(ids) do
-        local ping = { type = "ping" }
-        local ok = net.ask(id, CRAFT_PROTOCOL, ping, { wait = 5,
-          match = function(reply) return reply.type == "pong" and reply.id == ping.id end }) ~= nil
-        print(("Crafting turtle #%d %s%s."):format(id, ok and "answered" or "didn't answer a ping",
-          crafterChest(id) and "" or ", but has no chest here yet"))
-      end
-      if #ids > 0 then
-        -- each one answered (or not) above
-      elseif not modem then
-        print("No crafting turtle answered. It talks by wireless, so put a")
-        print("wireless modem on me (or a full-block wired modem against the")
-        print("turtle, on this cable). Is it running 'crafter'?")
-      else
-        print("No crafting turtle answered: is it running 'crafter', with a modem?")
-      end
-    end
+    -- crafting is the craft overseer's: just say whether there is one, and the turtles' chests
+    net.open("any")
+    local overseer = rednet.lookup("craft_overseer")
+    print(overseer and ("Craft overseer #%d plans and runs the crafting."):format(overseer)
+      or "No craft overseer answered: nothing gets crafted (computers/craft-overseer).")
+    for id, chest in pairs(setup.crafters) do print(("Crafting turtle #%s's chest: %s."):format(tostring(id), chest)) end
+    if setup.crafter then print(("Shared crafter chest: %s."):format(setup.crafter)) end
   end)()
   return
 end
 
 term.clear()
 if missingChest then message = { missingChest, "orange" } end
-if packError then message = { "pack_recipes.lua didn't load: run 'storage test'.", "red" } end
+if fs.exists("pack_recipes.lua") then
+  message = { "pack_recipes.lua does nothing here now: move it to the craft overseer.", "orange" }
+end
 if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store.problem), "red" } end
 
 if report then report.init("storage") end
@@ -2975,8 +2569,8 @@ local function setupLoop()
   end
 end
 
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, craftLoop, function() net.keepOpen("any") end,
-  tidyLoop, craftViewLoop, outputLoop, dumpLoop, setupLoop, report and report.loop or function() while true do sleep(3600) end end)
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, linksLoop, function() net.keepOpen("any") end,
+  tidyLoop, sysCraftLoop, dumpLoop, setupLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)
 term.clear()

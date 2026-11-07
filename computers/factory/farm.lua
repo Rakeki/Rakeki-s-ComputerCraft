@@ -12,7 +12,7 @@
 -- can use it. Each job: the ingredients go from the store into a turtle's
 -- barrel, the turtle crafts (the storage_crafter protocol, as for the
 -- storage computer), and what it made goes into the ender chest; the
--- storage computer is told the job is done ('jobdone').
+-- craft overseer is told the job is done ('jobdone').
 --
 -- The turtles find their barrel here (lib/claim.lua's 'claim', on
 -- FARM_PROTOCOL): one item from the store goes into each barrel it could
@@ -74,7 +74,7 @@ end
 function farm.new(f, opts)
   local self = {
     counts = {}, -- item -> how many the store holds
-    jobs = {}, -- { id, job (the storage computer's, or nil for the tab's), make, count, made, by, state, why }
+    jobs = {}, -- { id, job (the craft overseer's, or nil for the tab's), make, count, made, by, state, why }
     crafters = {}, -- turtle id -> its barrel
     turtles = {}, -- turtle id -> { state, colour } for the screen
     stores = {}, -- the store's barrels and chests, from the last scan
@@ -270,13 +270,13 @@ function farm.new(f, opts)
     local key = table.concat(parts, ",")
     local since = os.clock() - offerAt
     if (key == offerKey and since < OFFER_EVERY) or since < OFFER_SOON then return end
-    local reply = f.ask({ type = "makes", via = "essence", recipes = next(self.crafters) and crafts or {} }, 5)
+    local reply = f.craft({ type = "makes", via = "essence", recipes = next(self.crafters) and crafts or {} }, 5)
     offerAt = os.clock()
     if reply and reply.ok then
       offerKey, offerNote = key, nil
     else
       offerKey = nil
-      offerNote = reply and reply.error or "the storage computer doesn't take essence orders: 'install update' it"
+      offerNote = reply and reply.error or "the craft overseer doesn't take essence orders: is it running, and updated?"
     end
   end
   function self.offerNote() return offerNote end
@@ -309,7 +309,7 @@ function farm.new(f, opts)
       local count = math.floor(tonumber(msg.count) or 0)
       if not (self.byMake or {})[msg.make] or count < 1 then return { ok = false, why = "this essence farm has no recipe for it" } end
       if not next(self.crafters) then return { ok = false, why = "this essence farm has no crafting turtle" } end
-      newJob(msg.make, count, msg.job, "the storage computer")
+      newJob(msg.make, count, msg.job, "the craft overseer")
       return { ok = true }
     elseif msg.type == "cancel" then
       for i = #self.jobs, 1, -1 do
@@ -321,10 +321,10 @@ function farm.new(f, opts)
     return nil
   end
 
-  -- A storage computer's job finished (or given up on): tell it. True once it heard.
+  -- A craft overseer's job finished (or given up on): tell it. True once it heard.
   local function report(j)
     if not j.job then return true end
-    return f.ask({ type = "jobdone", job = j.job, ok = j.ok, why = j.why }, 5) ~= nil
+    return f.craft({ type = "jobdone", job = j.job, ok = j.ok, why = j.why }, 5) ~= nil
   end
 
   -- Empty a turtle's barrel: ingredients back into the store, anything else

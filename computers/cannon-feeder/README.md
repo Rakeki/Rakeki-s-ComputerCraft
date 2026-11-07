@@ -39,9 +39,9 @@ How the chest is kept:
   uses while the request is on its way are never sent again.
 - If the storage computer is slow to answer, it waits up to a minute for
   that answer before asking again, so nothing is sent twice.
-- Anything storage hasn't got but can make is crafted on the way, with the
-  crafting turtles (or the craft overseer), the same as a builder turtle's
-  order.
+- Anything storage hasn't got but can make is crafted on the way, by the
+  [craft overseer](../craft-overseer/README.md) and its crafting turtles, the
+  same as a builder turtle's order.
 - It keeps 32 gunpowder in the chest while there's anything left to send,
   and whenever the cannon says it's out.
 - Once everything is sent it stops. What the cannon didn't use stays in the
@@ -80,6 +80,7 @@ A double chest holds 54 kinds.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): keeps the list across reboots (copy to `/lib/files.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is this feeder's (copy to `/lib/claim.lua`). Needed.
+- [`lib/crafts.lua`](../../lib/crafts.lua): has the craft overseer make what storage hasn't got (copy to `/lib/crafts.lua`). Needed.
 - [`lib/plan.lua`](../../lib/plan.lua): reads building plans for `cannon plan` (copy to `/lib/plan.lua`). Needed for `cannon plan`.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.

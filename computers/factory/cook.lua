@@ -29,7 +29,7 @@
 --     pot cooks once n - 1 slots are full, and holds at most n stacks.
 --
 -- What the pots are made from (sculk, honeycomb) is kept topped up: once a
--- minute the storage computer is asked ('prepare') to craft each up to a
+-- minute the craft overseer is asked ('prepare') to craft each up to a
 -- total, if it has a recipe for it, so the pots never run dry.
 local screen = require("lib.screen") -- flicker-free drawing
 local files = require("lib.files") -- crash-safe save files
@@ -44,8 +44,8 @@ local STACK = 64 -- items to a stack, for items the feed hopper hasn't shown yet
 local STUCK_AFTER = 120 -- seconds a pot that should be cooking may make nothing before the screen says so
 local COOKING_FOR = 30 -- seconds a pot counts as cooking after something last came out of it
 local SIDES = { "top", "bottom", "left", "right", "front", "back" } -- a relay's sides, to find the comparator
-local CRAFT_EVERY = 60 -- seconds between asking the storage computer to craft the pots' raw items
-local NO_RECIPE_WAIT = 600 -- seconds before asking again for an item the storage computer has no recipe for
+local CRAFT_EVERY = 60 -- seconds between asking the craft overseer to craft the pots' raw items
+local NO_RECIPE_WAIT = 600 -- seconds before asking again for an item the craft overseer has no recipe for
 local CRAFT_UPTO = 128 -- how many of each raw item to keep crafted in storage, if config.lua doesn't say
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
@@ -130,7 +130,7 @@ function M.new(f)
   local stackOf = {} -- item -> items to a stack, from the feed hoppers
   local stuckSince = {} -- feed hopper -> { at = os.clock(), made }: should have been cooking since, with nothing more made
   local craftAt = -math.huge -- when the raw items were last ordered
-  local noRecipe = {} -- item -> os.clock() when the storage computer said it has no recipe for it
+  local noRecipe = {} -- item -> os.clock() when the craft overseer said it has no recipe for it
   local craftNote = nil -- { text, colour }: what the last order of raw items did, for the screen
   self.message = { "Looking for the storage computer...", "lightGray" }
   self.status = { "starting", "" }
@@ -280,7 +280,7 @@ function M.new(f)
     return n > 0 and n + (KEEP[name] or 0) or 0
   end
 
-  -- Have the storage computer craft the set-up pots' raw items (sculk,
+  -- Have the craft overseer craft the set-up pots' raw items (sculk,
   -- honeycomb) up to their totals. 'prepare' tops up to a total that counts
   -- what's already being made, so asking again never orders twice. An item
   -- it has no recipe for is left alone for a while, then tried again (a
@@ -302,7 +302,7 @@ function M.new(f)
       craftNote = nil
       return
     end
-    local reply = f.ask({ type = "prepare", items = items })
+    local reply = f.craft({ type = "prepare", items = items })
     if not reply then return end
     local making, cant = {}, {}
     for name in pairs(items) do

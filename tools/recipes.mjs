@@ -1,10 +1,10 @@
 // Pulls every crafting-table recipe (shaped and shapeless) out of a modpack's
-// jars, so the storage system's crafting turtle knows modded recipes too.
-// Writes a compact Lua file the storage computer loads as pack_recipes.lua.
+// jars, so the storage system's crafting turtles know modded recipes too.
+// Writes a compact Lua file the craft overseer loads as pack_recipes.lua.
 //
 //   node tools/recipes.mjs <out.lua> <minecraft.jar> <mods folder or jar>...
 //
-// e.g. node tools/recipes.mjs computers/storage-computer/packs/my-pack.lua \
+// e.g. node tools/recipes.mjs computers/craft-overseer/packs/my-pack.lua \
 //        ~/.minecraft/versions/1.21.1/1.21.1.jar ~/.minecraft/mods
 //
 // Tags (#minecraft:planks) stay tags, and item names are numbered, which

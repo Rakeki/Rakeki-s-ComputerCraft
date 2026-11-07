@@ -17,6 +17,7 @@ local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local claim = require("lib.claim") -- tells the storage computer which chest is ours
+local crafts = require("lib.crafts") -- the craft overseer: makes the rest when storage runs out
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -131,6 +132,7 @@ local function pull(it, n)
     say("Storage: " .. whyNot, "red")
     return
   end
+  crafts.deliver(r, { [it.name] = have + n })
   local got = type(r.sent) == "table" and r.sent[it.name] or 0
   local making = type(r.crafting) == "table" and r.crafting[it.name] or 0
   if r.to ~= "own" then

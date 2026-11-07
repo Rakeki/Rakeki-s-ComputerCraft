@@ -7,7 +7,7 @@
 -- out the jobs instead; this turtle works the same for either.
 --
 --   crafter          start (startup.lua runs this)
---   crafter learn    teach the storage system a recipe: lay one set of it out
+--   crafter learn    teach the craft overseer a recipe: lay one set of it out
 --                    in my crafting grid (slots 1-3, 5-7, 9-11) first
 --
 -- Needs a crafty turtle (a crafting table on one side) with a wireless or
@@ -24,6 +24,7 @@
 -- jobs from its own essence, and the storage computer never sees it.
 local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer which chest is mine
+local crafts = require("lib.crafts") -- the craft overseer, which keeps the recipes ('crafter learn')
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
 
@@ -336,18 +337,19 @@ local function learn()
     print("I need a modem to tell the storage system.")
     return
   end
-  local reply, why = storage:ask({ type = "learn", recipe = recipe })
-  if why == "none" then
-    print("No storage system answered. Is it running? We need a")
-    print("wireless modem each, or me on its cable by a wired modem.")
+  local reply, why = crafts.ask({ type = "learn", recipe = recipe })
+  if not reply then
+    print("No craft overseer answered (" .. tostring(why) .. "). It keeps")
+    print("the recipes: is it running? We need a wireless modem each,")
+    print("or me on its cable by a wired modem.")
     return
   end
-  if reply and reply.ok then
-    print("The storage system knows it now. Take the rest of the")
+  if reply.ok then
+    print("The craft overseer knows it now. Take the rest of the")
     print("ingredients and what I made back out of me (or let me put")
     print("them in my chest when I next start).")
   else
-    print("The storage system didn't take it: " .. tostring(reply and reply.error or "no answer"))
+    print("The craft overseer didn't take it: " .. tostring(reply.error or "no reason given"))
   end
   turtle.select(1)
 end

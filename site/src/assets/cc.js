@@ -1,6 +1,6 @@
 // CC: Tweaked terminal look-alikes: a character grid with the 16 CC colours,
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
-// blueprint projector panel, storage terminal and monitor, the factory's tabs and board, craft overseer, colony dashboard
+// blueprint projector panel, storage terminal and monitor (network and items views), the factory's tabs and board, craft overseer, colony dashboard
 // the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
 // the cannon feeder, build control and the turtle finder on a pocket computer, instabuild, and the update watcher.
 (function () {
@@ -525,9 +525,8 @@
   //---------------------------------------------------------------- storage terminal
 
   // The storage computer's search screen: same layout as
-  // computers/storage-computer/storage.lua, with its Stored and Craftable tabs.
-  // It types a few searches on its own until clicked; then click a tab or a
-  // row to pick it, and a row again for a stack.
+  // computers/storage-computer/storage.lua. It types a few searches on its
+  // own until clicked; then click a row to pick it, and again for a stack.
   function storage(el) {
     const W = 51, H = 19;
     const s = new Screen(W, H, el);
@@ -537,27 +536,18 @@
       ["Iron Ingot", 302], ["Coal", 268], ["Redstone Dust", 197], ["Oak Sapling", 140], ["Iron Ore", 96],
       ["Gold Ingot", 75], ["Potato", 64], ["Diamond", 23], ["Raw Iron", 18], ["Enchanted Book", 3], ["Iron Pickaxe", 1],
     ].map(([name, count]) => ({ name, count }));
-    // not stored, but the crafting turtle could make them: listed in light blue
-    const crafts = [["Oak Planks", 4096], ["Stick", 2776], ["Oak Fence", 1041], ["Torch", 536], ["Chest", 173]]
-      .map(([name, count]) => ({ name, count, craft: true }));
     const SLOTS = 27 * 12;
-    const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true, tab: "stored" };
+    const st = { query: "", selected: 1, scroll: 0, msg: ["", "lightGray"], auto: true };
     const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
     const countText = (n) => n >= 64 ? `${n} (${Math.floor(n / 64)}x64${n % 64 ? `+${n % 64}` : ""})` : String(n);
     const fits = (it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase());
     const stored = () => items.filter(fits).sort((a, b) => b.count - a.count);
-    const matches = () => (st.tab === "craft" ? crafts.filter(fits) : stored());
-    const setTab = (t) => { st.tab = t; st.selected = 1; st.scroll = 0; };
+    const matches = () => stored();
 
     function take(n) {
       const it = matches()[st.selected - 1];
       if (!it) return;
       const sent = Math.min(n, it.count);
-      if (it.craft) {
-        st.msg = [`Crafting ${sent} ${it.name} for the output chest...`, "lightBlue"];
-        setTimeout(() => { st.msg = [`Crafted ${sent} ${it.name}: it's in the output chest.`, "lime"]; draw(); }, 1800);
-        return;
-      }
       it.count -= sent;
       st.msg = [`Sent ${sent} ${it.name} to the output chest.`, "lime"];
     }
@@ -571,14 +561,7 @@
       const stat = `12 chests, ${used}/${SLOTS} slots`;
       s.put(W - 6, 1, " Setup ", "black", "lightGray");
       s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
-      // tabs: what's stored, and (light blue) what could be crafted
-      let tx = 1;
-      for (const [t, label, on] of [["stored", `Stored ${stored().length}`, "white"], ["craft", `Craftable ${crafts.filter(fits).length}`, "lightBlue"]]) {
-        const text = ` ${label} `, sel = st.tab === t;
-        s.put(tx, 2, text, sel ? "black" : "white", sel ? on : "gray");
-        s.zones.push({ x1: tx, x2: tx + text.length - 1, y1: 2, y2: 2, action: () => setTab(t) });
-        tx += text.length + 1;
-      }
+      s.put(1, 2, ` Stored ${list.length} `, "black", "white");
       s.put(1, 3, "Search: ", "lightGray");
       s.put(9, 3, st.query, "white");
       const rows = H - 5;
@@ -589,15 +572,15 @@
         const it = list[st.scroll + i - 1];
         if (!it) continue;
         const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black";
-        const c = it.craft ? `can make ${it.count}` : countText(it.count);
-        s.put(1, 3 + i, fitT(" " + it.name, W - c.length - 1), it.craft && !sel ? "lightBlue" : "white", bg);
-        s.put(W - c.length, 3 + i, c + " ", sel ? "white" : it.craft ? "lightBlue" : "lightGray", bg);
+        const c = countText(it.count);
+        s.put(1, 3 + i, fitT(" " + it.name, W - c.length - 1), "white", bg);
+        s.put(W - c.length, 3 + i, c + " ", sel ? "white" : "lightGray", bg);
         const idx = st.scroll + i;
         s.zones.push({ x1: 1, x2: W, y1: 3 + i, y2: 3 + i, action: () => { if (st.selected === idx) take(64); else st.selected = idx; } });
       }
       if (!list.length) s.put(2, 5, "No matches.", "lightGray");
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
-      let keysText = (st.tab === "craft" ? "Enter: craft a stack  Right: craft one" : "Enter: a stack  Right: one") + (st.query ? "  Del: clear" : st.tab === "craft" ? "  Tab: stored" : "  Tab: craftable");
+      let keysText = "Enter: a stack  Right: one" + (st.query ? "  Del: clear" : "");
       if (keysText.length + 11 <= W) keysText += "  F1: setup";
       s.put(1, H, fitT(keysText, W), "gray");
       s.render({ x: 9 + st.query.length, y: 3 });
@@ -610,12 +593,7 @@
         // a village builder asks for blocks, then the delivery chest gets tidied
         () => { items[0].count -= 192; st.msg = ["Sent 192 items to turtle #14.", "lightBlue"]; }, () => {}, () => {},
         () => { items[0].count += 12; st.msg = ["Put away 12 items from the delivery chests.", "lightGray"]; }, () => {},
-        // and something it hasn't got, made by the crafting turtle
-        () => { st.msg = ["Crafting 24 Smooth Sandstone Slab...", "lightBlue"]; }, () => {},
-        () => { st.msg = ["Crafted 24 Smooth Sandstone Slab.", "lime"]; }, () => {}, () => { st.msg = ["", "lightGray"]; },
-        // and one asked for on the Craftable tab
-        () => setTab("craft"), () => {}, () => { st.selected = 3; }, () => take(64), () => {}, () => {},
-        () => {}, () => { setTab("stored"); st.msg = ["", "lightGray"]; }]);
+        () => { st.msg = ["", "lightGray"]; }]);
     let step = 0;
     setInterval(() => {
       if (!st.auto) return;
@@ -632,6 +610,97 @@
       if (z) z.action();
       draw();
     });
+    draw();
+    return s;
+  }
+
+  //---------------------------------------------------------------- storage monitor: network view
+
+  // The storage monitor's network view: same layout as links.draw in
+  // computers/storage-computer/storage.lua. Every chest the storage system
+  // serves, ender chests first, with its slots in use and what moved lately;
+  // the request line above. Items pile up in the remote terminal's ender
+  // chest and a builder's requests queue. Tap a row for what's in it.
+  function storageNetwork(el) {
+    const W = 57, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const fitT = (t, w) => (w <= 0 ? "" : t.length > w ? t.slice(0, w) : t.padEnd(w));
+    // name, kind, used, size, flow, seconds since the last move
+    const rows = [
+      { name: "Remote ender chest", used: 26, size: 27, flow: "> 640 cobblestone, 128 oak log", ago: 4, chest: "enderstorage:ender_chest_0", top: "1600 cobblestone" },
+      { name: "Excavator-20 ender chest", used: 3, size: 27, flow: "> 64 coal  < 512 cobbled deepslate", ago: 12, chest: "enderstorage:ender_chest_1", top: "64 coal" },
+      { name: "Factory ender work chest", used: 9, size: 27, flow: "> 96 raw iron, 64 coal", ago: 7, chest: "enderstorage:ender_chest_2", top: "96 raw iron" },
+      { name: "Builder-16 chest", used: 27, size: 27, flow: "> 192 stone bricks, 64 glass", ago: 2, chest: "minecraft:chest_7", top: "1728 stone bricks" },
+      { name: "Builder-17 chest", used: 6, size: 27, flow: "> 128 oak planks", ago: 41, chest: "minecraft:chest_8", top: "128 oak planks" },
+      { name: "Crafter-12 crafter chest", used: 0, size: 27, flow: "> 18 iron ingot  < 6 iron bars", ago: 25, chest: "minecraft:barrel_3", top: null },
+      { name: "Crafts chest", used: 1, size: 27, flow: "> 2 chest", ago: 140, chest: "minecraft:chest_9", top: "2 chest" },
+      { name: "Factory feeder", used: 2, size: 27, flow: "> 32 raw gold", ago: 18, chest: "minecraft:barrel_5", top: "32 raw gold" },
+      { name: "input", used: 21, size: 27, flow: "< 1210 cobblestone, 300 wheat, +4 more", ago: 1, chest: "minecraft:chest_0", top: "640 cobblestone" },
+      { name: "output", used: 1, size: 27, flow: "> 64 iron ingot", ago: 95, chest: "minecraft:chest_1", top: "64 iron ingot" },
+      { name: "fuel", used: 4, size: 27, flow: "< 64 charcoal", ago: 220, chest: "minecraft:chest_2", top: "256 coal" },
+    ];
+    const st = { msg: ["", "lightGray"], tick: 0, waiting: 0, busy: null, slow: 2.4 };
+    const state = (r) => {
+      if (r.used >= r.size) return ["red", "full"];
+      if (!/^(output|fuel)$/.test(r.name) && r.used / r.size >= 0.75) return ["orange", "piling"];
+      if (r.ago <= 30) return ["lime", "busy"];
+      return ["lightGray", "idle"];
+    };
+    const ago = (t) => (t < 60 ? `${t}s` : `${Math.floor(t / 60)}m`);
+    function draw() {
+      s.clear();
+      const btn = (x, y, label, fg, bg, action) => { s.put(x, y, label, fg, bg); s.zones.push({ x1: x, x2: x + label.length - 1, y1: y, y2: y, action }); };
+      s.fill(1, "gray");
+      s.put(2, 1, "Storage", "yellow", "gray");
+      btn(W - 6, 1, " Setup ", "black", "lightGray", () => {});
+      btn(W - 14, 1, " Items ", "black", "lightBlue", () => {});
+      const stat = "80 chests, 1214/2160 slots";
+      s.put(W - stat.length - 16, 1, stat, "lightGray", "gray");
+      const frac = 1214 / 2160, filled = Math.round(frac * W), bar = fitT(` ${Math.round(frac * 100)}% full`, W);
+      s.put(1, 2, bar.slice(0, filled), "white", "green");
+      s.put(filled + 1, 2, bar.slice(filled), "white", "gray");
+      let line = `Requests: ${st.waiting} waiting`;
+      if (st.busy) line += `  now ${st.busy[0]} for #${st.busy[1]}, ${st.busy[2]}s`;
+      line += `  slowest deliver ${st.slow.toFixed(1)}s`;
+      const busyFor = st.busy ? st.busy[2] : 0;
+      s.put(1, 3, fitT(" " + line, W), st.waiting >= 5 || busyFor >= 5 ? "red" : st.waiting > 0 || busyFor >= 1 ? "orange" : "lightGray");
+      const nameW = Math.max(10, Math.min(26, Math.floor(W * 0.4)));
+      rows.forEach((r, i) => {
+        const y = 4 + i;
+        if (y > H - 3) return;
+        const [colour, word] = state(r), when = ago(r.ago);
+        btn(1, y, fitT(" " + r.name, nameW - 1), colour, "black", () => {
+          st.msg = [`${r.name} (${r.chest}): ${word}, ${r.used} slots of ${r.size}${r.top ? ", most of it " + r.top : ""}.`, colour === "lightGray" ? "white" : colour];
+        });
+        s.put(nameW + 1, y, fitT(`${r.used}/${r.size}`, 7), colour === "lightGray" ? "gray" : colour);
+        s.put(nameW + 9, y, fitT(r.flow, W - nameW - 9 - when.length - 1), "white");
+        s.put(W - when.length, y, when, "lightGray");
+      });
+      // the services, as on the items view
+      let x = 1;
+      [["Crafter", "lime"], ["Factory", "lime"], ["Overseer", "orange"], ["Remote", "lime"], ["Builder", "orange"]].forEach(([name, colour]) => {
+        const label = ` ${name} `;
+        if (x + label.length - 1 > W) return;
+        s.put(x, H - 2, label, "black", colour);
+        x += label.length + 1;
+      });
+      s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+      s.put(1, H, fitT(" Tap a chest to see what's in it and what moved.", W), "gray");
+      s.render();
+    }
+    // the demo: requests come and go, the builder's chest fills, the remote one empties at the far end
+    setInterval(() => {
+      st.tick++;
+      rows.forEach((r) => { r.ago++; });
+      const t = st.tick % 12;
+      st.busy = t < 3 ? ["deliver", 16, t] : t < 5 ? ["list", 31, 0] : null;
+      st.waiting = t < 3 ? 3 - t : 0;
+      if (t === 0) { rows[0].used = 26; rows[0].ago = 0; rows[3].ago = 0; }
+      if (t === 6) { rows[0].used = 12; st.msg = ["", "lightGray"]; }
+      draw();
+    }, 1000);
+    el.addEventListener("click", (ev) => { const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y); if (z) { z.action(); draw(); } });
     draw();
     return s;
   }
@@ -677,7 +746,8 @@
       s.put(2, 1, "Storage", "yellow", "gray");
       const stat = `80 chests, ${used}/${SLOTS} slots`;
       btn(W - 6, 1, " Setup ", "black", "lightGray", () => {});
-      s.put(W - stat.length - 8, 1, stat, "lightGray", "gray");
+      btn(W - 16, 1, " Network ", "black", "lightBlue", () => {});
+      s.put(W - stat.length - 18, 1, stat, "lightGray", "gray");
       const frac = Math.min(1, used / SLOTS), filled = Math.round(frac * W);
       const bar = fitT(` ${Math.round(frac * 100)}% full`, W);
       s.put(1, 2, bar.slice(0, filled), "white", frac > 0.9 ? "red" : frac > 0.7 ? "orange" : "green");
@@ -1026,7 +1096,7 @@
     const add = (o) => { plan++; for (const j of o) queue.push({ ...j, plan, state: "queued" }); };
     orders.forEach(add);
     const turtles = [{ id: 12, job: null }, { id: 13, job: null }, { id: 14, job: null }];
-    const st = { msg: ["The storage computer sent 6 crafts.", "lightBlue"], tick: 0, last: null };
+    const st = { msg: ["Crafting 3 kinds of item for #14.", "lightBlue"], tick: 0, last: null };
 
     function next() {
       const busy = new Set();
@@ -1080,7 +1150,7 @@
       }
       if (!queue.length) s.put(2, y, "Nothing queued.", "gray");
       s.put(1, H, fitT(st.msg[0], W), st.msg[1]);
-      s.zones.push({ x1: 1, x2: W, y1: 1, y2: H, action: () => { add(orders[0]); st.msg = ["The storage computer sent 3 crafts.", "lightBlue"]; } });
+      s.zones.push({ x1: 1, x2: W, y1: 1, y2: H, action: () => { add(orders[0]); st.msg = ["Crafting 64 Torch for computer #22.", "lightBlue"]; } });
       s.render();
     }
 
@@ -2386,5 +2456,5 @@
     return s;
   }
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageNetwork, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
 })();

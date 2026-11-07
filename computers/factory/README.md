@@ -17,7 +17,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Furnaces, blast furnaces, smokers | vanilla | ores, dust and food [smelted and cooked](#smelting), with fuel from the fuel chest; charcoal, stone and glass on order |
 | Energized Smelters | [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism) | [smelt](#mekanism-smelters) like furnaces, faster and with no fuel |
 | Enrichment Chambers | Mekanism | [ores into dust](#enriching): 2 dust per ore block, 4 per 3 raw ores |
-| Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the storage computer orders them for its crafts too |
+| Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the craft overseer orders them for its crafts too |
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
@@ -64,8 +64,8 @@ They sort themselves out:
 - **The chain.** Each one tells the others which items its machines take.
   Ores an enricher takes (on any factory computer) are left to it by every
   smelter, which smelts their dust or crushed ores instead; with a washer,
-  crushed ores go to it, and the storage computer crafts the nuggets into
-  ingots. A factory computer that hasn't been heard from for 10 minutes is
+  crushed ores go to it, and the craft overseer has the nuggets crafted
+  into ingots. A factory computer that hasn't been heard from for 10 minutes is
   forgotten, and its ores are smelted as they are.
 
 The **Chain** page on the setup screen shows what happens where. Every
@@ -334,9 +334,9 @@ washer, every crushed ore goes to it, and smelters leave crushed ores alone.
 computer to craft every 9 nuggets into an ingot, so you need its crafting
 set up: a [crafting turtle](../crafter-turtle/README.md), or the patterns in
 your ME or RS system. Iron, gold, Create copper and zinc nuggets are in the
-storage computer's built-in recipes (`install update` it); other mods'
+[craft overseer's](../craft-overseer/README.md) built-in recipes; other mods'
 nuggets need their recipe (`crafter learn`, or a modpack's recipes) and a
-line in `nuggets` under `enricher` in `config.lua`. If the storage computer
+line in `nuggets` under `enricher` in `config.lua`. If the overseer
 can't craft them, the footer says why. Keep some nuggets back with `keep`,
 e.g. `["minecraft:iron_nugget"] = 18`, or turn this off with
 `compact = false`.
@@ -378,10 +378,10 @@ There are three ways to ask:
   cancels the newest one you asked for (with what it needed first).
 - **`factory infuse`** lists the recipes; `factory infuse steel 64` asks
   for 64 steel dust, `factory infuse cancel` cancels.
-- **The storage computer.** It's told what this computer can infuse, so
+- **The craft overseer.** It's told what this computer can infuse, so
   when a craft needs steel dust or an alloy (a turtle's `prepare`, an
   order, a recipe several steps deep) it plans the infusing as one of the
-  steps and asks the infuser for it. Its crafting turtle carries on with
+  steps and asks the infuser for it. Its crafting turtles carry on with
   the later steps once the infused items are in storage. Turn this off with
   `offer = false` under `infuser` in `config.lua`.
 
@@ -443,7 +443,7 @@ be counted and you can open a pot without upsetting it.
 - **Keeping them coming.** Once a minute the factory asks the storage
   computer to craft more sculk and honeycomb, up to 128 of each in storage
   (on top of any `keep`), so the pots are never left waiting. This only
-  does anything when the storage computer has a recipe for them (a
+  does anything when the craft overseer has a recipe for them (a
   modpack's, or one taught with `crafter learn`); without one it's left
   alone and tried again every 10 minutes. Change the amount with `craft`
   under `cooker` in `config.lua` (a number, or per item), or `craft = false`
@@ -545,14 +545,15 @@ goes home.
 - **The turtles find their barrel by themselves**, as they would at home:
   start `crafter` on each and it says "The essence farm uses my chest". The
   setup screen's **Machines** page lists them; tap one to forget it.
-- **The storage computer orders from it.** Every so often the farm tells
-  it what the essence there can be made into, and how much. When a craft at
-  home needs iron ingots (a turtle's request, the remote terminal, an
-  order, a recipe that uses them), the storage computer can ask the farm
-  for them: the farm loads a turtle's barrel from its store, the turtle
-  crafts, and what it made goes into the ender chest and home. The storage
-  computer takes nothing from storage for these and never asks for more
-  than the farm said it has the essence for.
+- **The craft overseer orders from it.** Every so often the farm tells
+  the [craft overseer](../craft-overseer/README.md) what the essence there can
+  be made into, and how much. When a craft at home needs iron ingots (a
+  turtle's request, the remote terminal, an order, a recipe that uses them),
+  the overseer can ask the farm for them: the farm loads a turtle's barrel
+  from its store, the turtle crafts, and what it made goes into the ender
+  chest and home. Nothing comes out of storage for these, and the overseer
+  never asks for more than the farm said it has the essence for. The farm
+  needs an ender or wireless modem that reaches the overseer.
 - **Or order on its Essence tab**: Can is how many the farm's own essence
   makes, Stored how many there are at home. What's made goes home the same
   way.
@@ -597,6 +598,7 @@ input chest, then into the S pot, and so on up to XL.
 - [`lib/mekfeed.lua`](../../lib/mekfeed.lua): Mekanism machines, Create lines and their feeders (copy to `/lib/mekfeed.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
+- [`lib/crafts.lua`](../../lib/crafts.lua): asks the craft overseer for recipes and crafts, and tells it what the infusers and essence farm make (copy to `/lib/crafts.lua`). Needed.
 - [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen (copy to `/lib/setupui.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -749,9 +751,9 @@ empties it first, and the Pots view shows **still storage** until it has.
 own crafting turtles and keep their essence: see [Essence farm](#essence-farm).
 
 For the
-recipes, the storage computer needs a [crafting turtle](../crafter-turtle/README.md)
+recipes, the [craft overseer](../craft-overseer/README.md) needs a [crafting turtle](../crafter-turtle/README.md)
 and your modpack's recipes, which include Mystical Agriculture's (see
-[Modded recipes](../storage-computer/README.md#modded-recipes)); a
+[Modded recipes](../craft-overseer/README.md#modded-recipes)); a
 `pack_recipes.lua` made before the essence recipes were added has none of
 them, so get it again.
 
@@ -993,7 +995,7 @@ botany pots over, and machines added there can be added again on the other.
   as they take either different items (one each, at most 5) or one item
   several times; with Create, a recipe for XS candy from experience nuggets
   is there, commented out.
-- **Essence.** No recipes? The storage computer has to know Mystical
+- **Essence.** No recipes? The craft overseer has to know Mystical
   Agriculture's: they come from `pack_recipes.lua`, or teach one by hand
   with `crafter learn` on the crafting turtle. The list is fetched again
   every 5 minutes. The storage system picks its own recipe for an item: if

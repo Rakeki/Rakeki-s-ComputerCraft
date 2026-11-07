@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modems and networking cable to every chest (or to an ME Bridge / RS Bridge); optional monitor, a wireless modem for turtles and the status server, a [crafting turtle](../crafter-turtle/README.md) and a [smelter](../factory/README.md#smelting)
+- **Peripherals:** wired modems and networking cable to every chest (or to an ME Bridge / RS Bridge); optional monitor, a wireless modem for turtles and the status server, a [craft overseer](../craft-overseer/README.md) with [crafting turtles](../crafter-turtle/README.md) for crafting, and a [smelter](../factory/README.md#smelting)
 
 ## What it does
 
@@ -13,9 +13,15 @@ turtle access on an **Applied Energistics 2** or **Refined Storage** system
 (see [ME and RS systems](#me-and-rs-systems)). Either way, every turtle and
 computer here talks to this computer the same way, so the
 [village builder](../village-turtle/README.md),
-[crafting turtle](../crafter-turtle/README.md) and
+[craft overseer](../craft-overseer/README.md) and
 [smelter](../factory/README.md#smelting) work with whichever you use, and
 keep working if you switch.
+
+It only keeps items: it knows no recipes. Crafting is the
+[craft overseer's](../craft-overseer/README.md), which plans every craft
+from what's stored here and has this computer load its crafting turtles'
+chests. That way a modpack's thousands of recipes never slow down item
+requests. See [Crafting](#crafting).
 
 With chests, every chest and barrel on the computer's wired network is
 storage, except the ones you choose for:
@@ -42,7 +48,8 @@ storage, except the ones you choose for:
   (which is never cleared out).
 - **Crafter chest** (optional): the chest in front of a
   [crafting turtle](../crafter-turtle/README.md). The turtle finds it itself
-  when it starts, so you can leave it blank. See [Crafting](#crafting).
+  when it starts, so you can leave it blank. The craft overseer has it
+  loaded with each batch. See [Crafting](#crafting).
 - **Fuel chest** (optional): where the coal and charcoal are kept, for the
   [smelter's](../factory/README.md#smelting) furnaces and for turtles. See
   [Fuel](#fuel).
@@ -53,19 +60,50 @@ mouse, then Enter for a stack or Right arrow for just one (or click the
 picked row again for a stack). Delete clears the search. The top line shows
 how many chests and slots are in use (or how full the ME or RS system is).
 
-An optional **Craftable** tab can sit next to the stored items (see
-[Crafting](#crafting)); it's off unless you turn it on.
-
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
 ### The monitor
 
-A monitor, if one is attached, is a second way in: anyone walking past can
-take things out without using the computer. Use an **advanced monitor**, so
-it can be tapped. It shows:
+A monitor, if one is attached, shows where everything is going, and is a
+second way in: anyone walking past can take things out without using the
+computer. Use an **advanced monitor**, so it can be tapped. It has two
+views: **Network** (where it starts) and **Items**; the button at the top
+right, next to **Setup**, switches between them. Both show a bar of how full
+the storage is, with the chests and slots in use.
 
-- a bar of how full the storage is, with the chests and slots in use
+#### Network
+
+Every chest the storage system serves that isn't storage, one row each:
+ender chests first (a far-away remote terminal's, excavator's or factory's
+twin, or any other ender chest on the cable), then each turtle's and
+computer's own chest (named after it: "Builder-16 chest", "Factory work
+chest"), crafter chests, feeders, a dump chest, and the input, output and
+fuel chests. Each row shows:
+
+- who it's for, coloured by how it's doing: **red** it's gone or full,
+  **orange** items are piling up in it (three quarters of its slots used),
+  **lime** items moved in the last 30 seconds, **light grey** idle
+- its slots in use ("12/27")
+- what's moved in the last 5 minutes: **>** what was sent to it ("> 128
+  cobblestone, 64 coal") and **<** what was taken out of it and put away
+  ("< 30 raw iron"), most first
+- how long ago the last move was
+
+Tap a row for the chest's name, how many items are in it and what most of
+them are, on the message line.
+
+The line above the rows shows the **requests**: how many are waiting for an
+answer, the one being answered now (and for how long), and the slowest in
+the last 5 minutes. It turns orange when requests queue up or one takes over
+a second, red at 5 waiting or one taking 5 seconds. A full input chest, an
+ender chest piling up because nothing empties it at the other end, or a
+queue of requests are where to look when things slow down. The chests are
+looked at every 10 seconds while this view is showing (one read each, all at
+once), and not at all otherwise.
+
+#### Items
+
 - every stored item with its count (12.3k for big ones), in columns on a
   wide monitor, and pages with **<** and **>** when they don't all fit
 - **Most** / **A-Z**: tap to sort by count or by name
@@ -90,9 +128,7 @@ storage computer, shows as **no status**.
 
 Tap an item to pick it (tap again to drop it). The bottom line then shows
 it with **1**, **16** and **64** buttons: tap one and that many go to the
-output chest (fewer if there aren't that many). **x** drops the pick. With
-the Craftable tab on, craftable items are listed too (in light blue), and
-their buttons have them crafted for the output chest instead. The line
+output chest (fewer if there aren't that many). **x** drops the pick. The line
 above shows what happened, the same message as the terminal's footer.
 
 Enchanted books, named tools and other items with extra data are
@@ -162,116 +198,36 @@ turtles can't ask me for items."
 
 ### Crafting
 
-With a [crafting turtle](../crafter-turtle/README.md), the turtles that ask
-the storage computer for blocks (the [village builder](../village-turtle/README.md),
-the [builder](../builder-turtle/README.md)) get things that aren't stored
-but could be made from what is: it has them crafted on request. When the village
-builder asks for 40 jungle fences and there are none, but there are jungle
-logs, the storage computer plans the crafts (logs into planks, planks into
-sticks, then the fences), puts each batch's ingredients in the crafter chest
-and has the crafting turtle make them. The results go into storage, and the
-turtle that asked gets them on its next request. It never crafts the same
-order twice while one is already being made.
+This computer knows no recipes. Run a
+[craft overseer](../craft-overseer/README.md) on the cable with one or more
+[crafting turtles](../crafter-turtle/README.md): it's the storage system's
+recipe server. It plans every craft from what's stored here (logs into
+planks, planks into sticks, then the fences), and has this computer put each
+batch's ingredients in a crafting turtle's chest. The results go into
+storage like anything else.
 
-With several crafting turtles (each finds its own chest, like the builders)
-and a [crafting overseer](../craft-overseer/README.md) on the network, the
-storage computer hands its queue to the overseer, which shares the jobs
-between the turtles and shows the queue, and what each job is missing, on
-its monitor. The footer says "Gave the crafting overseer (#5) 4 crafts."
-Without an overseer the storage computer crafts on one turtle itself.
+The turtles and computers that ask for items (the
+[village builder](../village-turtle/README.md), the
+[builder](../builder-turtle/README.md), the
+[cannon feeder](../cannon-feeder/README.md), the
+[remote terminal](../remote-terminal/README.md), the
+[factory](../factory/README.md)) ask this computer for what's stored and the
+overseer for the rest: what could be made, and to have it made. The
+[craft terminal](../craft-terminal/README.md) gets its list and makes its
+orders through the overseer too, and this computer sends what's made into its
+chest. With no overseer running nothing is crafted, and they say so.
 
-With a [factory](../factory/README.md#infusing) running Mekanism
-Metallurgic Infusers, the storage computer knows what they make, so steel
-dust, alloys and circuits count as craftable too. A plan that needs one
-(reinforced alloy for a machine, say) has the infuser make it as one of its
-steps ("Asked factory #9 to make 4 Infused alloy."), and the crafting turtle
-takes the later steps once it's in storage. A plan that's all infusing
-needs no crafting turtle.
-
-An [essence farm](../factory/README.md#essence-farm) (a factory computer
-far away with botany pots and crafting turtles of its own) tells the storage
-computer what its essence can be made into and how much, so iron ingots,
-diamonds and the like count as craftable too. A plan that needs them has the
-farm make them ("Asked factory #12 to make 30 Iron Ingot."); nothing goes
-out of storage for it, and it never asks the farm for more than it has the
-essence for. What the farm makes comes home through its ender chest.
-
-For a computer just for ordering crafts, put a
-[craft terminal](../craft-terminal/README.md) on the cable: it lists
-everything that can be made (stored or not) with how many, and has what you
-pick crafted into a chest next to it or into storage. While one is running,
-this computer works out that list in the background, the same way as the
-Craftable tab below, without the tab having to be on.
-
-You can ask for crafts on the terminal too, with the **Craftable** tab. It's
-off by default, because working out everything that could be made from a
-big store with a big modpack takes a long while. To turn it on, set
-`CRAFTABLE_TAB = true` near the top of `storage.lua` (`install update`
-puts it back to off). Then there are two tabs under the top line,
-**Stored** and **Craftable** (light blue); press Tab or click one to switch.
-The Craftable tab lists everything that isn't stored but could be made,
-with how many ("can make 40"). Pick one and press Enter for a stack (or
-Right for one): it's crafted and sent to the output chest when it's ready.
-The monitor lists craftable items in light blue after the stored ones, and
-with an [ME or RS system](#me-and-rs-systems), items it has a pattern for
-are listed too, marked "pattern". The list is worked out in the
-background, again within 30 seconds of anything changing. With a big
-modpack counting everything takes a while (around a minute with a few
-thousand recipes), so it then waits three times as long as the last count
-took before counting again, and searches and requests stay quick meanwhile.
-
-When a turtle asks how much of something there is, what could be crafted
-counts as well, so the village builder doesn't wait for blocks that can be
-made. While the village builder waits for a building's materials it also
-asks the storage computer to start crafting what's short, so the crafting
-happens while it clears the plot. The footer shows what it's crafting, and
-why if it can't (no crafter chest, no crafting turtle answering, or not
-enough to make it from). `storage test` checks the crafting side too.
-
-If there isn't enough to make the whole order, it makes as many as it can
-(the turtle that asked gets those, and is told why not the rest). If the
-crafting turtle stops answering, waiting turtles are told that crafting is
-stuck, and it carries on by itself once the turtle is back.
-
-The recipes are in `recipes.lua`: everything craftable that the village
-themes use, the usual basics, and the stairs, slabs and walls of the vanilla
-stone, brick, deepslate, blackstone and tuff families (mossy stone bricks
-too). Teach it more with `crafter learn` on the
-crafting turtle; those are saved on this computer in `/.storage_recipes`.
-For every recipe in your modpack, see [Modded recipes](#modded-recipes).
+Moving crafting off this computer keeps item requests quick: with a
+modpack's thousands of recipes, working out what could be made took most of
+its time, and every turtle waited behind it.
 
 ### Modded recipes
 
-CC can't read the game's recipe book, but every vanilla and mod recipe is
-stored in the mod files, and [`tools/recipes.mjs`](../../tools/recipes.mjs)
-pulls out all the crafting-table ones (shaped and shapeless, with tags like
-"any planks"). Machine recipes (Create, Botany Pots and so on) are left out:
-the crafting turtle can't make those. The result is one file,
-`pack_recipes.lua`, which the storage computer loads next to `recipes.lua`
-when it starts.
+A modpack's recipes (`pack_recipes.lua`, made with
+[`tools/recipes.mjs`](../../tools/recipes.mjs)) go on the craft overseer
+now: see its [Modded recipes](../craft-overseer/README.md#modded-recipes). One
+left on this computer does nothing, and the footer says to move it.
 
-For the TRekt Mons pack the file is already made (8,400 recipes, 680 KB,
-Mystical Agriculture's essence recipes included, for the
-[essence computer](../factory/README.md#essence)).
-On the storage computer:
-
-```
-wget https://rakeki.github.io/Rakeki-s-ComputerCraft/computers/storage-computer/packs/trekt-mons.lua pack_recipes.lua
-reboot
-```
-
-For another pack, or after adding mods, run this on your PC (it needs
-Node.js) and copy the file it writes onto the storage computer as
-`pack_recipes.lua` (dragging a file onto an open computer screen uploads
-it):
-
-```
-node tools/recipes.mjs pack_recipes.lua <the Minecraft version jar> <your mods folder>
-```
-
-`install update` never touches `pack_recipes.lua`. A computer has 1 MB of
-disk by default, so a file much bigger than about 700 KB won't fit next to
-the programs.
 Smelting isn't crafting: smooth sandstone, glass and the like aren't made
 on request. The [smelter](../factory/README.md#smelting) smelts ores and cooks raw food as they
 come in, and anything else you add to its list. The
@@ -304,10 +260,11 @@ The setup screen offers it (**Store items in**) when it finds one. Then:
 - The input chest is emptied into the system, searches and turtle requests
   are answered from it, and stacks are sent out of it to the output and
   delivery chests. Chests on the network aren't used as storage.
-- When a turtle asks for something that isn't there, the system crafts it
-  from its own **patterns** first. The crafting turtle and `recipes.lua` are
-  only used for things the system has no pattern for, so with AE2 or RS the
-  crafting turtle is optional.
+- When something is asked for that isn't there, the
+  [craft overseer](../craft-overseer/README.md) has the system craft it from
+  its own **patterns** first. Its crafting turtles and recipes are only used
+  for things the system has no pattern for, so with AE2 or RS crafting
+  turtles are optional.
 - The bridge can't put an item into a chosen slot, which the smelter's
   furnaces and the crafting turtle's grid need. So those items pass through
   a **transfer chest**: any spare chest on the network, chosen in
@@ -370,7 +327,7 @@ the plain ones.
 
 The chest wall plus everything that works with it, on the same cable:
 
-- the [crafting turtle](../crafter-turtle/README.md) facing its crafter chest
+- the [craft overseer](../craft-overseer/README.md), and a [crafting turtle](../crafter-turtle/README.md) facing its crafter chest
 - the [smelter](../factory/README.md#smelting): its computer and a row of
   furnaces, each furnace with a small wired modem
 - a fuel chest, for the furnaces and turtles
@@ -392,9 +349,6 @@ and set **Store items in** to the ME system. A Refined Storage system with an
 - `storage.lua`: the program. Check intervals are at the top.
 - `chests.lua`: storing in the chests on the network: which blocks count as storage, and what counts as bulk for stack upgrades
 - `bridge.lua`: storing in an ME or RS system through its bridge
-- `crafting.lua`: works out what to craft, ingredients first
-- `recipes.lua`: the built-in recipes
-- `pack_recipes.lua`: optional, every crafting recipe in your modpack (see [Modded recipes](#modded-recipes)); `packs/` has ready-made ones
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional; it works without it.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -432,7 +386,7 @@ and set **Store items in** to the ME system. A Refined Storage system with an
    storage setup             -- the setup screen again (or tap Setup on the monitor)
    storage config fuel       -- change one setting by typing: input, inputs, output, delivery, crafter, fuel, transfer, remote
    storage config fuel minecraft:chest_9   -- or name the chest ('none' clears an optional one)
-   storage test              -- check deliveries (one item there and back), the fuel chest and the crafting turtle
+   storage test              -- check deliveries (one item there and back), the fuel chest, and whether a craft overseer answers
    storage tidy              -- show slot sizes and sort bulk items into storage with stack upgrades now
    storage dump              -- move everything into an ender chest, for another storage system
    storage dump stop         -- stop a dump
@@ -514,7 +468,7 @@ per ore) and Create crushing wheels and washing fans.
 | Both | The Mekanism smelters take their pick first, the furnaces the rest; orders in plain furnaces and Mekanism smelters with an output chest. |
 | Chambers, nothing to smelt with | Ore goes into the chambers and comes back as dust (gem ores as gems), which stays in storage until there's something to smelt it. |
 | Chambers and furnaces | While a chamber is set up, the smelting leaves those ores to it and waits for the dust (more ingots), even while a chamber can't be loaded for a while. If the factory computer with the chambers has been gone for 10 minutes, or has no chambers, the ores are smelted as they are. |
-| Create machines | Crushing wheels take the ores the chambers leave (or all of them, with no chambers) and smelting waits for the crushed ores (or washing fans wash them into nuggets and a byproduct, and the storage computer crafts the nuggets into ingots); blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |
+| Create machines | Crushing wheels take the ores the chambers leave (or all of them, with no chambers) and smelting waits for the crushed ores (or washing fans wash them into nuggets and a byproduct, and the craft overseer has the nuggets crafted into ingots); blasting fans smelt ores, dust and crushed ores with no fuel, smoking fans cook food. Both are just a feeder chest and an output chest to the computers. |
 
 All of this can run on one factory computer, or be shared between several
 (each furnace and botany pot belongs to one of them, and each says which

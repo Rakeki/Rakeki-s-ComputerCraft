@@ -35,6 +35,7 @@ Vanilla ender chests are each player's own, and CC can't reach into them.
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): remembers which ender chest to use (copy to `/lib/files.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is this terminal's (copy to `/lib/claim.lua`). Needed.
+- [`lib/crafts.lua`](../../lib/crafts.lua): has the craft overseer make the rest when storage runs out (copy to `/lib/crafts.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 

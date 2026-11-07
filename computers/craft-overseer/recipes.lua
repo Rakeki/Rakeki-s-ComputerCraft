@@ -1,4 +1,4 @@
--- Built-in crafting recipes for the storage system's crafting turtle. They
+-- Built-in crafting recipes for the craft overseer's crafting turtles. They
 -- cover what the village builder's themes use, plus the usual basics. Teach
 -- it more in-game with 'crafter learn' on the crafting turtle; those are
 -- saved separately, so updating the programs never loses them.

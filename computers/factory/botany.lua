@@ -4,7 +4,7 @@
 -- ingots, dirt, diamonds, ...), so you can order it: the storage system's
 -- crafting turtle makes it.
 --
--- The recipes come from the storage computer: Mystical Agriculture's are in
+-- The recipes come from the craft overseer: Mystical Agriculture's are in
 -- the modpack's pack_recipes.lua (tools/recipes.mjs), or teach one with
 -- 'crafter learn'. A pot shows CC only its harvest, and only through its
 -- bottom, so each pot stands on a full-block wired modem; the seed and soil
@@ -24,7 +24,7 @@ local farm = require("farm") -- the essence farm, far from the storage system
 
 local M = {}
 
-local RECIPES_EVERY = 300 -- seconds between asking the storage computer for its recipes again
+local RECIPES_EVERY = 300 -- seconds between asking the craft overseer for its recipes again
 local POT_SLOTS = 12 -- harvest slots in a pot
 local BARRELS_FILE = "/.factory_pot_barrels" -- the pot barrels: { name, ... }
 
@@ -217,7 +217,7 @@ function M.new(f)
     return n == math.huge and 0 or n
   end
 
-  -- A recipe from the storage computer, with its cells added up by item:
+  -- A recipe from the craft overseer, with its cells added up by item:
   -- 8 iron essence rather than eight cells of one.
   local function prepare(raw)
     local byKey, need = {}, {}
@@ -236,9 +236,9 @@ function M.new(f)
   end
 
   local function loadRecipes()
-    local reply, err = f.ask({ type = "recipes", uses = ESSENCE })
+    local reply, err = f.craft({ type = "recipes", uses = ESSENCE })
     if not reply then return false, err end
-    if type(reply.recipes) ~= "table" then return false, "the storage computer is too old: run 'install update' on it" end
+    if type(reply.recipes) ~= "table" then return false, "the craft overseer is too old: run 'install update' on it" end
     if reply.error then return false, reply.error end
     local list = {}
     for _, raw in ipairs(reply.recipes) do
@@ -281,9 +281,9 @@ function M.new(f)
     if not fresh or type(fresh.counts) ~= "table" then return "The storage computer didn't answer.", "red" end
     local stored = fresh.counts[r.make] or 0
     -- prepare tops up to a total, counting what's being made: find that first
-    local now = f.ask({ type = "prepare", items = { [r.make] = 0 } })
+    local now = f.craft({ type = "prepare", items = { [r.make] = 0 } })
     local making = now and type(now.crafting) == "table" and now.crafting[r.make] or 0
-    local reply = f.ask({ type = "prepare", items = { [r.make] = stored + making + want } })
+    local reply = f.craft({ type = "prepare", items = { [r.make] = stored + making + want } })
     if not reply then return "The storage computer didn't answer.", "red" end
     local why = type(reply.cantCraft) == "table" and reply.cantCraft[r.make]
     local total = type(reply.crafting) == "table" and reply.crafting[r.make] or 0
@@ -293,7 +293,7 @@ function M.new(f)
       if reply.craftProblem then return text .. " " .. reply.craftProblem, "orange" end
       return text, "lime"
     end
-    return ("Can't craft %s: %s."):format(nice(r.make), why or "the storage computer didn't start it"), "red"
+    return ("Can't craft %s: %s."):format(nice(r.make), why or "the craft overseer didn't start it"), "red"
   end
 
   ---------------------------------------------------------------- the pots

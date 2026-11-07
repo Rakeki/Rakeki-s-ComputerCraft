@@ -21,9 +21,10 @@ from what's stored, and orders it.
 - **Ordering.** Pick an item with the arrow keys (or click it) and press
   **Enter**: it asks how many, starting at a stack (or as many as can be
   made, if that's fewer). Type a number and press Enter again. **Right**
-  orders just one. The storage computer plans the crafts and its
-  [crafting turtles](../crafter-turtle/README.md) (or the ME / RS system)
-  make them, a stack of planks or sticks first if that's what it takes.
+  orders just one. The [craft overseer](../craft-overseer/README.md) plans
+  the crafts and its [crafting turtles](../crafter-turtle/README.md) (or the
+  ME / RS system) make them, a stack of planks or sticks first if that's what
+  it takes.
 - **Where they go.** With a chest next to this computer, crafts come to that
   chest as they're made. Without one (or after **Tab**, which switches),
   they stay in storage. The top right says which: "to the chest (left)",
@@ -35,12 +36,13 @@ from what's stored, and orders it.
 Ordering something that's already stored makes that many more: with a chest,
 the ones stored are sent at once and the new ones top storage back up.
 
-The list is worked out by the storage computer while a craft terminal is
-running, again within 30 seconds of anything stored changing. With a big
+The list is worked out by the craft overseer (the recipe server) while a
+craft terminal is running, again every 30 seconds or so. With a big
 modpack the first list can take a little while; the screen says "Working
 out what can be crafted..." until it's there, and after that the list is
 counted again less often (three times as long as the last count took), so
-the storage system isn't kept busy counting.
+the overseer isn't kept busy counting. The storage computer only finds this
+terminal's chest and sends what's made into it.
 
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -53,6 +55,7 @@ With a wireless modem it also reports to the
 - [`lib/net.lua`](../../lib/net.lua): rednet requests and answers (copy to `/lib/net.lua`). Needed.
 - [`lib/files.lua`](../../lib/files.lua): remembers which chest to use (copy to `/lib/files.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): tells the storage computer which chest is this terminal's (copy to `/lib/claim.lua`). Needed.
+- [`lib/crafts.lua`](../../lib/crafts.lua): asks the craft overseer for the list and makes the orders (copy to `/lib/crafts.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
 - `preview/`: the setup diagram (a picture, not installed)
@@ -61,10 +64,10 @@ With a wireless modem it also reports to the
 
 ![The craft terminal: a computer with a wired modem on the storage cable, and a chest touching it on the same cable](preview/setup.svg)
 
-1. Update the [storage system](../storage-computer/README.md) (`install
-   update`): older ones don't answer a craft terminal. It needs a way to
-   craft: a [crafting turtle](../crafter-turtle/README.md), or an ME or RS
-   system with patterns.
+1. Set up the [storage system](../storage-computer/README.md) and a
+   [craft overseer](../craft-overseer/README.md), which has the recipes, with
+   a way to craft: [crafting turtles](../crafter-turtle/README.md), or an ME
+   or RS system with patterns.
 2. Put this computer by the storage system with a **wired modem** on it,
    joined to the storage cable. Right-click the modem so it turns red.
 3. Optional: put a chest touching the computer, with a **full-block wired

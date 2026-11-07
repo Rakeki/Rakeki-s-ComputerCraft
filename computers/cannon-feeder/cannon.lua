@@ -37,6 +37,7 @@ local screen = require("lib.screen") -- flicker-free drawing on the monitor and 
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
 local claim = require("lib.claim") -- tells the storage computer which chest is ours
+local crafts = require("lib.crafts") -- the craft overseer: has what storage lacks made
 local plan = fs.exists("lib/plan.lua") and require("lib.plan") -- only for 'cannon plan'
 local report = fs.exists("lib/report.lua") and require("lib.report")
 local errlog = fs.exists("lib/errlog.lua") and require("lib.errlog") -- saves errors to /errors.log
@@ -434,6 +435,7 @@ local function feed()
     return
   end
   supply:seen(r)
+  crafts.deliver(r, want, most) -- what's short and not stored: the overseer has it made
   if r.to ~= "own" then
     say("The storage computer sent it somewhere else: hooking my chest up again.", "orange")
     return
@@ -448,6 +450,7 @@ local function feed()
   end
   if #others > 0 then
     local c = ask({ type = "count", items = others, need = need })
+    crafts.count(c, others, need)
     if c then
       for name, n in pairs(c.counts or {}) do stock[name] = n end
       for name, n in pairs(c.craftable or {}) do craftable[name] = n end

@@ -18,7 +18,7 @@ computers/
     README.md     What it does, where it is, its computer ID, peripherals
     startup.lua   Runs automatically when the computer boots
 lib/              Shared modules usable by any computer
-tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the storage system,
+tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the craft overseer,
                   and overseer/: the server and page for the live network map
 site/             The website and in-game installer (built by GitHub Actions)
 sim/              A simulated CC world on your PC that runs every program together (tests, and the network map)
@@ -46,13 +46,13 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [tree-farm-turtle](computers/tree-farm-turtle/README.md): turtle that plants a grid of trees, chops them as they grow, replants and brings the logs to a chest
 - [crop-farm-turtle](computers/crop-farm-turtle/README.md): turtle that flies over a field, harvests ripe wheat, carrots, potatoes and beetroot, and replants them
 - [cobble-breeder](computers/cobble-breeder/README.md): breeds better and better Cobblemon from a Cobbreeding pasture (command computer): reads every egg's IVs before it hatches, sends the better ones to the incubator and tells you which breeder to swap; monitor shows each breeder's IVs and how close you are to 6x31
-- [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest and a touch monitor to take items from, and serves items to every turtle
+- [storage-computer](computers/storage-computer/README.md): turns a network of chests, or an AE2 / Refined Storage system, into one searchable store with an input and an output chest, serves items to every turtle, and shows on a touch monitor every ender chest and turtle's chest it feeds, what's going to each and the request queue, so bottlenecks show
 - [craft-terminal](computers/craft-terminal/README.md): a computer just for ordering crafts: lists everything the storage system can make, with how many, and has it made into a chest next to it or into storage
 - [remote-terminal](computers/remote-terminal/README.md): the storage system from anywhere, through a linked ender chest: search and pull items, or drop them in to send them home
 - [cannon-feeder](computers/cannon-feeder/README.md): keeps a Create Schematicannon stocked from the storage system: give it the material list and it tops up the chest by the cannon, crafting what's missing on the way
-- [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does
-- [craft-overseer](computers/craft-overseer/README.md): shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor
-- [factory](computers/factory/README.md): every machine that turns stored items into something else, on as many computers as you like: furnaces, blast furnaces and smokers (ores, food, charcoal, stone and glass on order), Mekanism Enrichment Chambers and Energized Smelters, Metallurgic Infusers on request (steel, alloys, circuits; the storage computer orders them for its crafts too), Create crushing wheels, washing fans and blasting and smoking fans (no Mekanism needed), Cobblemon cooking pots (exp candy up to XL) and Mystical Agriculture botany pots (essence, and ordering what it crafts into; far away, an essence farm with its own crafting turtles that makes what the storage computer asks for)
+- [crafter-turtle](computers/crafter-turtle/README.md): crafty turtle that makes what the storage system is asked for but doesn't have, from what it does, for the craft overseer
+- [craft-overseer](computers/craft-overseer/README.md): the storage system's recipe server: knows every recipe (your modpack's too), plans every craft and shares it between any number of crafting turtles, with the queue and what each job is missing on a monitor
+- [factory](computers/factory/README.md): every machine that turns stored items into something else, on as many computers as you like: furnaces, blast furnaces and smokers (ores, food, charcoal, stone and glass on order), Mekanism Enrichment Chambers and Energized Smelters, Metallurgic Infusers on request (steel, alloys, circuits; the craft overseer orders them for its crafts too), Create crushing wheels, washing fans and blasting and smoking fans (no Mekanism needed), Cobblemon cooking pots (exp candy up to XL) and Mystical Agriculture botany pots (essence, and ordering what it crafts into; far away, an essence farm with its own crafting turtles that makes what the craft overseer asks for)
 - [colony-dashboard](computers/colony-dashboard/README.md): monitor dashboard for a MineColonies colony: citizens, happiness, buildings, requests, work orders and attack alarm
 - [fission-guard](computers/fission-guard/README.md): watches a Mekanism fission reactor and SCRAMs it before it overheats, takes damage, runs short of coolant or backs up on steam or waste; monitor gauges with start, SCRAM and burn-rate buttons
 - [power-dashboard](computers/power-dashboard/README.md): Mekanism Induction Matrix on a monitor: stored power, in and out, time until full or empty, an hour's graph, turbines and energy cubes, and a redstone signal when power runs low
@@ -66,7 +66,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 Every program works on its own. With a modem they work together: everything
 reports to the status server (and, through the overseer bridge, to a live map in your browser), AutoMine turtles take jobs from the AutoMine
 server, the GPS deployer's hosts keep turtles on course, the village builder
-gets its blocks from the storage system (which has the crafter make what it
+gets its blocks from the storage system (the craft overseer has the crafter make what it
 lacks, and the factory smelt its ores) and shows its next building through the blueprint projector,
 several builder turtles share one projected building a strip each, and village turtles with GPS can
 join one village as a crew. The

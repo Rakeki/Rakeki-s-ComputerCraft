@@ -22,6 +22,7 @@ local report = require("lib.report") -- status server; does nothing without a mo
 local errlog = require("lib.errlog") -- saves errors to /errors.log
 local net = require("lib.net") -- rednet requests and answers
 local claim = require("lib.claim") -- tells the storage computer my supply chest is my delivery chest
+local crafts = require("lib.crafts") -- the craft overseer: has what storage lacks made
 
 local JOB_FILE = "/.builder_job" -- the building: blocks and materials (written once per building)
 local PROGRESS_FILE = "/.builder_progress" -- how far along it is (rewritten after every block, so kept small)
@@ -500,6 +501,7 @@ local function orderFromStorage(needs)
   end
   local r = askStorage({ type = "deliver", items = order })
   supply:seen(r) -- not sent to my own chest: find it again next time
+  crafts.deliver(r, order) -- what's short and not stored: the overseer has it made (r.crafting, r.cantCraft)
   local notes = {}
   if not r then
     if USE_STORAGE then notes[1] = "No storage system answered my order." end

@@ -253,7 +253,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
-      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts"],
       "stats": [
         ["Themes", "4"],
         ["Buildings", "7 per theme"],
@@ -1112,7 +1112,7 @@
       "deviceLabel": "Mining turtle + wireless modem",
       "color": "pink",
       "tagline": "Builds whatever the blueprint projector is showing, right where it's shown: tap Build and watch it go up layer by layer.",
-      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts"],
       "autostart": true,
       "stats": [
         ["Plans from", "the projector"],
@@ -1266,27 +1266,27 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
-      "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items.",
+      "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items, and shows on a monitor where everything is going.",
       "libs": ["report", "errlog", "screen", "files", "net", "setupui"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
         ["Put away", "every 2 s"],
         ["Rescan", "every 60 s"],
-        ["Monitor", "optional, touch"]
+        ["Monitor", "network view, touch"]
       ],
       "features": [
         "Type to search every chest at once (Delete clears it)",
         "Enter sends a stack to the output chest, Right arrow just one",
-        "A touch monitor: sort, search on an on-screen keyboard, tap an item and send 1, 16 or 64 to the output chest",
+        "The monitor's network view: every ender chest and every turtle's and computer's chest it serves, how full each is and what's been sent to it in the last 5 minutes, red when one is full or gone, orange when items pile up",
+        "The requests waiting, the one being answered and the slowest lately, so a queue or a bottleneck shows at once",
+        "Items on the monitor too: sort, search on an on-screen keyboard, tap an item and send 1, 16 or 64 to the output chest",
         "The monitor shows the smelter, enricher, crafters and every other service working with it, coloured by state, near or far away",
         "Puts new items next to the same item when it can",
         "Moves what you have most of into barrels with stack upgrades (Sophisticated Storage)",
         "Turtles can ask for items over rednet; the village builder and builder stock themselves from it",
         "Turtles find their own chest on the network: place one against a chest with a wired modem and its items go there",
-        "With a crafting turtle, makes what it's asked for but doesn't have",
-        "Crafts what turtles ask for but isn't stored; an optional Craftable tab lists what could be made",
-        "Knows every crafting recipe in your modpack, not just vanilla (tools/recipes.mjs)",
+        "Only items, no recipes: the craft overseer plans and runs every craft, so a big modpack's recipes never slow down item requests",
         "A fuel chest keeps the coal and charcoal for the smelter's furnaces and for turtles",
         "Can use an AE2 or Refined Storage system (via an Advanced Peripherals bridge) instead of chests: turtles don't notice the difference"
       ],
@@ -1299,14 +1299,14 @@
         ["storage", "start (opens the setup screen the first time)"],
         ["storage setup", "the setup screen, on the monitor and the computer (in the running storage program, if there is one); or tap Setup at the top right of the monitor or screen, or press F1"],
         ["storage config fuel [chest|none]", "change one setting by typing: input, inputs, output, delivery, crafter, fuel, transfer, remote (no setting: the setup screen)"],
-        ["storage test", "list the turtles' chests, check deliveries, the fuel chest, the wireless modem and the crafting turtle"],
+        ["storage test", "list the turtles' chests, check deliveries, the fuel chest and the wireless modem, and say whether a craft overseer answers"],
         ["storage tidy", "show slot sizes and sort bulk items into storage with stack upgrades now"],
         ["storage dump", "move everything stored into an ender chest whose twin is another storage system's input chest (stop: stop it)"]
       ],
       "integrates": [
         ["village-turtle", "Sends building blocks and coal to the village's supply chest as the builder needs them."],
-        ["crafter-turtle", "Crafts what turtles ask for but isn't stored, from what is: ingredients first."],
-        ["craft-overseer", "With several crafting turtles, takes the crafting queue and shares it between them."],
+        ["craft-overseer", "The recipe server: plans every craft from what's stored and has this computer load its crafting turtles' chests; with an ME or RS system, has the system craft from its patterns."],
+        ["crafter-turtle", "Its chest on the cable is loaded with each batch the craft overseer hands it."],
         ["factory", "Loads its furnaces, Mekanism and Create feeders and cooking pots when it asks (or fills its work chest in one go); what's made comes back through the input chest, charcoal into the fuel chest, botany pots' essence too."],
         ["tree-farm-turtle", "Use its chest as the input and logs are put away as they arrive."],
         ["crop-farm-turtle", "Same for the harvest."],
@@ -1316,16 +1316,17 @@
       "render": {
         "kind": "screen",
         "scene": "storage",
-        "caption": "The storage terminal: type to search, Enter for a stack. Shown with the optional Craftable tab turned on: it lists what isn't stored but can be made. Click a tab or a row, and the row again to take (or craft) a stack.",
+        "caption": "The storage terminal: type to search, Enter for a stack. Click a row, and the row again to take a stack.",
         "more": [
-          { "scene": "storageMonitor", "caption": "The monitor (an advanced one, for touch): Most / A-Z sorts, Find opens the on-screen keyboard, the arrows turn the page. Tap an item, then how many to send to the output chest. Click to try it." },
+          { "scene": "storageNetwork", "caption": "The monitor's network view (where it starts): every ender chest and turtle's or computer's chest the storage system feeds, its slots in use and what's been sent to it (>) or taken from it (<) in the last 5 minutes. The remote terminal's ender chest is piling up (orange) and a builder's chest is full (red); the line above shows the requests waiting. Tap a row for what's in it." },
+          { "scene": "storageMonitor", "caption": "The monitor's Items view (an advanced monitor, for touch; Network at the top goes back to the network view): Most / A-Z sorts, Find opens the on-screen keyboard, the arrows turn the page. Tap an item, then how many to send to the output chest. Click to try it." },
           { "scene": "storageSetup", "caption": "Setup opens the setup screen on the monitor (and on the computer): every setting on one page; tap one for every chest on the network with what's in it, a page at a time, Empty for empty ones only. Click to try it." }
         ]
       },
       "layouts": [
         { "title": "Chest wall", "scene": "storageChests", "caption": "The basic setup: a wall of chests joined by full-block modems and cable, input and output chests, and the computer with a monitor and a wireless modem for turtles." },
         { "title": "Stack upgrades", "scene": "storageUpgrades", "caption": "Sophisticated Storage barrels: the ones with the most stack upgrades get the items there are 256+ of; plain ones keep small amounts." },
-        { "title": "Full base", "scene": "storageBase", "caption": "Storage with everything joined to one cable: the crafter and its chest, the smelter and its furnaces, a fuel chest, and the village builder's supply chest, which the storage system fills." },
+        { "title": "Full base", "scene": "storageBase", "caption": "Storage with everything joined to one cable: the crafter and its chest (the craft overseer runs it), the smelter and its furnaces, a fuel chest, and the village builder's supply chest, which the storage system fills." },
         { "title": "AE2 + Advanced Peripherals", "scene": "storageAe", "caption": "An ME system does the storing: an ME Bridge on the ME cable, with a wired modem joining it to the computer's cable. Input, output, fuel and transfer chests stay real chests. An RS Bridge on Refined Storage works the same." }
       ],
       "terminal": null
@@ -1339,7 +1340,7 @@
       "deviceLabel": "Computer + ender modem + ender chest",
       "color": "magenta",
       "tagline": "The storage system from anywhere, through a linked ender chest: search what's stored and pull it, or drop items in to send them home.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts"],
       "autostart": true,
       "stats": [
         ["Range", "any, any dimension"],
@@ -1395,7 +1396,7 @@
       "deviceLabel": "Computer on the storage cable",
       "color": "lightBlue",
       "tagline": "A computer just for ordering crafts: everything the storage system can make, with how many, made into a chest next to it or into storage.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts"],
       "autostart": true,
       "stats": [
         ["Lists", "every craftable item"],
@@ -1408,12 +1409,12 @@
         "Type to search; Enter asks how many (a stack to start), Right orders one",
         "Crafts come to a chest next to it as they're made, or stay in storage (Tab switches)",
         "Shows what's being crafted right now, or why crafting is stuck",
-        "Uses the crafting turtles, the craft overseer, the factory's infusers and an ME or RS system's patterns, whatever the storage computer has",
+        "The craft overseer works out the list and makes the orders: with the crafting turtles, the factory's infusers and an ME or RS system's patterns",
         "Finds its chest by itself: nothing to pick in storage setup",
         "crafts make 64 torch orders from the command line"
       ],
       "setup": [
-        "Update the storage computer (install update): older ones don't answer a craft terminal.",
+        "Run a craft overseer (computers/craft-overseer): it has the recipes and makes the orders.",
         "Put this computer by the storage system with a wired modem on the storage cable (right-click it red).",
         "Optional: a chest touching it with a full-block wired modem on the same cable, for the crafts to come to.",
         "Install and reboot."
@@ -1425,9 +1426,9 @@
         ["crafts chest none", "keep crafts in storage, even with a chest next to it"]
       ],
       "integrates": [
-        ["storage-computer", "Works out what can be crafted while a craft terminal is running, plans each order and sends what's made to the terminal's chest."],
+        ["craft-overseer", "Works out what can be crafted while a craft terminal is running, plans each order and has what's made sent to the terminal's chest."],
+        ["storage-computer", "Sends what's made into the terminal's chest when the overseer says."],
         ["crafter-turtle", "Makes the crafts."],
-        ["craft-overseer", "Shares the orders between several crafting turtles."],
         ["claim", "Tells the storage computer which chest is this terminal's."],
         ["remote-terminal", "The other half: search and take what's stored. This one is for having things made."],
         ["status-server", "Shows how many things can be crafted and each order."]
@@ -1454,7 +1455,7 @@
       "deviceLabel": "Computer + chest by a Schematicannon",
       "color": "yellow",
       "tagline": "Keeps a Create Schematicannon stocked from the storage system: with a Block Reader on the cannon it sends whatever the cannon is waiting for, or give it the material list; what's missing is crafted on the way.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "plan"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "plan", "crafts"],
       "autostart": true,
       "stats": [
         ["Tops up", "every 5 s"],
@@ -1513,7 +1514,7 @@
       "deviceLabel": "Crafty turtle",
       "color": "brown",
       "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
-      "libs": ["claim", "report", "errlog", "net"],
+      "libs": ["claim", "report", "errlog", "net", "crafts"],
       "autostart": true,
       "stats": [
         ["Recipes", "119 built in"],
@@ -1534,11 +1535,11 @@
       ],
       "commands": [
         ["crafter", "start (runs on boot)"],
-        ["crafter learn", "teach the storage system the recipe laid out in the grid"]
+        ["crafter learn", "teach the craft overseer the recipe laid out in the grid"]
       ],
       "integrates": [
-        ["storage-computer", "Plans the crafts and loads the ingredients into the crafter chest, grid-style."],
-        ["craft-overseer", "With more than one crafting turtle, hands each its share of the jobs."],
+        ["craft-overseer", "Plans the crafts (it has the recipes) and hands each crafting turtle its share of the jobs."],
+        ["storage-computer", "Loads the ingredients into the crafter chest when the overseer asks."],
         ["factory", "On an essence farm (botany pots far away), the farm finds its barrel and hands it the jobs from its own essence."],
         ["village-turtle", "Fences, slabs, beds and lanterns get made as the village builder asks for them."],
         ["status-server", "Shows what it's crafting."]
@@ -1567,7 +1568,7 @@
       "device": "computer",
       "deviceLabel": "Advanced computer + monitor + modems",
       "color": "orange",
-      "tagline": "Shares the storage system's crafting between any number of crafting turtles, with the queue and what each job is missing on a monitor.",
+      "tagline": "The storage system's recipe server: knows every recipe (your modpack's too), plans every craft and shares it between any number of crafting turtles, with the queue and what each job is missing on a monitor.",
       "libs": ["screen", "report", "errlog", "net", "files", "claim"],
       "autostart": true,
       "stats": [
@@ -1577,7 +1578,11 @@
         ["Gives up", "after 10 min short"]
       ],
       "features": [
-        "Takes the crafting queue from the storage computer and hands each job to a free crafting turtle",
+        "Knows every crafting recipe in your modpack, not just vanilla (tools/recipes.mjs), and recipes taught with crafter learn",
+        "Plans whole chains from what's stored (logs into planks into sticks into fences) and hands each job to a free crafting turtle",
+        "Answers every program's crafting questions: builders, the village builder, the cannon feeder and the factory ask it what can be made and have it made",
+        "Works out the craft terminal's list and sends its orders to the terminal's chest",
+        "The factory's infusers and essence farm run the steps only they can make",
         "Steps of one order run in turn; different orders run side by side",
         "Monitor lists every turtle, the queue, and what each job is short of",
         "Moves a job to another turtle when one stops answering",
@@ -1585,9 +1590,10 @@
         "Keeps its queue across reboots"
       ],
       "setup": [
-        "Put an advanced computer on the storage cable with a wired modem (and a wireless modem if the crafting turtles use wireless). A monitor is optional.",
+        "Put an advanced computer on the storage cable with a wired modem, and a wireless or ender modem so turtles and far-away computers can ask it about crafting. A monitor is optional.",
         "Set up crafting turtles, each with its own chest in front of it on the storage cable.",
-        "Install and reboot: the storage computer hands it the next crafts.",
+        "With a modpack: put its pack_recipes.lua on this computer (not the storage computer).",
+        "Install and reboot.",
         "Far away: an ender chest on its own cable (the twin on the storage cable), each turtle's barrel on that cable too, an ender modem, then overseer hub."
       ],
       "commands": [
@@ -1597,7 +1603,10 @@
         ["overseer hub off", "stop using it"]
       ],
       "integrates": [
-        ["storage-computer", "Plans the crafts and hands them over; loads each turtle's chest when the overseer asks."],
+        ["storage-computer", "Counts what's stored for its plans and loads each turtle's chest when the overseer asks; with an ME or RS system, crafts from its patterns."],
+        ["crafts", "How every other program asks it what could be made and has it made."],
+        ["craft-terminal", "Gets its list of what can be crafted from it, and orders."],
+        ["factory", "Its infusers and essence farm tell it what they can make and run those steps of its plans."],
         ["crafter-turtle", "Each crafting turtle takes the batches it's given; add more for more crafting at once."],
         ["status-server", "Shows how many jobs are queued."]
       ],
@@ -1614,7 +1623,7 @@
       "color": "red",
       "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters, enrichment chambers and infusers, Create crushers, washers and fans, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
       "replaces": ["smelter-computer", "enricher-computer", "cooker-computer", "essence-computer"],
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui", "crafts"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -2194,6 +2203,21 @@
         ["net.hasWireless()", "A wireless or ender modem is attached."]
       ],
       "notes": "Every request carries an id that the answer repeats, along with re (the request type), so a late answer to an earlier request is never taken for a newer one. Ids come from one counter per computer, so several parts of a program can ask at once. Protocols that answer differently (a builder's accepted / busy, a crafter's crafted) pass match."
+    },
+    {
+      "name": "crafts",
+      "title": "lib/crafts",
+      "file": "lib/crafts.lua",
+      "color": "lightBlue",
+      "tagline": "Crafting questions for the craft overseer, the storage system's recipe server: what could be made, and having it made, added to the storage computer's answers.",
+      "usage": "local crafts = require(\"lib.crafts\")\n\nlocal r = storage:ask({ type = \"deliver\", items = want })\ncrafts.deliver(r, want)      -- r.crafting, r.cantCraft for what's short\n\nlocal c = storage:ask({ type = \"count\", items = names })\ncrafts.count(c, names, need) -- c.craftable",
+      "api": [
+        ["crafts.deliver(r, want, most)", "After a storage computer's deliver reply: has what didn't arrive and isn't stored made, and adds crafting, cantCraft and craftProblem to r."],
+        ["crafts.count(r, names, need)", "After a count reply: adds r.craftable, how many more of each could be made (being made included)."],
+        ["crafts.prepare(items)", "Start crafting so there'll be n of each in all: { crafting, cantCraft, craftProblem }."],
+        ["crafts.ask(msg, wait)", "Anything else on the craft_overseer protocol (craftable, craft, learn, recipes, makes, jobdone): the answer, or nil and why."]
+      ],
+      "notes": "The storage computer only keeps items and knows no recipes, so a modpack's thousands of them never slow down its answers. With no overseer running, every answer says so (cantCraft is \"no craft overseer answered\") and the program carries on with what's stored."
     },
     {
       "name": "files",

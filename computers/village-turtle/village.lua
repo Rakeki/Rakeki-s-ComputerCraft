@@ -1257,8 +1257,8 @@ end
 -- Before a building: have the storage system start crafting what's
 -- missing (name -> count, beyond what's at home), while it waits.
 local function prepareFromStorage(want)
-  local r = askStorage({ type = "prepare", items = want })
-  if r then craftNotes(r, want) end
+  -- the craft overseer has it made (lib/crafts.lua; not a local: this file is at Lua's 200)
+  craftNotes(require("lib.crafts").prepare(want), want)
 end
 
 -- How much of each item the storage system has (name -> count), or nil.
@@ -1268,6 +1268,7 @@ local function storageCounts(names, need)
   if #names == 0 then return nil end
   local r = askStorage({ type = "count", items = names, need = need })
   if not r then return nil end
+  require("lib.crafts").count(r, names, need) -- what the craft overseer could make
   local counts = r.counts or {}
   for name, n in pairs(r.craftable or {}) do counts[name] = (counts[name] or 0) + n end
   return counts
@@ -1307,6 +1308,7 @@ orderFromStorage = function(needs)
   local r = askStorage({ type = "deliver", items = order })
   if not r then return nil end
   supply:seen(r) -- not sent to my own chest: find it again next time
+  require("lib.crafts").deliver(r, order) -- what's short and not stored: the craft overseer has it made
   local total = 0
   for _, n in pairs(r.sent or {}) do total = total + n end
   if r.craftProblem and r.crafting and next(r.crafting) then

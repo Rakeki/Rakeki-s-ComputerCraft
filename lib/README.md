@@ -72,6 +72,12 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `craft-overseer`, `factory`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,
   `digital-miner-manager`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `overseer-bridge` and `update-watcher`.
+- `crafts.lua`: crafting questions for the craft overseer, the storage
+  system's recipe server: what could be made (`crafts.count`), having it made
+  (`crafts.prepare`, `crafts.deliver` after a storage delivery came up short),
+  and anything else on `craft_overseer` (`crafts.ask`). Used by `builder-turtle`,
+  `village-turtle`, `cannon-feeder`, `remote-terminal`, `craft-terminal`,
+  `crafter-turtle` and `factory`.
 - `net.lua`: rednet the same way everywhere: opening wireless or every modem,
   asking another computer something with an id the answer repeats and a
   deadline (`net.ask`), answering (`net.answer`), and a cached lookup of the

@@ -87,12 +87,12 @@ export function addCreativeCrate(w, pos, item, opts = {}) {
 
 //---------------------------------------------------------------- crafting
 
-// The storage computer's own recipe list (computers/storage-computer/recipes.lua).
+// The craft overseer's own recipe list (computers/craft-overseer/recipes.lua).
 let RECIPES = null;
 export function recipes() {
   if (RECIPES) return RECIPES;
   const vm = new VM({});
-  const src = fs.readFileSync(path.join(ROOT, "computers", "storage-computer", "recipes.lua"), "utf8");
+  const src = fs.readFileSync(path.join(ROOT, "computers", "craft-overseer", "recipes.lua"), "utf8");
   vm.run(`__R = (function() ${src}\nend)()`, "recipes.lua");
   lua.lua_getglobal(vm.L, toLuaBytes("__R"));
   RECIPES = get(vm.L, -1, null);

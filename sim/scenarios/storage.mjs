@@ -63,6 +63,12 @@ export function storage(w) {
   wk.factory.boot();
   play(w, wk.factory, [["wait", 70], ...install("factory"), ["reboot"]]);
 
+  // the craft overseer: the recipe server (the storage computer knows no recipes), on the cable and wireless
+  const overseer = addComputer(w, { pos: [8, 64, -7], label: "Overseer", role: "craft-overseer", facing: "north" });
+  overseer.attach("back", w.wiredModem(st.net));
+  overseer.boot();
+  play(w, overseer, [["wait", 65], ...install("craft-overseer"), ["reboot"]]);
+
   // far away: the remote terminal, its ender chest twin on its right
   const remote = addComputer(w, { pos: [600, 64, 600], label: "Remote", role: "remote-terminal", facing: "north", ender: true });
   addEnderChest(w, [601, 64, 600], "white-white-blue");
@@ -80,7 +86,7 @@ export function storage(w) {
     // search, Enter, type how many, Enter: two chests crafted into the chest next to it
     ["type", "chest"], ["wait", 2], ["key", 257], ["until", /How many Chest/, 10], ["type", "2"], ["key", 257],
     ["until", /Crafting 2 Chest/, 30], ["until", /2 Chest: it's in the chest/, 240]]);
-  return { ...st, ...wk, remote, crafts, craftsChest };
+  return { ...st, ...wk, overseer, remote, crafts, craftsChest };
 }
 
 export function build(w = newWorld()) {
