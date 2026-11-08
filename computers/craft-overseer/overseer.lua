@@ -16,11 +16,13 @@
 --
 -- A monitor (or this computer's screen) shows the crafting turtles, the
 -- queue, and for each job what's missing from storage to make it. Its Craft
--- tab lists everything that can be made and orders it into storage: tap a
--- row, pick how many, Craft (on the terminal: type to search, Enter, a number).
+-- tab lists everything there's a recipe for and orders it into storage: tap
+-- a row, pick how many, Craft (on the terminal: type to search, Enter, a
+-- number). What can't be made yet waits on the Queue tab and is made as
+-- soon as storage has the makings, tried again every half minute.
 --
 --   overseer          start (startup.lua runs this)
---   overseer clear    forget the queue (after a mix-up)
+--   overseer clear    forget the queue and waiting orders (after a mix-up)
 --   overseer hub [name]  use the ender chest on my cable (or the one named) as
 --                     the hub for crafting turtles far from the storage system
 --   overseer hub off  stop using it
@@ -92,6 +94,8 @@ local VIEW_KEEP = 120 -- seconds the list is kept worked out after a craft termi
 local ORDER_EVERY = 2 -- seconds between sending a craft terminal what's been made of its order
 local ORDER_MAX = 9999 -- most of one item a craft terminal (or my own Craft page) may order at once
 local ORDER_STACK = 64 -- how many an order on my Craft page starts at
+local WANTS_FILE = "/.overseer_wants" -- my Craft page's orders still to be made, kept across reboots
+local WANT_EVERY = 30 -- seconds between tries at the rest of those orders
 local VIEW_TICK = 5 -- seconds between redraws when nothing happens (how long a turtle's been quiet)
 local CHANGE_EVERY = 1 -- fewest seconds between redraws for changes (input draws at once)
 local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
@@ -107,6 +111,10 @@ local jobCount = 0
 local makers = {} -- via -> { id, at, key, n }: factory computers whose machines run some recipes
 local orders = {} -- a craft terminal's orders sent to its chest: name .. "@" .. id -> { name, who, want, sent }
 local view = { list = {}, ready = false, wanted = -math.huge } -- the craft terminal's list of what can be made
+-- my Craft page's orders: { name, left, why }, each made as soon as (and as
+-- far as) there's enough in storage, tried again every WANT_EVERY until all of it is
+local wants = {}
+local wantsQueued = false -- a try at them is waiting in the inbox
 local craftProblem -- why crafting is stuck right now (nil when it isn't), for whoever waits on it
 local crafters = {} -- turtle id -> { chest, online, job, note, hub = true for a barrel on my cable }
 local stock -- item -> count, from the storage computer
@@ -954,10 +962,138 @@ end
 
 local function answer(to, request, reply) net.answer(to, OVERSEER_PROTOCOL, request, reply) end
 
+---------------------------------------------------------------- standing orders
+
+-- Everything there's a recipe (or an ME/RS pattern) for, sorted by name:
+-- my Craft page and the craft terminals order any of it, made once there's
+-- enough, so neither waits for the count of what can be made right now (a
+-- modpack's takes minutes). Made again only when the recipes change; key
+-- says which list it is, so a terminal is sent it only when it changes.
+local recipeList = { list = {} }
+local function allCraftable()
+  local np = 0
+  for _ in pairs(patterns) do np = np + 1 end
+  local key = crafting.version() .. ":" .. np
+  if recipeList.key == key then return recipeList.list, key end
+  local list, seen = {}, {}
+  for _, name in ipairs(crafting.names()) do
+    list[#list + 1] = { name = name, label = nice(name) }
+    seen[name] = true
+  end
+  for name in pairs(patterns) do
+    if not seen[name] then list[#list + 1] = { name = name, label = nice(name), pattern = true } end
+  end
+  local lower = {}
+  for _, it in ipairs(list) do lower[it] = it.label:lower() end
+  table.sort(list, function(a, b) return lower[a] < lower[b] end)
+  recipeList.key, recipeList.list = key, list
+  return list, key
+end
+
+local function saveWants() files.write(WANTS_FILE, wants) end
+
+local function dropWant(w)
+  for i, x in ipairs(wants) do
+    if x == w then
+      table.remove(wants, i)
+      break
+    end
+  end
+  saveWants()
+  os.queueEvent("overseer_changed")
+end
+
+-- The order of name from who (nil: my own Craft page), made one if there's none.
+local function wantOf(name, who, toChest)
+  for _, w in ipairs(wants) do
+    if w.name == name and w.who == who then
+      w.chest = toChest
+      return w
+    end
+  end
+  local w = { name = name, left = 0, who = who, chest = toChest }
+  wants[#wants + 1] = w
+  return w
+end
+
+-- Plan as much of an order as storage has the makings for; how many that
+-- was. What's made for a craft terminal's chest is sent there as it's made
+-- (orders, orderLoop). A retry waits while some of it is still being made,
+-- so the rest comes as one plan instead of a few at a time. An item with no
+-- recipe left (a machine went away for good) is given up on.
+local function tryWant(w, now)
+  if not now and pending(w.name) > 0 then return 0 end
+  local made, why = orderCraft(w.name, w.left)
+  made = made or 0
+  w.left = w.left - made
+  if w.left > 0 then w.why = made > 0 and "waiting for enough for the rest" or why end
+  if made > 0 and w.who and w.chest then
+    local key = w.name .. "@" .. w.who
+    local o = orders[key] or { name = w.name, who = w.who, want = 0, sent = 0 }
+    o.want = o.want + made
+    orders[key] = o
+  end
+  if w.left <= 0 or why == "no recipe for it" then dropWant(w)
+  else
+    saveWants()
+    os.queueEvent("overseer_changed")
+  end
+  return made
+end
+
+-- An order from my own Craft page: into storage, as soon as it can be made.
+local function handleOrder(o)
+  local w = wantOf(o.name, nil, false)
+  w.left = w.left + o.count
+  local made = tryWant(w, true)
+  local label = nice(o.name)
+  if w.left <= 0 then
+    say(("Crafting %d %s into storage."):format(made, label), "lightBlue")
+  elseif w.why == "no recipe for it" then
+    say(("Can't craft %s: no recipe for it."):format(label), "orange")
+  elseif made > 0 then
+    say(("Crafting %d %s now, the other %d once there's enough."):format(made, label, w.left), "lightBlue")
+  else
+    say(("%d %s will be made once there's enough (%s)."):format(w.left, label, w.why or "short"), "yellow")
+  end
+  if report then report.log(("ordered %d %s"):format(o.count, label)) end
+end
+
+-- Every WANT_EVERY: try the rest of each order again.
+local function handleWants()
+  local list = {}
+  for i, w in ipairs(wants) do list[i] = w end
+  for _, w in ipairs(list) do
+    local made = tryWant(w)
+    if made > 0 then
+      local for_ = w.who and (" for computer #%d"):format(w.who) or ""
+      say(w.left > 0 and ("Crafting %d more %s%s (%d still to come)."):format(made, nice(w.name), for_, w.left)
+        or ("Crafting the last %d %s%s."):format(made, nice(w.name), for_), "lightBlue")
+    end
+  end
+end
+
+local function wantLoop()
+  while true do
+    sleep(WANT_EVERY)
+    if #wants > 0 and not wantsQueued then
+      wantsQueued = true
+      inbox[#inbox + 1] = { wants = true }
+      os.queueEvent("overseer_inbox")
+    end
+  end
+end
+
+---------------------------------------------------------------- answering
+
 --   { type = "canmake", items = { name, ... }, need = { [name] = n } } -> { counts = { [name] = more could be made }, problem }
 --   { type = "prepare", items = { [name] = n } }   -> { crafting, cantCraft, craftProblem }  (start crafting)
---   { type = "craftable" }                          -> { items = { { name, label, count, stored } }, ready, making, queue, problem, crafter }
---   { type = "craft", item, count, to = "chest" }  -> { making, why, to }  (a craft terminal's order)
+--   { type = "craftable", have = key }              -> { items = { { name, label, count, stored } }, ready, making, queue, problem, crafter,
+--                                                        key, all = { { name, label, pattern } } (every recipe, only when key isn't have),
+--                                                        wanted = { { name, label, left, why } } (the asker's orders waiting) }
+--   { type = "craft", item, count, to = "chest", wait = true } -> { making, waiting, why, to }  (a craft terminal's order;
+--                                                        wait: the rest is made once there's enough)
+--   { type = "cancel", item }                       -> { ok }  (stop waiting to make the asker's order of it)
 --   { type = "recipes", uses = pattern }            -> { recipes = { { make, count, grid } } }  (the essence farm)
 --   { type = "learn", recipe = { make, count, rows, keys } } -> { ok, error }  ('crafter learn')
 --   { type = "makes", via, recipes }                -> { ok }  (a factory computer's machines' recipes)
@@ -999,9 +1135,36 @@ local function handleRequest(from, msg)
     for name, n in pairs(pendingAll()) do
       if n > 0 then making[#making + 1] = { name = name, label = nice(name), count = n } end
     end
+    local all, key = allCraftable()
+    local wanted = {}
+    for _, w in ipairs(wants) do
+      if w.who == from then wanted[#wanted + 1] = { name = w.name, label = nice(w.name), left = w.left, why = w.why } end
+    end
     answer(from, msg, { items = items, ready = view.ready, making = making, queue = #queue.jobs,
-      problem = craftProblem, crafter = usableCount() > 0 or next(patterns) ~= nil })
+      problem = craftProblem, crafter = usableCount() > 0 or next(patterns) ~= nil,
+      key = key, all = msg.have ~= key and all or nil, wanted = wanted })
+  elseif msg.type == "craft" and type(msg.item) == "string" and msg.wait then
+    -- a craft terminal's order, kept until all of it is made
+    local n = math.max(1, math.min(ORDER_MAX, math.floor(tonumber(msg.count) or 1)))
+    local toChest = msg.to == "chest"
+    local w = wantOf(msg.item, from, toChest)
+    w.left = w.left + n
+    local made = tryWant(w, true)
+    local waiting = w.why ~= "no recipe for it" and math.max(0, w.left) or 0
+    answer(from, msg, { making = made, waiting = waiting, why = w.left > 0 and w.why or nil, to = toChest and "own" or "storage" })
+    if made > 0 then say(("Crafting %d %s for computer #%d."):format(made, nice(msg.item), from), "lightBlue")
+    elseif waiting > 0 then say(("Computer #%d's %d %s will be made once there's enough."):format(from, waiting, nice(msg.item)), "yellow")
+    else say(("Can't craft %s for computer #%d: %s."):format(nice(msg.item), from, w.why or "?"), "orange") end
+  elseif msg.type == "cancel" and type(msg.item) == "string" then
+    for _, w in ipairs(wants) do
+      if w.name == msg.item and w.who == from then
+        dropWant(w)
+        break
+      end
+    end
+    answer(from, msg, { ok = true })
   elseif msg.type == "craft" and type(msg.item) == "string" then
+    -- an older craft terminal: what can be made now, nothing kept for later
     local n = math.max(1, math.min(ORDER_MAX, math.floor(tonumber(msg.count) or 1)))
     local made, why = orderCraft(msg.item, n)
     local toChest = msg.to == "chest"
@@ -1068,23 +1231,15 @@ local function handleRequest(from, msg)
   end
 end
 
--- An order from my own Craft page: made into storage.
-local function handleOrder(o)
-  local made, why = orderCraft(o.name, o.count)
-  if made then
-    say(("Crafting %d %s into storage%s."):format(made, nice(o.name), why and (" (" .. why .. ")") or ""), "lightBlue")
-    if report then report.log(("ordered %d %s"):format(made, nice(o.name))) end
-  else
-    say(("Can't craft %s: %s."):format(nice(o.name), why), "orange")
-  end
-end
-
 local function netLoop()
   while true do
     while #inbox == 0 do os.pullEvent("overseer_inbox") end
     local req = table.remove(inbox, 1)
     local ok, err
-    if req.order then ok, err = (errlog and errlog.pcall or pcall)(handleOrder, req.order)
+    if req.wants then
+      wantsQueued = false
+      ok, err = (errlog and errlog.pcall or pcall)(handleWants)
+    elseif req.order then ok, err = (errlog and errlog.pcall or pcall)(handleOrder, req.order)
     else ok, err = (errlog and errlog.pcall or pcall)(handleRequest, req.from, req.msg) end
     if not ok then say("A request failed: " .. tostring(err), "red") end
   end
@@ -1215,7 +1370,7 @@ local function header(win, w, ui)
     hit(ui, 1, x, x + #label - 1, function() ui.view, ui.pick = t[1], nil end)
     x = x + #label + 1
   end
-  local head = ("%d jobs"):format(#queue.jobs)
+  local head = ("%d jobs"):format(#queue.jobs) .. (#wants > 0 and (", %d wanted"):format(#wants) or "")
   put(win, w - #head, 1, head, "lightGray", "gray")
 end
 
@@ -1250,9 +1405,26 @@ local function sortedTurtles()
   return ids
 end
 
--- Queue: every job in order, with what it's short of; the turtles in one line.
-local function drawQueue(win, w, h)
+-- Queue: every job in order, with what it's short of, then the orders
+-- waiting for enough to make them (x cancels one); the turtles in one line.
+local function drawQueue(win, w, h, ui)
   local y, rows, shown = 3, h - 4, 0
+  for _, want in ipairs(wants) do
+    if shown >= rows then break end
+    local for_ = want.who and (" for #%d"):format(want.who) or ""
+    put(win, 2, y, fit(("%d %s%s"):format(want.left, nice(want.name), for_), w - 13), "white")
+    put(win, w - 10, y, "wanted", "yellow")
+    put(win, w - 3, y, " x ", "white", "red")
+    hit(ui, y, w - 3, w - 1, function()
+      dropWant(want)
+      say(("Stopped waiting to craft %s."):format(nice(want.name)), "lightGray")
+    end)
+    y, shown = y + 1, shown + 1
+    if want.why and shown < rows then
+      put(win, 4, y, fit(want.why, w - 4), "orange")
+      y, shown = y + 1, shown + 1
+    end
+  end
   for _, job in ipairs(queue.jobs) do
     if shown >= rows then break end
     local state, colour = jobState(job)
@@ -1265,12 +1437,12 @@ local function drawQueue(win, w, h)
       y, shown = y + 1, shown + 1
     end
   end
-  if #queue.jobs == 0 then
+  if #queue.jobs == 0 and #wants == 0 then
     local last = done[1]
     put(win, 2, y, last and fit(("Nothing queued. Last: %d %s%s"):format(last.n, nice(last.name),
       last.ok and "" or (" (failed: " .. tostring(last.why) .. ")")), w - 2) or "Nothing queued.",
       last and not last.ok and "red" or "gray")
-  elseif #queue.jobs > shown then
+  elseif #queue.jobs + #wants > shown then
     put(win, w - 11, h - 2, "...and more", "gray")
   end
   local working, idle, off = 0, 0, 0
@@ -1320,23 +1492,37 @@ end
 
 ---------------------------------------------------------------- ordering from the screen
 
+-- How many of each could be made now, when a craft terminal has kept that
+-- count going (view.list); nothing otherwise.
+local countsOf = { map = {} }
+local function canNow()
+  if countsOf.list ~= view.list then
+    local map = {}
+    for _, it in ipairs(view.list) do map[it.name] = it.count end
+    countsOf.list, countsOf.map = view.list, map
+  end
+  return countsOf.map
+end
+
 -- The list's search hits, worked out again only when the list or the search
 -- changes (with a modpack's thousands of items, on every redraw it was most
 -- of the screen's work).
 local function matches(ui)
+  local all = allCraftable()
   local q, c = ui.query:lower(), ui.cache
-  if c and c.list == view.list and c.q == q then return c.out end
+  if c and c.list == all and c.q == q then return c.out end
   local out = {}
-  for _, it in ipairs(view.list) do
+  for _, it in ipairs(all) do
     if q == "" or it.label:lower():find(q, 1, true) or it.name:lower():find(q, 1, true) then out[#out + 1] = it end
   end
-  ui.cache = { list = view.list, q = q, out = out }
+  ui.cache = { list = all, q = q, out = out }
   return out
 end
 
--- Start picking how many: a stack, or as many as can be made if fewer.
+-- Start picking how many: a stack, or as many as can be made if that's known and fewer.
 local function pickItem(ui, it)
-  ui.pick = { it = it, n = it.count and math.max(1, math.min(ORDER_STACK, it.count)) or ORDER_STACK, typed = false }
+  local can = canNow()[it.name]
+  ui.pick = { it = it, n = can and math.max(1, math.min(ORDER_STACK, can)) or ORDER_STACK, typed = false }
 end
 
 -- The order goes in the inbox like a craft terminal's, so it's planned in
@@ -1351,7 +1537,8 @@ local function sendOrder(ui)
 end
 
 local function drawCraft(win, w, h, ui)
-  local list = matches(ui)
+  local list, counts, wanted = matches(ui), canNow(), {}
+  for _, want in ipairs(wants) do wanted[want.name] = (wanted[want.name] or 0) + want.left end
   local rows = h - 5 -- rows 3 to h - 3
   ui.selected = math.max(1, math.min(ui.selected, #list))
   if ui.touch then
@@ -1380,23 +1567,22 @@ local function drawCraft(win, w, h, ui)
     if it then
       local sel = ui.pick and ui.pick.it.name == it.name or not ui.touch and not ui.pick and index == ui.selected
       local bg = sel and "blue" or "black"
-      local can = it.count and ("make " .. shortCount(it.count)) or "pattern"
-      local stored = (it.stored or 0) > 0 and (shortCount(it.stored) .. " stored  ") or ""
+      local can = wanted[it.name] and ("wanted " .. shortCount(wanted[it.name]))
+        or counts[it.name] and ("make " .. shortCount(counts[it.name]))
+        or it.pattern and "pattern" or ""
+      local have = math.max(0, (stock or {})[it.name] or 0)
+      local stored = have > 0 and (shortCount(have) .. " stored  ") or ""
       local right = stored .. can
       put(win, 1, 2 + i, fit(" " .. it.label, w - #right - 2), "white", bg)
       put(win, w - #right - 1, 2 + i, " " .. stored, sel and "white" or "gray", bg)
-      put(win, w - #can, 2 + i, can .. " ", sel and "white" or "lightBlue", bg)
+      put(win, w - #can, 2 + i, can .. " ", sel and "white" or wanted[it.name] and "yellow" or "lightBlue", bg)
       hit(ui, 2 + i, 1, w, function()
         if ui.touch or index == ui.selected then pickItem(ui, it) else ui.selected, ui.pick = index, nil end
       end)
     end
   end
   if #list == 0 then
-    local any = usableCount() > 0 or next(patterns) ~= nil
-    local empty = ui.query ~= "" and "Nothing craftable matches."
-      or not view.ready and "Working out what can be crafted..."
-      or not any and "No crafting turtle yet."
-      or "Nothing can be crafted from what's stored."
+    local empty = ui.query ~= "" and "Nothing with a recipe matches." or "No recipes yet."
     put(win, 2, 4, fit(empty, w - 2), "lightGray")
   end
 
@@ -1416,7 +1602,7 @@ local function drawCraft(win, w, h, ui)
 
   local p = ui.pick
   if p then
-    put(win, 1, h - 1, fit(("How many %s? Into storage."):format(p.it.label), w), "yellow")
+    put(win, 1, h - 1, fit(("How many %s? Made into storage once there's enough."):format(p.it.label), w), "yellow")
     -- -64 -8 -1 [n] +1 +8 +64  Craft  x
     put(win, 1, h, (" "):rep(w), "white", "gray")
     local x = 1
@@ -1449,7 +1635,7 @@ local function drawOn(s, ui)
   header(win, w, ui)
   if ui.view == "craft" then drawCraft(win, w, h, ui)
   elseif ui.view == "turtles" then drawTurtles(win, w, h)
-  else drawQueue(win, w, h) end
+  else drawQueue(win, w, h, ui) end
   if not ui.touch and ui.view == "craft" and not ui.pick then
     win.setCursorPos(math.min(w, 9 + #ui.query), 2)
     win.setTextColor(colors.white)
@@ -1509,17 +1695,6 @@ local function onKey(ui, event, a)
   end
 end
 
--- While someone uses a Craft page, keep the list of what can be made worked
--- out (for VIEW_KEEP after the last tap or key: a page left open by itself
--- doesn't keep a modpack's minute-long count going).
-local function wantList()
-  if uis.term.view == "craft" or (display.name and uis.mon.view == "craft") then
-    local wasOn = os.clock() - view.wanted < VIEW_KEEP
-    view.wanted = os.clock()
-    if not wasOn then os.queueEvent("overseer_view_wanted") end
-  end
-end
-
 local INPUT = { monitor_touch = true, mouse_click = true, mouse_scroll = true, char = true, key = true }
 
 -- Draws only for input (straight away, a burst of keys once), changes
@@ -1530,7 +1705,6 @@ local INPUT = { monitor_touch = true, mouse_click = true, mouse_scroll = true, c
 local function uiLoop()
   local tick = os.startTimer(VIEW_TICK)
   local soon, queued, drawNow, drawnAt = nil, false, true, -math.huge
-  wantList()
   while true do
     if drawNow then
       drawNow = false
@@ -1562,7 +1736,6 @@ local function uiLoop()
       onKey(uis.term, ev[1], ev[2])
     end
     if INPUT[ev[1]] then
-      wantList()
       -- a tap or click draws now (anything queued behind it can be planning
       -- work); typing once the keys already queued are handled, so a burst draws once
       if ev[1] == "monitor_touch" or ev[1] == "mouse_click" or ev[1] == "mouse_scroll" then
@@ -1580,7 +1753,8 @@ end
 local args = { ... }
 if args[1] == "clear" then
   files.delete(QUEUE_FILE)
-  print("Queue forgotten.")
+  files.delete(WANTS_FILE)
+  print("Queue and waiting orders forgotten.")
   return
 end
 
@@ -1639,12 +1813,19 @@ if saved then
   end
 end
 
+for _, want in ipairs(type(files.read(WANTS_FILE)) == "table" and files.read(WANTS_FILE) or {}) do
+  if type(want) == "table" and type(want.name) == "string" and tonumber(want.left) and want.left > 0 then
+    wants[#wants + 1] = { name = want.name, left = math.floor(want.left), why = want.why,
+      who = tonumber(want.who), chest = want.chest == true }
+  end
+end
+
 local workers = {}
 for slot = 1, MAX_CRAFTERS do workers[slot] = worker() end
 term.clear()
 if report then report.init("craft overseer") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netReceive, netLoop, lookLoop, helloLoop, claimLoop,
-  machineLoop, viewLoop, orderLoop, function() net.keepOpen("any") end,
+  machineLoop, viewLoop, orderLoop, wantLoop, function() net.keepOpen("any") end,
   report and report.loop or function() while true do sleep(3600) end end, table.unpack(workers))
 term.setBackgroundColor(colors.black)
 term.clear()

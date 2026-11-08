@@ -101,13 +101,14 @@ order.
 
 ### Ordering crafts here
 
-The **Craft** tab lists everything that can be made from what's stored, A
-to Z, with how many could be made and how many are stored already, and
-orders it (no [craft terminal](../craft-terminal/README.md) needed). What's
-made goes into storage; take it out at the storage computer's terminal.
+The **Craft** tab lists everything there's a recipe for, A to Z, with how
+many are stored already, and orders it (no
+[craft terminal](../craft-terminal/README.md) needed). What's made goes into
+storage; take it out at the storage computer's terminal. The list is there
+at once: it doesn't wait to work out what can be made from what's stored.
 
 - **On the monitor:** tap a row, set how many with the -64 -8 -1 +1 +8 +64
-  buttons (it starts at a stack, or as many as can be made if that's fewer),
+  buttons (it starts at a stack),
   then tap **Craft** (or **x** to cancel). The arrows at the top turn the pages.
 - **On the computer's screen:** type to search, Up and Down to pick, Enter,
   type how many (or leave the stack), Enter again. Tab goes to the next
@@ -115,9 +116,18 @@ made goes into storage; take it out at the storage computer's terminal.
   the Craft tab, so the monitor can keep showing the queue.
 
 The order is planned like any other ("Crafting 64 torch into storage." at
-the bottom, or why it can't be). With a big modpack the list takes a while
-to work out the first time the tab is opened ("Working out what can be
-crafted..."), and is counted again now and then while the tab is open.
+the bottom). Whatever storage hasn't the makings for yet isn't dropped: it
+waits on the **Queue** tab as *wanted*, with what it's short of under it,
+and is tried again every 30 seconds, so it's made as soon as the items come
+in (as many as there's enough for each time, until all of it is made).
+Ordering the same thing again adds to it; tap its red **x** on the Queue
+tab to stop waiting for it. A [craft terminal's](../craft-terminal/README.md)
+orders wait the same way, marked "for #7" (that computer), and go to its
+chest as they're made. Waiting orders are kept across reboots, and
+`overseer clear` forgets them along with the queue.
+
+While a craft terminal is asking, the list also shows how many of each
+could be made right now ("make 12"), and *wanted 52* on anything waiting.
 
 ### Recipes
 
@@ -199,7 +209,7 @@ storage computer's footer says so while it's there).
 
    ```
    overseer                  -- start (startup.lua does this on boot)
-   overseer clear            -- forget the queue
+   overseer clear            -- forget the queue and waiting orders
    overseer hub              -- use the ender chest on my cable (see below)
    overseer hub <name>       -- that one, when there are several
    overseer hub off          -- stop using it

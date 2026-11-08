@@ -95,8 +95,9 @@ Protocol `craft_overseer` (everyone → craft-overseer, through `lib/crafts.lua`
 |---|---|---|
 | `{ type = "canmake", items = { name, ... }, need = { [name] = n } }` | `counts` (how many more could be made, up to `need`, being made included), `problem` | `crafts.count` |
 | `{ type = "prepare", items = { [name] = n } }` | `crafting`, `cantCraft` (name → why), `craftProblem` | start crafting so there'll be n in all (stored and being made count); `crafts.prepare`, `crafts.deliver` |
-| `{ type = "craftable" }` | `items` (each `{ name, label, count, stored }`; `count` nil = an ME/RS pattern), `ready` (false while the first list is still being worked out: ask again in a few seconds), `making` (each `{ name, label, count }` being crafted), `queue`, `problem`, `crafter` | the craft terminal. Asking keeps `viewLoop` running for `VIEW_KEEP` seconds |
-| `{ type = "craft", item, count, to }` | `making` (how many, 0 = none), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` `orderLoop` has the storage computer `deliver` them `for` it (`most` = what's left of the order) |
+| `{ type = "craftable", have = key }` | `items` (each `{ name, label, count, stored }`: what can be made now; `count` nil = an ME/RS pattern), `ready` (false while the first count is still being worked out), `making` (each `{ name, label, count }` being crafted), `queue`, `problem`, `crafter`, `key` (which recipe list), `all` (every recipe `{ name, label, pattern }`, sorted; only when `have` isn't `key`), `wanted` (the asker's waiting orders `{ name, label, left, why }`) | the craft terminal. Asking keeps `viewLoop` running for `VIEW_KEEP` seconds |
+| `{ type = "cancel", item }` | `ok` | stop waiting to make the asker's order of it |
+| `{ type = "craft", item, count, to, wait }` | `making` (how many, 0 = none), `waiting` (with `wait`: how many more it's kept to make once there's enough, a standing order in `wants`), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` `orderLoop` has the storage computer `deliver` them `for` it (`most` = what's left of the order) |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn`; saved in `/.overseer_recipes` |
 | `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's smelter, `via = "smelt"`: one input cell each; its infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine, once it has made (or given up on) a job it was handed |
@@ -264,10 +265,15 @@ cached by `reachNow()` for 10 s): it prunes everything that can't be made
 from what's stored. Work it out once per request, never per item
 (`crafting.reachable` also keeps its last answer until the set of stored
 item names or the recipes change, so asking again is cheap). The craft
-terminal's list (`viewLoop`) runs only while a terminal keeps asking (or the
-overseer's own Craft tab is open: `uiLoop` marks `view.wanted`; its orders go
-in the inbox as `{ order = ... }` so they plan in turn with requests), and
-rests `VIEW_REST` times as long as the last count took.
+terminal's list (`viewLoop`) runs only while a terminal keeps asking, and
+rests `VIEW_REST` times as long as the last count took. The overseer's own
+Craft tab never starts it: it lists every recipe (`allCraftable`, rebuilt when
+`crafting.version()` changes) and shows `view.list`'s counts only if a
+terminal has them going. Its orders go in the inbox as `{ order = ... }` (so
+they plan in turn with requests) and become standing orders (`wants`, saved
+in `/.overseer_wants`): `orderCraft` plans what it can, the rest is retried
+every `WANT_EVERY` by `wantLoop` (`{ wants = true }` in the inbox), skipped
+while some of that item is still pending.
 
 Keep planning's cost to the recipe tree, never to how much is stored (a
 modpack base stores 1000s of item types, and the craft terminal's counts run

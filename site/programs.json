@@ -1427,17 +1427,18 @@
       "device": "computer",
       "deviceLabel": "Computer on the storage cable",
       "color": "lightBlue",
-      "tagline": "A computer just for ordering crafts: everything the storage system can make, with how many, made into a chest next to it or into storage.",
+      "tagline": "A computer just for ordering crafts: everything the storage system has a recipe for, made into a chest next to it or into storage, the rest as soon as the items come in.",
       "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts"],
       "autostart": true,
       "stats": [
-        ["Lists", "every craftable item"],
+        ["Lists", "every recipe"],
         ["Order", "any amount, up to 9999"],
         ["Crafts go", "to its chest or storage"],
         ["List refresh", "10 s"]
       ],
       "features": [
-        "Lists everything the storage system can craft from what's stored, A to Z, with how many it could make and how many are stored",
+        "Lists everything the storage system has a recipe for, A to Z, at once; with how many it could make now and how many are stored once the overseer has counted",
+        "Orders it can't make yet wait on the craft overseer and are made as soon as the items come in (0 stops the wait)",
         "Type to search; Enter asks how many (a stack to start), Right orders one",
         "Crafts come to a chest next to it as they're made, or stay in storage (Tab switches)",
         "Shows what's being crafted right now, or why crafting is stuck",
@@ -1453,7 +1454,7 @@
       ],
       "commands": [
         ["crafts", "start (runs on boot)"],
-        ["crafts make 64 torch", "craft 64 of the first craftable item matching the text"],
+        ["crafts make 64 torch", "craft 64 of the first item with a recipe matching the text"],
         ["crafts chest", "pick the chest crafts go to, from a list"],
         ["crafts chest none", "keep crafts in storage, even with a chest next to it"]
       ],
@@ -1622,7 +1623,7 @@
         "The factory's furnaces, infusers and essence farm run the steps only they can make: stone from cobblestone, glass, steel",
         "Steps of one order run in turn; different orders run side by side",
         "Monitor tabs: the queue and what each job is short of, every turtle (what it is doing, its chest, how long a quiet one has been gone), and Craft",
-        "Craft tab: everything that can be made from what's stored, ordered with a tap (or typed on its own screen)",
+        "Craft tab: everything there's a recipe for, ordered with a tap (or typed on its own screen); what can't be made yet waits and is made once the items come in",
         "Moves a job to another turtle when one stops answering; a turtle that restarts is back at work within seconds, and its lost batch goes again at once",
         "Far from the storage system: one pair of ender chests for every crafting turtle, each batch passed on to the turtle's barrel",
         "Keeps its queue across reboots"
@@ -1636,7 +1637,7 @@
       ],
       "commands": [
         ["overseer", "start (runs on boot)"],
-        ["overseer clear", "forget the queue"],
+        ["overseer clear", "forget the queue and waiting orders"],
         ["overseer hub [name]", "use the ender chest on its cable for crafting turtles far from the storage system"],
         ["overseer hub off", "stop using it"]
       ],

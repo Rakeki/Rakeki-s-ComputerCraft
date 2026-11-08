@@ -11,20 +11,27 @@
 A computer just for having things crafted. The
 [storage computer](../storage-computer/README.md) (or a
 [remote terminal](../remote-terminal/README.md)) stays the place to see and
-take what's stored; this one lists everything the storage system can make
-from what's stored, and orders it.
+take what's stored; this one lists everything the storage system has a
+recipe for, and orders it.
 
-- **The list.** Every item it could craft, A to Z, with how many it could
-  make ("make 40") and how many are stored already ("12 stored"). Type to
-  search, by name. Items an ME or RS system has a pattern for say
-  "pattern".
+- **The list.** Every item there's a recipe for, A to Z, there as soon as
+  the terminal starts. Once the overseer has counted, the ones that can be
+  made from what's stored say how many ("make 40") and how many are stored
+  already ("12 stored"). Type to search, by name. Items an ME or RS system
+  has a pattern for say "pattern".
 - **Ordering.** Pick an item with the arrow keys (or click it) and press
   **Enter**: it asks how many, starting at a stack (or as many as can be
-  made, if that's fewer). Type a number and press Enter again. **Right**
-  orders just one. The [craft overseer](../craft-overseer/README.md) plans
+  made, if that's known and fewer). Type a number and press Enter again.
+  **Right** orders just one. The [craft overseer](../craft-overseer/README.md) plans
   the crafts and its [crafting turtles](../crafter-turtle/README.md) (or the
   ME / RS system) make them, a stack of planks or sticks first if that's what
   it takes.
+- **Ordering what can't be made yet.** Whatever storage hasn't the items for
+  isn't dropped: the overseer keeps the order and makes it as soon as the
+  items come in (it tries again every 30 seconds, as many as there's enough
+  for each time). The row says "wanted 52", and the line above the message
+  what it's waiting for. Ordering it again adds to it; ordering **0** of it
+  stops the wait. Waiting orders are kept when the overseer reboots.
 - **Where they go.** With a chest next to this computer, crafts come to that
   chest as they're made. Without one (or after **Tab**, which switches),
   they stay in storage. The top right says which: "to the chest (left)",
@@ -36,13 +43,13 @@ from what's stored, and orders it.
 Ordering something that's already stored makes that many more: with a chest,
 the ones stored are sent at once and the new ones top storage back up.
 
-The list is worked out by the craft overseer (the recipe server) while a
-craft terminal is running, again every 30 seconds or so. With a big
-modpack the first list can take a little while; the screen says "Working
-out what can be crafted..." until it's there, and after that the list is
-counted again less often (three times as long as the last count took), so
-the overseer isn't kept busy counting. The storage computer only finds this
-terminal's chest and sends what's made into it.
+The "make 40" counts are worked out by the craft overseer (the recipe
+server) while a craft terminal is running, again every 30 seconds or so.
+With a big modpack that takes a while (and is counted again less often:
+three times as long as the last count took), but the list and ordering
+don't wait for it. The whole recipe list comes over once, and again only
+when the recipes change. The storage computer only finds this terminal's
+chest and sends what's made into it.
 
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -78,7 +85,7 @@ With a wireless modem it also reports to the
 
    ```
    crafts                    -- start (startup.lua does this on boot)
-   crafts make 64 torch      -- craft 64 of the first craftable item matching "torch"
+   crafts make 64 torch      -- craft 64 of the first item with a recipe matching "torch"
    crafts chest              -- pick the chest crafts go to, from a list
    crafts chest none         -- keep crafts in storage, even with a chest next to me
    ```
@@ -97,8 +104,10 @@ how many, Backspace rubs out and on an empty number closes the question.
 - What came to the chest waits there for 10 minutes; anything still there
   after that, and anything you drop in yourself, goes back into storage.
 - If there isn't enough to make the whole order, it makes as many as it can
-  and says so ("Crafting 12 Chest: it comes to the chest (only enough to
-  make 12)").
+  now and the rest later ("Crafting 12 Chest now, 52 more once there's
+  enough: it comes to the chest"). With an older craft overseer (before
+  standing orders) the rest is dropped and only what can be made now is listed:
+  `install update` on it.
 - A chest touching the computer is used without asking. If there's more
   than one, or the chest is elsewhere on the cable, pick it with `crafts
   chest`.

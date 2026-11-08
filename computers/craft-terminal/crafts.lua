@@ -1,12 +1,14 @@
--- Craft terminal. Lists everything the storage system can craft from what's
--- stored (and how many, and how many are stored already), and orders crafts:
--- pick an item, say how many, and the craft overseer has them made. They
+-- Craft terminal. Lists everything the storage system has a recipe for (and,
+-- once the overseer has counted, how many could be made now, and how many
+-- are stored already), and orders crafts: pick an item, say how many, and
+-- the craft overseer has them made, the part it hasn't the items for yet as
+-- soon as they come in (ordering it again with 0 stops that). They
 -- turn up in the chest next to this computer, or stay in storage. The
 -- storage computer's own terminal (or a remote terminal) is for taking out
 -- what's stored; this one is for having things made.
 --
 --   crafts                     start (startup.lua runs this)
---   crafts make <n> <text>     craft n of the first craftable item matching text
+--   crafts make <n> <text>     craft n of the first item with a recipe matching text
 --   crafts chest [name|none]   pick the chest crafts go to (no name: from a list; none: keep them in storage)
 --
 -- Asks the craft overseer (computers/craft-overseer, the recipe server) for
@@ -32,7 +34,9 @@ local REPLY_WAIT = 10 -- seconds to wait for the storage computer to answer
 local STACK = 64 -- how many an order is for unless you type a number
 local MAX_ORDER = 9999 -- most you can type (the storage computer caps it too)
 
-local items = {} -- what can be crafted: { name, label, count (nil: an ME/RS pattern), stored }
+local items = {} -- what can be ordered: { name, label, count (how many could be made now, if known), stored, pattern }
+local all, allKey = nil, nil -- every recipe the overseer has ({ name, label, pattern }), and which list it is
+local wanted = {} -- name -> { left, why }: my orders the overseer makes once there's enough
 local making = {} -- what's being made now: { name, label, count }
 local info = { ready = false } -- the rest of the last answer: ready, queue, problem, crafter
 local query, selected, scroll = "", 1, 0
@@ -106,7 +110,7 @@ end
 
 -- A fresh list of what can be crafted and what's being made.
 local function refresh()
-  local r, why = crafts.ask({ type = "craftable" })
+  local r, why = crafts.ask({ type = "craftable", have = allKey })
   if not r then
     say("Crafting: " .. why, "orange")
     status("waiting", why)
@@ -117,13 +121,31 @@ local function refresh()
     status("waiting", "craft overseer too old")
     return false
   end
-  items, making = r.items, type(r.making) == "table" and r.making or {}
+  making = type(r.making) == "table" and r.making or {}
   info = { ready = r.ready, queue = r.queue or 0, problem = r.problem, crafter = r.crafter }
-  table.sort(items, function(a, b) return a.label:lower() < b.label:lower() end)
+  if type(r.all) == "table" then all, allKey = r.all, r.key end
+  if r.key == nil then all, allKey = nil, nil end -- an older overseer: only what can be made now
+  wanted = {}
+  for _, w in ipairs(type(r.wanted) == "table" and r.wanted or {}) do wanted[w.name] = { left = w.left, why = w.why } end
+  if all then
+    -- every recipe, with how many could be made now where the overseer has counted it
+    local now = {}
+    for _, it in ipairs(r.items) do now[it.name] = it end
+    items = {}
+    for i, it in ipairs(all) do
+      local c = now[it.name]
+      items[i] = { name = it.name, label = it.label, pattern = it.pattern, count = c and c.count, stored = c and c.stored }
+    end
+  else
+    items = r.items
+    for _, it in ipairs(items) do it.pattern = it.count == nil end
+    table.sort(items, function(a, b) return a.label:lower() < b.label:lower() end)
+  end
   table.sort(making, function(a, b) return a.count > b.count end)
-  -- orders for the chest that have all turned up, or that nothing is making any more
+  -- orders for the chest that have all turned up, or that nothing is making or waiting to make any more
   local busy = {}
   for _, m in ipairs(making) do busy[m.name] = true end
+  for name in pairs(wanted) do busy[name] = true end
   for name, w in pairs(waiting) do
     local got = inChest(name) - w.base
     if got >= w.want then
@@ -133,8 +155,12 @@ local function refresh()
       waiting[name] = nil
     end
   end
+  local nWanted = 0
+  for _ in pairs(wanted) do nWanted = nWanted + 1 end
   if #making > 0 then
     status("working", ("%d kinds of item being crafted"):format(#making))
+  elseif nWanted > 0 then
+    status("waiting", ("%d orders waiting for items"):format(nWanted))
   else
     status("idle", ("%d things can be crafted"):format(#items))
   end
@@ -156,20 +182,28 @@ local function order(it, n)
     end
   end
   local base = to == "chest" and inChest(it.name) or 0
-  local r, whyNot = crafts.ask({ type = "craft", item = it.name, count = n, to = to })
+  -- wait: what can't be made yet is made once there's enough (an older overseer ignores it)
+  local r, whyNot = crafts.ask({ type = "craft", item = it.name, count = n, to = to, wait = true })
   if not r then
     say("Crafting: " .. whyNot, "red")
     return
   end
-  local made = tonumber(r.making) or 0
-  if made <= 0 then
+  local made, later = tonumber(r.making) or 0, tonumber(r.waiting) or 0
+  local where = to == "chest" and r.to == "own" and "it comes to the chest" or "into storage"
+  if made + later <= 0 then
     say(("Can't craft %s: %s."):format(it.label, r.why or "the craft overseer didn't say why"), "red")
-  elseif to == "chest" and r.to == "own" then
-    waiting[it.name] = { label = it.label, want = made + (waiting[it.name] and waiting[it.name].want or 0),
-      base = waiting[it.name] and waiting[it.name].base or base }
-    say(("Crafting %d %s: it comes to the chest%s."):format(made, it.label, r.why and " (" .. r.why .. ")" or ""), "lightBlue")
   else
-    say(("Crafting %d %s into storage%s."):format(made, it.label, r.why and " (" .. r.why .. ")" or ""), "lightBlue")
+    if to == "chest" and r.to == "own" then
+      waiting[it.name] = { label = it.label, want = made + later + (waiting[it.name] and waiting[it.name].want or 0),
+        base = waiting[it.name] and waiting[it.name].base or base }
+    end
+    if later <= 0 then
+      say(("Crafting %d %s: %s%s."):format(made, it.label, where, r.why and " (" .. r.why .. ")" or ""), "lightBlue")
+    elseif made > 0 then
+      say(("Crafting %d %s now, %d more once there's enough: %s."):format(made, it.label, later, where), "lightBlue")
+    else
+      say(("%d %s will be made once there's enough (%s)."):format(later, it.label, r.why or "short"), "yellow")
+    end
   end
   if report and made > 0 then report.log(("ordered %d %s"):format(made, it.label)) end
   refresh()
@@ -219,16 +253,18 @@ local function draw()
     if it then
       local sel = scroll + i == selected
       local bg = sel and "blue" or "black"
-      local can = it.count and ("make " .. shortCount(it.count)) or "pattern"
+      local can = wanted[it.name] and ("wanted " .. shortCount(wanted[it.name].left))
+        or it.count and ("make " .. shortCount(it.count)) or it.pattern and "pattern" or ""
       local stored = (it.stored or 0) > 0 and (shortCount(it.stored) .. " stored  ") or ""
       local right = stored .. can
       put(t, 1, 2 + i, fitText(" " .. it.label, w - #right - 2), "white", bg)
       put(t, w - #right - 1, 2 + i, " " .. stored, sel and "white" or "gray", bg)
-      put(t, w - #can, 2 + i, can .. " ", sel and "white" or "lightBlue", bg)
+      put(t, w - #can, 2 + i, can .. " ", sel and "white" or wanted[it.name] and "yellow" or "lightBlue", bg)
     end
   end
   if #list == 0 then
     local empty = query ~= "" and "Nothing craftable matches."
+      or all and "The craft overseer has no recipes yet."
       or not info.ready and "Working out what can be crafted..."
       or info.crafter == false and "No crafting turtle on the storage system."
       or "Nothing can be crafted from what's stored."
@@ -243,13 +279,19 @@ local function draw()
     local parts = {}
     for _, m in ipairs(making) do parts[#parts + 1] = ("%d %s"):format(m.count, m.label) end
     busy = { "Making: " .. table.concat(parts, ", "), "lightBlue" }
+  elseif next(wanted) then
+    -- nothing being made, but an order waits: say what it's short of
+    local name, wnt = next(wanted)
+    local label = name:gsub("^[%w_]+:", ""):gsub("_", " ")
+    busy = { ("Waiting: %d %s, %s"):format(wnt.left, label, wnt.why or "short"), "yellow" }
   else
     busy = { "Nothing being crafted.", "gray" }
   end
   put(t, 1, h - 2, fitText(busy[1], w), busy[2])
   put(t, 1, h - 1, fitText(message[1], w), message[2])
   if asking then
-    local prompt = ("How many %s? "):format(asking.it.label)
+    local prompt = wanted[asking.it.name] and ("How many more %s (0: stop waiting)? "):format(asking.it.label)
+      or ("How many %s? "):format(asking.it.label)
     local shown = asking.text ~= "" and asking.text or tostring(defaultAmount(asking.it))
     put(t, 1, h, (" "):rep(w), "white", "gray")
     put(t, 1, h, fitText(prompt, w - 6), "yellow", "gray")
@@ -269,6 +311,16 @@ end
 local function confirm()
   local it, n = asking.it, tonumber(asking.text) or defaultAmount(asking.it)
   asking = nil
+  if n < 1 and wanted[it.name] then
+    local r, why = crafts.ask({ type = "cancel", item = it.name })
+    if r then
+      wanted[it.name], waiting[it.name] = nil, nil
+      say(("Stopped waiting to craft %s."):format(it.label), "lightGray")
+    else
+      say("Crafting: " .. why, "red")
+    end
+    return
+  end
   if n < 1 then return end
   say(("Ordering %d %s..."):format(n, it.label), "lightGray")
   draw()
@@ -347,7 +399,7 @@ local function refreshLoop()
   while true do
     chest = findChest()
     local ok = refresh()
-    sleep(ok and not info.ready and NOT_READY_WAIT or REFRESH)
+    sleep(ok and not info.ready and not all and NOT_READY_WAIT or REFRESH)
   end
 end
 
@@ -395,7 +447,7 @@ if args[1] == "make" then
       print(message[1])
       return
     end
-    if info.ready then break end
+    if info.ready or all then break end
     print("Working out what can be crafted...")
     sleep(NOT_READY_WAIT)
   end

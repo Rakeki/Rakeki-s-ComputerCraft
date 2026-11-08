@@ -136,6 +136,9 @@ function crafting.names()
   return list
 end
 
+-- Goes up whenever the recipes change, so a list made from names() can be kept until then.
+function crafting.version() return version end
+
 -- How many different items it knows how to make.
 function crafting.count()
   local n = 0
