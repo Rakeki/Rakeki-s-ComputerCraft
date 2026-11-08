@@ -285,6 +285,22 @@ S["update-watcher"] = () => {
   };
 };
 
+S["pokemon-dance"] = () => {
+  const w = new World();
+  ground(w, -3, 5, -2, 4);
+  w.set(0, 0, 0, "advanced");
+  w.box(1, 3, 0, 1, 0, 0, "monitor");
+  return {
+    title: "Pokémon dance: what to place",
+    world: w,
+    labels: [
+      { at: [0, 0, 0], text: "advanced computer", col: B, off: [-110, 50] },
+      { at: [2, 1, 0], text: ["advanced monitor, 3 x 2 or bigger", "touching it (or on its wired network)"], col: Y, off: [60, -60] },
+    ],
+    notes: ["Bigger monitors show a bigger Pikachu. No modem needed; a wireless one lets the status server see it."],
+  };
+};
+
 S["turtle-finder"] = () => {
   const w = new World();
   ground(w, -4, 9, -2, 8, "ggrass");

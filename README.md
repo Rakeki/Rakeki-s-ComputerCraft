@@ -61,6 +61,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
 - [furnace-turtle](computers/furnace-turtle/README.md): turtle that places a row of furnaces and keeps them smelting what lands in the chest behind it (a crafty one crafts the furnaces from cobblestone); no modems or cables
 - [crate-turtle](computers/crate-turtle/README.md): turtle that pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked
+- [pokemon-dance](computers/pokemon-dance/README.md): just a monitor: Pikachu dancing on a seamless loop under a spotlight on a disco floor, with sparkles and music notes
 
 ## How they connect
 

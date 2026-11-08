@@ -252,6 +252,7 @@ Existing computers:
 | `digital-miner-manager` | Every Mekanism Digital Miner on the wired network from one monitor (start/stop/reset, radius, Y, silk, filters); auto eject into the storage input chest | screen, report, errlog (if present) |
 | `furnace-turtle` | Places a row of furnaces ahead of itself (a crafty turtle crafts them from cobblestone) and runs them from the chest behind it: loads from a lane above, fuels and empties from a lane below (vanilla's furnace faces), results and anything it can't smelt into the chest on its left; takes only the fuel it needs, so it can share another turtle's chest. Crafty: no modem, so counted moves (`furnace here`) | nav, inv, files, report, errlog (if present) |
 | `crate-turtle` | Pulls endless items from a Create Creative Crate into a chest: keeps it full, sends n, keeps n in the chest, or keeps n in the storage system (`count`, chest = its input chest); resumable job, no fuel | files, net, report, errlog (if present) |
+| `pokemon-dance` | Just a monitor: Pikachu dancing on an 8-frame seamless loop (bounce, head sway, arms, feet, tail) under a spotlight on a disco floor, with sparkles and music notes; pixel art two characters per pixel, scaled in whole steps to the biggest that fits, frames made once per screen size | screen, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the

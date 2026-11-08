@@ -5,7 +5,8 @@
     { "id": "farming", "title": "Farming", "tagline": "Trees, crops and Mystical Agriculture essence, harvested and replanted, and Pokémon bred towards perfect IVs." },
     { "id": "storage", "title": "Storage & crafting", "tagline": "One searchable store for every chest, and the computers and turtles that craft, smelt and cook for it." },
     { "id": "mekanism", "title": "Mekanism & power", "tagline": "Reactors kept safe, power watched, digital miners run from one monitor." },
-    { "id": "network", "title": "Network & dashboards", "tagline": "GPS, the status dashboard every program reports to, and a MineColonies overview." }
+    { "id": "network", "title": "Network & dashboards", "tagline": "GPS, the status dashboard every program reports to, and a MineColonies overview." },
+    { "id": "fun", "title": "Just for fun", "tagline": "Monitors that are only there to look good." }
   ],
   "sections": [
     { "id": "vanilla", "title": "Vanilla & ComputerCraft", "tagline": "Needs nothing but CC: Tweaked. Some of these work with mods too, if you have them." },
@@ -2083,6 +2084,79 @@
           ["1000 cobblestone in storage. Waiting for it to drop below 1000.", "", "lime"]
         ]
       }
+    },
+    {
+      "name": "pokemon-dance",
+      "group": "fun",
+      "mods": [],
+      "title": "Pokémon Dance",
+      "command": "dance",
+      "device": "computer",
+      "deviceLabel": "Advanced computer + monitor",
+      "color": "yellow",
+      "tagline": "Just a monitor: Pikachu dancing on a seamless loop under a spotlight on a disco floor, with sparkles and music notes.",
+      "libs": [
+        "screen",
+        "report",
+        "errlog"
+      ],
+      "keep": [],
+      "autostart": true,
+      "stats": [
+        [
+          "Loop",
+          "8 frames, seamless"
+        ],
+        [
+          "Speed",
+          "about 7 frames a second"
+        ],
+        [
+          "Monitor",
+          "3 × 2 or bigger"
+        ],
+        [
+          "Needs",
+          "nothing else"
+        ]
+      ],
+      "features": [
+        "Bounces, sways, waves its arms, stamps its feet and wags its tail",
+        "The last frame leads straight into the first, so it never jumps",
+        "Grows in whole steps to fill a bigger monitor",
+        "Disco floor, spotlight, twinkling sparkles and rising music notes"
+      ],
+      "setup": [
+        "Place an advanced computer.",
+        "Put an advanced monitor, 3 x 2 or bigger, against it (or on its wired network).",
+        "Install and reboot: it starts dancing."
+      ],
+      "commands": [
+        [
+          "dance",
+          "start dancing (runs on boot)"
+        ],
+        [
+          "dance monitor",
+          "pick the monitor to dance on"
+        ],
+        [
+          "dance monitor none",
+          "dance on the computer's own screen"
+        ]
+      ],
+      "integrates": [
+        [
+          "status-server",
+          "Shows it as running, dancing on its monitor."
+        ]
+      ],
+      "render": {
+        "kind": "screen",
+        "scene": "dance",
+        "caption": "Pikachu dancing on a monitor, the whole loop."
+      },
+      "terminal": null
     }
   ],
   "libraries": [
