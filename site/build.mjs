@@ -130,6 +130,26 @@ for (const plan of data.plans || []) {
     next: [`Show it with: projector ${plan.name}`, `Or build it with: build ${plan.name} <x> <y> <z>`],
   };
 }
+// Animations (animations/, listed under "animations" in programs.json) for
+// the display monitor, the same way: "animation:<name>", into /animations.
+for (const a of data.animations || []) {
+  a.files = [{ src: `animations/${a.file}`, dest: `animations/${a.file}`, lines: lineCount(path.join(ROOT, "animations", a.file)) }];
+  a.version = versionOf(a.files);
+  manifest.programs[`animation:${a.name}`] = {
+    title: a.title,
+    device: "animation",
+    files: a.files.map(({ src, dest }) => ({ src: `v/${a.version}/${src}`, dest })),
+    version: a.version,
+    next: [`The display shows it in turn, or now with: display show ${a.name}`],
+  };
+}
+// every file in animations/ is listed, so none is left out of the installer
+{
+  const listed = new Set((data.animations || []).map((a) => a.file));
+  for (const f of fs.readdirSync(path.join(ROOT, "animations"))) {
+    if (!listed.has(f)) throw new Error(`animations/${f} isn't listed under "animations" in programs.json`);
+  }
+}
 for (const lib of data.libraries) {
   lib.lines = lineCount(path.join(ROOT, lib.file));
   lib.usedBy = data.programs.filter((p) => p.libs.includes(lib.name)).map((p) => p.name);
@@ -268,7 +288,8 @@ copyDir(path.join(ROOT, "computers"), path.join(OUT, "computers"), (n) => n === 
 copyDir(path.join(ROOT, "lib"), path.join(OUT, "lib"));
 copyDir(path.join(ROOT, "tools"), path.join(OUT, "tools"), (n) => n === "data"); // tools/overseer/data holds the overseer server's key
 copyDir(path.join(ROOT, "plans"), path.join(OUT, "plans"));
-for (const program of [...data.programs, ...(data.plans || [])]) {
+copyDir(path.join(ROOT, "animations"), path.join(OUT, "animations"));
+for (const program of [...data.programs, ...(data.plans || []), ...(data.animations || [])]) {
   for (const f of program.files) {
     const to = path.join(OUT, "v", program.version, f.src);
     fs.mkdirSync(path.dirname(to), { recursive: true });

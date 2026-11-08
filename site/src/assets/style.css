@@ -421,6 +421,13 @@ pre.code, .readme pre {
 
 
 
+/* the display monitor's animations: a preview and its install command each */
+.anim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 18px; margin-top: 18px; }
+.anim-card { background: var(--bg-card); border: 2px solid #000; box-shadow: 0 0 0 1px var(--line); padding: 16px; border-radius: var(--radius); display: grid; gap: 14px; }
+.anim-text { min-width: 0; }
+.anim-text b { font: 600 18px var(--font-pixel); margin-right: 8px; }
+.anim-text p { color: var(--muted); margin: 8px 0 12px; }
+.anim-text .mc-field { margin-bottom: 10px; }
 .integrations { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
 .integrations a { display: flex; gap: 14px; align-items: flex-start; background: var(--bg-card); border: 2px solid #000; box-shadow: 0 0 0 1px var(--line); padding: 16px; border-radius: var(--radius); color: var(--text); }
 .integrations a:hover { text-decoration: none; box-shadow: 0 0 0 1px var(--cc-lime); }

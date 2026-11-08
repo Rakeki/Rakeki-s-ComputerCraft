@@ -42,6 +42,8 @@ plans/                      Building plans (JSON, or Lua for plans made by code)
                             underground ones (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads,
                             sanctum, atrium, grandstair, fortress, cavern, deephold) also carry "hole" (the size 'excavate <plan>' digs)
                             and "home" (the builder's clear spot); programs.json's entry has "hole" too
+animations/                 Animations for display-monitor (Lua: pixel-art frames, or a draw function; format in its README),
+                            listed under "animations" in programs.json; 'install animation <name>' puts one in /animations
 tools/                      PC-side helpers (Node, no dependencies), published on the site
   recipes.mjs               Pulls a modpack's crafting recipes out of its jars into a pack_recipes.lua
   essence-recipes.mjs       Pulls the essence recipes out of a pack_recipes.lua into the factory's essence_recipes.lua
@@ -70,6 +72,7 @@ site/                       The website and in-game installer
   src/assets/plans.js       Plan viewer: loads a JSON plan (or a Lua one, run with fengari-web) like lib/plan.lua and draws it;
                             plans/ lists every plan (a 3D picture each, PlanView.thumb; above ground / underground, search, sort),
                             each plan gets a page at plans/<name>/, and viewer/ shows a dropped or pasted plan
+  src/assets/anims.js       Plays the display monitor's animations: runs computers/display-monitor/anim.lua in fengari-web
   src/assets/netmap.js      The network map page (network/): network.json drawn with voxel.js, computers marked, what they
                             sent each other drawn on top by protocol, each computer's last screen
   src/assets/style.css      Site styles (CC palette, Minecraft GUI panels)
@@ -161,7 +164,9 @@ One entry per program under `programs`, in the order they appear on the site:
 `libraries` has one entry per `lib/` module (`usage` snippet, `api` table,
 `notes`). `plans` has one entry per file in `plans/` (`name`, `file`,
 `title`, `tagline`, `size`, `blocks`): the website lists them and
-`install plan <name>` installs them. The installer takes every `.lua` in the program folder plus its
+`install plan <name>` installs them. `animations` has one entry per file in `animations/` (`name`, `file`,
+`title`, `tagline`, `kind`): the display monitor's page plays each and `install animation <name>` installs it
+(the build stops if a file isn't listed). The installer takes every `.lua` in the program folder plus its
 `libs`. Keep `programs.json` text consistent with the README; the README is
 the source of truth.
 
@@ -207,7 +212,8 @@ still lists).
 Plans from `plans/` are in the manifest as `plan:<name>` (not in `order`, so
 not in the program list): `install plan <name> ...` installs them into `/plans`
 (the plans page writes that command for the ones picked; picks stay in localStorage),
-and each updates on boot like a program.
+and each updates on boot like a program. Animations from `animations/` work the same way
+(`animation:<name>`, `install animation <name> ...`, into `/animations`).
 The installer downloads a version's files from `v/<version>/...` (the build
 copies them there), because GitHub Pages serves a cached copy of a file for
 up to 10 minutes after it changes (a `?query` doesn't get round it); the
@@ -252,7 +258,7 @@ Existing computers:
 | `digital-miner-manager` | Every Mekanism Digital Miner on the wired network from one monitor (start/stop/reset, radius, Y, silk, filters); auto eject into the storage input chest | screen, report, errlog (if present) |
 | `furnace-turtle` | Places a row of furnaces ahead of itself (a crafty turtle crafts them from cobblestone) and runs them from the chest behind it: loads from a lane above, fuels and empties from a lane below (vanilla's furnace faces), results and anything it can't smelt into the chest on its left; takes only the fuel it needs, so it can share another turtle's chest. Crafty: no modem, so counted moves (`furnace here`) | nav, inv, files, report, errlog (if present) |
 | `crate-turtle` | Pulls endless items from a Create Creative Crate into a chest: keeps it full, sends n, keeps n in the chest, or keeps n in the storage system (`count`, chest = its input chest); resumable job, no fuel | files, net, report, errlog (if present) |
-| `pokemon-dance` | Just a monitor: Pikachu dancing on an 8-frame seamless loop (bounce, head sway, arms, feet, tail) under a spotlight on a disco floor, with sparkles and music notes; pixel art two characters per pixel, scaled in whole steps to the biggest that fits, frames made once per screen size | screen, report, errlog (if present) |
+| `display-monitor` | Just a monitor: plays the animations in `/animations` (installed like plans: `install animation <name>`), one an hour (`display.every` minutes) in name order; `/.display_state` keeps which one and since when across reboots; rescans every 5 s; `anim.lua` loads one in a sandbox (math, string, table only) and paints pixel-art `frames` (scaled in whole steps) or calls its `draw(t, w, h)`, each frame once per screen size; a broken file is skipped and logged; the website runs the same anim.lua in fengari for previews. Replaces pokemon-dance | screen, files, report, errlog (if present) |
 
 `excavate-turtle/excavate.lua` is the reference for a **standalone,
 resumable turtle job** (job file, local coordinates, chest behind the

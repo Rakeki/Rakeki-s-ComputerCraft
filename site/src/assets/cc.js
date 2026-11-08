@@ -2,7 +2,7 @@
 // a typing terminal, and mock-ups of the AutoMine map, status dashboard,
 // blueprint projector panel, storage terminal and monitor (network and items views), the factory's tabs and board, craft overseer, colony dashboard
 // the Cobblemon breeder, and the Mekanism fission guard, power dashboard, fusion control and digital miner manager, the remote terminal,
-// the cannon feeder, build control and the turtle finder on a pocket computer, instabuild, the update watcher and the Pokémon dance.
+// the cannon feeder, build control and the turtle finder on a pocket computer, instabuild, and the update watcher.
 (function () {
   const PALETTE = {
     white: "#f0f0f0", orange: "#f2b233", magenta: "#e57fd8", lightBlue: "#99b2f2",
@@ -2540,79 +2540,6 @@
     return s;
   }
 
-  //---------------------------------------------------------------- pokemon dance
 
-  // computers/pokemon-dance/dance.lua on a 3 x 2 monitor: the same pixel art,
-  // frames and stage, painted the same way (two characters per pixel).
-  function dance(el) {
-    const W = 57, H = 24;
-    const s = new Screen(W, H, el);
-    const HEX = { 0: "white", 1: "orange", 2: "magenta", 3: "lightBlue", 4: "yellow", 5: "lime", 6: "pink", 7: "gray", 8: "lightGray", 9: "cyan", a: "purple", b: "blue", c: "brown", d: "green", e: "red", f: "black" };
-    const COL = { Y: "4", K: "f", W: "0", R: "e", B: "c" };
-    const HEAD = ["K...........K", "KK.........KK", ".YY.......YY.", "..YY.....YY..", "..YYYYYYYYY..", ".YYYYYYYYYYY.", ".YYKWYYYKWYY.", ".YYKKYYYKKYY.", "RRYYYYKYYYYRR", "RRYYYKYKYYYRR", ".YYYYYYYYYYY."];
-    const BODY = ["...YYYYYYY...", "..YYYYYYYYY..", "..YYYYYYYYY..", "...YYYYYYY..."];
-    const TAIL = ["....YYY", "...YYYY", "....YY.", "..YYY..", "...YY..", ".YYY...", "..Y....", "BB....."];
-    const ARMS = { down: [[1, 13]], out: [[1, 12], [0, 12], [-1, 12]], up: [[1, 12], [0, 11], [-1, 10]] };
-    const FEET = { left: [[2, 15], [3, 15]], leftUp: [[1, 14], [2, 14]], right: [[9, 15], [10, 15]], rightUp: [[10, 14], [11, 14]] };
-    const BOB = [0, -1, -1, 0, 0, -1, -1, 0], LEAN = [0, 1, 1, 0, 0, -1, -1, 0];
-    const LEFT_ARM = ["up", "up", "up", "out", "down", "down", "down", "out"], LIFT = ["", "left", "left", "", "", "right", "right", ""];
-    const TILES = ["2", "3", "5", "1"], SPARKS = ["0", "4", "3", "6"], NOTE_COLOURS = ["2", "b", "e", "a"];
-    const SPARKLES = [[0.06, 0.12], [0.22, 0.38], [0.91, 0.10], [0.80, 0.42], [0.10, 0.66], [0.94, 0.68], [0.34, 0.06], [0.68, 0.22]];
-    const NOTES = [[-11, 0], [13, 4], [-15, 2], [16, 6]];
-    const cw = Math.floor(W / 2), ch = H, xoff = Math.floor((W - cw * 2) / 2);
-    let t = 1;
-
-    function paint() {
-      const floorTop = ch - Math.max(2, Math.floor(ch / 8)) + 1;
-      const ox = Math.floor((cw - 19) / 2) + 2, oy = floorTop - 16, cx = ox + 6, beat = Math.floor((t - 1) / 2);
-      const px = [];
-      for (let y = 1; y <= ch; y++) {
-        const row = [], half = Math.max(2, 8 + Math.floor((y - oy) / 2));
-        for (let x = 1; x <= cw; x++) {
-          row[x] = y >= floorTop ? TILES[(Math.floor((x - 1) / 2) + (y - floorTop) + beat) % TILES.length] : Math.abs(x - cx) <= half ? "7" : "f";
-        }
-        px[y] = row;
-      }
-      const shadow = BOB[t - 1] < 0 ? 4 : 5;
-      for (let x = cx - shadow; x <= cx + shadow; x++) if (px[floorTop][x]) px[floorTop][x] = "f";
-      const by = oy + BOB[t - 1], lean = LEAN[t - 1];
-      const plot = (x, y, c) => { const X = ox + x, row = px[by + y]; if (c !== "." && row && X >= 1 && X <= cw) row[X] = COL[c] || c; };
-      TAIL.forEach((line, i) => { const y = 6 + i, sway = Math.floor(-lean * (13 - y) / 7 + 0.5); [...line].forEach((c, j) => plot(11 + j + sway, y, c)); });
-      BODY.forEach((line, i) => [...line].forEach((c, j) => plot(j, 11 + i, c)));
-      ARMS[LEFT_ARM[t - 1]].forEach(([x, y]) => plot(x, y, "Y"));
-      ARMS[LEFT_ARM[(t + 3) % 8]].forEach(([x, y]) => plot(12 - x, y, "Y"));
-      FEET[LIFT[t - 1] === "left" ? "leftUp" : "left"].forEach(([x, y]) => plot(x, y, "Y"));
-      FEET[LIFT[t - 1] === "right" ? "rightUp" : "right"].forEach(([x, y]) => plot(x, y, "Y"));
-      HEAD.forEach((line, i) => [...line].forEach((c, j) => plot(j + lean, i, c)));
-      return { px, floorTop, cx };
-    }
-
-    function draw() {
-      const { px, floorTop, cx } = paint();
-      s.clear();
-      const bg = [];
-      for (let r = 1; r <= H; r++) {
-        bg[r] = [];
-        for (let c = 1; c <= W; c++) { bg[r][c] = (px[r] && px[r][Math.floor((c - 1 - xoff) / 2) + 1]) || "f"; s.put(c, r, " ", "white", HEX[bg[r][c]]); }
-      }
-      const put = (c, r, text, col) => { const b = bg[r] && bg[r][c]; if (b === "f" || b === "7") s.put(c, r, text, HEX[col], HEX[b]); };
-      SPARKLES.forEach(([fx, fy], i) => {
-        const ch2 = ["*", "+", "."][(t + i + 1) % 4];
-        if (ch2) put(Math.floor(fx * (W - 1)) + 1, Math.floor(fy * Math.max(1, floorTop - 2)) + 1, ch2, SPARKS[(i + 1) % SPARKS.length]);
-      });
-      const step = Math.max(1, Math.floor((floorTop - 2) / 8)), middle = xoff + (cx - 1) * 2 + 1;
-      NOTES.forEach(([dx, phase], i) => {
-        const k = (t - 1 + phase) % 8;
-        if (k < 7) put(middle + dx * 2 + (k % 2), floorTop - 1 - k * step, "♫", NOTE_COLOURS[(i + 1) % NOTE_COLOURS.length]);
-      });
-      s.render();
-      t = t % 8 + 1;
-    }
-
-    setInterval(draw, 150);
-    draw();
-    return s;
-  }
-
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageNetwork, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher, dance } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageNetwork, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
 })();

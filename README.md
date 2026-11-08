@@ -21,6 +21,7 @@ lib/              Shared modules usable by any computer
 tools/            PC-side helpers, e.g. recipes.mjs: a modpack's crafting recipes for the craft overseer
                   (essence-recipes.mjs: just the essence ones, for the factory),
                   and overseer/: the server and page for the live network map
+animations/       Animations for the display monitor, installed one by one like plans
 site/             The website and in-game installer (built by GitHub Actions)
 sim/              A simulated CC world on your PC that runs every program together (tests, and the network map)
 ```
@@ -61,7 +62,7 @@ sim/              A simulated CC world on your PC that runs every program togeth
 - [digital-miner-manager](computers/digital-miner-manager/README.md): every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters; mined items go to the storage system's input chest
 - [furnace-turtle](computers/furnace-turtle/README.md): turtle that places a row of furnaces and keeps them smelting what lands in the chest behind it (a crafty one crafts the furnaces from cobblestone); no modems or cables
 - [crate-turtle](computers/crate-turtle/README.md): turtle that pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked
-- [pokemon-dance](computers/pokemon-dance/README.md): just a monitor: Pikachu dancing on a seamless loop under a spotlight on a disco floor, with sparkles and music notes
+- [display-monitor](computers/display-monitor/README.md): a monitor that plays animations, a different one every hour; install the ones you like (a dancing Pikachu, a campfire) with `install animation <name>`
 
 ## How they connect
 
@@ -94,7 +95,9 @@ lists them and `install plan <name>` adds one to a computer's `/plans`.
 The website's [plans page](https://rakeki.github.io/Rakeki-s-ComputerCraft/plans/)
 shows them all in 3D, above ground and underground; tap Pick on the ones you want for one
 `install plan <name> <name> ...` command. Each has a page of its own, and the website's plan viewer
-shows any plan file you drop on it.
+shows any plan file you drop on it. Animations for the display monitor work the same way:
+they live in [`animations/`](animations/), `install animations` lists them and
+`install animation <name>` adds one to `/animations`.
 
 ### Updates
 

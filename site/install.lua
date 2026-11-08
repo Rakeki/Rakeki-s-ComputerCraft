@@ -11,6 +11,9 @@
 --   install plan <name> [<name> ...]         put plans in /plans (projector, build-control)
 --   install remove <program>                 uninstall a program (also: install uninstall)
 --   install remove plan <name>               remove a plan
+--   install animations                       list the animations for the display monitor
+--   install animation <name> [<name> ...]    put animations in /animations (display-monitor)
+--   install remove animation <name>          remove an animation
 --   install remove                           list what's installed here
 --   install boot                             update what's out of date (every startup.lua runs this)
 --
@@ -159,25 +162,46 @@ local function listPrograms(manifest)
   print()
   print("Install one with: install <program>")
   print("Building plans: install plans")
+  print("Animations for the display: install animations")
   print("Uninstall one with: install remove <program>")
   print("More at " .. SITE)
 end
 
--- Plans are in the manifest as "plan:<name>": installed and updated like
--- programs, into /plans.
-local function listPlans(manifest)
+-- Plans and animations are in the manifest as "plan:<name>" and
+-- "animation:<name>": installed and updated like programs, into /plans and
+-- /animations. KINDS says how each is listed.
+local KINDS = {
+  plan = { heading = "Building plans you can install:", page = "/plans/", what = "Pictures of each" },
+  animation = { heading = "Animations for the display monitor:", page = "/programs/display-monitor/#animations", what = "See them play" },
+}
+
+-- "plan:bunker" -> "plan", "bunker"; nil, nil for a program
+local function kindOf(name)
+  local kind, rest = name:match("^(%a+):(.+)$")
+  if kind and KINDS[kind] then return kind, rest end
+end
+
+-- "plan:bunker" -> "plan bunker", as typed after 'install' / 'install remove'
+local function typed(name)
+  local kind, rest = kindOf(name)
+  return kind and (kind .. " " .. rest) or name
+end
+
+local function listKind(manifest, kind)
   local names = {}
   for name in pairs(manifest.programs) do
-    if name:sub(1, 5) == "plan:" then names[#names + 1] = name:sub(6) end
+    local k, rest = kindOf(name)
+    if k == kind then names[#names + 1] = rest end
   end
   table.sort(names)
-  say("Building plans you can install:", colours.yellow)
+  local info = KINDS[kind]
+  say(info.heading, colours.yellow)
   -- columns, a page at a time: there are too many for a line each
   textutils.pagedTabulate(term.isColour() and colours.lightGrey or colours.white, names)
   term.setTextColour(colours.white)
-  print("Pictures of each: " .. SITE .. "/plans/")
-  print("Install one with: install plan <name>")
-  print("or several: install plan <name> <name> ...")
+  print(info.what .. ": " .. SITE .. info.page)
+  print(("Install one with: install %s <name>"):format(kind))
+  print(("or several: install %s <name> <name> ..."):format(kind))
 end
 
 local function saveSelf()
@@ -232,9 +256,10 @@ local function install(manifest, name, updating)
     if not updating then say(("%s is part of %s now."):format(name, program.alias), colours.lightGrey) end
     name, program = program.alias, manifest.programs[program.alias]
   end
-  if not program and name:sub(1, 5) == "plan:" then
-    say(("There's no plan called '%s'."):format(name:sub(6)), colours.red)
-    listPlans(manifest)
+  if not program and kindOf(name) then
+    local kind, rest = kindOf(name)
+    say(("There's no %s called '%s'."):format(kind, rest), colours.red)
+    listKind(manifest, kind)
     return false
   elseif not program then
     say(("There's no program called '%s'."):format(name), colours.red)
@@ -342,25 +367,25 @@ end
 
 ---------------------------------------------------------------- uninstalling
 
--- What's installed here, plans shown as "plan <name>".
+-- What's installed here, plans shown as "plan <name>" (animations likewise).
 local function listInstalled()
   local installed = readInstalled()
   if #installed == 0 then return print("Nothing has been installed here.") end
   say("Installed here:", colours.yellow)
   for _, name in ipairs(installed) do
-    print("  " .. (name:sub(1, 5) == "plan:" and ("plan " .. name:sub(6)) or name))
+    print("  " .. typed(name))
   end
   print()
   print("Uninstall one with: install remove <program>")
-  print("or: install remove plan <name>")
+  print("or: install remove plan <name>, install remove animation <name>")
 end
 
--- Delete a folder the uninstall left empty (/lib, /plans).
+-- Delete a folder the uninstall left empty (/lib, /plans, /animations).
 local function removeIfEmpty(dir)
   if fs.isDir(dir) and #fs.list(dir) == 0 then fs.delete(dir) end
 end
 
--- Uninstall a program (or "plan:<name>"): its files go, except ones another
+-- Uninstall a program (or "plan:<name>", "animation:<name>"): its files go, except ones another
 -- installed program still uses (a shared lib or plan) and, unless you say
 -- so, your settings. The website is only needed for programs installed
 -- before the installer kept a list of their files.
@@ -371,7 +396,8 @@ local function remove(name)
     if n == name then here = true end
   end
   if not here then
-    say(("%s isn't installed here."):format(name:sub(1, 5) == "plan:" and ("The plan '" .. name:sub(6) .. "'") or ("'" .. name .. "'")), colours.red)
+    local kind, rest = kindOf(name)
+    say(("%s isn't installed here."):format(kind and ("The " .. kind .. " '" .. rest .. "'") or ("'" .. name .. "'")), colours.red)
     return listInstalled()
   end
 
@@ -413,7 +439,7 @@ local function remove(name)
     end
   end
 
-  local title = program and program.title or (name:sub(1, 5) == "plan:" and ("the plan " .. name:sub(6)) or name)
+  local title = program and program.title or (kindOf(name) and ("the " .. typed(name)) or name)
   say(("Uninstalling %s:"):format(title), colours.yellow)
   if #gone > 0 then print("  deletes " .. table.concat(gone, ", ")) end
   if #shared > 0 then print("  keeps " .. table.concat(shared, ", ") .. " (other programs here use them)") end
@@ -426,6 +452,7 @@ local function remove(name)
   for _, dest in ipairs(gone) do fs.delete(dest) end
   removeIfEmpty("lib")
   removeIfEmpty("plans")
+  removeIfEmpty("animations")
   local left = {}
   for _, n in ipairs(installed) do
     if n ~= name then left[#left + 1] = n end
@@ -448,9 +475,9 @@ end
 if args[1] == "boot" then return bootUpdate() end
 if args[1] == "remove" or args[1] == "uninstall" then
   if not args[2] then return listInstalled() end
-  if args[2] == "plan" then
+  if KINDS[args[2]] then
     if not args[3] then return listInstalled() end
-    return remove("plan:" .. args[3])
+    return remove(args[2] .. ":" .. args[3])
   end
   return remove(args[2])
 end
@@ -474,11 +501,11 @@ elseif args[1] == "update" then
     return
   end
   for _, name in ipairs(installed) do install(manifest, name, true) end
-elseif args[1] == "plans" or (args[1] == "plan" and not args[2]) then
-  listPlans(manifest)
-elseif args[1] == "plan" then
+elseif args[1] == "plans" or args[1] == "animations" or (KINDS[args[1]] and not args[2]) then
+  listKind(manifest, args[1] == "plans" and "plan" or args[1] == "animations" and "animation" or args[1])
+elseif KINDS[args[1]] then
   -- several at once, as the website's plans page writes them
-  for i = 2, #args do install(manifest, "plan:" .. args[i], false) end
+  for i = 2, #args do install(manifest, args[1] .. ":" .. args[i], false) end
 else
   install(manifest, args[1], false)
 end

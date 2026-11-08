@@ -6,7 +6,7 @@
     { "id": "storage", "title": "Storage & crafting", "tagline": "One searchable store for every chest, and the computers and turtles that craft, smelt and cook for it." },
     { "id": "mekanism", "title": "Mekanism & power", "tagline": "Reactors kept safe, power watched, digital miners run from one monitor." },
     { "id": "network", "title": "Network & dashboards", "tagline": "GPS, the status dashboard every program reports to, and a MineColonies overview." },
-    { "id": "fun", "title": "Just for fun", "tagline": "Monitors that are only there to look good." }
+    { "id": "fun", "title": "Just for fun", "tagline": "Monitors that are only there to look good: animations, a new one every hour." }
   ],
   "sections": [
     { "id": "vanilla", "title": "Vanilla & ComputerCraft", "tagline": "Needs nothing but CC: Tweaked. Some of these work with mods too, if you have them." },
@@ -2087,17 +2087,21 @@
       }
     },
     {
-      "name": "pokemon-dance",
+      "name": "display-monitor",
       "group": "fun",
       "mods": [],
-      "title": "Pokémon Dance",
-      "command": "dance",
+      "title": "Display Monitor",
+      "command": "display",
       "device": "computer",
       "deviceLabel": "Advanced computer + monitor",
       "color": "yellow",
-      "tagline": "Just a monitor: Pikachu dancing on a seamless loop under a spotlight on a disco floor, with sparkles and music notes.",
+      "replaces": [
+        "pokemon-dance"
+      ],
+      "tagline": "A monitor that shows animations, a different one every hour: install the ones you like from the website, like building plans.",
       "libs": [
         "screen",
+        "files",
         "report",
         "errlog"
       ],
@@ -2105,16 +2109,16 @@
       "autostart": true,
       "stats": [
         [
-          "Loop",
-          "8 frames, seamless"
+          "Changes",
+          "every hour"
         ],
         [
-          "Speed",
-          "about 7 frames a second"
+          "Animations",
+          "install the ones you want"
         ],
         [
           "Monitor",
-          "3 × 2 or bigger"
+          "any size"
         ],
         [
           "Needs",
@@ -2122,43 +2126,63 @@
         ]
       ],
       "features": [
-        "Bounces, sways, waves its arms, stamps its feet and wags its tail",
-        "The last frame leads straight into the first, so it never jumps",
-        "Grows in whole steps to fill a bigger monitor",
-        "Disco floor, spotlight, twinkling sparkles and rising music notes"
+        "Goes through every animation in /animations, one an hour, and remembers where it was across reboots",
+        "Install animations from the website with 'install animation <name>'; it picks up new ones as they arrive",
+        "Animations are pixel art or code, made bigger to fit the monitor",
+        "A broken animation file is skipped, never stops the show"
       ],
       "setup": [
-        "Place an advanced computer.",
-        "Put an advanced monitor, 3 x 2 or bigger, against it (or on its wired network).",
-        "Install and reboot: it starts dancing."
+        "Place an advanced computer with an advanced monitor against it (or on its wired network).",
+        "Install it, then some animations: install animation pikachu-dance campfire",
+        "Reboot: the first one starts at once."
       ],
       "commands": [
         [
-          "dance",
-          "start dancing (runs on boot)"
+          "display",
+          "start showing (runs on boot)"
         ],
         [
-          "dance monitor",
-          "pick the monitor to dance on"
+          "display list",
+          "the animations here, and which one is on"
         ],
         [
-          "dance monitor none",
-          "dance on the computer's own screen"
+          "display next",
+          "the next one now"
+        ],
+        [
+          "display show <name>",
+          "this one now"
+        ],
+        [
+          "display every <minutes>",
+          "how long each stays on (60)"
+        ],
+        [
+          "display monitor",
+          "pick the monitor"
+        ],
+        [
+          "install animations",
+          "list the animations you can install"
         ]
       ],
       "integrates": [
         [
           "status-server",
-          "Shows it as running, dancing on its monitor."
+          "Shows which animation is on."
         ]
       ],
       "render": {
-        "kind": "screen",
-        "scene": "dance",
-        "caption": "Pikachu dancing on a monitor, the whole loop."
+        "kind": "animation",
+        "name": "pikachu-dance",
+        "caption": "Pikachu dance, one of the animations, played by the display's own code in your browser."
       },
       "terminal": null
     }
+  ],
+  "animations": [
+    { "name": "pikachu-dance", "file": "pikachu-dance.lua", "title": "Pikachu dance", "tagline": "Pikachu bouncing, waving and wagging its tail under a spotlight on a disco floor, with sparkles and music notes.", "kind": "code" },
+    { "name": "campfire", "file": "campfire.lua", "title": "Campfire", "tagline": "A campfire flickering in the dark: four frames of pixel art.", "kind": "pixel art" }
   ],
   "libraries": [
     {

@@ -64,6 +64,18 @@
     return b;
   }
 
+  // One of the display monitor's animations (programs.json "animations"),
+  // played by its own anim.lua in the browser once it's scrolled into view.
+  function animEl(name, compact) {
+    const a = (SITE.animations || []).find((x) => x.name === name);
+    const b = h(`<div class="bezel monitor lit"><div class="screen"><pre class="cc-term"></pre></div></div>`);
+    if (compact) { b.style.padding = "8px 8px 14px"; b.style.boxShadow = "inset 3px 3px 0 var(--frame-hi), inset -3px -3px 0 var(--frame-lo)"; }
+    const pre = $("pre", b);
+    new CC.Screen(57, 24, pre).render(); // its size before it loads
+    if (a) lazy(b, () => Anims.mount(pre, { root: ROOT, file: a.file, name: a.name }));
+    return b;
+  }
+
   function thumb(p, holder) {
     const r = p.render;
     if (r.kind === "voxel") {
@@ -76,7 +88,7 @@
       // a screen: below the tag, and narrow enough to fit the picture's
       // height (its text grows with its width, so its shape stays the same)
       holder.classList.add("screen-thumb");
-      const b = screenEl(r.scene, true);
+      const b = r.kind === "animation" ? animEl(r.name, true) : screenEl(r.scene, true);
       b.style.width = "86%";
       holder.append(b);
       let shape = 0;
@@ -360,7 +372,7 @@
       pick(0);
     } else {
       const stage = h(`<figure class="stage" style="margin:0"><div class="screen-holder"></div></figure>`);
-      $(".screen-holder", stage).append(screenEl(r.scene));
+      $(".screen-holder", stage).append(r.kind === "animation" ? animEl(r.name) : screenEl(r.scene));
       holder.append(stage, h(`<p class="caption">${esc(r.caption)}</p>`));
       // more screens of the same program (render.more in programs.json), e.g. its monitor
       for (const m of r.more || []) {
@@ -368,6 +380,17 @@
         $(".screen-holder", more).append(screenEl(m.scene));
         holder.append(more, h(`<p class="caption">${esc(m.caption)}</p>`));
       }
+    }
+  }
+
+  // Every animation the display can install: a preview, what it is, its install command.
+  function animationsSection(holder) {
+    for (const a of SITE.animations || []) {
+      const card = h(`<div class="anim-card"><div class="anim-screen"></div><div class="anim-text"><b>${esc(a.title)}</b>
+        <span class="pill">${esc(a.kind || "")}</span><p>${esc(a.tagline)}</p>${field("install animation " + a.name)}
+        <a class="mc-btn small" target="_blank" rel="noopener" href="${ROOT}animations/${esc(a.file)}">animations/${esc(a.file)}</a></div></div>`);
+      $(".anim-screen", card).append(animEl(a.name, true));
+      holder.append(card);
     }
   }
 
@@ -500,6 +523,11 @@
         <div class="sec-head"><h2><small>Ideas</small>Example layouts</h2><p>Pick one to see how the blocks go together.</p></div>
         <div id="layout-stage"></div>
       </div></section>` : ""}
+      ${p.render.kind === "animation" ? `<section class="block" id="animations"><div class="wrap">
+        <div class="sec-head"><h2><small>Install</small>Animations</h2><p>Install the ones you want on the display's computer; it shows each in turn, an hour at a time.</p></div>
+        ${field("install animation " + (SITE.animations || []).map((a) => a.name).join(" "))}
+        <div class="anim-grid"></div>
+      </div></section>` : ""}
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>Integration</small>Works with</h2></div>
         <div class="integrations">${p.integrates.map(([n, why]) => {
@@ -520,6 +548,7 @@
     wireTabs(main);
     showcase(p, $("#render"));
     if (p.layouts) layoutsSection(p, $("#layout-stage"));
+    if (p.render.kind === "animation") animationsSection($("#animations .anim-grid"));
     if (p.terminal) new CC.Typer($("#watch-term"), p.terminal.device === "turtle" ? 39 : 51, p.terminal.device === "turtle" ? 13 : 19, [p.terminal.lines], { pause: 6000 });
     filesSection(p.files, $("#files"));
     readme(`computers/${p.name}/README.md`, $("#readme"), `computers/${p.name}`);
