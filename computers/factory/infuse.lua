@@ -140,6 +140,7 @@ function M.new(f)
   local counts = {} -- the storage computer's counts, for the screen
   local assigned = {} -- machine peripheral -> the request id it's working on
   local extraStuck = {} -- infusion feeder -> { name, count, since }
+  local progress = {} -- request at -> when it last had something loaded or made (os.clock): requests are read from their files each round
   local news -- { text, colour, untilTime }
   local outStuck, outWhy, collected
   local makesKey, makesAt, makesNote = nil, -math.huge, nil
@@ -356,7 +357,7 @@ function M.new(f)
         if n > 0 then
           q.made = q.made + n
           byName[q.recipe.make] = byName[q.recipe.make] - n
-          q.progressAt = os.clock()
+          progress[q.at] = os.clock()
           saveRequest(q)
         end
       end
@@ -557,13 +558,13 @@ function M.new(f)
     -- finished requests: done, or a storage computer's that waited too long
     local now = os.clock()
     for _, q in ipairs(requests) do
-      q.progressAt = q.progressAt or now
+      progress[q.at] = progress[q.at] or now
       if not q.recipe then
         q.done, q.ok, q.why = true, false, "this infuser has no recipe for it any more"
       elseif left(q) == 0 and not q.done then
         q.done, q.ok = true, true
         if not q.job then tell(("Made %d %s."):format(q.made, q.recipe.title), "lime") end
-      elseif q.job and not q.done and now - q.progressAt > GIVE_UP then
+      elseif q.job and not q.done and now - progress[q.at] > GIVE_UP then
         q.done, q.ok, q.why = true, false, q.state or "nothing to make it from"
       end
       if q.done then
@@ -695,7 +696,7 @@ function M.new(f)
               avail[item] = (avail[item] or 0) - got
               busy[q.at] = (busy[q.at] or 0) + math.floor(got / rc.per)
               sent = sent + got
-              q.progressAt = now
+              progress[q.at] = now
             end
           end
         end

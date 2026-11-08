@@ -232,9 +232,11 @@ A modpack's recipes (`pack_recipes.lua`, made with
 now: see its [Modded recipes](../craft-overseer/README.md#modded-recipes). One
 left on this computer does nothing, and the footer says to move it.
 
-Smelting isn't crafting: smooth sandstone, glass and the like aren't made
-on request. The [smelter](../factory/README.md#smelting) smelts ores and cooks raw food as they
-come in, and anything else you add to its list. The
+Smelting isn't crafting, but the [factory's furnaces](../factory/README.md#smelting-on-request)
+take requests: the factory tells the craft overseer what they can smelt
+(stone, glass, charcoal, smooth stone, bricks, ingots...), so a plan that
+needs stone smelts cobblestone first, and asking for stone gets it made.
+Ores and raw food are [smelted](../factory/README.md#smelting) as they come in. The
 [cooker](../factory/README.md#cooking-pots) does the same with Cobblemon cooking
 pots: exp candy from sculk and honeycomb, compressed up to XL.
 

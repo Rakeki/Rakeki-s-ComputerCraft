@@ -7,7 +7,7 @@ return {
     -- Items smelted whenever there are any in storage: Lua patterns matched
     -- against the item's id, like "minecraft:raw_iron". Add more to smelt
     -- other things, e.g. "^minecraft:sand$" to turn all sand into glass
-    -- (for a set amount, use a glass order: G on the Smelter page).
+    -- (for a set amount, request it: G on the Smelter page, or 'factory smelt').
     smelt = {
       ":raw_", -- raw iron, gold and copper, and raw ores from mods
       "_ore$", -- ore blocks (silk-touched, or from mods)
@@ -46,6 +46,16 @@ return {
     -- e.g. ["energizedSmelter_0"] = "Left". A Create fan goes by its feeder's
     -- name, e.g. ["minecraft:barrel_3"] = "Lava fan".
     names = {},
+    -- Tell the craft overseer what the furnaces can smelt (stone, glass,
+    -- charcoal, ...), so a crafting plan or a builder short of stone has it
+    -- smelted here. false: only your own requests.
+    offer = true,
+    -- More smelting recipes to request, e.g. a mod's (kind = "ore": blast
+    -- furnaces take it too; kind = "food": smokers):
+    -- { make = "create:zinc_ingot", from = { "create:raw_zinc" }, kind = "ore" }
+    recipes = {},
+    -- Recipes not to offer or take requests for, by what they make, e.g. "minecraft:sponge".
+    hide = {},
   },
 
   -- Mekanism enrichment chambers, Create crushing wheels and washing fans.

@@ -77,7 +77,7 @@ local RETRY_MISSING = 15 -- seconds before a job that was short of ingredients i
 local GIVE_UP = 600 -- seconds a job may wait for missing ingredients before it's given up on
 local MONITOR_SCALES = { 1, 0.5 } -- text sizes to try on the monitor, largest first
 local KEEP_DONE = 5 -- finished jobs still listed, newest first
-local MACHINE_PROTOCOL = "factory" -- a factory computer takes machine jobs (infusing, essence) on this
+local MACHINE_PROTOCOL = "factory" -- a factory computer takes machine jobs (smelting, infusing, essence) on this
 local MACHINE_WAIT = 5 -- seconds to wait for it to take one
 local MACHINE_FORGET = 300 -- seconds a machine's recipes are kept after it last sent them
 local STOCK_FRESH = 2 -- seconds a stock count from the storage computer is planned with before asking again
@@ -940,6 +940,12 @@ local function handleRequest(from, msg)
     local key = textutils.serialize(msg.recipes)
     local maker = makers[msg.via]
     local n = maker and maker.n
+    if maker and maker.id ~= from and os.clock() - maker.at < MACHINE_FORGET then
+      -- another factory computer with the same machines (furnaces on two of
+      -- them): the first keeps the jobs, this one takes over if it goes quiet
+      answer(from, msg, { ok = true })
+      return
+    end
     if not maker or maker.key ~= key or maker.id ~= from then
       n = crafting.setMachine(msg.via, msg.recipes)
       reachCache = nil

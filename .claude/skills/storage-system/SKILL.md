@@ -98,7 +98,7 @@ Protocol `craft_overseer` (everyone → craft-overseer, through `lib/crafts.lua`
 | `{ type = "craftable" }` | `items` (each `{ name, label, count, stored }`; `count` nil = an ME/RS pattern), `ready` (false while the first list is still being worked out: ask again in a few seconds), `making` (each `{ name, label, count }` being crafted), `queue`, `problem`, `crafter` | the craft terminal. Asking keeps `viewLoop` running for `VIEW_KEEP` seconds |
 | `{ type = "craft", item, count, to }` | `making` (how many, 0 = none), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` `orderLoop` has the storage computer `deliver` them `for` it (`most` = what's left of the order) |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn`; saved in `/.overseer_recipes` |
-| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
+| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's smelter, `via = "smelt"`: one input cell each; its infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine, once it has made (or given up on) a job it was handed |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", ... }` | as on `storage` | a crafting turtle finding its barrel on a far-away overseer's cable (hub) |
@@ -178,6 +178,18 @@ goes in its Extra side) and needs an output chest, where what comes out is
 counted (`credit`). Its `takes` are the inputs and infusion items of open
 requests, so the smelter leaves them alone. A request whose input isn't
 stored but is infused here too gets a child request (`parent`).
+The smelter part smelts ores, dust and food by itself, and everything else
+(RECIPES in `smelt.lua` plus `config.recipes`: stone, glass, charcoal,
+smooth stone, ingots, cooked food...) on request: a file per request in
+`/.factory_smelt/` (C / S / G, `factory smelt`, or the overseer's `smelt`
+with `job`; the old `/.smelter_*` orders are turned into requests on
+start). It offers them with `makes` (`via = "smelt"`, only kinds its
+furnaces can take: plain furnaces and Mekanism smelters with an output chest
+everything, blast furnaces `kind = "ore"`, smokers `kind = "food"`).
+Furnace and output-chest output is `credit`ed to requests by item, oldest
+first; loads go through `addLoaded`. A request whose inputs were all loaded
+but not all made loads the rest again; a job with nothing to smelt from
+waits `GIVE_UP` then reports `jobdone` with `ok = false`.
 
 ## Crafting (the craft overseer)
 
@@ -220,9 +232,11 @@ turtle off the overseer's barrel. The overseer links its ender chest before
 answering a turtle's first claim, so turtles that start with it don't fall
 through to the storage computer.
 
-**Machine jobs.** A factory computer sends `makes` with its infuser's
-recipes as ordinary grids (input cells plus enough infusion items for one
-go), tagged `via`. Plans use them like any recipe, and their jobs have
+**Machine jobs.** A factory computer sends `makes` with its smelter's and
+infuser's recipes as ordinary grids (input cells, plus enough infusion items
+for one go for the infuser), tagged `via`. One factory computer per `via`:
+another one's `makes` is ignored while the first was heard within
+`MACHINE_FORGET`. Plans use them like any recipe, and their jobs have
 `job.via`: `runMachineJobs` (`machineLoop`) sends each one that's first of its
 plan to the maker (`factory` protocol, `{ type = via, job, make, count, grid }`
 → `ok` / `why`) and marks it `sent`; the factory answers with `jobdone` on

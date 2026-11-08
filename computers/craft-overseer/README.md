@@ -46,9 +46,10 @@ Who asks it (every program does it through
   as the last count took before counting again.
 - the [factory](../factory/README.md): its botany pots, cooking pots and
   enricher have their ingredients made here; its
+  [furnaces](../factory/README.md#smelting-on-request),
   [infusers](../factory/README.md#infusing) and
   [essence farm](../factory/README.md#essence-farm) tell it what they can make,
-  and run those steps of a plan ("Asked factory #9 to make 4 Infused alloy.").
+  and run those steps of a plan ("Asked factory #9 to make 64 stone.").
   The crafting turtles take the later steps once it's in storage.
 - [`crafter learn`](../crafter-turtle/README.md) on a crafting turtle: a new
   recipe, saved here in `/.overseer_recipes`.
@@ -108,9 +109,11 @@ stone, brick, deepslate, blackstone and tuff families (mossy stone bricks
 too). Teach it more with `crafter learn` on a crafting turtle. For every
 recipe in your modpack, see [Modded recipes](#modded-recipes).
 
-Smelting isn't crafting: smooth sandstone, glass and the like aren't made
-on request. The [smelter](../factory/README.md#smelting) smelts ores and cooks raw food as they
-come in, and anything else you add to its list.
+Smelting isn't crafting, but the [factory's furnaces](../factory/README.md#smelting-on-request)
+take requests: the factory tells the craft overseer what they can smelt
+(stone, glass, charcoal, smooth stone, bricks, ingots...), so a plan that
+needs stone smelts cobblestone first, and asking for stone gets it made.
+Ores and raw food are [smelted](../factory/README.md#smelting) as they come in.
 
 ### Modded recipes
 

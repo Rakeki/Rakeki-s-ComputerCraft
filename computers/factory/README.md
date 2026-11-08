@@ -14,7 +14,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 
 | Machines | Mod | What happens |
 |---|---|---|
-| Furnaces, blast furnaces, smokers | vanilla | ores, dust and food [smelted and cooked](#smelting), with fuel from the fuel chest; charcoal, stone and glass on order |
+| Furnaces, blast furnaces, smokers | vanilla | ores, dust and food [smelted and cooked](#smelting), with fuel from the fuel chest; stone, glass, charcoal and more [on request](#smelting-on-request), the craft overseer's too |
 | Energized Smelters | [Mekanism](https://www.curseforge.com/minecraft/mc-mods/mekanism) | [smelt](#mekanism-smelters) like furnaces, faster and with no fuel |
 | Enrichment Chambers | Mekanism | [ores into dust](#enriching): 2 dust per ore block, 4 per 3 raw ores |
 | Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the craft overseer orders them for its crafts too |
@@ -108,7 +108,7 @@ lead, uranium) into ingots, and Create's **crushed ores**. Ores that an
 
 The Smelter tab lists each furnace (blast furnaces in orange, smokers in
 pink), what's in it and its fuel, how much smelting the stored fuel is good
-for, the orders and what it did last.
+for, the requests and what it did last.
 
 ### Mekanism smelters
 
@@ -123,12 +123,13 @@ pick no output chest).
 
 - They get first pick of what there is to smelt or cook (they're faster and
   need no fuel); the furnaces take what's left.
-- With an output chest, they work on charcoal, stone and glass orders too,
+- With an output chest, they work on [requests](#smelting-on-request) too,
   ahead of the furnaces: the factory counts what it empties out of that
   chest. One that pushes straight into a storage input chest takes no
-  orders, since what it makes can't be counted. Orders need a plain furnace
-  or a Mekanism smelter with an output chest (blast furnaces and smokers
-  can't take them); without one the footer says so.
+  requests, since what it makes can't be counted. Stone, glass, charcoal
+  and the like need a plain furnace or a Mekanism smelter with an output
+  chest (blast furnaces and smokers can't take them); without one the
+  footer says so.
 - With only Mekanism smelters and no furnaces, it works the same, minus the
   fuel.
 - The factory sets each one's bottom to **Output** with **Auto-eject** on,
@@ -161,7 +162,7 @@ a Create blasting fan** or **smoking fan**), or with `factory add fan` or
   ancient debris, Mekanism dust and Create's crushed ores (from the
   [crushers](#create-crushing-wheels)). A **smoking fan** takes only food.
 - They're loaded along with the Mekanism smelters, before the furnaces, and
-  like them take no part in charcoal, stone or glass orders.
+  like them take no part in [requests](#smelting-on-request).
 - On the Smelter tab they're listed in yellow with "Create" where the fuel
   would be. Since the computer can't see the fan, it goes by the feeder:
   red **not moving: is the fan on?** when the feeder hasn't gone down for a
@@ -169,39 +170,51 @@ a Create blasting fan** or **smoking fan**), or with `factory add fan` or
   the funnel isn't taking from the feeder). Nothing is put back: it just
   waits.
 
-### Making charcoal
+### Smelting on request
 
-When there's far more of one kind of log than you want, burn it into
-charcoal. On the Smelter tab press **C**, pick the logs from the list (the
-kind there's most of is first), and say how much charcoal to make. Plain
-furnaces and [Mekanism smelters](#mekanism-smelters) with an output chest
-work on the order before ores and food (blast furnaces and smokers can't
-burn logs), and the charcoal goes into the fuel chest, where it fuels the
-furnaces and [turtles](../storage-computer/README.md#fuel). The tab shows
-how far the order has got; it carries on after a reboot, and stops early if
-those logs run out.
+Ores, dust and food are smelted as soon as they're stored. Everything else
+a furnace makes is smelted **on request**: stone from cobblestone, glass
+from sand, charcoal from logs, smooth stone, bricks, terracotta, nether
+bricks, deepslate, cracked and smooth blocks, green and lime dye, dry
+sponges. Ingots and cooked food can be requested too, for a set amount.
+`factory smelt` lists every recipe with how much of its input is stored.
 
-### Making stone
+Requests come from three places:
 
-Press **S** and say how much stone to make from the cobblestone in
-storage. It works like a charcoal order (plain furnaces and Mekanism
-smelters, carries on after a reboot, stops early if the cobblestone runs
-out), and the stone goes into storage.
+- **The craft overseer.** The factory tells the
+  [craft overseer](../craft-overseer/README.md) what its furnaces can
+  smelt, so anything that asks the storage system for stone or glass gets
+  it made: a craft terminal order, a [builder turtle](../builder-turtle/README.md)
+  or the village builder short of stone, or a crafting plan with stone in
+  it (stone bricks from cobblestone smelt the cobblestone first, then the
+  crafting turtles carry on). The tab shows these with **(overseer)**.
+  `offer = false` under `smelter` in `config.lua` turns this off.
+- **The Smelter tab**: **C** for charcoal (pick the logs from the list, the
+  kind there's most of first, then how much), **S** for stone, **G** for
+  glass. **X** cancels one (it asks which when there are more).
+- **Commands**: `factory smelt stone 256`, `factory charcoal 256 spruce`,
+  `factory glass 64 red`, `factory cancel stone`. The running factory
+  picks them up within 10 seconds.
 
-### Making glass
+Plain furnaces and [Mekanism smelters](#mekanism-smelters) with an output
+chest work on requests before ores and food. Blast furnaces can take
+requests for ingots and smokers for cooked food, but nothing else (they
+can't smelt cobblestone, sand or logs); with no furnace that can take one,
+the tab says so. With several inputs (sand and red sand, every kind of
+log), it smelts whichever there's most of and carries on with the other
+when one runs out. What's made goes into storage, and charcoal into the
+fuel chest, where it fuels the furnaces and
+[turtles](../storage-computer/README.md#fuel).
 
-Press **G** and say how much glass to make. It smelts sand and red sand,
-whichever there's more of, and carries on with the other when one runs out
-(`factory glass <n> red` sticks to red sand). Like stone, it uses plain
-furnaces and Mekanism smelters (blast furnaces and smokers can't smelt
-sand), carries on after a reboot, and the glass goes into storage.
+The tab lists the requests and how far each has got. They carry on after a
+reboot. One of yours stops early if what it's made from runs out; one from
+the craft overseer waits up to 10 minutes for more, then tells it it
+couldn't.
 
-All three orders can run at once: Mekanism smelters (with an output chest)
-and plain furnaces start on the charcoal first, then the stone, then the
-glass, and all of them come before ores and food. **X** cancels one (it
-asks which when more than one is running). The `factory charcoal`,
-`factory stone` and `factory glass` commands do the same from another tab;
-the running factory picks them up within 10 seconds.
+Add your own recipes under `smelter` in `config.lua`, e.g. a mod's:
+`recipes = { { make = "create:zinc_ingot", from = { "create:raw_zinc" }, kind = "ore" } }`
+(`kind = "ore"` lets blast furnaces take it too, `kind = "food"` smokers).
+`hide = { "minecraft:sponge" }` leaves one out.
 
 ## Enriching
 
@@ -800,12 +813,14 @@ factory list                   -- every machine added here, and the furnaces and
 factory remove 2               -- forget machine 2 (no number: list them)
 factory give all 14            -- hand every furnace and botany pot this computer has to factory computer 14
 factory give minecraft:furnace_3 14   -- or just one
+factory smelt                  -- the smelting recipes, how much of each input is stored, and the requests
+factory smelt smooth stone 128 -- ask for 128 smooth stone (by name, or the number 'factory smelt' lists)
 factory charcoal 256 spruce    -- make 256 charcoal from spruce logs
 factory charcoal 64            -- make 64 from the logs there are most of
 factory stone 512              -- make 512 stone from cobblestone
 factory glass 256              -- make 256 glass from sand (or red sand)
 factory glass 64 red           -- make 64 glass from red sand only
-factory cancel stone           -- stop making stone ('factory cancel': every order)
+factory cancel stone           -- stop making stone ('factory cancel': every smelting request; a number: that one)
 factory infuse                 -- the infusing recipes, how many you can make, and what's asked for
 factory infuse steel 64        -- ask for 64 steel dust (by name, or the number 'factory infuse' lists)
 factory infuse cancel 2        -- cancel request 2 ('factory infuse cancel': all of them)
@@ -820,7 +835,7 @@ edit config.lua                -- what each part smelts, enriches, cooks, keeps 
 
 On the running factory, **Tab** goes to the next tab and **F1** opens the
 setup screen; the Smelter tab's **C**, **S**, **G** and **X** start and
-cancel orders. `factory add`, `remove`, `relay` and the orders work from
+cancel requests. `factory add`, `remove`, `relay` and the requests work from
 another tab while it runs; it picks up the change straight away.
 
 ## Work chest
@@ -994,8 +1009,13 @@ botany pots over, and machines added there can be added again on the other.
   III pickaxe. Take them out of `gems` under `enricher` to keep those ores
   for that.
 - Making charcoal needs some fuel to start with: one coal or charcoal burns
-  8 logs into 8 charcoal. A stone order only makes plain stone from
-  cobblestone, not smooth stone or deepslate.
+  8 logs into 8 charcoal. A stone request only makes plain stone from
+  cobblestone; smooth stone is its own recipe (`factory smelt smooth stone 64`),
+  and the craft overseer plans both steps when that's what's asked for.
+- With furnaces on several factory computers, the craft overseer sends its
+  smelting to the one that told it first; another takes over if that one
+  goes quiet for 5 minutes. Requests made on a computer's own tab or with
+  its commands run on that computer.
 - If a furnace has fuel but doesn't smelt what's in it for 2 minutes (an
   item that doesn't smelt there, like a modded ore in a blast furnace), the
   item goes back into storage and isn't put in that kind of furnace again

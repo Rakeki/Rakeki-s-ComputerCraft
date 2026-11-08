@@ -2,7 +2,7 @@
 -- other items, run from one program. Put it on as many computers as you
 -- like: each one works out what to do from the machines it has.
 --   furnaces, blast furnaces, smokers, Mekanism smelters, Create blasting
---     and smoking fans                      the smelter (smelt.lua)
+--     and smoking fans                      the smelter (smelt.lua): ores and food, the rest on request
 --   Mekanism enrichment chambers, Create crushing wheels and washing fans
 --                                           the enricher (enrich.lua)
 --   Mekanism metallurgic infusers           steel, alloys, circuits on request (infuse.lua)
@@ -26,7 +26,8 @@
 --   factory charcoal <n> [wood]     make n charcoal from logs, e.g. 'factory charcoal 256 spruce'
 --   factory stone <n>               make n stone from cobblestone
 --   factory glass <n> [red]         make n glass from sand (red: red sand only)
---   factory cancel [charcoal|stone|glass]  stop an order (no name: all of them)
+--   factory smelt [what count]      the smelting recipes, or request count of one (by number or name)
+--   factory cancel [n|name]         cancel a smelting request (no name: all of them)
 --   factory infuse [what count]     the infusing recipes, or request count of one (by number or name)
 --   factory infuse cancel [n]       cancel infusing request n (no number: all of them)
 --   factory find <text>             essence recipes for items matching text, and how many you can make
@@ -961,7 +962,7 @@ elseif verb then
     if p.command(args) then return end
   end
   print("Usage: factory [setup | add <kind> | list | remove [n] | give <name|all> <id> | relay <n> | charcoal <n> |")
-  print("  stone <n> | glass <n> | cancel | infuse [what n | cancel] | find <text> | make <n> <text> |")
+  print("  stone <n> | glass <n> | smelt [what n] | cancel [n] | infuse [what n | cancel] | find <text> | make <n> <text> |")
   print("  chest [name|none|remote] | monitor]")
   return
 end

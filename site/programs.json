@@ -1440,7 +1440,7 @@
         "Type to search; Enter asks how many (a stack to start), Right orders one",
         "Crafts come to a chest next to it as they're made, or stay in storage (Tab switches)",
         "Shows what's being crafted right now, or why crafting is stuck",
-        "The craft overseer works out the list and makes the orders: with the crafting turtles, the factory's infusers and an ME or RS system's patterns",
+        "The craft overseer works out the list and makes the orders: with the crafting turtles, the factory's furnaces and infusers and an ME or RS system's patterns",
         "Finds its chest by itself: nothing to pick in storage setup",
         "crafts make 64 torch orders from the command line"
       ],
@@ -1618,7 +1618,7 @@
         "Plans whole chains from what's stored (logs into planks into sticks into fences) and hands each job to a free crafting turtle",
         "Answers every program's crafting questions: builders, the village builder, the cannon feeder and the factory ask it what can be made and have it made",
         "Works out the craft terminal's list and sends its orders to the terminal's chest",
-        "The factory's infusers and essence farm run the steps only they can make",
+        "The factory's furnaces, infusers and essence farm run the steps only they can make: stone from cobblestone, glass, steel",
         "Steps of one order run in turn; different orders run side by side",
         "Monitor lists every turtle, the queue, and what each job is short of",
         "Craft tab: everything that can be made from what's stored, ordered with a tap (or typed on its own screen)",
@@ -1643,7 +1643,7 @@
         ["storage-computer", "Counts what's stored for its plans and loads each turtle's chest when the overseer asks; with an ME or RS system, crafts from its patterns."],
         ["crafts", "How every other program asks it what could be made and has it made."],
         ["craft-terminal", "Gets its list of what can be crafted from it, and orders."],
-        ["factory", "Its infusers and essence farm tell it what they can make and run those steps of its plans."],
+        ["factory", "Its furnaces, infusers and essence farm tell it what they can make and run those steps of its plans (stone, glass, steel)."],
         ["crafter-turtle", "Each crafting turtle takes the batches it's given; add more for more crafting at once."],
         ["status-server", "Shows how many jobs are queued."]
       ],
@@ -1670,10 +1670,11 @@
         ["Mods","vanilla, Mekanism, Create, Cobblemon, Mystical Agriculture"],
         ["Computers","one, or one per room"],
         ["Found by itself","furnaces, botany pots"],
-        ["Orders","charcoal, stone, glass, infusing"]
+        ["On request","stone, glass, charcoal, ingots, infusing"]
       ],
       "features": [
-        "Furnaces, blast furnaces and smokers: ores, dust and food smelted and cooked, fuelled from the fuel chest; charcoal, stone and glass on order",
+        "Furnaces, blast furnaces and smokers: ores, dust and food smelted and cooked, fuelled from the fuel chest",
+        "Everything else a furnace makes on request: stone, glass, charcoal, smooth stone, bricks, ingots, cooked food; the craft overseer is told what it can smelt, so asking the storage system for stone (a craft terminal, a builder turtle, a crafting plan) gets cobblestone smelted first",
         "Mekanism Enrichment Chambers (2 dust per ore block, 4 per 3 raw ores) and Energized Smelters, fed through a hopper or barrel",
         "Mekanism Metallurgic Infusers on request: steel, alloys, circuits, bronze and more, from +1 / +8 / +64 buttons on the Infuser tab or the monitor; the storage computer orders the infusing its crafts need, and a missing in-between step (enriched iron for steel) is made first",
         "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed",
@@ -1698,7 +1699,8 @@
         ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
         ["factory remove 2","forget machine 2 (no number: list them)"],
         ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],
-        ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone, glass and cancel)"],
+        ["factory smelt stone 256","ask the furnaces for 256 stone (factory smelt lists the recipes; factory cancel cancels)"],
+        ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone and glass)"],
         ["factory infuse steel 64","ask the infusers for 64 steel dust (factory infuse lists the recipes; factory infuse cancel cancels)"],
         ["factory find iron","essence recipes for anything with iron in its name, and how many you can make"],
         ["factory make 64 iron ingot","order 64 iron ingots made from essence"],

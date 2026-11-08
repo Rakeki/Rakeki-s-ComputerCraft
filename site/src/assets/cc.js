@@ -948,8 +948,8 @@
         s.put(doX, y, fitT(f.input ? `${f.input[1]} ${f.input[0]}` : "idle", fuelX - doX - 1), f.input ? "white" : "gray");
         s.put(fuelX, y, fitT(f.fuel ? `${f.fuel[1]} ${f.fuel[0]}` : "-", 12), "lightGray");
       });
-      const lines = st.orders.map((o) => `${o.kind}: ${o.made} of ${o.count} made from ${o.from}`);
-      if (!lines.length) s.put(1, H - 2, fitT(" No orders. Board on monitor_3", W), "gray");
+      const lines = st.orders.map((o) => `${o.kind}: ${o.made} of ${o.count} from ${o.from}${o.overseer ? " (overseer)" : ""}`);
+      if (!lines.length) s.put(1, H - 2, fitT(" No requests. Board on monitor_3", W), "gray");
       lines.forEach((l, i) => s.put(1, H - 1 - lines.length + i, fitT(" " + l, W), "lightBlue"));
       s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
       s.put(1, H, fitT("C:charcoal S:stone G:glass X:cancel Tab F1:setup", W), "gray");
@@ -958,11 +958,11 @@
           st.orders.push({ kind: "Charcoal", from: "spruce log", count: 128, loaded: 0, made: 0 });
           st.msg = ["Making 128 charcoal from spruce log.", "lightBlue"];
         } else if (st.orders.length === 1) {
-          st.orders.push({ kind: "Stone", from: "cobblestone", count: 256, loaded: 0, made: 0 });
-          st.msg = ["Making 256 stone from cobblestone.", "lightBlue"];
+          st.orders.push({ kind: "Stone", from: "cobblestone", count: 256, loaded: 0, made: 0, overseer: true });
+          st.msg = ["Loaded 128 items into 2 furnaces.", "lightGray"];
         } else {
           st.orders = [];
-          st.msg = ["Orders cancelled. What's in the furnaces still smelts.", "lightGray"];
+          st.msg = ["Requests cancelled. What's already in furnaces still smelts.", "lightGray"];
         }
       };
       s.zones.push({ x1: 1, x2: W, y1: H - 3, y2: H, action: order });
