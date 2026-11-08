@@ -1813,7 +1813,8 @@ if saved then
   end
 end
 
-for _, want in ipairs(type(files.read(WANTS_FILE)) == "table" and files.read(WANTS_FILE) or {}) do
+local savedWants = files.read(WANTS_FILE) -- nothing at all (not even nil) when there's no file yet
+for _, want in ipairs(type(savedWants) == "table" and savedWants or {}) do
   if type(want) == "table" and type(want.name) == "string" and tonumber(want.left) and want.left > 0 then
     wants[#wants + 1] = { name = want.name, left = math.floor(want.left), why = want.why,
       who = tonumber(want.who), chest = want.chest == true }
