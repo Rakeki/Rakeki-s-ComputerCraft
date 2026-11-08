@@ -250,7 +250,9 @@ cached by `reachNow()` for 10 s): it prunes everything that can't be made
 from what's stored. Work it out once per request, never per item
 (`crafting.reachable` also keeps its last answer until the set of stored
 item names or the recipes change, so asking again is cheap). The craft
-terminal's list (`viewLoop`) runs only while a terminal keeps asking, and
+terminal's list (`viewLoop`) runs only while a terminal keeps asking (or the
+overseer's own Craft tab is open: `uiLoop` marks `view.wanted`; its orders go
+in the inbox as `{ order = ... }` so they plan in turn with requests), and
 rests `VIEW_REST` times as long as the last count took.
 
 Keep planning's cost to the recipe tree, never to how much is stored (a

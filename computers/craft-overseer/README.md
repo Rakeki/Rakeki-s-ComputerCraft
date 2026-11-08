@@ -61,7 +61,8 @@ If there isn't enough to make the whole order, it makes as many as it can
 (whoever asked gets those, and is told why not the rest). If no crafting
 turtle is running, those waiting are told that crafting is stuck, and it
 carries on by itself once one is back.
-The monitor (or the computer's own screen, without one) shows:
+The monitor (or the computer's own screen, without one) has two tabs at the
+top, **Queue** and **Craft**. The Queue tab shows:
 
 - **Turtles:** each crafting turtle and what it's doing ("#12 crafting 64
   oak planks"), or "not answering" in red.
@@ -78,6 +79,26 @@ job, and the short one tries again every 15 seconds. A job that stays short
 of ingredients for 10 minutes is given up on, along with the rest of its
 order. A turtle that stops answering is left out (its job goes to another)
 until it answers again.
+
+### Ordering crafts here
+
+The **Craft** tab lists everything that can be made from what's stored, A
+to Z, with how many could be made and how many are stored already, and
+orders it (no [craft terminal](../craft-terminal/README.md) needed). What's
+made goes into storage; take it out at the storage computer's terminal.
+
+- **On the monitor:** tap a row, set how many with the -64 -8 -1 +1 +8 +64
+  buttons (it starts at a stack, or as many as can be made if that's fewer),
+  then tap **Craft** (or **x** to cancel). The arrows at the top turn the pages.
+- **On the computer's screen:** type to search, Up and Down to pick, Enter,
+  type how many (or leave the stack), Enter again. Tab switches between
+  Queue and Craft. With a monitor attached, the computer's screen starts on
+  the Craft tab, so the monitor can keep showing the queue.
+
+The order is planned like any other ("Crafting 64 torch into storage." at
+the bottom, or why it can't be). With a big modpack the list takes a while
+to work out the first time the tab is opened ("Working out what can be
+crafted..."), and is counted again now and then while the tab is open.
 
 ### Recipes
 

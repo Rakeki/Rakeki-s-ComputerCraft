@@ -1080,7 +1080,8 @@
 
   // The crafting overseer's monitor: same layout as
   // computers/craft-overseer/overseer.lua. Three turtles work through a queue
-  // where one order is short of iron until it "arrives"; click to add an order.
+  // where one order is short of iron until it "arrives"; the Craft tab lists what
+  // can be made and orders it (tap a row, pick how many, Craft).
   function overseer(el) {
     const W = 39, H = 19;
     const s = new Screen(W, H, el);
@@ -1127,12 +1128,33 @@
       if (!queue.length && st.tick % 6 === 0) orders.forEach(add);
     }
 
-    function draw() {
-      s.clear();
+    // what the Craft tab lists: [label, how many could be made, stored]
+    const craftable = [
+      ["bucket", 21, 0], ["chest", 64, 12], ["comparator", 9, 0], ["crafting table", 128, 3], ["hopper", 13, 2],
+      ["iron bars", 999, 0], ["ladder", 340, 40], ["lantern", 0, 0], ["oak door", 170, 6], ["oak fence", 255, 0],
+      ["piston", 18, 4], ["rail", 99, 0], ["stick", 999, 120], ["stone bricks", 999, 512], ["torch", 999, 64],
+    ].filter((c) => c[1] > 0);
+    const STEPS = [-64, -8, -1, 0, 1, 8, 64];
+    st.view = "queue"; st.page = 0; st.pick = null;
+
+    function order(label, n) {
+      add([{ name: label, left: Math.ceil(n / 4), count: 4 }]);
+      st.msg = [`Crafting ${n} ${label} into storage.`, "lightBlue"];
+      st.view = "queue";
+    }
+
+    function header() {
       s.fill(1, "gray");
-      s.put(2, 1, "Crafting", "yellow", "gray");
+      let x = 1;
+      for (const [id, label] of [["queue", "Queue"], ["craft", "Craft"]]) {
+        const on = st.view === id;
+        x = s.button(x, 1, label, on ? "yellow" : "lightGray", on ? "black" : "gray", () => { st.view = id; st.pick = null; });
+      }
       const head = `${queue.length} jobs`;
       s.put(W - head.length, 1, head, "lightGray", "gray");
+    }
+
+    function drawQueue() {
       s.put(2, 3, "Turtles", "yellow");
       turtles.forEach((t, i) => {
         const text = t.job ? `crafting ${t.job.left * t.job.count} ${t.job.name}` : "idle";
@@ -1150,7 +1172,53 @@
       }
       if (!queue.length) s.put(2, y, "Nothing queued.", "gray");
       s.put(1, H, fitT(st.msg[0], W), st.msg[1]);
-      s.zones.push({ x1: 1, x2: W, y1: 1, y2: H, action: () => { add(orders[0]); st.msg = ["Crafting 64 Torch for computer #22.", "lightBlue"]; } });
+    }
+
+    function drawCraft() {
+      const rows = H - 5, pages = Math.max(1, Math.ceil(craftable.length / rows));
+      st.page = Math.min(st.page, pages - 1);
+      s.put(2, 2, "Tap something to craft it.", "lightGray");
+      const pageText = `${st.page + 1}/${pages}`, px = W - pageText.length - 7;
+      s.put(px, 2, " < ", "white", st.page > 0 ? "gray" : "black");
+      s.zones.push({ x1: px, x2: px + 2, y1: 2, y2: 2, action: () => { st.page = Math.max(0, st.page - 1); } });
+      s.put(px + 4, 2, pageText, "lightGray");
+      s.put(W - 2, 2, " > ", "white", st.page < pages - 1 ? "gray" : "black");
+      s.zones.push({ x1: W - 2, x2: W, y1: 2, y2: 2, action: () => { st.page = Math.min(pages - 1, st.page + 1); } });
+      for (let i = 0; i < rows; i++) {
+        const it = craftable[st.page * rows + i];
+        if (!it) break;
+        const [label, can, stored] = it, sel = st.pick && st.pick.label === label, bg = sel ? "blue" : "black";
+        const make = `make ${can}`, storedText = stored > 0 ? `${stored} stored  ` : "", right = storedText + make;
+        s.put(1, 3 + i, fitT(" " + label, W - right.length - 2), "white", bg);
+        s.put(W - right.length - 1, 3 + i, " " + storedText, sel ? "white" : "gray", bg);
+        s.put(W - make.length, 3 + i, make + " ", sel ? "white" : "lightBlue", bg);
+        s.zones.push({ x1: 1, x2: W, y1: 3 + i, y2: 3 + i, action: () => { st.pick = { label, n: Math.max(1, Math.min(64, can)) }; } });
+      }
+      const making = queue.length ? `Making: ${[...new Set(queue.map((j) => j.name))].join(", ")}` : "Nothing being crafted.";
+      s.put(1, H - 2, fitT(making, W), queue.length ? "lightBlue" : "gray");
+      const p = st.pick;
+      if (!p) {
+        s.put(1, H - 1, fitT(st.msg[0], W), st.msg[1]);
+        s.put(1, H, fitT("Tap a row, pick how many, then Craft.", W), "gray");
+        return;
+      }
+      s.put(1, H - 1, fitT(`How many ${p.label}? Into storage.`, W), "yellow");
+      s.fill(H, "gray");
+      let x = 1;
+      for (const step of STEPS) {
+        const text = step === 0 ? ` ${String(p.n).padStart(4)} ` : (step > 0 ? "+" : "") + step;
+        s.put(x, H, text, "white", step === 0 ? "black" : "gray");
+        if (step) s.zones.push({ x1: x, x2: x + text.length - 1, y1: H, y2: H, action: () => { p.n = Math.max(1, Math.min(9999, p.n + step)); } });
+        x += text.length + 1;
+      }
+      x = s.button(x, H, "Craft", "white", "green", () => { st.pick = null; order(p.label, p.n); });
+      s.button(x, H, "x", "white", "red", () => { st.pick = null; });
+    }
+
+    function draw() {
+      s.clear();
+      header();
+      if (st.view === "craft") drawCraft(); else drawQueue();
       s.render();
     }
 

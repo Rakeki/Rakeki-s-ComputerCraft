@@ -15,7 +15,9 @@
 -- factory's machines' recipes and finished jobs ("makes", "jobdone").
 --
 -- A monitor (or this computer's screen) shows the crafting turtles, the
--- queue, and for each job what's missing from storage to make it.
+-- queue, and for each job what's missing from storage to make it. Its Craft
+-- tab lists everything that can be made and orders it into storage: tap a
+-- row, pick how many, Craft (on the terminal: type to search, Enter, a number).
 --
 --   overseer          start (startup.lua runs this)
 --   overseer clear    forget the queue (after a mix-up)
@@ -85,7 +87,9 @@ local VIEW_REST = 3 -- and at least this many times as long as the last count to
 local VIEW_MAX = 999 -- the list counts no higher than this (fewer tries per item)
 local VIEW_KEEP = 120 -- seconds the list is kept worked out after a craft terminal last asked for it
 local ORDER_EVERY = 2 -- seconds between sending a craft terminal what's been made of its order
-local ORDER_MAX = 9999 -- most of one item a craft terminal may order at once
+local ORDER_MAX = 9999 -- most of one item a craft terminal (or my own Craft page) may order at once
+local ORDER_STACK = 64 -- how many an order on my Craft page starts at
+local VIEW_TICK = 5 -- seconds between redraws of my Craft page (the list and what's being made)
 
 -- jobs: in order, each { id, plan, name, steps, left, count, grid, top, via, state, crafter,
 -- missing, since, why }; state is "queued", "working" or "waiting" (short of ingredients),
@@ -969,11 +973,24 @@ local function handleRequest(from, msg)
   end
 end
 
+-- An order from my own Craft page: made into storage.
+local function handleOrder(o)
+  local made, why = orderCraft(o.name, o.count)
+  if made then
+    say(("Crafting %d %s into storage%s."):format(made, nice(o.name), why and (" (" .. why .. ")") or ""), "lightBlue")
+    if report then report.log(("ordered %d %s"):format(made, nice(o.name))) end
+  else
+    say(("Can't craft %s: %s."):format(nice(o.name), why), "orange")
+  end
+end
+
 local function netLoop()
   while true do
     while #inbox == 0 do os.pullEvent("overseer_inbox") end
     local req = table.remove(inbox, 1)
-    local ok, err = (errlog and errlog.pcall or pcall)(handleRequest, req.from, req.msg)
+    local ok, err
+    if req.order then ok, err = (errlog and errlog.pcall or pcall)(handleOrder, req.order)
+    else ok, err = (errlog and errlog.pcall or pcall)(handleRequest, req.from, req.msg) end
     if not ok then say("A request failed: " .. tostring(err), "red") end
   end
 end
@@ -1004,7 +1021,9 @@ local function viewLoop()
     for name in pairs(patterns) do
       if not listed[name] then list[#list + 1] = { name = name, label = nice(name), stored = math.max(0, (stock or {})[name] or 0) } end
     end
+    table.sort(list, function(a, b) return a.label:lower() < b.label:lower() end)
     view.list, view.ready = list, true
+    os.queueEvent("overseer_changed")
     sleep(math.max(VIEW_EVERY, (os.clock() - started) * VIEW_REST))
   end
 end
@@ -1051,7 +1070,19 @@ local SIDES = {}
 for _, side in ipairs(rs.getSides()) do SIDES[side] = true end
 local display = screen.find({ setting = "overseer.monitor", scales = MONITOR_SCALES, minW = 39, minH = 15,
   filter = function(name) return SIDES[name] == true end, fallback = term.current() })
+local termScreen = screen.new(term.current()) -- the computer's own screen, while the monitor shows the rest
 local put, fit = screen.put, screen.fit
+
+-- Each screen's page and the order being picked on it. The monitor is
+-- worked by tapping (pages of the list, buttons for how many), the
+-- terminal by typing (a search, a number) or clicking. hits: where the last
+-- frame put something to tap, { y, x1, x2, fn }.
+local uis = {
+  mon = { view = "queue", query = "", selected = 1, scroll = 0, touch = true, hits = {} },
+  term = { view = display.name and "craft" or "queue", query = "", selected = 1, scroll = 0, hits = {} },
+}
+local TABS = { { "queue", "Queue" }, { "craft", "Craft" } }
+local STEPS = { -64, -8, -1, 0, 1, 8, 64 } -- the amount buttons (0: the amount itself)
 
 local function missingText(short)
   local parts = {}
@@ -1060,14 +1091,38 @@ local function missingText(short)
   return table.concat(parts, ", ")
 end
 
-local function draw()
-  if not display.target then return end
-  local win, w, h = display:frame()
+local function shortCount(n)
+  if n >= 10000 then return ("%dk"):format(math.floor(n / 1000)) end
+  return tostring(n)
+end
+
+local function hit(ui, y, x1, x2, fn) ui.hits[#ui.hits + 1] = { y = y, x1 = x1, x2 = x2, fn = fn } end
+
+-- A tap or click: whatever the last frame put there.
+local function tap(ui, x, y)
+  for _, h in ipairs(ui.hits) do
+    if h.y == y and x >= h.x1 and x <= h.x2 then
+      h.fn()
+      return true
+    end
+  end
+  return false
+end
+
+local function header(win, w, ui)
   put(win, 1, 1, (" "):rep(w), "white", "gray")
-  put(win, 2, 1, "Crafting", "yellow", "gray")
+  local x = 1
+  for _, t in ipairs(TABS) do
+    local on, label = ui.view == t[1], " " .. t[2] .. " "
+    put(win, x, 1, label, on and "yellow" or "lightGray", on and "black" or "gray")
+    hit(ui, 1, x, x + #label - 1, function() ui.view, ui.pick = t[1], nil end)
+    x = x + #label + 1
+  end
   local head = ("%d jobs"):format(#queue.jobs)
   put(win, w - #head, 1, head, "lightGray", "gray")
+end
 
+local function drawQueue(win, w, h)
   -- the crafting turtles
   local ids = {}
   for id in pairs(crafters) do ids[#ids + 1] = id end
@@ -1125,14 +1180,223 @@ local function draw()
     put(win, 2, h - 2, "...and more", "gray")
   end
   put(win, 1, h, fit(message[1], w), message[2])
-  display:show()
 end
 
+---------------------------------------------------------------- ordering from the screen
+
+local function matches(ui)
+  local q, out = ui.query:lower(), {}
+  for _, it in ipairs(view.list) do
+    if q == "" or it.label:lower():find(q, 1, true) or it.name:lower():find(q, 1, true) then out[#out + 1] = it end
+  end
+  return out
+end
+
+-- Start picking how many: a stack, or as many as can be made if fewer.
+local function pickItem(ui, it)
+  ui.pick = { it = it, n = it.count and math.max(1, math.min(ORDER_STACK, it.count)) or ORDER_STACK, typed = false }
+end
+
+-- The order goes in the inbox like a craft terminal's, so it's planned in
+-- turn with every other request (two plans at once would count the same stock).
+local function sendOrder(ui)
+  local p = ui.pick
+  ui.pick = nil
+  if not p or p.n < 1 then return end
+  inbox[#inbox + 1] = { order = { name = p.it.name, count = p.n } }
+  os.queueEvent("overseer_inbox")
+  say(("Ordering %d %s..."):format(p.n, p.it.label), "lightGray")
+end
+
+local function drawCraft(win, w, h, ui)
+  local list = matches(ui)
+  local rows = h - 5 -- rows 3 to h - 3
+  ui.selected = math.max(1, math.min(ui.selected, #list))
+  if ui.touch then
+    -- whole pages, turned with the arrows
+    local pages = math.max(1, math.ceil(#list / rows))
+    local page = math.max(1, math.min(pages, math.floor(ui.scroll / rows) + 1))
+    ui.scroll = (page - 1) * rows
+    put(win, 2, 2, fit("Tap something to craft it.", w - 14), "lightGray")
+    local pageText = ("%d/%d"):format(page, pages)
+    local x = w - #pageText - 7
+    put(win, x, 2, " < ", "white", page > 1 and "gray" or "black")
+    put(win, x + 4, 2, pageText, "lightGray")
+    put(win, w - 2, 2, " > ", "white", page < pages and "gray" or "black")
+    hit(ui, 2, x, x + 2, function() ui.scroll = math.max(0, ui.scroll - rows) end)
+    hit(ui, 2, w - 2, w, function() ui.scroll = ui.scroll + rows end)
+  else
+    if ui.selected <= ui.scroll then ui.scroll = ui.selected - 1 end
+    if ui.selected > ui.scroll + rows then ui.scroll = ui.selected - rows end
+    ui.scroll = math.max(0, math.min(ui.scroll, #list - rows))
+    put(win, 1, 2, "Search: ", "lightGray")
+    put(win, 9, 2, fit(ui.query, w - 9), "white")
+  end
+
+  for i = 1, rows do
+    local index, it = ui.scroll + i, list[ui.scroll + i]
+    if it then
+      local sel = ui.pick and ui.pick.it.name == it.name or not ui.touch and not ui.pick and index == ui.selected
+      local bg = sel and "blue" or "black"
+      local can = it.count and ("make " .. shortCount(it.count)) or "pattern"
+      local stored = (it.stored or 0) > 0 and (shortCount(it.stored) .. " stored  ") or ""
+      local right = stored .. can
+      put(win, 1, 2 + i, fit(" " .. it.label, w - #right - 2), "white", bg)
+      put(win, w - #right - 1, 2 + i, " " .. stored, sel and "white" or "gray", bg)
+      put(win, w - #can, 2 + i, can .. " ", sel and "white" or "lightBlue", bg)
+      hit(ui, 2 + i, 1, w, function()
+        if ui.touch or index == ui.selected then pickItem(ui, it) else ui.selected, ui.pick = index, nil end
+      end)
+    end
+  end
+  if #list == 0 then
+    local any = next(crafters) ~= nil or next(patterns) ~= nil
+    local empty = ui.query ~= "" and "Nothing craftable matches."
+      or not view.ready and "Working out what can be crafted..."
+      or not any and "No crafting turtle yet."
+      or "Nothing can be crafted from what's stored."
+    put(win, 2, 4, fit(empty, w - 2), "lightGray")
+  end
+
+  -- what's being made, or why it's stuck
+  local busy
+  if craftProblem then
+    busy = { "Stuck: " .. craftProblem, "orange" }
+  else
+    local parts = {}
+    for name, n in pairs(pendingAll()) do
+      if n > 0 then parts[#parts + 1] = ("%d %s"):format(n, nice(name)) end
+    end
+    table.sort(parts)
+    busy = #parts > 0 and { "Making: " .. table.concat(parts, ", "), "lightBlue" } or { "Nothing being crafted.", "gray" }
+  end
+  put(win, 1, h - 2, fit(busy[1], w), busy[2])
+
+  local p = ui.pick
+  if p then
+    put(win, 1, h - 1, fit(("How many %s? Into storage."):format(p.it.label), w), "yellow")
+    -- -64 -8 -1 [n] +1 +8 +64  Craft  x
+    put(win, 1, h, (" "):rep(w), "white", "gray")
+    local x = 1
+    for _, step in ipairs(STEPS) do
+      local text, fg, bg
+      if step == 0 then
+        text, fg, bg = (" %4s "):format(p.typed and p.n == 0 and "" or tostring(p.n)), "white", "black"
+      else
+        text, fg, bg = (step > 0 and "+" or "") .. step, "white", "gray"
+        hit(ui, h, x, x + #text - 1, function() p.n, p.typed = math.max(1, math.min(ORDER_MAX, p.n + step)), false end)
+      end
+      put(win, x, h, text, fg, bg)
+      x = x + #text + 1
+    end
+    put(win, x, h, " Craft ", "white", "green")
+    hit(ui, h, x, x + 6, function() sendOrder(ui) end)
+    x = x + 8
+    put(win, x, h, " x ", "white", "red")
+    hit(ui, h, x, x + 2, function() ui.pick = nil end)
+  else
+    put(win, 1, h - 1, fit(message[1], w), message[2])
+    put(win, 1, h, fit(ui.touch and "Tap a row, pick how many, then Craft." or "Type to search  Enter: craft  Tab: queue", w), "gray")
+  end
+end
+
+local function drawOn(s, ui)
+  if not s.target then return end
+  local win, w, h = s:frame()
+  ui.hits = {}
+  header(win, w, ui)
+  if ui.view == "craft" then drawCraft(win, w, h, ui) else drawQueue(win, w, h) end
+  if not ui.touch and ui.view == "craft" and not ui.pick then
+    win.setCursorPos(math.min(w, 9 + #ui.query), 2)
+    win.setTextColor(colors.white)
+    win.setCursorBlink(true)
+  else
+    win.setCursorBlink(false)
+  end
+  s:show()
+end
+
+local function draw()
+  if display.name then
+    drawOn(display, uis.mon)
+    drawOn(termScreen, uis.term)
+  else
+    drawOn(display, uis.term)
+  end
+end
+
+-- Keys on the terminal: the search and the amount being typed.
+local function onKey(ui, event, a)
+  local p = ui.pick
+  if p then
+    if event == "char" and a:match("%d") then
+      if not p.typed then p.n, p.typed = 0, true end
+      p.n = math.min(ORDER_MAX, p.n * 10 + tonumber(a))
+    elseif event == "key" and (a == keys.enter or a == keys.numPadEnter) then
+      sendOrder(ui)
+    elseif event == "key" and a == keys.backspace then
+      if p.typed and p.n == 0 then ui.pick = nil else p.n, p.typed = math.floor(p.n / 10), true end
+    elseif event == "key" and (a == keys.delete or a == keys.up or a == keys.down or a == keys.tab) then
+      ui.pick = nil
+    end
+    return
+  end
+  if event == "char" then
+    ui.view, ui.query, ui.selected = "craft", ui.query .. a, 1
+  elseif event == "key" then
+    if a == keys.tab then
+      ui.view = ui.view == "craft" and "queue" or "craft"
+    elseif ui.view == "craft" then
+      local list = matches(ui)
+      if a == keys.backspace then ui.query, ui.selected = ui.query:sub(1, -2), 1
+      elseif a == keys.delete then ui.query, ui.selected = "", 1
+      elseif a == keys.up then ui.selected = ui.selected - 1
+      elseif a == keys.down then ui.selected = ui.selected + 1
+      elseif a == keys.pageUp then ui.selected = ui.selected - 10
+      elseif a == keys.pageDown then ui.selected = ui.selected + 10
+      elseif (a == keys.enter or a == keys.numPadEnter) and list[ui.selected] then pickItem(ui, list[ui.selected])
+      end
+    end
+  end
+end
+
+local QUIET = { rednet_message = true, modem_message = true } -- others' traffic: what it changes says so itself
+
+-- While someone uses a Craft page, keep the list of what can be made worked
+-- out (for VIEW_KEEP after the last tap or key: a page left open by itself
+-- doesn't keep a modpack's minute-long count going).
+local function wantList()
+  if uis.term.view == "craft" or (display.name and uis.mon.view == "craft") then
+    local wasOn = os.clock() - view.wanted < VIEW_KEEP
+    view.wanted = os.clock()
+    if not wasOn then os.queueEvent("overseer_view_wanted") end
+  end
+end
+
+local INPUT = { monitor_touch = true, mouse_click = true, mouse_scroll = true, char = true, key = true }
+
 local function uiLoop()
+  local tick = os.startTimer(VIEW_TICK)
+  wantList()
   while true do
     draw()
-    local ev = { os.pullEvent() }
-    if ev[1] == "peripheral" or ev[1] == "peripheral_detach" then display:refresh() end
+    local ev
+    repeat ev = { os.pullEvent() } until not QUIET[ev[1]]
+    if ev[1] == "peripheral" or ev[1] == "peripheral_detach" then
+      display:refresh()
+    elseif ev[1] == "timer" and ev[2] == tick then
+      tick = os.startTimer(VIEW_TICK)
+    elseif ev[1] == "monitor_touch" then
+      local x, y = display:clicked(ev)
+      if x and display.name then tap(uis.mon, x, y) end
+    elseif ev[1] == "mouse_click" then
+      tap(uis.term, ev[3], ev[4])
+    elseif ev[1] == "mouse_scroll" and uis.term.view == "craft" and not uis.term.pick then
+      uis.term.selected = uis.term.selected + ev[2]
+    elseif ev[1] == "char" or ev[1] == "key" then
+      onKey(uis.term, ev[1], ev[2])
+    end
+    if INPUT[ev[1]] then wantList() end
   end
 end
 
