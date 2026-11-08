@@ -305,7 +305,10 @@ Rules that keep it from stalling:
   When the whole amount can't be made, it makes as many as it can.
 - Long computations yield now and then (`crafting.lua`'s and `chests.lua`'s
   `breathe`) so CC never stops the program for running too long without
-  yielding.
+  yielding. Each yield queues an event with its own ticket and waits for
+  that one: with one shared event name, every loop waiting on a yield woke
+  on each one and worked another slice, so screens waited rounds of all of
+  them for each tap.
 - With a modpack's recipes (`pack_recipes.lua`, thousands of them), plans
   only try items that can be made at all from what's stored
   (`crafting.reachable`, worked out once per request and passed in as

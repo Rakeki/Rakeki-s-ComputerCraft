@@ -1116,7 +1116,9 @@ local function viewLoop()
     for name in pairs(patterns) do
       if not listed[name] then list[#list + 1] = { name = name, label = nice(name), stored = math.max(0, (stock or {})[name] or 0) } end
     end
-    table.sort(list, function(a, b) return a.label:lower() < b.label:lower() end)
+    local lower = {}
+    for _, it in ipairs(list) do lower[it] = it.label:lower() end
+    table.sort(list, function(a, b) return lower[a] < lower[b] end)
     view.list, view.ready = list, true
     os.queueEvent("overseer_changed")
     sleep(math.max(VIEW_EVERY, (os.clock() - started) * VIEW_REST))
@@ -1561,8 +1563,11 @@ local function uiLoop()
     end
     if INPUT[ev[1]] then
       wantList()
-      -- drawn once the input already queued behind it is handled
-      if not queued then
+      -- a tap or click draws now (anything queued behind it can be planning
+      -- work); typing once the keys already queued are handled, so a burst draws once
+      if ev[1] == "monitor_touch" or ev[1] == "mouse_click" or ev[1] == "mouse_scroll" then
+        drawNow = true
+      elseif not queued then
         queued = true
         os.queueEvent("overseer_redraw")
       end

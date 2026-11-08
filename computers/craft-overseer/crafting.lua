@@ -262,12 +262,20 @@ local planItem -- defined below; the two call each other
 -- count, since one step can be heavy (a big tag searched), and the
 -- overseer's requests and screen wait for every yield (the craft
 -- terminal's counts).
-local calls, yieldedAt = 0, os.clock()
+-- Each yield waits for its own ticket: with one shared event, every plan
+-- waiting on a yield (the craft list's counts, a canmake, the queue's
+-- missing check) woke on each one and planned another YIELD_AFTER, so the
+-- screen waited several rounds of all of them for each tap and redraw.
+local calls, yieldedAt, tickets = 0, os.clock(), 0
 local function breathe()
   calls = calls + 1
   if calls % 10 == 0 and (calls % 1000 == 0 or os.clock() - yieldedAt >= YIELD_AFTER) and os.queueEvent then
-    os.queueEvent("crafting_yield")
-    os.pullEvent("crafting_yield")
+    tickets = tickets + 1
+    local mine = tickets
+    os.queueEvent("crafting_yield", mine)
+    repeat
+      local _, ticket = os.pullEvent("crafting_yield")
+    until ticket == mine
     yieldedAt = os.clock()
   end
 end

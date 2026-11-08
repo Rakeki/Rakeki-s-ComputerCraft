@@ -36,11 +36,19 @@ local function shortName(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " "))
 -- running too long without yielding, and by time, so the screens aren't
 -- kept waiting while a big network is sorted through.
 local calls, yieldedAt = 0, os.clock()
+-- Each yield waits for its own ticket: with one shared event, every loop
+-- waiting on a yield woke on each one and worked another YIELD_AFTER, so
+-- the screens waited several rounds of all of them for each tap.
+local tickets = 0
 local function breathe()
   calls = calls + 1
   if calls % 10 == 0 and (calls % 1000 == 0 or os.clock() - yieldedAt >= YIELD_AFTER) then
-    os.queueEvent("chests_yield")
-    os.pullEvent("chests_yield")
+    tickets = tickets + 1
+    local mine = tickets
+    os.queueEvent("chests_yield", mine)
+    repeat
+      local _, ticket = os.pullEvent("chests_yield")
+    until ticket == mine
     yieldedAt = os.clock()
   end
 end
