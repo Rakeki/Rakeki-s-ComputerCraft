@@ -398,6 +398,9 @@ if not findChest() then
 end
 rednet.host(CRAFT_PROTOCOL, os.getComputerLabel())
 emptyOut() -- leftovers from last time go to the storage system
+-- the craft overseer puts me to work at once (rather than at its next look),
+-- and stops waiting for a craft I was doing when I restarted
+rednet.broadcast({ type = "hello", label = os.getComputerLabel() }, CRAFT_PROTOCOL)
 
 if report then report.init("crafter") end
 parallel.waitForAny(function()

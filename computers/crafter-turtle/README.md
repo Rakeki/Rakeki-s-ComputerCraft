@@ -120,7 +120,11 @@ The recipes and the planning live on the [craft overseer](../craft-overseer/READ
   and the overseer's screen says what was missing; the turtle that
   asked will ask again, and it starts again once there's enough.
 - If this turtle is off or out of range, turtles waiting on a craft are told
-  crafting is stuck, and it all carries on once it's back.
+  crafting is stuck, and it all carries on once it's back. It tells the craft
+  overseer when it starts, so it's back at work within seconds, and a craft it
+  was in the middle of when it restarted is tried again straight away (the
+  overseer's [Turtles tab](../craft-overseer/README.md#turtles-coming-and-going)
+  shows each turtle and how long a quiet one has been gone).
 - It uses whichever matching item there's most of where a recipe takes any
   planks or any coal.
 - Items with extra data (enchanted or named) are never used as ingredients.

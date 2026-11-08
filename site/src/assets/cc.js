@@ -1080,7 +1080,8 @@
 
   // The crafting overseer's monitor: same layout as
   // computers/craft-overseer/overseer.lua. Three turtles work through a queue
-  // where one order is short of iron until it "arrives"; the Craft tab lists what
+  // where one order is short of iron until it "arrives"; the Turtles tab shows
+  // each turtle (one gone quiet); the Craft tab lists what
   // can be made and orders it (tap a row, pick how many, Craft).
   function overseer(el) {
     const W = 39, H = 19;
@@ -1121,6 +1122,7 @@
         if (j.left === 0) {
           queue.splice(queue.indexOf(j), 1);
           st.msg = [`Crafted ${j.count * 8} ${j.name} on turtle #${t.id}.`, "lime"];
+          t.made = (t.made || 0) + j.count * 8;
           st.last = j;
           t.job = null;
         }
@@ -1146,7 +1148,7 @@
     function header() {
       s.fill(1, "gray");
       let x = 1;
-      for (const [id, label] of [["queue", "Queue"], ["craft", "Craft"]]) {
+      for (const [id, label] of [["queue", "Queue"], ["turtles", "Turtles"], ["craft", "Craft"]]) {
         const on = st.view === id;
         x = s.button(x, 1, label, on ? "yellow" : "lightGray", on ? "black" : "gray", () => { st.view = id; st.pick = null; });
       }
@@ -1155,13 +1157,7 @@
     }
 
     function drawQueue() {
-      s.put(2, 3, "Turtles", "yellow");
-      turtles.forEach((t, i) => {
-        const text = t.job ? `crafting ${t.job.left * t.job.count} ${t.job.name}` : "idle";
-        s.put(2, 4 + i, fitT(`#${t.id} ${text}`, W - 2), t.job ? "lightBlue" : "gray");
-      });
-      let y = 4 + turtles.length + 1;
-      s.put(2, y++, "Queue", "yellow");
+      let y = 3;
       for (const j of queue) {
         if (y > H - 2) break;
         const [state, colour] = j.state === "working" ? [`on #${j.on}`, "lightBlue"] : j.needs ? ["missing", "orange"] : ["queued", "white"];
@@ -1171,6 +1167,26 @@
         if (j.needs && y <= H - 2) s.put(4, y++, fitT(`needs ${j.needs}`, W - 4), "orange");
       }
       if (!queue.length) s.put(2, y, "Nothing queued.", "gray");
+      const working = turtles.filter((t) => t.job).length;
+      s.put(1, H - 1, fitT(`Turtles: ${working} working, ${turtles.length - working} idle, 1 not ready`, W), "orange");
+      s.put(1, H, fitT(st.msg[0], W), st.msg[1]);
+    }
+
+    // made-up chests and counts for the Turtles tab, plus one gone quiet
+    const chests = { 12: "chest_4", 13: "chest_7", 14: "barrel_2" };
+    function drawTurtles() {
+      let y = 3;
+      for (const t of turtles) {
+        const [state, colour] = t.job ? [`crafting ${t.job.left * t.job.count} ${t.job.name}`, "lightBlue"] : ["idle", "gray"];
+        s.put(2, y, fitT(`#${t.id} Crafter-${t.id}`, W - state.length - 3), "white");
+        s.put(W - state.length, y, state, colour);
+        s.put(4, y + 1, fitT(`${chests[t.id]}, ${t.made || 0} made`, W - 4), "gray");
+        y += 2;
+      }
+      s.put(2, y, fitT("#15 Crafter-15", W - 16), "white");
+      s.put(W - 13, y, "not answering", "red");
+      s.put(4, y + 1, fitT(`quiet for ${4 + Math.floor(st.tick / 60)} min`, W - 4), "gray");
+      s.put(1, H - 1, fitT("Quiet: is it loaded, running 'crafter'?", W), "orange");
       s.put(1, H, fitT(st.msg[0], W), st.msg[1]);
     }
 
@@ -1218,7 +1234,7 @@
     function draw() {
       s.clear();
       header();
-      if (st.view === "craft") drawCraft(); else drawQueue();
+      if (st.view === "craft") drawCraft(); else if (st.view === "turtles") drawTurtles(); else drawQueue();
       s.render();
     }
 

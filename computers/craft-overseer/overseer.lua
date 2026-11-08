@@ -72,7 +72,10 @@ local MAX_BATCH_OUTPUT = 384 -- most items one batch may make (6 stacks: they mu
 local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
 local LOAD_WAIT = 30 -- seconds to wait for it to load a chest (it loads one at a time, so with many turtles some wait their turn)
 local CRAFT_WAIT = 60 -- seconds to wait for a crafting turtle to finish one batch
+local PING_WAIT = 5 -- seconds a turtle that was quiet (or is new) has to answer a ping before its first job
 local LOOK_EVERY = 15 -- seconds between looks for crafting turtles and the storage stock
+local HELLO_LOOK = 2 -- fewest seconds between looks while turtles are starting up (each says hello)
+local TURTLE_FORGET = 1800 -- seconds a turtle that stopped answering stays on the Turtles tab
 local RETRY_MISSING = 15 -- seconds before a job that was short of ingredients is tried again
 local GIVE_UP = 600 -- seconds a job may wait for missing ingredients before it's given up on
 local MONITOR_SCALES = { 1, 0.5 } -- text sizes to try on the monitor, largest first
@@ -89,7 +92,9 @@ local VIEW_KEEP = 120 -- seconds the list is kept worked out after a craft termi
 local ORDER_EVERY = 2 -- seconds between sending a craft terminal what's been made of its order
 local ORDER_MAX = 9999 -- most of one item a craft terminal (or my own Craft page) may order at once
 local ORDER_STACK = 64 -- how many an order on my Craft page starts at
-local VIEW_TICK = 5 -- seconds between redraws of my Craft page (the list and what's being made)
+local VIEW_TICK = 5 -- seconds between redraws when nothing happens (how long a turtle's been quiet)
+local CHANGE_EVERY = 1 -- fewest seconds between redraws for changes (input draws at once)
+local REDRAW_GAP = 0.2 -- seconds a change waits to be drawn, so a burst of changes draws once
 
 -- jobs: in order, each { id, plan, name, steps, left, count, grid, top, via, state, crafter,
 -- missing, since, why }; state is "queued", "working" or "waiting" (short of ingredients),
@@ -681,6 +686,25 @@ local function nextJob()
   end
 end
 
+-- A crafting turtle that may be given a job: answering, with a chest.
+local function usable(c) return c.online and c.chest ~= nil end
+
+local function usableCount()
+  local n = 0
+  for _, c in pairs(crafters) do
+    if usable(c) then n = n + 1 end
+  end
+  return n
+end
+
+-- A turtle stopped answering: it's left out (and shown so) until it answers again.
+local function lost(id, c, why)
+  if c.online then
+    c.online, c.since = false, os.clock()
+    say(("Crafting turtle #%d %s: it's left out until it answers."):format(id, why), "orange")
+  end
+end
+
 -- Run one job on crafting turtle id, a batch at a time.
 local function runJob(id, job)
   local c = crafters[id]
@@ -688,6 +712,18 @@ local function runJob(id, job)
   c.job = job
   save()
   os.queueEvent("overseer_changed")
+  -- back after going quiet (or new): see that it answers before loading its chest
+  if c.check then
+    local ping = { type = "ping" }
+    local pong = net.ask(id, CRAFT_PROTOCOL, ping, { wait = PING_WAIT,
+      match = function(msg) return msg.type == "pong" and msg.id == ping.id end })
+    if not pong then
+      job.state, job.crafter = "queued", nil
+      lost(id, c, "didn't answer a ping")
+      return
+    end
+    c.check, c.seen = nil, os.clock()
+  end
   while job.left > 0 do
     local want = math.min(job.left, 64, math.floor(MAX_BATCH_OUTPUT / job.count))
     local r
@@ -729,23 +765,33 @@ local function runJob(id, job)
     job.since, job.missing, job.why, job.reordered = nil, nil, nil, nil
     c.note = ("crafting %d %s"):format(r.steps * job.count, nice(job.name))
     os.queueEvent("overseer_changed")
+    -- its answer, or its hello if it restarted meanwhile (that craft is lost:
+    -- no need to wait the whole CRAFT_WAIT for it)
     local craft = { type = "craft", steps = r.steps, grid = job.grid }
     local reply = net.ask(id, CRAFT_PROTOCOL, craft, { wait = CRAFT_WAIT,
-      match = function(msg) return msg.type == "crafted" and msg.id == craft.id end })
+      match = function(msg) return (msg.type == "crafted" and msg.id == craft.id) or msg.type == "hello" end })
     if c.hub then
       withHub(function() emptyBarrel(c.chest) end)
     else
       askStorage({ type = "clear", crafter = id }, LOAD_WAIT)
     end
     c.note = nil
-    if not reply then
-      -- the turtle went quiet: someone else can have the job
-      c.online = false
+    if reply and reply.type == "hello" then
       job.state, job.crafter = "queued", nil
-      say(("Crafting turtle #%d didn't answer: it's left out until it does."):format(id), "orange")
+      c.seen = os.clock()
+      say(("Crafting turtle #%d restarted mid-craft: that batch goes again."):format(id), "orange")
       save()
       return
     end
+    if not reply then
+      -- the turtle went quiet: someone else can have the job
+      job.state, job.crafter = "queued", nil
+      lost(id, c, "didn't finish its craft")
+      c.check = true
+      save()
+      return
+    end
+    c.seen = os.clock()
     if (reply.made or 0) == 0 or (reply.item and reply.item ~= job.name) then
       local why = (reply.made or 0) == 0 and (reply.error or "the recipe didn't work")
         or ("turtle #%d made %s instead"):format(id, nice(reply.item))
@@ -753,6 +799,7 @@ local function runJob(id, job)
       say(("Couldn't craft %s: %s."):format(nice(job.name), why), "red")
       return
     end
+    c.made = (c.made or 0) + reply.made
     job.left = job.left - r.steps
     save()
   end
@@ -762,20 +809,22 @@ local function runJob(id, job)
   if report then report.log(("crafted %d %s"):format(job.steps * job.count, nice(job.name))) end
 end
 
--- One of these per crafting turtle slot: the slot's turtle takes jobs.
-local function worker(slot)
+-- MAX_CRAFTERS of these: each takes the next job to the first free turtle
+-- (picked and marked busy without a yield between, so two never share one).
+local function worker()
   return function()
     while true do
       local ids = {}
       for id, c in pairs(crafters) do
-        if c.online then ids[#ids + 1] = id end
+        if usable(c) and not c.job then ids[#ids + 1] = id end
       end
       table.sort(ids)
-      local id = ids[slot]
-      local job = id and not crafters[id].job and nextJob()
+      local id = ids[1]
+      local job = id and nextJob()
       if job then
+        local c = crafters[id]
         runJob(id, job)
-        crafters[id].job = nil
+        c.job = nil
         os.queueEvent("overseer_changed")
       else
         local timer = os.startTimer(5)
@@ -787,8 +836,28 @@ local function worker(slot)
   end
 end
 
--- Find the crafting turtles (those that answer and that the storage
--- computer has a chest for), count the stock, and work out what's missing.
+-- A crafting turtle says hello when it starts: look for it now rather than
+-- at the next look, and know its label.
+local lookSoon = false
+local function helloLoop()
+  while true do
+    local from, msg = rednet.receive(CRAFT_PROTOCOL)
+    if type(msg) == "table" and msg.type == "hello" then
+      local c = crafters[from]
+      if c then
+        c.seen = os.clock()
+        if type(msg.label) == "string" then c.label = msg.label end
+      end
+      lookSoon = true
+      os.queueEvent("overseer_look")
+    end
+  end
+end
+
+-- Find the crafting turtles (those that answer, with the chest the storage
+-- computer has for each), count the stock, and work out what's missing.
+-- A turtle that stops answering stays on the list (not answering, and for
+-- how long) for TURTLE_FORGET, and goes back to work the moment it answers.
 local function lookLoop()
   while true do
     if hub.name and os.clock() >= (hub.nextClaim or 0) then claimHub() end
@@ -805,20 +874,30 @@ local function lookLoop()
         local barrel = hub.ready and barrels[id] and peripheral.isPresent(barrels[id]) and barrels[id]
         local chest = barrel or chests[id]
         if not chest and r.shared and not sharedTaken then chest, sharedTaken = r.shared, true end
-        if chest then
-          seen[id] = true
-          crafters[id] = crafters[id] or {}
-          crafters[id].chest, crafters[id].online, crafters[id].hub = chest, true, barrel and true or nil
+        seen[id] = true
+        local c = crafters[id]
+        if not c then
+          c = { check = true }
+          crafters[id] = c
+          if chest then say(("Crafting turtle #%d is ready."):format(id), "lime") end
+        elseif not c.online then
+          c.check = true -- it answered a lookup: a ping before its first job makes sure
+          say(("Crafting turtle #%d is back."):format(id), "lime")
+        elseif chest and not c.chest then
+          say(("Crafting turtle #%d has its chest now."):format(id), "lime")
         end
+        c.chest, c.online, c.hub, c.since, c.seen = chest or nil, true, barrel and true or nil, nil, os.clock()
       end
       for id, c in pairs(crafters) do
-        if not seen[id] and not c.job then crafters[id] = nil end
+        if not seen[id] and not c.job then
+          lost(id, c, "stopped answering")
+          if os.clock() - (c.since or 0) > TURTLE_FORGET then crafters[id] = nil end
+        end
       end
       stockAt = -math.huge
       freshStock()
       workOutMissing()
-      local n = 0
-      for _ in pairs(crafters) do n = n + 1 end
+      local n = usableCount()
       local problem
       local turtleJobs = false
       for _, job in ipairs(queue.jobs) do
@@ -839,7 +918,19 @@ local function lookLoop()
     status(#queue.jobs > 0 and "crafting" or "idle", ("%d jobs queued"):format(#queue.jobs))
     os.queueEvent("overseer_work")
     os.queueEvent("overseer_changed")
-    sleep(LOOK_EVERY)
+    -- the next look: in LOOK_EVERY, or soon after a turtle says hello (it may
+    -- still be telling the storage computer which chest is its own, and the
+    -- regular look catches that)
+    if not lookSoon then
+      local timer = os.startTimer(LOOK_EVERY)
+      repeat
+        local event, value = os.pullEvent()
+      until (event == "timer" and value == timer) or event == "overseer_look"
+    end
+    if lookSoon then
+      lookSoon = false
+      sleep(HELLO_LOOK)
+    end
   end
 end
 
@@ -908,10 +999,8 @@ local function handleRequest(from, msg)
     for name, n in pairs(pendingAll()) do
       if n > 0 then making[#making + 1] = { name = name, label = nice(name), count = n } end
     end
-    local n = 0
-    for _ in pairs(crafters) do n = n + 1 end
     answer(from, msg, { items = items, ready = view.ready, making = making, queue = #queue.jobs,
-      problem = craftProblem, crafter = n > 0 or next(patterns) ~= nil })
+      problem = craftProblem, crafter = usableCount() > 0 or next(patterns) ~= nil })
   elseif msg.type == "craft" and type(msg.item) == "string" then
     local n = math.max(1, math.min(ORDER_MAX, math.floor(tonumber(msg.count) or 1)))
     local made, why = orderCraft(msg.item, n)
@@ -1087,7 +1176,7 @@ local uis = {
   mon = { view = "queue", query = "", selected = 1, scroll = 0, touch = true, hits = {} },
   term = { view = display.name and "craft" or "queue", query = "", selected = 1, scroll = 0, hits = {} },
 }
-local TABS = { { "queue", "Queue" }, { "craft", "Craft" } }
+local TABS = { { "queue", "Queue" }, { "turtles", "Turtles" }, { "craft", "Craft" } }
 local STEPS = { -64, -8, -1, 0, 1, 8, 64 } -- the amount buttons (0: the amount itself)
 
 local function missingText(short)
@@ -1128,47 +1217,44 @@ local function header(win, w, ui)
   put(win, w - #head, 1, head, "lightGray", "gray")
 end
 
-local function drawQueue(win, w, h)
-  -- the crafting turtles
+local function jobState(job)
+  if job.state == "working" then return ("on #%d"):format(job.crafter or 0), "lightBlue" end
+  if job.via then return job.state == "sent" and ("by " .. job.via) or "machine", "lightBlue" end
+  if job.state == "waiting" then return "short", "orange" end
+  if job.short then return "missing", "orange" end
+  return "queued", "white"
+end
+
+-- What each turtle is doing, in a few words, and its colour.
+local function turtleState(c)
+  if not c.online then return "not answering", "red" end
+  if not c.chest then return "no chest yet", "orange" end
+  if c.note then return c.note, "lightBlue" end
+  if c.job then return "loading " .. nice(c.job.name), "lightBlue" end
+  return "idle", "gray"
+end
+
+local function ago(seconds)
+  seconds = math.max(0, math.floor(seconds))
+  if seconds < 90 then return ("%d s"):format(seconds) end
+  if seconds < 5400 then return ("%d min"):format(math.floor(seconds / 60 + 0.5)) end
+  return ("%d h"):format(math.floor(seconds / 3600 + 0.5))
+end
+
+local function sortedTurtles()
   local ids = {}
   for id in pairs(crafters) do ids[#ids + 1] = id end
   table.sort(ids)
-  put(win, 2, 3, "Turtles", "yellow")
-  local y = 4
-  for _, id in ipairs(ids) do
-    if y > 3 + math.min(MAX_CRAFTERS, math.floor(h / 3)) then break end
-    local c = crafters[id]
-    local text = not c.online and "not answering" or c.note or (c.job and ("loading " .. nice(c.job.name))) or "idle"
-    put(win, 2, y, fit(("#%d %s"):format(id, text), w - 2), not c.online and "red" or c.job and "lightBlue" or "gray")
-    y = y + 1
-  end
-  if #ids == 0 then
-    put(win, 2, y, "None yet: start 'crafter' on a crafty turtle.", "orange")
-    y = y + 1
-  end
+  return ids
+end
 
-  -- the queue, with what each job is short of
-  y = y + 1
-  put(win, 2, y, "Queue", "yellow")
-  y = y + 1
-  local rows = h - 2 - y
-  local shown = 0
+-- Queue: every job in order, with what it's short of; the turtles in one line.
+local function drawQueue(win, w, h)
+  local y, rows, shown = 3, h - 4, 0
   for _, job in ipairs(queue.jobs) do
     if shown >= rows then break end
-    local what = ("%d %s"):format(job.left * job.count, nice(job.name))
-    local state, colour
-    if job.state == "working" then
-      state, colour = ("on #%d"):format(job.crafter or 0), "lightBlue"
-    elseif job.via then
-      state, colour = job.state == "sent" and ("by " .. job.via) or "machine", "lightBlue"
-    elseif job.state == "waiting" then
-      state, colour = "short", "orange"
-    elseif job.short then
-      state, colour = "missing", "orange"
-    else
-      state, colour = "queued", "white"
-    end
-    put(win, 2, y, fit(what, w - #state - 3), "white")
+    local state, colour = jobState(job)
+    put(win, 2, y, fit(("%d %s"):format(job.left * job.count, nice(job.name)), w - #state - 3), "white")
     put(win, w - #state, y, state, colour)
     y, shown = y + 1, shown + 1
     local short = job.state == "waiting" and job.missing or job.short
@@ -1183,18 +1269,66 @@ local function drawQueue(win, w, h)
       last.ok and "" or (" (failed: " .. tostring(last.why) .. ")")), w - 2) or "Nothing queued.",
       last and not last.ok and "red" or "gray")
   elseif #queue.jobs > shown then
-    put(win, 2, h - 2, "...and more", "gray")
+    put(win, w - 11, h - 2, "...and more", "gray")
   end
+  local working, idle, off = 0, 0, 0
+  for _, c in pairs(crafters) do
+    if not usable(c) then off = off + 1 elseif c.job then working = working + 1 else idle = idle + 1 end
+  end
+  local line = next(crafters) == nil and "No crafting turtles yet: see the Turtles tab."
+    or ("Turtles: %d working, %d idle%s"):format(working, idle, off > 0 and (", %d not ready"):format(off) or "")
+  put(win, 1, h - 1, fit(line, w), off > 0 and "orange" or "gray")
+  put(win, 1, h, fit(message[1], w), message[2])
+end
+
+-- Turtles: each crafting turtle, what it's doing, its chest and how much it's made.
+local function drawTurtles(win, w, h)
+  local ids = sortedTurtles()
+  local y, last, quiet = 3, h - 2, false
+  for i, id in ipairs(ids) do
+    if y + 1 > last then
+      put(win, 2, last, ("...and %d more"):format(#ids - i + 1), "gray")
+      break
+    end
+    local c = crafters[id]
+    local state, colour = turtleState(c)
+    local name = c.label and ("#%d %s"):format(id, c.label) or ("#%d"):format(id)
+    put(win, 2, y, fit(name, w - #state - 3), "white")
+    put(win, w - #state, y, state, colour)
+    local detail
+    if not c.online then
+      detail = ("quiet for %s"):format(ago(os.clock() - (c.since or 0)))
+      quiet = true
+    elseif not c.chest then
+      detail = "needs a chest in front, on the cable"
+    else
+      detail = ("%s%s, %d made"):format(c.hub and "barrel " or "", (c.chest:gsub("^[%w_]+:", "")), c.made or 0)
+    end
+    put(win, 4, y + 1, fit(detail, w - 4), "gray")
+    y = y + 2
+  end
+  if #ids == 0 then
+    put(win, 2, 3, fit("None yet: start 'crafter' on a crafty turtle", w - 2), "orange")
+    put(win, 2, 4, fit("with its own chest in front of it.", w - 2), "orange")
+  end
+  put(win, 1, h - 1, fit(quiet and "Quiet: is it loaded, running 'crafter'?"
+    or ("Up to %d at once, checked every %d s."):format(MAX_CRAFTERS, LOOK_EVERY), w), quiet and "orange" or "gray")
   put(win, 1, h, fit(message[1], w), message[2])
 end
 
 ---------------------------------------------------------------- ordering from the screen
 
+-- The list's search hits, worked out again only when the list or the search
+-- changes (with a modpack's thousands of items, on every redraw it was most
+-- of the screen's work).
 local function matches(ui)
-  local q, out = ui.query:lower(), {}
+  local q, c = ui.query:lower(), ui.cache
+  if c and c.list == view.list and c.q == q then return c.out end
+  local out = {}
   for _, it in ipairs(view.list) do
     if q == "" or it.label:lower():find(q, 1, true) or it.name:lower():find(q, 1, true) then out[#out + 1] = it end
   end
+  ui.cache = { list = view.list, q = q, out = out }
   return out
 end
 
@@ -1256,7 +1390,7 @@ local function drawCraft(win, w, h, ui)
     end
   end
   if #list == 0 then
-    local any = next(crafters) ~= nil or next(patterns) ~= nil
+    local any = usableCount() > 0 or next(patterns) ~= nil
     local empty = ui.query ~= "" and "Nothing craftable matches."
       or not view.ready and "Working out what can be crafted..."
       or not any and "No crafting turtle yet."
@@ -1302,7 +1436,7 @@ local function drawCraft(win, w, h, ui)
     hit(ui, h, x, x + 2, function() ui.pick = nil end)
   else
     put(win, 1, h - 1, fit(message[1], w), message[2])
-    put(win, 1, h, fit(ui.touch and "Tap a row, pick how many, then Craft." or "Type to search  Enter: craft  Tab: queue", w), "gray")
+    put(win, 1, h, fit(ui.touch and "Tap a row, pick how many, then Craft." or "Type to search  Enter: craft  Tab: next tab", w), "gray")
   end
 end
 
@@ -1311,7 +1445,9 @@ local function drawOn(s, ui)
   local win, w, h = s:frame()
   ui.hits = {}
   header(win, w, ui)
-  if ui.view == "craft" then drawCraft(win, w, h, ui) else drawQueue(win, w, h) end
+  if ui.view == "craft" then drawCraft(win, w, h, ui)
+  elseif ui.view == "turtles" then drawTurtles(win, w, h)
+  else drawQueue(win, w, h) end
   if not ui.touch and ui.view == "craft" and not ui.pick then
     win.setCursorPos(math.min(w, 9 + #ui.query), 2)
     win.setTextColor(colors.white)
@@ -1351,7 +1487,12 @@ local function onKey(ui, event, a)
     ui.view, ui.query, ui.selected = "craft", ui.query .. a, 1
   elseif event == "key" then
     if a == keys.tab then
-      ui.view = ui.view == "craft" and "queue" or "craft"
+      for i, t in ipairs(TABS) do
+        if t[1] == ui.view then
+          ui.view = TABS[i % #TABS + 1][1]
+          break
+        end
+      end
     elseif ui.view == "craft" then
       local list = matches(ui)
       if a == keys.backspace then ui.query, ui.selected = ui.query:sub(1, -2), 1
@@ -1366,8 +1507,6 @@ local function onKey(ui, event, a)
   end
 end
 
-local QUIET = { rednet_message = true, modem_message = true } -- others' traffic: what it changes says so itself
-
 -- While someone uses a Craft page, keep the list of what can be made worked
 -- out (for VIEW_KEEP after the last tap or key: a page left open by itself
 -- doesn't keep a modpack's minute-long count going).
@@ -1381,17 +1520,35 @@ end
 
 local INPUT = { monitor_touch = true, mouse_click = true, mouse_scroll = true, char = true, key = true }
 
+-- Draws only for input (straight away, a burst of keys once), changes
+-- (overseer_changed: at most once every CHANGE_EVERY, as busy turtles change
+-- things all the time) and a beat every VIEW_TICK. Every other event (the
+-- planner's yields, the workers' timers, rednet) used to redraw both screens,
+-- which is what made it lag.
 local function uiLoop()
   local tick = os.startTimer(VIEW_TICK)
+  local soon, queued, drawNow, drawnAt = nil, false, true, -math.huge
   wantList()
   while true do
-    draw()
-    local ev
-    repeat ev = { os.pullEvent() } until not QUIET[ev[1]]
-    if ev[1] == "peripheral" or ev[1] == "peripheral_detach" then
-      display:refresh()
+    if drawNow then
+      drawNow = false
+      draw()
+      drawnAt = os.clock()
+    end
+    local ev = { os.pullEvent() }
+    if ev[1] == "overseer_changed" then
+      soon = soon or os.startTimer(math.max(REDRAW_GAP, drawnAt + CHANGE_EVERY - os.clock()))
+    elseif ev[1] == "timer" and ev[2] == soon then
+      soon, drawNow = nil, true
     elseif ev[1] == "timer" and ev[2] == tick then
-      tick = os.startTimer(VIEW_TICK)
+      tick, drawNow = os.startTimer(VIEW_TICK), true
+    elseif ev[1] == "overseer_redraw" then
+      queued, drawNow = false, true
+    elseif ev[1] == "peripheral" or ev[1] == "peripheral_detach" then
+      display:refresh()
+      drawNow = true
+    elseif ev[1] == "term_resize" or ev[1] == "monitor_resize" then
+      drawNow = true
     elseif ev[1] == "monitor_touch" then
       local x, y = display:clicked(ev)
       if x and display.name then tap(uis.mon, x, y) end
@@ -1402,7 +1559,14 @@ local function uiLoop()
     elseif ev[1] == "char" or ev[1] == "key" then
       onKey(uis.term, ev[1], ev[2])
     end
-    if INPUT[ev[1]] then wantList() end
+    if INPUT[ev[1]] then
+      wantList()
+      -- drawn once the input already queued behind it is handled
+      if not queued then
+        queued = true
+        os.queueEvent("overseer_redraw")
+      end
+    end
   end
 end
 
@@ -1471,10 +1635,10 @@ if saved then
 end
 
 local workers = {}
-for slot = 1, MAX_CRAFTERS do workers[slot] = worker(slot) end
+for slot = 1, MAX_CRAFTERS do workers[slot] = worker() end
 term.clear()
 if report then report.init("craft overseer") end
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netReceive, netLoop, lookLoop, claimLoop,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netReceive, netLoop, lookLoop, helloLoop, claimLoop,
   machineLoop, viewLoop, orderLoop, function() net.keepOpen("any") end,
   report and report.loop or function() while true do sleep(3600) end end, table.unpack(workers))
 term.setBackgroundColor(colors.black)

@@ -62,24 +62,42 @@ If there isn't enough to make the whole order, it makes as many as it can
 (whoever asked gets those, and is told why not the rest). If no crafting
 turtle is running, those waiting are told that crafting is stuck, and it
 carries on by itself once one is back.
-The monitor (or the computer's own screen, without one) has two tabs at the
-top, **Queue** and **Craft**. The Queue tab shows:
 
-- **Turtles:** each crafting turtle and what it's doing ("#12 crafting 64
-  oak planks"), or "not answering" in red.
+The monitor (or the computer's own screen, without one) has three tabs at
+the top: **Queue**, **Turtles** and **Craft**.
+
 - **Queue:** every job in order, with how many it makes and its state:
   *queued*, *on #12* (being crafted), *missing* (storage hasn't got enough
   for it yet, counting what the jobs before it use and make) or *short*
   (it tried to load and came up short). A job that's missing anything has a
-  line under it saying what, e.g. "needs 3 iron ingot, 2 stick".
-- The last thing that happened, at the bottom.
+  line under it saying what, e.g. "needs 3 iron ingot, 2 stick". Under the
+  queue, how many turtles are working, idle or not ready, and the last thing
+  that happened.
+- **Turtles:** each crafting turtle, with its label, what it's doing ("crafting
+  64 oak planks", *idle*), its chest and how much it has made. One that
+  stopped answering shows *not answering* in red and for how long; one
+  that answers but has no chest yet shows *no chest yet*.
+- **Craft:** order things made (see [Ordering crafts here](#ordering-crafts-here)).
 
 A job can come up short when something else (a builder, the cannon feeder)
 took ingredients it was counting on: it then has those made too, as a new
 job, and the short one tries again every 15 seconds. A job that stays short
 of ingredients for 10 minutes is given up on, along with the rest of its
-order. A turtle that stops answering is left out (its job goes to another)
-until it answers again.
+order.
+
+### Turtles coming and going
+
+- A crafting turtle says hello when it starts, so it's put to work within a
+  few seconds ("Crafting turtle #12 is ready."), not at the next look.
+- One that restarts in the middle of a craft (a reboot, its chunk reloading)
+  says so as it starts: that batch is tried again straight away instead of
+  waiting a minute for an answer that won't come.
+- One that stops answering is left out (its job goes to another turtle) and
+  stays on the Turtles tab as *not answering* for 30 minutes. When it
+  answers again it's checked with a ping and goes back to work
+  ("Crafting turtle #12 is back.").
+- Turtles are looked for every 15 seconds anyway, so older crafting turtles
+  that don't say hello still join.
 
 ### Ordering crafts here
 
@@ -92,8 +110,8 @@ made goes into storage; take it out at the storage computer's terminal.
   buttons (it starts at a stack, or as many as can be made if that's fewer),
   then tap **Craft** (or **x** to cancel). The arrows at the top turn the pages.
 - **On the computer's screen:** type to search, Up and Down to pick, Enter,
-  type how many (or leave the stack), Enter again. Tab switches between
-  Queue and Craft. With a monitor attached, the computer's screen starts on
+  type how many (or leave the stack), Enter again. Tab goes to the next
+  tab, and clicking a tab works too. With a monitor attached, the computer's screen starts on
   the Craft tab, so the monitor can keep showing the queue.
 
 The order is planned like any other ("Crafting 64 torch into storage." at
