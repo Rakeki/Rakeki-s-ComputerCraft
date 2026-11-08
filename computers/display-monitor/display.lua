@@ -24,6 +24,7 @@ local EVERY_SETTING = "display.every" -- minutes each animation stays on
 local DEFAULT_EVERY = 60 -- minutes, when the setting isn't set
 local RESCAN = 5 -- seconds between looks for new, changed or removed animations
 local MONITOR_SCALES = { 0.5 } -- text size on the monitor (0.5: the most room for the art)
+local CACHE_CELLS = 250000 -- keep every painted frame while frames x width x height stays under this; else paint each as it's shown
 local EVENT = "display_next" -- queued by the commands, so a running copy follows at once
 
 settings.define(EVERY_SETTING, { type = "number", default = DEFAULT_EVERY,
@@ -209,7 +210,8 @@ local function message(win, w, h)
   for i, l in ipairs(lines) do centre(win, w, top + i - 1, l[1], l[2]) end
 end
 
--- Frame t of the current animation; each frame is painted once per screen size.
+-- Frame t of the current animation; each frame is painted once per screen
+-- size, unless keeping them all would take too much memory (long loops on big monitors).
 local function draw(t)
   local win, w, h = display:frame()
   if not current then
@@ -226,7 +228,8 @@ local function draw(t)
       choose()
       return
     end
-    rows, current.frames[t] = res, res
+    rows = res
+    if current.a.length * w * h <= CACHE_CELLS then current.frames[t] = res end
   end
   for r = 1, h do
     win.setCursorPos(1, r)

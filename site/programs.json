@@ -2133,7 +2133,7 @@
       ],
       "setup": [
         "Place an advanced computer with an advanced monitor against it (or on its wired network).",
-        "Install it, then some animations: install animation pikachu-dance campfire",
+        "Install it, then some animations: install animation pikachu-dance dino-run dvd-bounce",
         "Reboot: the first one starts at once."
       ],
       "commands": [
@@ -2182,7 +2182,12 @@
   ],
   "animations": [
     { "name": "pikachu-dance", "file": "pikachu-dance.lua", "title": "Pikachu dance", "tagline": "Pikachu bouncing, waving and wagging its tail under a spotlight on a disco floor, with sparkles and music notes.", "kind": "code" },
-    { "name": "campfire", "file": "campfire.lua", "title": "Campfire", "tagline": "A campfire flickering in the dark: four frames of pixel art.", "kind": "pixel art" }
+    { "name": "campfire", "file": "campfire.lua", "title": "Campfire", "tagline": "A campfire flickering in the dark: four frames of pixel art.", "kind": "pixel art" },
+    { "name": "dino-run", "file": "dino-run.lua", "title": "Dino run", "tagline": "A little dinosaur running through the desert, jumping every cactus that comes its way.", "kind": "code" },
+    { "name": "dancing-banana", "file": "dancing-banana.lua", "title": "Dancing banana", "tagline": "A banana wiggling, bouncing, waving its arms and kicking its legs in front of sliding stripes.", "kind": "code" },
+    { "name": "turtle-meadow", "file": "turtle-meadow.lua", "title": "Turtle meadow", "tagline": "ComputerCraft turtles pottering across a meadow full of flowers, under the sun and drifting clouds.", "kind": "code" },
+    { "name": "trex-grabber", "file": "trex-grabber.lua", "title": "T-rex with a grabber", "tagline": "A T-rex in sunglasses, arms far too short, fetching a cookie off the table with an extendo grabber.", "kind": "code" },
+    { "name": "dvd-bounce", "file": "dvd-bounce.lua", "title": "DVD logo", "tagline": "The DVD logo bouncing round a black screen, changing colour every time it hits an edge.", "kind": "code" }
   ],
   "libraries": [
     {

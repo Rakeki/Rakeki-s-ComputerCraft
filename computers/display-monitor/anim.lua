@@ -8,7 +8,7 @@
 --                                            -- rows[r] = { text, fg, bg }, blit strings w long
 --
 -- An animation file is Lua that returns a table. It runs with no access to
--- the computer (only math, string and table), so any file is safe to show.
+-- the computer (only math, string, table and the canvas below), so any file is safe to show.
 --
 --   return {
 --     title = "Campfire",     -- shown by 'display list' (default: the file name)
@@ -33,6 +33,102 @@ local HEX = "0123456789abcdef"
 local DEFAULT_FRAME_TIME = 0.2 -- seconds per frame when the file doesn't say
 local MIN_FRAME_TIME = 0.05 -- a computer can't draw much faster than a frame a tick
 
+---------------------------------------------------------------- canvas
+
+-- Pixels for draw functions, as 'canvas' in an animation's code:
+--
+--   local c = canvas.new(w, h, 28, 20)  -- the screen, pixels 2 characters wide, made bigger in
+--                                       -- whole steps while a 28 x 20 picture still fits (both optional)
+--   c.w, c.h                            -- the grid's size in pixels: it covers the whole screen
+--   c:fill(colour)  c:set(x, y, colour)  c:get(x, y)  c:rect(x, y, w, h, colour)    -- x, y from 1
+--   c:sprite(x, y, rows, colours, flip) -- rows of letters ("." see-through); colours: letter -> blit
+--                                       -- colour (digits stand for themselves); flip: mirrored
+--   c:char(x, y, char, fg)              -- a character on pixel x, y (a music note: "\14")
+--   return c:rows()                     -- what draw returns
+local Canvas = {}
+Canvas.__index = Canvas
+local canvas = {}
+
+function canvas.new(w, h, baseW, baseH)
+  local k = math.max(1, math.min(math.floor(w / ((baseW or 1) * 2)), math.floor(h / (baseH or 1))))
+  local c = setmetatable({ sw = w, sh = h, k = k,
+    w = math.max(1, math.floor(w / (2 * k))), h = math.max(1, math.floor(h / k)) }, Canvas)
+  c:fill("f")
+  return c
+end
+
+function Canvas:fill(colour)
+  self.px, self.chars = {}, {}
+  for y = 1, self.h do
+    local row = {}
+    for x = 1, self.w do row[x] = colour end
+    self.px[y] = row
+  end
+end
+
+function Canvas:set(x, y, colour)
+  local row = self.px[math.floor(y)]
+  x = math.floor(x)
+  if row and x >= 1 and x <= self.w and colour then row[x] = colour end
+end
+
+function Canvas:get(x, y)
+  local row = self.px[math.floor(y)]
+  return row and row[math.floor(x)]
+end
+
+function Canvas:rect(x, y, w, h, colour)
+  for yy = math.floor(y), math.floor(y) + h - 1 do
+    for xx = math.floor(x), math.floor(x) + w - 1 do self:set(xx, yy, colour) end
+  end
+end
+
+function Canvas:sprite(x, y, rows, colours, flip)
+  for j, line in ipairs(rows) do
+    local n = #line
+    for i = 1, n do
+      local at = flip and (n - i + 1) or i
+      local ch = line:sub(at, at)
+      if ch ~= "." and ch ~= " " then
+        local colour = colours and colours[ch] or (HEX:find(ch, 1, true) and ch)
+        if colour then self:set(x + i - 1, y + j - 1, colour) end
+      end
+    end
+  end
+end
+
+function Canvas:char(x, y, char, fg)
+  x, y = math.floor(x), math.floor(y)
+  if x >= 1 and x <= self.w and y >= 1 and y <= self.h then self.chars[#self.chars + 1] = { x, y, char, fg } end
+end
+
+-- The pixels as blit rows for the screen, centred across; spare rows go on
+-- top. Spare cells take the nearest pixel's colour, so a sky goes to the edge.
+function Canvas:rows()
+  local k, w, h, pw = self.k, self.sw, self.sh, 2 * self.k
+  local xoff = math.floor((w - self.w * pw) / 2)
+  local yoff = h - self.h * k
+  local text, fg, bg = {}, {}, {}
+  for r = 1, h do
+    local prow = self.px[math.max(1, math.min(self.h, math.floor((r - 1 - yoff) / k) + 1))]
+    local tr, fr, br = {}, {}, {}
+    for c = 1, w do
+      tr[c], fr[c] = " ", "0"
+      br[c] = prow[math.max(1, math.min(self.w, math.floor((c - 1 - xoff) / pw) + 1))]
+    end
+    text[r], fg[r], bg[r] = tr, fr, br
+  end
+  for _, ch in ipairs(self.chars) do
+    local r, c = yoff + (ch[2] - 1) * k + 1, xoff + (ch[1] - 1) * pw + 1 + math.floor((pw - 1) / 2)
+    if text[r] and text[r][c] then text[r][c], fg[r][c] = ch[3], ch[4] end
+  end
+  local rows = {}
+  for r = 1, h do rows[r] = { table.concat(text[r]), table.concat(fg[r]), table.concat(bg[r]) } end
+  return rows
+end
+
+---------------------------------------------------------------- loading
+
 -- What an animation's code may use. Copies, so one file can't change them for the next.
 local function sandbox()
   local function copy(t)
@@ -46,6 +142,7 @@ local function sandbox()
     tostring = tostring, tonumber = tonumber, error = error, assert = assert, pcall = pcall,
     setmetatable = setmetatable, getmetatable = getmetatable, rawget = rawget, rawset = rawset,
     unpack = table.unpack or unpack,
+    canvas = canvas,
   }
 end
 

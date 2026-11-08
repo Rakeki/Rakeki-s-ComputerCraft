@@ -25,9 +25,15 @@ in whole steps to the largest size that fits, and animations drawn by code
 skipped (and noted in `/errors.log`); with nothing to show, the monitor says
 how to install some.
 
-Animations so far: **pikachu-dance** (Pikachu dancing under a spotlight on
-a disco floor) and **campfire** (a fire flickering in the dark). The
-website plays each one on the program's page.
+Animations so far (the website plays each one on the program's page):
+
+- **pikachu-dance**: Pikachu dancing under a spotlight on a disco floor
+- **campfire**: a fire flickering in the dark
+- **dino-run**: a little dinosaur running through the desert, jumping cacti
+- **dancing-banana**: a banana wiggling, waving and kicking in front of sliding stripes
+- **turtle-meadow**: ComputerCraft turtles pottering across a meadow of flowers
+- **trex-grabber**: a T-rex in sunglasses fetching a cookie with an extendo grabber
+- **dvd-bounce**: the DVD logo bouncing round the screen, a new colour every bounce
 
 ## Files
 
@@ -53,7 +59,7 @@ website plays each one on the program's page.
 ```
 install display-monitor                       -- the program
 install animations                            -- list the animations you can install
-install animation pikachu-dance campfire      -- install some (one or several)
+install animation dino-run dvd-bounce         -- install some (one or several)
 install remove animation campfire             -- take one off again
 display                                       -- start showing (startup.lua runs it on boot)
 display list                                  -- the animations here, and which one is on
@@ -87,8 +93,25 @@ The letters are CC's blit colours (`0` white, `1` orange, `4` yellow, `e`
 red, `c` brown, `f` black...), and each pixel is two characters wide so it
 comes out about square. For anything else, give `length` (frames in the
 loop) and `draw = function(t, w, h)`, returning one `{ text, fg, bg }` blit
-row per line of the screen: [`pikachu-dance.lua`](../../animations/pikachu-dance.lua)
-does that. Make the last frame lead into the first and it loops without a jump.
+row per line of the screen. `canvas` does the sums: `canvas.new(w, h, 28, 20)`
+gives a grid of pixels covering the screen, made bigger in whole steps while a
+28 x 20 picture still fits, with `fill`, `set`, `rect`, `sprite` (rows of
+letters, like the pixel art), `char` and `rows()` to return:
+
+```lua
+local function draw(t, w, h)
+  local c = canvas.new(w, h, 24, 16)
+  c:fill("f")
+  c:sprite(1 + t, 3, { ".44.", "4444", ".44." })   -- a yellow blob moving right
+  return c:rows()
+end
+return { title = "Blob", length = 8, frameTime = 0.2, draw = draw }
+```
+
+[`dino-run.lua`](../../animations/dino-run.lua) and the others are built that
+way. Make the last frame lead into the first and it loops without a jump; for
+something that crosses the screen, work its path out from `w` so it goes a
+whole number of times round in a loop (`turtle-meadow`, `dvd-bounce`).
 
 ## Things to know
 
