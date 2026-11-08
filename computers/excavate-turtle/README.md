@@ -140,7 +140,7 @@ builds it.
 | [grandstair](../../plans/grandstair.lua) | 31 × 46 × 22 | 8,320 | 15 east, 30 south | An entrance hall: in through an arch onto a high landing, down a stone staircase between pillars with chiselled capitals and balconies, under dark oak beams and glowstone, to an aquarium window; a storeroom under the landing |
 | [fortress](../../plans/fortress.lua) | 27 × 61 × 15 | 8,390 | 13 east, 56 south | A Nether-style blackstone hall: lava channels under grates along the walls, guard alcoves with glowing panels, deepslate pillars and ribs with lava over grates in the ceiling, a portal dais between two lavafalls |
 | [cavern](../../plans/cavern.lua) | 63 × 63 × 30 | 18,410 | 22 east, 36 south | A whole cave made a base: rough rock walls of stone, tuff and dripstone with stalactites and glowstone overhead; a stair round a great stone pillar up to a lookout deck, and a bridge on stone piers to the roof terrace of a three-storey house (a hall with a fireplace and kitchen, bedrooms and a storeroom, a library, a tower); a lake fed by a waterfall, with a pier and a bridge to an azalea island; giant mushrooms; farm terraces; a mine depot with a track, ore heaps and a smithy; an amethyst grotto with an enchanting table and a blackstone grotto with a portal |
-| [deephold](../../plans/deephold.lua) | 69 × 89 × 30 | 38,200 | 20 east, 33 south | A rustic base for Create factories and a subway, for just above bedrock (`excavate deephold deep`), running north-south: rough deepslate walls framed in spruce logs, lit by sea lanterns. West, the works: six machine cells along the wall in two tiers, each with a framed-glass front and a door, a logistics lane in front of them (a strip for a belt or chain conveyor, a walkway above for the upper tier), and a 27-high assembly hall with timber beams for pulleys and gantries and a pump pool. Down the middle, a concourse where two elevators come down from the surface into glass shafts on the centre line, balconies on log posts, timber arches and a lit plinth. East, a station: Line A in through a portal in the north wall and Line B through one in the south wall, platforms and an island with benches and lantern posts, a footbridge, six freight docks, and a machine hall over it with loading hatches above both tracks |
+| [deephold](../../plans/deephold.lua) | 69 × 89 × 30 | 37,200 | 20 east, 26 south | A rustic base for Create factories and a subway, for just above bedrock (`excavate deephold deep`), the same both ways (mirrored east-west and north-south): rough deepslate walls framed in spruce logs, lit by sea lanterns. Across the middle, a station the full height: two tracks through a double portal in each side wall, a platform along each side and an island with benches, lantern posts and log pillars up to the ceiling beams, a footbridge with stairs up from every platform, and a gallery over each platform. At each end, the works: five machine cells along the end wall in two tiers, each with a framed-glass front and a door, a logistics lane in front of them (a strip for a belt or chain conveyor, a walkway above for the upper tier), and a machine hall 67 wide and 27 high with timber beams for pulleys and gantries, galleries along its sides and a great arch onto the station. In the middle of each hall stands a tower of spruce and glass: an elevator shaft (7 × 7 inside) by the station and a power shaft (7 × 5) for Create shafts between the floors, both open to the surface |
 
 1. Install the plan on the turtle (`install plan <plan>`), put it in a
    corner of the hole-to-be as usual and run
@@ -167,9 +167,9 @@ Some plans need a few things from you:
 - **The way in.** The plans fill a sealed hole, so you dig your own
   tunnel in. The bunker's corridor, the grand stair's arch over its landing,
   the fortress's gate in its south wall, the cavern's mine tunnel in its
-  east wall (the track runs into the rock) and the deep hold's two subway
-  portals (Line A in the north wall, Line B in the south wall) open on the
-  rock, ready for it; the deep hold's elevator shafts are open at the top,
+  east wall (the track runs into the rock) and the deep hold's subway
+  portals (both tracks, through both side walls) open on the rock, ready
+  for it; the deep hold's elevator and power shafts are open at the top,
   so dig on up from each to the surface;
   the burrow's stair carries on up into the rock from the lounge, so dig on
   from its top step to the surface.
@@ -179,24 +179,26 @@ Some plans need a few things from you:
   alcoves).
 - **Buckets.** Water and lava come from buckets in the supply chest. Most
   plans need a few dozen water buckets; the grand stair's aquarium takes
-  121, the sanctum 216 and the cavern's lake about 480; the deep hold's pump
-  pool 40. The fortress takes 150 lava buckets for its
+  121, the sanctum 216 and the cavern's lake about 480. The fortress takes
+  150 lava buckets for its
   channels, ceiling pools and lavafalls: set `LAVA` at the top of
   `fortress.lua` to `"minecraft:magma_block"` to build it without. The
   cloister's fountain, the fortress's lavafalls and the cavern's waterfall
   pour on purpose; their basins hold them.
 - **The deep hold's Create blocks and track.** It uses framed glass (the
-  cells' fronts, over the arches and round the elevator shafts; vanilla
-  glass to swap in is named at the top of `deephold.lua`). Its beams are
-  spruce wood rather than logs, since the turtle stands every log upright.
-  The cells are left empty for your machines.
-- **The deep hold's elevators.** They come down from the surface; the plan
-  builds only their shafts, on the concourse's centre line 17 and 67 blocks
-  south of the hole's north-west corner (x 31 to 37 east of it, 5 long
-  each). Each is clear inside, 7 × 5, from the floor up through the ceiling
-  deck, with doors west and east at the floor and at the balconies. Dig on
-  up from each to your elevator, and put an elevator contact by a door at
-  each floor. The
+  cells' fronts, over the arches and round the shafts; vanilla glass to
+  swap in is named at the top of `deephold.lua`). Its beams are spruce
+  wood rather than logs, since the turtle stands every log upright. The
+  cells are left empty for your machines.
+- **The deep hold's elevators and power shafts.** They come down from the
+  surface; the plan builds only their shafts, on the middle line (x 31 to
+  37 from the hole's north-west corner, inside). The elevators are 7 × 7
+  inside (z 23 to 29 and 59 to 65), with doors onto the station and both
+  sides at the floor and the upper floor; the power shafts beside them are
+  7 × 5 (z 17 to 21 and 67 to 71), with doors onto the lane and both sides,
+  for Create shafts carrying rotation between the floors. All four are
+  empty from the floor up through the ceiling deck. Dig on up from each to
+  the surface, and put an elevator contact by a door at each floor. The
   turtle doesn't lay track, since it can't turn it the right way: the
   gravel down the middle of each track bed shows where it goes, and the
   station block goes on the track. Set `TRACK` there to `"create:track"`

@@ -2621,10 +2621,10 @@
       "name": "deephold",
       "file": "deephold.lua",
       "title": "Deep Hold",
-      "tagline": "A rustic base by bedrock for Create factories and a subway, deepslate framed in spruce: six two-tier machine cells and a 27-high assembly hall, a concourse down the middle where two elevators come down from the surface, and a two-line station with freight docks and a machine hall over it.",
+      "tagline": "A rustic base by bedrock for Create factories and a subway, deepslate framed in spruce and the same both ways: a full-height station across the middle with two tracks through a portal in each side wall, and a works at each end with ten two-tier machine cells, a 67-wide machine hall and a tower holding an elevator shaft from the surface and a power shaft between the floors.",
       "size": "69 × 89 × 29",
       "hole": "69 × 89 × 30",
-      "blocks": 38230
+      "blocks": 37179
     },
     {
       "name": "factory",
