@@ -588,9 +588,12 @@ local function splitStrips()
     }
     if c.m then c.m.strip = strip else job.strip = strip end
   end
+  -- copies, not the start tables themselves: textutils won't save a table
+  -- that holds the same table twice
   if job.dir == "deep" then
-    job.shafts = { plan.start }
-    for _, m in ipairs(job.crew.members) do job.shafts[#job.shafts + 1] = m.start end
+    local function at(p) return { x = p.x, y = p.y, z = p.z } end
+    job.shafts = { at(plan.start) }
+    for _, m in ipairs(job.crew.members) do job.shafts[#job.shafts + 1] = at(m.start) end
   end
 end
 
@@ -1105,6 +1108,10 @@ else
       buildPlan()
       print(("A crew of %d. My strip: columns %d to %d of %d."):format(#job.crew.members + 1, job.strip.x0 + 1,
         job.strip.x1 + 1, job.width))
+      for _, m in ipairs(job.crew.members) do
+        print(("Turtle %d: columns %d to %d (%d wide)."):format(m.id, m.strip.x0 + 1, m.strip.x1 + 1,
+          m.strip.x1 - m.strip.x0 + 1))
+      end
     end
   else
     read()
