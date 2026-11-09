@@ -36,13 +36,15 @@
         "Leaves the inside empty: inner walls and details are for the builder turtle",
         "Deep mode digs a shaft down (sealed too) and digs the hole 10 above bedrock",
         "excavate <plan> digs the hole an underground plan asks for (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads, sanctum, atrium, grandstair, fortress, cavern, deephold) and prints where the builder goes and the build command",
+        "A crew: more turtles join with excavate join before it starts, each digs the strip nearest to it, then they seal together",
         "Resumes after reboots, chunk unloads, or being picked up",
         "With a storage system: its chest on the storage cable (or an ender chest twin of one) sends the loot home and gets fuel and cobblestone ordered into it"
       ],
       "setup": [
         "Place the turtle at floor level in one corner of the hole-to-be. The hole grows forward and to the right.",
         "Put a chest directly behind it with some coal in. Loot goes in there too. With a storage computer, make it a chest on the storage cable, or an ender chest whose twin is.",
-        "Run the command. It prints the size and the fuel it needs, then gets to work."
+        "Run the command. It prints the size and the fuel it needs, then gets to work.",
+        "Optional: before pressing Enter, place more turtles in its row (to its right, same level and facing, each with its own chest behind it) and run excavate join on each."
       ],
       "commands": [
         ["excavate", "21×21×16 hole, digging up from the turtle"],
@@ -55,6 +57,7 @@
         ["excavate sanctum deep", "the sanctum's 41×41×26 hole, 10 above bedrock"],
         ["excavate resume", "carry on after stopping it"],
         ["excavate here", "a job from before GPS was needed: you put it back on its start block"],
+        ["excavate join", "help the excavator waiting for Enter: dig the strip nearest to me"],
         ["excavate cancel", "forget the current job"]
       ],
       "integrates": [

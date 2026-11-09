@@ -9,6 +9,14 @@
 --   excavate resume
 --   excavate here       you put me back on my start block (no GPS): carry on from there
 --   excavate cancel
+--   excavate join [id]  help another excavator (the lead) with its hole: run while it waits for Enter
+--
+-- A crew: start the job on one turtle (the lead) and, before pressing Enter
+-- on it, run 'excavate join' on helpers placed in the lead's row (to its
+-- right, same level and facing, each with its own chest behind it), or for
+-- deep mode anywhere on the ground above the hole. Each turtle digs the
+-- strip of columns nearest to it, then they wait for each other and each
+-- seals its own strip. Needs GPS and a wireless or ender modem on each.
 --
 -- Place the turtle in a corner of the area, facing along one edge. The hole
 -- runs forward (length), to the right (width), and up or down (height) from
@@ -66,6 +74,10 @@ local REFUEL_TO = 5000
 local USE_STORAGE = true
 local STORAGE_WAIT = 10 -- seconds to wait for the storage computer to answer
 local CLAIM_RETRY = 300 -- seconds before trying again to hook my chest up, if it didn't work
+
+-- Crew: helpers join the lead on this protocol before it starts.
+local CREW_PROTOCOL = "excavate_crew"
+local CREW_POLL = 10 -- seconds between a waiting crew turtle's checks on the others
 -- Fuel asked for when low, in this order, and how much of it.
 local STORAGE_FUEL = { { "minecraft:coal", 64 }, { "minecraft:charcoal", 64 }, { "minecraft:coal_block", 8 } }
 -- Asked for when patching runs out, in this order (SEAL_SPARE of it).
@@ -116,12 +128,14 @@ local function toWorld(p)
   return o.x + p.x * r.x + p.z * f.x, o.y + p.y, o.z + p.x * r.z + p.z * f.z
 end
 
-local function here()
-  local o, w = job.origin, nav.getPos()
+local function toLocal(w)
+  local o = job.origin
   local f, r = DIRS[o.heading], DIRS[(o.heading + 1) % 4]
   local dx, dz = w.x - o.x, w.z - o.z
   return { x = dx * r.x + dz * r.z, y = w.y - o.y, z = dx * f.x + dz * f.z }
 end
+
+local function here() return toLocal(nav.getPos()) end
 
 local function goL(p) return nav.goTo(toWorld(p)) end
 
@@ -131,8 +145,19 @@ local function inBox(b, p)
   return p.x >= b.x0 and p.x <= b.x1 and p.y >= b.y0 and p.y <= b.y1 and p.z >= b.z0 and p.z <= b.z1
 end
 
+-- My own shaft (deep mode), the one I travel up and down.
 local function inShaft(p)
   return plan.shaftBottom and p.x == plan.start.x and p.z == plan.start.z and p.y > plan.hole.y1
+end
+
+-- Any crew turtle's shaft, from its start block down: part of the dig, so
+-- never walled over.
+local function inAnyShaft(p)
+  if p.y <= plan.hole.y1 then return false end
+  for _, s in ipairs(plan.shafts) do
+    if p.x == s.x and p.z == s.z and p.y <= s.y then return true end
+  end
+  return false
 end
 
 local function buildPlan()
@@ -143,8 +168,15 @@ local function buildPlan()
     hole = { x0 = 0, x1 = W - 1, y0 = F, y1 = F + H - 1, z0 = 0, z1 = L - 1 },
     start = job.start or { x = 0, y = 0, z = 0 }, -- jobs saved before job.start existed
   }
-  -- deep mode: a 1x1 shaft from the start block down into the hole
-  if job.dir == "deep" then plan.shaftBottom = { x = plan.start.x, y = F + H - 1, z = plan.start.z } end
+  -- The part I dig and seal: the whole hole, or my strip of columns in a crew.
+  local strip = job.strip or { x0 = 0, x1 = W - 1 }
+  plan.dig = { x0 = strip.x0, x1 = strip.x1, y0 = F, y1 = F + H - 1, z0 = 0, z1 = L - 1 }
+  -- deep mode: a 1x1 shaft from the start block down into the hole (one per crew turtle)
+  plan.shafts = {}
+  if job.dir == "deep" then
+    plan.shaftBottom = { x = plan.start.x, y = F + H - 1, z = plan.start.z }
+    plan.shafts = job.shafts or { plan.start }
+  end
 
   -- Cells on the edge of the dig, and which of their sides face solid ground
   -- that should be there. The seal phase visits them and fills any gaps.
@@ -153,7 +185,7 @@ local function buildPlan()
     local hole = plan.hole
     local function inside(x, y, z)
       local p = { x = x, y = y, z = z }
-      return inBox(hole, p) or inShaft(p)
+      return inBox(hole, p) or inAnyShaft(p)
     end
     -- horizontal sides as heading offsets from the job's forward direction
     local SIDES = { [0] = { 0, 1 }, [1] = { 1, 0 }, [2] = { 0, -1 }, [3] = { -1, 0 } }
@@ -166,10 +198,10 @@ local function buildPlan()
       if not inside(x, y - 1, z) then dirs[#dirs + 1] = "down" end
       if #dirs > 0 then table.insert(plan.seals, { x = x, y = y, z = z, dirs = dirs }) end
     end
-    -- The shaft first (below the start block, which sits among the chest
-    -- and the junk pile), so nothing pours down it into the hole.
-    if plan.shaftBottom then
-      for y = plan.start.y - 1, hole.y1 + 1, -1 do check(plan.start.x, y, plan.start.z) end
+    -- The shafts first (below the start block, which sits among the chest
+    -- and the junk pile), so nothing pours down them into the hole.
+    for _, s in ipairs(plan.shafts) do
+      for y = s.y - 1, hole.y1 + 1, -1 do check(s.x, y, s.z) end
     end
     -- Then the hole from the top down: top and bottom layers every cell,
     -- snaking, layers between just the rim. The floor goes last, so any
@@ -187,6 +219,14 @@ local function buildPlan()
         if hole.z1 > hole.z0 then for x = hole.x1 - 1, hole.x0, -1 do check(x, y, hole.z1) end end
         if hole.x1 > hole.x0 then for z = hole.z1 - 1, hole.z0 + 1, -1 do check(hole.x0, y, z) end end
       end
+    end
+    -- In a crew each turtle seals the cells in its own strip (its shaft is in it).
+    if job.strip then
+      local mine = {}
+      for _, s in ipairs(plan.seals) do
+        if s.x >= plan.dig.x0 and s.x <= plan.dig.x1 then mine[#mine + 1] = s end
+      end
+      plan.seals = mine
     end
   end
 
@@ -212,7 +252,7 @@ local function boxCell(b, i)
 end
 
 local function phaseSize(phase)
-  if phase == 0 then return boxCells(plan.hole) end
+  if phase == 0 then return boxCells(plan.dig) end
   return #plan.seals
 end
 
@@ -479,6 +519,228 @@ reach = function(p)
   end
 end
 
+---------------------------------------------------------------- crew
+
+-- A crew is the lead (job.crew.members: every helper's id, start, strip and
+-- how far it's got) and its helpers (job.crew.lead). Helpers join before
+-- the lead starts; each digs its own strip of columns, nobody seals until
+-- every strip is dug, and the lead finishes once every strip is sealed.
+local STAGES = { dug = 1, sealed = 2 }
+local recruiting = false -- the lead is still waiting for Enter, taking helpers
+
+local function isLead() return job.crew and job.crew.members ~= nil end
+local function isHelper() return job.crew and job.crew.lead ~= nil end
+
+local function member(id)
+  for _, m in ipairs(job.crew.members) do
+    if m.id == id then return m end
+  end
+end
+
+local function reached(m, stage) return (STAGES[m.state] or 0) >= STAGES[stage] end
+
+-- The helpers that haven't got to stage yet.
+local function behind(stage)
+  local ids = {}
+  for _, m in ipairs(job.crew.members) do
+    if not reached(m, stage) then ids[#ids + 1] = tostring(m.id) end
+  end
+  return ids
+end
+
+-- Where a helper at world position pos (facing heading) would start, or nil and why it can't.
+local function helperStart(id, pos, heading)
+  if heading ~= job.origin.heading then
+    local names = { [0] = "north", "east", "south", "west" }
+    return nil, ("Face %s, the same way as me."):format(names[job.origin.heading])
+  end
+  local p = toLocal(pos)
+  if p.x < 0 or p.x >= job.width then
+    return nil, ("Stand over the hole: within %d blocks to my right, counting me."):format(job.width)
+  end
+  if job.dir == "deep" then
+    if p.z < 0 or p.z >= job.length or p.y <= plan.hole.y1 then
+      return nil, "Stand on the ground somewhere above the hole."
+    end
+  elseif p.y ~= 0 or p.z ~= 0 then
+    return nil, "Stand in my row: on my level, in line with me to my right."
+  end
+  if p.x == plan.start.x then return nil, "I'm in that column already. Move along a block or more." end
+  for _, m in ipairs(job.crew.members) do
+    if m.id ~= id and m.start.x == p.x then
+      return nil, ("Turtle %d is in that column already. Move along."):format(m.id)
+    end
+  end
+  return p
+end
+
+-- Split the hole's columns between the lead and the helpers: each gets
+-- the ones nearest to it, so its own start is in its strip and it never
+-- crosses another's on the way home.
+local function splitStrips()
+  local cols = { { x = plan.start.x } }
+  for _, m in ipairs(job.crew.members) do cols[#cols + 1] = { x = m.start.x, m = m } end
+  table.sort(cols, function(a, b) return a.x < b.x end)
+  for i, c in ipairs(cols) do
+    local strip = {
+      x0 = i == 1 and 0 or math.floor((cols[i - 1].x + c.x) / 2) + 1,
+      x1 = i == #cols and job.width - 1 or math.floor((c.x + cols[i + 1].x) / 2),
+    }
+    if c.m then c.m.strip = strip else job.strip = strip end
+  end
+  if job.dir == "deep" then
+    job.shafts = { plan.start }
+    for _, m in ipairs(job.crew.members) do job.shafts[#job.shafts + 1] = m.start end
+  end
+end
+
+-- The job a helper runs: the lead's hole, its own start and strip.
+local function helperJob(m)
+  return { v = JOB_VERSION, width = job.width, length = job.length, height = job.height, dir = job.dir,
+    floor = job.floor, origin = job.origin, gps = true, phase = 0, cell = 0,
+    start = m.start, strip = m.strip, shafts = job.shafts, crew = { lead = os.getComputerID() } }
+end
+
+-- The lead answers its crew: join (before it starts), ready (my job yet?)
+-- and crew (how far a helper has got).
+local function crewHandle(from, msg)
+  if msg.type == "join" then
+    if not recruiting then
+      return net.answer(from, CREW_PROTOCOL, msg, { why = "My job has already started. Join before I start." })
+    end
+    if type(msg.pos) ~= "table" then return end
+    local start, why = helperStart(from, msg.pos, msg.heading)
+    if not start then return net.answer(from, CREW_PROTOCOL, msg, { why = why }) end
+    local m = member(from)
+    if not m then
+      m = { id = from }
+      table.insert(job.crew.members, m)
+    end
+    m.start = start
+    print(("Turtle %d joins the crew, %d to my right (%d turtles)."):format(from, start.x - plan.start.x,
+      #job.crew.members + 1))
+    net.answer(from, CREW_PROTOCOL, msg, { ok = true, n = #job.crew.members + 1 })
+  elseif msg.type == "ready" then
+    local m = member(from)
+    if not m then return net.answer(from, CREW_PROTOCOL, msg, { why = "You're not in my crew." }) end
+    if recruiting then return net.answer(from, CREW_PROTOCOL, msg, { wait = true }) end
+    net.answer(from, CREW_PROTOCOL, msg, { job = helperJob(m) })
+  elseif msg.type == "crew" then
+    local m = member(from)
+    if not m then return net.answer(from, CREW_PROTOCOL, msg, { why = "You're not in my crew." }) end
+    if STAGES[msg.state] and not reached(m, msg.state) then
+      m.state = msg.state
+      if not recruiting then save() end
+    end
+    net.answer(from, CREW_PROTOCOL, msg, { allDug = job.phase >= 1 and #behind("dug") == 0 })
+  end
+end
+
+local function crewLoop()
+  net.open()
+  while true do
+    local from, msg = rednet.receive(CREW_PROTOCOL)
+    if type(msg) == "table" then errlog.pcall(crewHandle, from, msg) end
+  end
+end
+
+-- The lead: wait until every helper has got to stage, saying who it waits for.
+local function waitForHelpers(stage, doing)
+  local said
+  while true do
+    local ids = behind(stage)
+    if #ids == 0 then return end
+    local text = ("Waiting for turtle%s %s to finish %s."):format(#ids > 1 and "s" or "", table.concat(ids, ", "), doing)
+    if text ~= said then
+      print(text)
+      report.set("waiting", text)
+      said = text
+    end
+    sleep(CREW_POLL)
+  end
+end
+
+local function askLead(msg)
+  return net.ask(job.crew.lead, CREW_PROTOCOL, msg, { wait = 5 })
+end
+
+-- Every strip dug before anyone seals, so no water runs onto a sealed floor
+-- from a strip still being dug.
+local function crewBeforeSealing()
+  if isLead() then
+    waitForHelpers("dug", "digging")
+  else
+    local said
+    while true do
+      local r = askLead({ type = "crew", state = "dug" })
+      if r and r.allDug then break end
+      local text = r and (r.why or "My strip is dug. Waiting for the rest of the crew.")
+        or ("My strip is dug. Can't hear the lead (turtle %d); waiting."):format(job.crew.lead)
+      if text ~= said then
+        print(text)
+        report.set("waiting", text)
+        said = text
+      end
+      sleep(CREW_POLL)
+    end
+  end
+  print("Every strip is dug. Sealing mine.")
+end
+
+-- Done with my strip: the lead waits for the rest; a helper tells it.
+local function crewAfterSealing()
+  if isLead() then
+    waitForHelpers("sealed", "sealing")
+  else
+    for _ = 1, 12 do
+      if askLead({ type = "crew", state = "sealed" }) then return end
+      sleep(CREW_POLL)
+    end
+    print(("Couldn't tell the lead (turtle %d) I'm done."):format(job.crew.lead))
+  end
+end
+
+-- A helper: join the crew of the lead (leadId, or whoever is taking helpers)
+-- and wait for it to start. Returns my job, or nil if I can't join.
+local function joinCrew(leadId)
+  if not net.open() then
+    print("Joining a crew needs a wireless or ender modem.")
+    return nil
+  end
+  local lead = leadId or rednet.lookup(CREW_PROTOCOL)
+  if not lead then
+    print("No excavator is taking helpers. Start the job on the lead")
+    print("turtle first, and run this while it waits for Enter.")
+    return nil
+  end
+  local p = nav.getPos()
+  local r = net.ask(lead, CREW_PROTOCOL, { type = "join", pos = p, heading = nav.getHeading() }, { wait = 5 })
+  if not r then
+    print(("Turtle %d didn't answer."):format(lead))
+    return nil
+  end
+  if not r.ok then
+    print(r.why or "Turtle " .. lead .. " won't take me.")
+    return nil
+  end
+  print(("Joined turtle %d's crew (%d turtles). My chest goes"):format(lead, r.n or 2))
+  print(("directly behind me. Press Enter on turtle %d to start."):format(lead))
+  local said
+  while true do
+    sleep(3)
+    r = net.ask(lead, CREW_PROTOCOL, { type = "ready" }, { wait = 5 })
+    if r and r.job then return r.job end
+    if r and r.why then
+      print(r.why)
+      return nil
+    end
+    if not r and not said then
+      print(("Can't hear turtle %d just now; still waiting."):format(lead))
+      said = true
+    end
+  end
+end
+
 ---------------------------------------------------------------- main
 
 local function progressText()
@@ -489,6 +751,7 @@ local function progressText()
     if phase < job.phase then done = done + size elseif phase == job.phase then done = done + job.cell end
   end
   local name = job.phase == 0 and "digging" or "sealing walls"
+  if job.crew then name = name .. " my strip" end
   return ("%s, %d%% overall"):format(name, total > 0 and math.floor(done / total * 100) or 100)
 end
 
@@ -593,10 +856,15 @@ end
 local function run()
   rejoin()
   while job.phase <= plan.sealPhase do
+    if job.crew and job.phase == plan.sealPhase and not job.sealOk then
+      crewBeforeSealing()
+      job.sealOk = true
+      save()
+    end
     local size = phaseSize(job.phase)
     while job.cell < size do
       if job.phase == 0 then
-        digCell(plan.hole, boxCell(plan.hole, job.cell))
+        digCell(plan.hole, boxCell(plan.dig, job.cell))
       else
         sealCell(plan.seals[job.cell + 1])
       end
@@ -614,7 +882,13 @@ local function run()
 
   reach(plan.start)
   nav.face(job.origin.heading)
+  if job.crew then crewAfterSealing() end
   nav.deleteFile(JOB_FILE)
+  if isHelper() then
+    print("My strip is dug and walled in. The lead has the rest.")
+    report.set("done", "my strip of the crew's hole is done")
+    return
+  end
   print("Excavation complete! The hole is dug and walled in.")
   report.set("done", "excavation complete")
   if job.plan then
@@ -691,6 +965,25 @@ if args[1] == "resume" or args[1] == "here" then
 elseif job then
   print("A job is already in progress. Run 'excavate resume' or 'excavate cancel'.")
   return
+elseif args[1] == "join" then
+  if not hasGps then
+    print("Joining a crew needs GPS: I work in the lead's world coordinates.")
+    return
+  end
+  if args[2] and not tonumber(args[2]) then
+    print("Usage: excavate join [lead turtle's id]")
+    return
+  end
+  job = joinCrew(tonumber(args[2]))
+  if not job then return end
+  buildPlan()
+  print(("My strip: %d columns, %d to %d of %d."):format(job.strip.x1 - job.strip.x0 + 1, job.strip.x0 + 1,
+    job.strip.x1 + 1, job.width))
+  save()
+  faceChest()
+  hookChest()
+  topUpFuel(REFUEL_TO)
+  nav.face(job.origin.heading)
 else
   -- numbers are width, length, height in that order; the mode word and a
   -- plan name can go anywhere
@@ -792,8 +1085,30 @@ else
     print("an ender chest twin of one), I order fuel")
     print("through it and the loot goes home.")
   end
+  -- Helpers can join until Enter: 'excavate join' on each.
+  local hosting = hasGps and net.open()
+  if hosting then
+    job.crew = { members = {} }
+    recruiting = true
+    rednet.host(CREW_PROTOCOL, "excavate-" .. os.getComputerID())
+    print("More turtles? Run 'excavate join' on each now.")
+  end
   print("Chest goes directly behind me. Press Enter to start.")
-  read()
+  if hosting then
+    parallel.waitForAny(read, crewLoop)
+    rednet.unhost(CREW_PROTOCOL)
+    recruiting = false
+    if #job.crew.members == 0 then
+      job.crew = nil
+    else
+      splitStrips()
+      buildPlan()
+      print(("A crew of %d. My strip: columns %d to %d of %d."):format(#job.crew.members + 1, job.strip.x0 + 1,
+        job.strip.x1 + 1, job.width))
+    end
+  else
+    read()
+  end
   save()
   faceChest()
   hookChest()
@@ -809,4 +1124,7 @@ parallel.waitForAny(function()
     report.set("error", tostring(err))
     error(err, 0)
   end
-end, report.loop)
+end, report.loop, function()
+  -- the lead keeps answering its helpers while it works
+  if isLead() then crewLoop() else os.pullEvent("never") end
+end)

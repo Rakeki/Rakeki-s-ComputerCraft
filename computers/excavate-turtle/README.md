@@ -77,12 +77,54 @@ fuel, but then water and lava can get in.
    excavate sanctum deep         -- the sanctum's hole, 10 above bedrock (down works too)
    excavate resume               -- carry on after stopping it
    excavate here                 -- an old job from before GPS was needed: "I've put you back on your start block"
+   excavate join                 -- on a helper: join the excavator waiting for Enter (see With a crew)
+   excavate join 12              -- join turtle 12's crew, if more than one is waiting
    excavate cancel               -- forget the current job
    ```
 
 It digs the hole from the top down in 3-high layers, then seals it from the
 top down, and finally returns to the start. If the chest fills up, or it runs
 out of fuel or cobblestone, it waits at the start until you fix it.
+
+## With a crew
+
+Several turtles can dig one hole together. The first one (the lead) holds
+the job; the others (helpers) join it before it starts.
+
+1. Set up the lead as usual and run the command (`excavate 40 40 20`,
+   `excavate deephold deep`, ...). It prints the size and waits for Enter.
+2. Place each helper:
+   - **Up or down:** in the lead's row, to its right: on the same level,
+     facing the same way, anywhere along the hole's edge.
+   - **Deep:** anywhere on the ground above the hole, facing the same way
+     as the lead. Each digs its own shaft down.
+
+   Each helper needs its own chest directly behind it (with coal, or hooked
+   up to the storage system as above), GPS and a wireless or ender modem.
+   No two turtles can share a column (the same distance to the lead's
+   right).
+3. Run `excavate join` on each helper. The lead prints each one that joins.
+4. Press Enter on the lead. It splits the hole's columns between the crew:
+   each turtle gets the ones nearest to it, so space them out evenly. Each
+   prints its strip and starts digging.
+
+Each turtle digs its own strip top-down, unloading into its own chest. When
+it's done, it waits until every strip is dug, then seals the walls, floor
+and ceiling of its own strip. The lead finishes last: once every strip is
+sealed it prints "Excavation complete!" (and, for a plan, where the builder
+goes). Helpers say their strip is done and stop.
+
+Things to know:
+
+- Every turtle resumes on its own after a reboot or chunk reload. A helper
+  that finishes digging while the lead is unloaded waits for it.
+- If a helper is gone for good, the others wait for it at the end of
+  digging (the lead shows which one). Put it back and run
+  `excavate resume` on it, or `excavate cancel` on every turtle.
+- Strips are as even as the turtles are spaced, and the crew is only as
+  quick as its slowest turtle.
+- Only the lead's fuel estimate is printed, for the whole hole: each
+  turtle needs about its share of it.
 
 ## With a storage system
 
