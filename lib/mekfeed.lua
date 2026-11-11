@@ -98,6 +98,19 @@ local function isFeeder(t)
   return (t:find("barrel", 1, true) or t:find("chest", 1, true)) ~= nil and not t:find("ender", 1, true)
 end
 
+local function isEnderType(t) return t:find("ender", 1, true) ~= nil end
+-- What a machine's output can go into: a barrel or chest, or an ender chest
+-- whose twin is a storage input chest (what's made goes straight home).
+local function isOutput(t)
+  return not isHopper(t) and (isFeeder(t) or (isEnderType(t) and t:find("chest", 1, true) ~= nil))
+end
+
+-- An ender chest output: its items go home by themselves, so they're never
+-- collected, and the storage computer is never told it's a feeder.
+function mekfeed.isEnder(name)
+  return name ~= nil and isEnderType(peripheral.getType(name) or "")
+end
+
 -- Peripherals on the wired network (not ones touching this computer: the
 -- storage computer can't reach those) that pass test(type).
 local function findOnNetwork(test)
@@ -478,7 +491,7 @@ function mekfeed.register(sets, remote, storageId)
       -- whether or not its machine is there: a missing machine's barrel isn't storage either
       for _, name in ipairs({ entry.feeder, entry.output or false, entry.extra or false }) do
         local t = name and peripheral.isPresent(name) and peripheral.getType(name)
-        if t and not isHopper(t) then list[#list + 1] = name end
+        if t and not isHopper(t) and not isEnderType(t) then list[#list + 1] = name end
       end
     end
   end
@@ -537,7 +550,7 @@ function Set:collect(machines, input)
   local moved, stuck, why, byName = 0, false, nil, {}
   if not input then return 0, false, nil, byName end
   for _, m in ipairs(machines) do
-    if m.entry.output and m.outOk then
+    if m.entry.output and m.outOk and not mekfeed.isEnder(m.entry.output) then
       for slot, item in pairs(m.outList) do
         local ok, n = pcall(peripheral.call, m.entry.output, "pushItems", input, slot)
         if not ok then
@@ -682,9 +695,8 @@ function Set:add(machine, feeder, output, extra)
   end
   if asking then
     local outs = {}
-    for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and not self:taken(name) and name ~= feeder and name ~= extra
-        and not isHopper(peripheral.getType(name)) then
+    for _, name in ipairs(findOnNetwork(isOutput)) do
+      if not used[name] and not self:taken(name) and name ~= feeder and name ~= extra then
         outs[#outs + 1] = name
       end
     end
@@ -745,8 +757,8 @@ function Set:add(machine, feeder, output, extra)
   end
   if output then
     local outType = peripheral.getType(output) or ""
-    if not isFeeder(outType) or isHopper(outType) then print(output .. " isn't a barrel or chest.") return end
-    if not freeChest(self, output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
+    if not isOutput(outType) then print(output .. " isn't a barrel, chest or ender chest.") return end
+    if not isEnderType(outType) and not freeChest(self, output) then print(output .. " has items in it: empty it first (it might be a storage chest).") return end
   end
 
   list[#list + 1] = { machine = machine, line = line, feeder = feeder, output = output, extra = extra }
@@ -794,7 +806,8 @@ function Set:setupParts(ui)
   -- chest, and the storage computer only lets go of an empty one). True
   -- if n is fine.
   local function emptyEnough(n, current)
-    if n == current or self:far() or isHopper(peripheral.getType(n) or "") or isEmpty(n) then return true end
+    local t = peripheral.getType(n) or ""
+    if n == current or self:far() or isHopper(t) or isEnderType(t) or isEmpty(n) then return true end
     ui:say(("%s has items in it: empty it first (if it's a storage chest, pick another)."):format(n), "orange")
     return false
   end
@@ -842,7 +855,7 @@ function Set:setupParts(ui)
         or mustOut and "Under it: what it makes goes here and is counted, then goes into storage."
         or far and "Under it: what it makes goes here, then home through the ender chest."
         or "Under it: what it makes goes here, then into storage.",
-      names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
+      names = findOnNetwork(isOutput), current = current,
       none = not mustOut and none or nil,
       roleOf = function(n)
         return u[n] and "another machine's" or (n == feeder or n == extra) and "its feeder"
@@ -856,7 +869,7 @@ function Set:setupParts(ui)
         done(n)
       end }
     ui:pickChest(o)
-    ui:say(("Every barrel and chest on the cable: tap its output chest%s."):format(mustOut and "" or ", or (none)"))
+    ui:say(("Every barrel and chest on the cable: tap its output chest%s. An ender chest works too, its twin a storage input chest."):format(mustOut and "" or ", or (none)"))
   end
   local function change(i, field, value, text)
     local list = self:entries()

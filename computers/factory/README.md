@@ -499,7 +499,11 @@ can make it, and what comes out in each line's output chest is counted
 towards it before it goes into storage. The items a request is waiting on
 are left alone by the smelter, so a charcoal order doesn't burn its logs.
 An item that comes out **uncut** (no recipe, or the saw's filter isn't what
-the line was told) ends its request, and the tab says so. A line shows red
+the line was told) ends its request, and the tab says so. With an **ender
+chest** as the output (its twin a storage input chest), what's cut goes home
+by itself and is counted from the stored count going up, never more than
+that line was sent; an uncut item just goes into storage, and the request
+waits. A line shows red
 **not moving** when its feeder hasn't gone down for a minute: is the saw
 turning, and the funnel taking from the feeder?
 
@@ -807,8 +811,11 @@ For each sawing line:
    belt: the **feeder**.
 3. On the saw's other side, a belt or chute carrying what it puts out into
    another **empty chest**: the **output chest**. It needs one: what's cut
-   is counted there. Only **one saw** on the line: a second would cut it
-   again (stripped logs into planks).
+   is counted there. Or an **ender chest** whose twin is a **storage input
+   chest**: what's cut goes straight into storage (handy when the saw is
+   away from the storage cable), and it's counted as the stored count goes
+   up. Only **one saw** on the line: a second would cut it again (stripped
+   logs into planks).
 4. Put a **wired modem** on both chests, joined to the storage network.
 5. On the setup screen, **Machines**, tap **+ Add a Create sawing line**:
    tap its feeder, then its output chest, from the list of every barrel
