@@ -36,7 +36,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
   plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks); projector, build-control, instabuild, cannon-feeder (a plan's blocks)
   crew.lua                  Hands a building to the builder turtles in strips and follows them (projector and build-control)
-  setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents, chests picked by dropping an item in (storage, factory)
+  setupui.lua               Setup screens on the monitor and terminal at once: settings pages, paged chest lists with contents (storage, factory: every barrel and chest on the cable), chests picked by dropping an item in
 plans/                      Building plans (JSON, or Lua for plans made by code), listed under "plans" in programs.json;
                             'install plan <name>' puts one in /plans (no program comes with any: install it, then the plans);
                             underground ones (bunker, cellar, hideout, workshop, burrow, cloister, greathall, crossroads,

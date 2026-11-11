@@ -517,9 +517,10 @@ end
 
 ---------------------------------------------------------------- commands
 
--- Pick from a numbered list (or type a name); nil if cancelled.
-local function choose(question, options)
-  for i, o in ipairs(options) do print(("%2d  %s"):format(i, o)) end
+-- Pick from a numbered list (or type a name); nil if cancelled. note(o):
+-- shown after each option (what's in a chest).
+local function choose(question, options, note)
+  for i, o in ipairs(options) do print(("%2d  %s%s"):format(i, o, note and ("  " .. note(o)) or "")) end
   write(question .. " ")
   local text = read()
   if text == "" then return nil end
@@ -539,6 +540,20 @@ end
 
 local function freeChest(self, name)
   return self:far() or isEmpty(name)
+end
+
+-- What's in a chest, for the lists: every barrel and chest on the cable is
+-- listed, and one with items in it is refused when picked.
+local function chestNote(name)
+  if isHopper(peripheral.getType(name) or "") then return "(hopper)" end
+  local ok, items = pcall(peripheral.call, name, "list")
+  if not ok or type(items) ~= "table" then return "" end
+  local n, top = 0, nil
+  for _, it in pairs(items) do
+    n = n + 1
+    top = top or it.name
+  end
+  return n == 0 and "(empty)" or ("(%d stacks: %s)"):format(n, (top:gsub("^[%w_]+:", "")))
 end
 
 function Set:list()
@@ -596,29 +611,26 @@ function Set:add(machine, feeder, output, extra)
     if #machines == 1 then print(machine) end
   end
   if not feeder then
-    -- every storage chest is a barrel or chest too: only empty ones are offered
+    -- every barrel and chest on the cable (one with items is refused below: it may be storage)
     local feeders = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and not self:taken(name) and (isHopper(peripheral.getType(name)) or freeChest(self, name)) then
+      if not used[name] and not self:taken(name) then
         feeders[#feeders + 1] = name
       end
     end
     if #feeders == 0 then
-      print(kind and "Nothing free to feed it: an empty chest or barrel with a wired modem on it, joined to the cable."
-        or ("Nothing free to feed it. Put a hopper on top of the %s, pointing down, or an empty barrel a pipe pulls from into it, with a wired modem on it joined to the cable.")
-          :format(self.opts.what))
+      print("No barrel, chest or hopper on the cable that isn't taken: put a wired modem on one, join it to the cable and right-click it.")
       return
     end
     print(kind and ("What FEEDS it: %s"):format(kind.feeds)
       or "What FEEDS it: the hopper on top of it, pointing down, or the barrel a pipe pulls from into it:")
-    feeder = choose("Which? (Enter to cancel)", feeders)
+    feeder = choose("Which? (Enter to cancel)", feeders, chestNote)
     if not feeder then return end
   end
   if wantExtra and not extra then
     local extras = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
-      if not used[name] and not self:taken(name) and name ~= feeder
-        and (isHopper(peripheral.getType(name)) or freeChest(self, name)) then
+      if not used[name] and not self:taken(name) and name ~= feeder then
         extras[#extras + 1] = name
       end
     end
@@ -627,25 +639,25 @@ function Set:add(machine, feeder, output, extra)
       return
     end
     print(("Its %s: %s"):format(self.opts.extra.title:upper(), self.opts.extra.hint))
-    extra = choose("Which? (Enter to cancel)", extras)
+    extra = choose("Which? (Enter to cancel)", extras, chestNote)
     if not extra then return end
   end
   if asking then
     local outs = {}
     for _, name in ipairs(findOnNetwork(isFeeder)) do
       if not used[name] and not self:taken(name) and name ~= feeder and name ~= extra
-        and not isHopper(peripheral.getType(name)) and freeChest(self, name) then
+        and not isHopper(peripheral.getType(name)) then
         outs[#outs + 1] = name
       end
     end
     if mustOut and #outs == 0 then
-      print(("It needs an output chest%s (what it makes is counted there): an empty chest or barrel with a wired modem on it.")
+      print(("It needs an output chest%s (what it makes is counted there): a barrel or chest with a wired modem on it, joined to the cable.")
         :format(kind and "" or " under it"))
       return
     elseif mustOut then
       print(kind and ("Its OUTPUT chest: %s"):format(kind.out)
         or "Its OUTPUT chest or barrel, under it: what it makes goes here, is counted, then goes into storage.")
-      output = choose("Which? (Enter to cancel)", outs)
+      output = choose("Which? (Enter to cancel)", outs, chestNote)
       if not output then return end
     elseif #outs > 0 then
       if kind then
@@ -659,7 +671,7 @@ function Set:add(machine, feeder, output, extra)
         print("Its OUTPUT chest, under it, where what it makes goes (emptied into storage each round).")
         print("Enter: none, the chest under it is a storage input chest.")
       end
-      output = choose("Which?", outs)
+      output = choose("Which?", outs, chestNote)
     end
   end
   if (machine and used[machine]) or used[feeder] or (output and used[output]) or (extra and used[extra]) then
@@ -739,40 +751,43 @@ function Set:setupParts(ui)
   local function used(skip)
     return usedBy(self:entries(), skip)
   end
+  -- Every barrel and chest on the cable is listed with what's in it; one
+  -- with items can't be taken (near the storage it's most likely a storage
+  -- chest, and the storage computer only lets go of an empty one). True
+  -- if n is fine.
+  local function emptyEnough(n, current)
+    if n == current or self:far() or isHopper(peripheral.getType(n) or "") or isEmpty(n) then return true end
+    ui:say(("%s has items in it: empty it first (if it's a storage chest, pick another)."):format(n), "orange")
+    return false
+  end
   -- kind: the Create line's LINES entry, nil for a Mekanism machine
   local function pickFeeder(skip, current, kind, done)
     local u = used(skip)
     ui:pickChest({ title = "Pick its feeder",
       hint = kind and kind.feeds or "The hopper on top of it, or the barrel a pipe pulls from into it.",
       names = findOnNetwork(isFeeder), current = current,
-      nothing = kind and "Nothing free: an empty chest or barrel, with a wired modem on it."
-        or "Nothing free: a hopper on top, or an empty barrel, with a wired modem on it.",
+      nothing = "No barrel, chest or hopper on the cable: put a wired modem on one and right-click it.",
       roleOf = function(n) return u[n] and "another machine's" or self:taken(n) and "in use" or nil end,
-      -- every storage chest is a barrel or chest too: only empty ones (far away, any)
-      only = function(n, info)
-        return n == current or self:far() or isHopper(peripheral.getType(n) or "") or info.stacks == 0
-      end,
       pick = function(n)
         if u[n] or self:taken(n) then ui:say(("%s is taken."):format(n), "orange") return end
+        if not emptyEnough(n, current) then return end
         ui:back()
         done(n)
       end })
-    ui:say(kind and "Tap its feeder chest." or "Tap its hopper or barrel.")
+    ui:say("Every barrel and chest on the cable: tap its feeder (Empty: only empty ones).")
   end
   -- the second feeder (opts.extra): a hopper or empty barrel, not its first feeder
   local function pickExtra(skip, current, feeder, done)
     local u = used(skip)
     ui:pickChest({ title = "Pick its " .. opts.extra.title, hint = opts.extra.hint,
       names = findOnNetwork(isFeeder), current = current,
-      nothing = "Nothing free: a hopper into its side, or an empty barrel, with a wired modem on it.",
+      nothing = "No barrel, chest or hopper on the cable: put a wired modem on one and right-click it.",
       roleOf = function(n)
         return u[n] and "another machine's" or n == feeder and "its feeder" or self:taken(n) and "in use" or nil
       end,
-      only = function(n, info)
-        return n == current or self:far() or isHopper(peripheral.getType(n) or "") or info.stacks == 0
-      end,
       pick = function(n)
         if u[n] or n == feeder or self:taken(n) then ui:say(("%s is taken."):format(n), "orange") return end
+        if not emptyEnough(n, current) then return end
         ui:back()
         done(n)
       end })
@@ -795,23 +810,15 @@ function Set:setupParts(ui)
         return u[n] and "another machine's" or (n == feeder or n == extra) and "its feeder"
           or self:taken(n) and "in use" or nil
       end,
-      only = function(n, info) return n == current or far or info.stacks == 0 end,
+      nothing = "No barrel or chest on the cable: put a wired modem on one and right-click it.",
       pick = function(n)
         if n and (u[n] or n == feeder or n == extra or self:taken(n)) then ui:say(("%s is taken."):format(n), "orange") return end
+        if n and not emptyEnough(n, current) then return end
         ui:back()
         done(n)
       end }
-    -- near the storage an output chest starts empty, so dropping an item in
-    -- it says which it is (it goes into storage with the first round);
-    -- far away any chest could be one, so they're listed
-    if ui.pickByDrop and not far then
-      o.drop = "Put any item in its output chest now."
-      o.list = function() ui:pickChest(o) end
-      ui:pickByDrop(o)
-      return
-    end
     ui:pickChest(o)
-    ui:say(kind and "Tap the chest it ends up in, or (none)." or "Tap the chest under it, or (none).")
+    ui:say(("Every barrel and chest on the cable: tap its output chest%s."):format(mustOut and "" or ", or (none)"))
   end
   local function change(i, field, value, text)
     local list = self:entries()

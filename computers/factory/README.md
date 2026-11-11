@@ -754,8 +754,8 @@ factories):
    `storage setup` and pick no output chest: then what it makes goes
    straight in, and several machines can share one through a pipe.)
 4. On the setup screen, **Machines**, tap **+ Add an enrichment chamber**
-   (or **energized smelter**): tap the machine, then its feeder, then put
-   any item in its output chest (or tap **List** to pick it from a list).
+   (or **energized smelter**): tap the machine, then its feeder, then
+   its output chest, each from the list of every barrel and chest on the cable.
 
 ### Infusers
 
@@ -773,8 +773,8 @@ For each **Metallurgic Infuser** (or Infusing Factory):
    needs one: what's made is counted there.
 5. Put a **wired modem** on each of them, joined to the storage network.
 6. On the setup screen, **Machines**, tap **+ Add an infuser**: tap the
-   infuser, its feeder, its infusion feeder, then put any item in its output
-   chest. Or type `factory add infuser`.
+   infuser, its feeder, its infusion feeder, then its output chest, each
+   from the list. Or type `factory add infuser`.
 
 ### Create only
 
@@ -789,8 +789,8 @@ smoking fan:
    no output chest.)
 3. Put a **wired modem** on both chests, joined to the storage network.
 4. On the setup screen, **Machines**, tap **+ Add a Create crushing line**
-   (or washing fan, blasting fan, smoking fan): tap its feeder, then put any
-   item in its output chest. Or type `factory add crusher` (washer, fan,
+   (or washing fan, blasting fan, smoking fan): tap its feeder, then its
+   output chest, from the list of every barrel and chest on the cable. Or type `factory add crusher` (washer, fan,
    smokefan).
 
 Several lines are fine; each gets a stack at a time. With no chambers, the
@@ -811,8 +811,8 @@ For each sawing line:
    again (stripped logs into planks).
 4. Put a **wired modem** on both chests, joined to the storage network.
 5. On the setup screen, **Machines**, tap **+ Add a Create sawing line**:
-   tap its feeder, then put any item in its output chest. Or type
-   `factory add saw`.
+   tap its feeder, then its output chest, from the list of every barrel
+   and chest on the cable. Or type `factory add saw`.
 6. To make planks into slabs, stone into bricks and the like: set the
    saw's filter, then tap the line on the setup screen and set its
    **Filter** to the same item (see [Filters](#filters)). With none it does
@@ -1047,11 +1047,12 @@ if there is one. It works like the
     output chest), a cooking pot (what it makes, its hoppers, its relay).
     Mekanism's come first while there's a Mekanism machine around, else
     Create's.
-  - **Picking an output chest:** put any item in it, and the factory sees
-    which chest it went into (it goes into storage with the next round).
-    **List** picks it from a list instead. Far away, set the work chest
-    first: chests are listed, and ones that already have something in them
-    are offered too.
+  - **Picking a feeder or output chest:** every barrel, chest and hopper
+    on the cable is listed with what's in it (right-click a modem to see a
+    block's name; **Empty** shows only empty ones, and typing narrows the
+    list). Pick an **empty** one: one with items in it is most likely a
+    storage chest, so it isn't taken until you empty it. Far away (set the
+    work chest first) nothing on the cable is storage, so any can be picked.
 - **Chain**: each step (ores into dust, crushed ores and nuggets; smelting
   and cooking; cooking pots; essence) and where it happens: here, on which
   other factory computers, or nowhere yet. Tap one to switch it off on this

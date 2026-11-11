@@ -1687,7 +1687,7 @@
         "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into; far away an essence farm that keeps its essence and crafts what the storage computer asks for with its own turtles",
         "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
         "Several factory computers share a cable: each furnace and botany pot belongs to one, and smelters leave the ores an enricher anywhere takes; the Chain page shows what happens where",
-        "One setup screen for everything: found machines and whose they are, + Add rows for each kind, output chests picked by dropping an item in",
+        "One setup screen for everything: found machines and whose they are, + Add rows for each kind, feeders and output chests picked from a list of every barrel and chest on the cable, with what's in each",
         "Optional work chest (one request a round), or far away through an ender chest; a tab per part on the computer, a tile per machine on the monitor",
         "Replaces the smelter, enricher, cooker and essence computers: they update to it by themselves and keep their setup"
       ],
