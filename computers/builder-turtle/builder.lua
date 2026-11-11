@@ -899,7 +899,7 @@ end
 
 ---------------------------------------------------------------- start
 
-if not os.getComputerLabel() then os.setComputerLabel("Builder-" .. os.getComputerID()) end
+require("lib.label").set("Builder")
 home = nav.readFile(HOME_FILE)
 job = nav.readFile(JOB_FILE)
 prog = nav.readFile(PROGRESS_FILE)

@@ -464,6 +464,7 @@ end
 print("Make sure the sky above me is clear. Press Enter to start.")
 read()
 
+require("lib.label").set("GpsDeployer")
 errlog.init("gps-deploy", function() return { pos = nav.getPos() } end)
 local ok, err = errlog.pcall(function()
   local reached = climb(requested and requested + flyAbove or math.huge)

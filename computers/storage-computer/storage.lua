@@ -2640,6 +2640,7 @@ if fs.exists("pack_recipes.lua") then
 end
 if store.problem then message = { ("The %s Bridge: %s"):format(store.kind, store.problem), "red" } end
 
+require("lib.label").set("Storage")
 if report then report.init("storage") end
 -- 'storage config' in another tab saved a change: use it now (the table is
 -- changed in place, since the store keeps it). A new kind of store needs a

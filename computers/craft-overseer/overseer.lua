@@ -1862,6 +1862,7 @@ end
 local workers = {}
 for slot = 1, MAX_CRAFTERS do workers[slot] = worker() end
 term.clear()
+require("lib.label").set("CraftOverseer")
 if report then report.init("craft overseer") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, netReceive, netLoop, lookLoop, helloLoop, claimLoop,
   machineLoop, viewLoop, orderLoop, wantLoop, function() net.keepOpen("any") end,

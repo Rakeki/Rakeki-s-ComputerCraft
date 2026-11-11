@@ -98,6 +98,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `storage-computer`, `craft-overseer`, `factory`,
   `fission-guard`, `crate-turtle`, `furnace-turtle`, `build-control`, `instabuild`,
   `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `display-monitor` and `workchest.lua`.
+- `label.lua`: names the computer or turtle `<Name>-<id>` at start (`Storage-4`, `Excavator-12`); the factory adds the parts running on it (`Factory-Smelt-Enrich-7`) and renames itself when they change. A label the player typed is never replaced. Used by every program.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
   board. Used by `excavate-turtle`, `level-turtle`, `strip-mine-turtle`, `nether-tunnel-turtle`, `village-turtle`,

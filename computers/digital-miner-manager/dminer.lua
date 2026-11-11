@@ -410,6 +410,7 @@ local function run()
   display = screen.find({ setting = "dminer.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
   announce()
   setAutoEject()
+  require("lib.label").set("DigitalMiners")
   if report then report.init("digital miners") end
   if errlog then errlog.init("dminer") end
   local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop,

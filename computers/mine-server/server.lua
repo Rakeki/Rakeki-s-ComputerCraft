@@ -270,6 +270,7 @@ elseif args[1] then
 end
 if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 rednet.host(PROTOCOL, "server")
+require("lib.label").set("MineServer")
 report.init("mining server")
 errlog.init("server")
 

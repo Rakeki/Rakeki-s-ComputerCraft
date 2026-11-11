@@ -537,7 +537,7 @@ if args[1] == "cancel" then
   return
 end
 
-if not os.getComputerLabel() then os.setComputerLabel("Smelter-" .. os.getComputerID()) end
+require("lib.label").set("Smelter")
 job = nav.readFile(JOB_FILE)
 
 -- With a modem, nothing moves without GPS (nav.waitForGps says why on

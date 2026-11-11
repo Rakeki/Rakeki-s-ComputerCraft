@@ -52,6 +52,7 @@
 local screen = require("lib.screen") -- flicker-free drawing
 local net = require("lib.net") -- rednet requests and answers
 local files = require("lib.files") -- crash-safe save files
+local label = require("lib.label") -- names this computer after the parts running here
 local mekfeed = require("lib.mekfeed") -- Mekanism machines and Create lines
 local workchest = require("lib.workchest") -- the chest the storage computer fills in one go
 local setupui = require("lib.setupui") -- the setup screen
@@ -406,7 +407,18 @@ local function round()
   end
 end
 
+-- The label says which parts run here ("Factory-Smelt-Enrich-7"), so factory
+-- computers tell apart on the status server and the map; a player's own label stays.
+local function nameMe()
+  local kinds = {}
+  for _, p in ipairs(parts) do
+    if running(p) then kinds[#kinds + 1] = p.short or p.title end
+  end
+  label.set("Factory", kinds)
+end
+
 local function reportStatus()
+  nameMe()
   if not report then return end
   local order = { error = 5, alert = 4, waiting = 3, running = 2, idle = 1 }
   local state, details = nil, {}
@@ -1004,6 +1016,7 @@ end
 
 term.clear()
 if errlog then errlog.init("factory") end
+nameMe()
 if report then report.init("factory") end
 -- a part may run a loop of its own (the essence farm answers its crafting turtles)
 local loops = { uiLoop, workLoop, netLoop, function() net.keepOpen("any") end,

@@ -267,6 +267,7 @@ local function main()
   end
 end
 
+require("lib.label").set("Display")
 if report then report.init("display") end
 if errlog then errlog.init("display") end
 

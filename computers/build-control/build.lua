@@ -183,6 +183,7 @@ end
 
 local function main()
   local cmd = args[1]
+  require("lib.label").set("BuildControl")
   if report then report.init("build control") end
   if cmd == nil then
     print("Usage: build <plan> <x> <y> <z> [facing], build <plan> here,")

@@ -843,7 +843,7 @@ if args[1] == "list" then
   return
 end
 
-if not os.getComputerLabel() then os.setComputerLabel("MobFarm-" .. os.getComputerID()) end
+require("lib.label").set("MobFarm")
 
 -- Nothing moves without GPS: wait for it (nav.waitForGps says why on screen).
 -- The turtle works in real world coordinates and re-checks its position and

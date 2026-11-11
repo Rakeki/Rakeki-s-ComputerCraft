@@ -335,6 +335,7 @@ if not net.open() then
   return
 end
 
+require("lib.label").set("Finder")
 if errlog then errlog.init("finder", function() return { target = target, want = want } end) end
 local ok, err = (errlog and errlog.pcall or pcall)(function() parallel.waitForAny(main, gpsLoop) end)
 term.setBackgroundColor(colors.black)

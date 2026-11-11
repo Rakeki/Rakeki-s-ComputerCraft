@@ -346,6 +346,7 @@ display = screen.find({ setting = "power.monitor", scales = { MONITOR_SCALE }, f
 announce()
 if SIGNAL_SIDE then redstone.setOutput(SIGNAL_SIDE, false) end
 
+require("lib.label").set("Power")
 if report then report.init("power dashboard") end
 if errlog then errlog.init("power") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, eventLoop,

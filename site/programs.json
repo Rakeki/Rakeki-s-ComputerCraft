@@ -23,7 +23,7 @@
       "deviceLabel": "Mining turtle",
       "color": "orange",
       "tagline": "Digs a hole of any size and walls it in so no water or lava gets inside, ready for the builder turtles to fill. Or exactly the hole a building plan needs.",
-      "libs": ["nav", "report", "errlog", "inv", "files", "net", "claim"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "net", "claim", "label"],
       "stats": [
         ["Default hole", "21 × 21 × 16"],
         ["Walls", "sealed, dry"],
@@ -97,7 +97,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lightBlue",
       "tagline": "A 3×3 main tunnel with 3×3 branches off both sides, at any depth, torches every 8 blocks, loot hauled home.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Main tunnel", "3 × 3 × 64"],
         ["Branches", "10 pairs × 32"],
@@ -153,7 +153,7 @@
       "deviceLabel": "Mining turtle",
       "color": "red",
       "tagline": "A sealed 3×3 tunnel through the Nether: holes patched, lava walled off or scooped up for fuel.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Tunnel", "3 × 3 × 128"],
         ["Overworld", "~1,000 blocks"],
@@ -209,7 +209,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Flattens an area into a solid building platform: cuts down hills and trees, fills dips, ponds and holes with the dirt it dug.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Size", "any x × z"],
         ["Clears", "up to open sky"],
@@ -266,7 +266,7 @@
       "deviceLabel": "Mining turtle",
       "color": "lime",
       "tagline": "Builds a themed village outward from a plaza, choosing each building to suit the ground, with paved, lit streets.",
-      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts", "label"],
       "stats": [
         ["Themes", "4"],
         ["Buildings", "7 per theme"],
@@ -347,7 +347,7 @@
       "deviceLabel": "Mining turtle",
       "color": "red",
       "tagline": "Builds a classic drop-tower mob farm: dark spawning room, water channels, drop shaft and collection chest.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Spawn room", "18 × 18"],
         ["Drop", "32 (or 22 for XP)"],
@@ -406,7 +406,7 @@
       "deviceLabel": "Felling or mining turtle",
       "color": "green",
       "tagline": "Plants a grid of saplings, chops each tree as it grows, replants it and hauls the logs to a chest. For ever.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Trees", "4 × 6"],
         ["Spacing", "3 blocks"],
@@ -464,7 +464,7 @@
       "deviceLabel": "Farming turtle",
       "color": "yellow",
       "tagline": "Flies over a field, harvests whatever is ripe, replants it from its own seeds and drops the harvest in a chest.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Field", "9 × 9"],
         ["Crops", "5 kinds + melons"],
@@ -520,7 +520,7 @@
       "deviceLabel": "Command computer + monitor",
       "color": "pink",
       "tagline": "Breeds better and better Pokémon from a Cobbreeding pasture: reads every egg's IVs before it hatches, sends the better ones to the incubator and tells you which breeder to swap, on the way to a 6x31.",
-      "libs": ["screen", "files", "report", "errlog"],
+      "libs": ["screen", "files", "report", "errlog", "label"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -568,7 +568,7 @@
       "deviceLabel": "Advanced computer",
       "color": "yellow",
       "tagline": "The brain of AutoMine: hands chunks out to a fleet of mining turtles and shows a touch map for planning.",
-      "libs": ["report", "errlog", "screen", "net", "files"],
+      "libs": ["report", "errlog", "screen", "net", "files", "label"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -610,7 +610,7 @@
       "deviceLabel": "Mining turtle + modem",
       "color": "orange",
       "tagline": "Same code on every miner. Asks the server for a chunk, flies there and mines it out, layer by layer.",
-      "libs": ["nav", "report", "errlog", "inv", "net", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "net", "files", "label"],
       "autostart": true,
       "stats": [
         ["Pattern", "3-high layers"],
@@ -665,7 +665,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "cyan",
       "tagline": "A live monitor wall of every computer and turtle: state, what it's doing, where it is and its fuel.",
-      "libs": ["errlog", "screen", "net", "files"],
+      "libs": ["errlog", "screen", "net", "files", "label"],
       "autostart": true,
       "stats": [
         ["Setup per computer", "none"],
@@ -705,7 +705,8 @@
         "screen",
         "net",
         "files",
-        "errlog"
+        "errlog",
+        "label"
       ],
       "stats": [
         [
@@ -787,7 +788,9 @@
       "libs": [
         "screen",
         "report",
-        "errlog"
+        "errlog",
+        "label",
+        "files"
       ],
       "autostart": true,
       "stats": [
@@ -916,7 +919,9 @@
         "screen",
         "net",
         "report",
-        "errlog"
+        "errlog",
+        "label",
+        "files"
       ],
       "autostart": true,
       "stats": [
@@ -1017,7 +1022,7 @@
       "deviceLabel": "Mining turtle",
       "color": "purple",
       "tagline": "Flies up and builds a working 4-computer GPS constellation, installs gps host on each and switches them on; optionally wraps each host in a satellite.",
-      "libs": ["nav", "report", "errlog", "inv", "files"],
+      "libs": ["nav", "report", "errlog", "inv", "files", "label"],
       "stats": [
         ["Hosts", "4"],
         ["Height", "as high as it can"],
@@ -1075,7 +1080,7 @@
       "deviceLabel": "Advanced computer + monitor + Spatial Projector",
       "color": "magenta",
       "tagline": "Projects a building plan into the world as outlines: move and turn it from a monitor to see how it looks, then build it layer by layer.",
-      "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew"],
+      "libs": ["report", "errlog", "screen", "net", "files", "plan", "crew", "label"],
       "autostart": true,
       "stats": [
         ["Needs", "CC: Spatial Projector"],
@@ -1142,7 +1147,7 @@
       "deviceLabel": "Mining turtle + wireless modem",
       "color": "pink",
       "tagline": "Builds whatever the blueprint projector is showing, right where it's shown: tap Build and watch it go up layer by layer.",
-      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts"],
+      "libs": ["nav", "report", "errlog", "claim", "inv", "net", "files", "crafts", "label"],
       "autostart": true,
       "stats": [
         ["Plans from", "the projector"],
@@ -1198,7 +1203,7 @@
       "deviceLabel": "Any computer or pocket computer + wireless modem",
       "color": "pink",
       "tagline": "Sends a plan to the builder turtles at coordinates you type, no projector needed: from a pocket computer, build skystation 100 150 -40.",
-      "libs": ["plan", "crew", "net", "files", "report", "errlog"],
+      "libs": ["plan", "crew", "net", "files", "report", "errlog", "label"],
       "stats": [
         ["Plans", "JSON or Lua in /plans"],
         ["Builders", "up to 4 at once"],
@@ -1250,7 +1255,7 @@
       "deviceLabel": "Command computer (creative only)",
       "color": "purple",
       "tagline": "Creative only: places a whole plan in seconds from a command computer, typed in or where the blueprint projector shows it, never replacing a block, and undoes it again.",
-      "libs": ["plan", "files", "net", "errlog"],
+      "libs": ["plan", "files", "net", "errlog", "label"],
       "stats": [
         ["Sky station", "21,166 blocks in seconds"],
         ["Plans", "JSON or Lua in /plans"],
@@ -1301,7 +1306,7 @@
       "deviceLabel": "Computer + wired modems",
       "color": "blue",
       "tagline": "Turns a wall of networked chests, or an AE2 or Refined Storage system, into one searchable store that every turtle can ask for items, and shows on a monitor where everything is going.",
-      "libs": ["report", "errlog", "screen", "files", "net", "setupui"],
+      "libs": ["report", "errlog", "screen", "files", "net", "setupui", "label"],
       "autostart": true,
       "stats": [
         ["Stores in", "chests, ME or RS"],
@@ -1375,7 +1380,7 @@
       "deviceLabel": "Computer + ender modem + ender chest",
       "color": "magenta",
       "tagline": "The storage system from anywhere, through a linked ender chest: search what's stored and pull it, or drop items in to send them home.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts", "label"],
       "autostart": true,
       "stats": [
         ["Range", "any, any dimension"],
@@ -1431,7 +1436,7 @@
       "deviceLabel": "Computer on the storage cable",
       "color": "lightBlue",
       "tagline": "A computer just for ordering crafts: everything the storage system has a recipe for, made into a chest next to it or into storage, the rest as soon as the items come in.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "crafts", "label"],
       "autostart": true,
       "stats": [
         ["Lists", "every recipe"],
@@ -1493,7 +1498,7 @@
       "deviceLabel": "Computer + chest by a Schematicannon",
       "color": "yellow",
       "tagline": "Keeps a Create Schematicannon stocked from the storage system: with a Block Reader on the cannon it sends whatever the cannon is waiting for, or give it the material list; what's missing is crafted on the way.",
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "plan", "crafts"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "plan", "crafts", "label"],
       "autostart": true,
       "stats": [
         ["Tops up", "every 5 s"],
@@ -1553,7 +1558,7 @@
       "deviceLabel": "Crafty turtle",
       "color": "brown",
       "tagline": "The storage system's crafting arm: makes what turtles ask for but isn't stored, from what is, ingredients first.",
-      "libs": ["claim", "report", "errlog", "net", "crafts"],
+      "libs": ["claim", "report", "errlog", "net", "crafts", "label", "files"],
       "autostart": true,
       "stats": [
         ["Recipes", "119 built in"],
@@ -1610,7 +1615,7 @@
       "deviceLabel": "Advanced computer + monitor + modems",
       "color": "orange",
       "tagline": "The storage system's recipe server: knows every recipe (your modpack's too), plans every craft and shares it between any number of crafting turtles, with the queue and what each job is missing on a monitor, and a Craft tab to order things made.",
-      "libs": ["screen", "report", "errlog", "net", "files", "claim"],
+      "libs": ["screen", "report", "errlog", "net", "files", "claim", "label"],
       "autostart": true,
       "stats": [
         ["Turtles", "up to 8 at once"],
@@ -1668,7 +1673,7 @@
       "color": "red",
       "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters, enrichment chambers and infusers, Create crushers, washers, fans and saws, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
       "replaces": ["smelter-computer", "enricher-computer", "cooker-computer", "essence-computer"],
-      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui", "crafts"],
+      "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui", "crafts", "label"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1749,7 +1754,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "orange",
       "tagline": "A touch-screen monitor for your MineColonies colony: citizens, happiness, huts, open requests, builds, and an alarm when it's attacked.",
-      "libs": ["report", "errlog", "screen"],
+      "libs": ["report", "errlog", "screen", "label", "files"],
       "autostart": true,
       "stats": [
         ["Refresh", "every 5 s"],
@@ -1792,7 +1797,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "lime",
       "tagline": "Watches a Mekanism fission reactor twice a second and SCRAMs it before it overheats, takes damage, runs dry or backs up on steam or waste.",
-      "libs": ["screen", "files", "report", "errlog"],
+      "libs": ["screen", "files", "report", "errlog", "label"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1838,7 +1843,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "lightBlue",
       "tagline": "Your Mekanism Induction Matrix on a monitor: stored power, in and out, time until full or empty, an hour's graph, turbines and energy cubes.",
-      "libs": ["screen", "report", "errlog"],
+      "libs": ["screen", "report", "errlog", "label", "files"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1883,7 +1888,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "magenta",
       "tagline": "A control panel for a Mekanism fusion reactor: plasma and case temperature, fuel, water and steam, power made and injection-rate buttons.",
-      "libs": ["screen", "report", "errlog"],
+      "libs": ["screen", "report", "errlog", "label", "files"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1928,7 +1933,7 @@
       "deviceLabel": "Advanced computer + monitor",
       "color": "cyan",
       "tagline": "Every Mekanism Digital Miner on one monitor: start, stop, reset, radius, Y range, silk touch and filters, with the ore going into your storage.",
-      "libs": ["screen", "report", "errlog"],
+      "libs": ["screen", "report", "errlog", "label", "files"],
       "keep": ["config.lua"],
       "autostart": true,
       "stats": [
@@ -1979,7 +1984,7 @@
       "deviceLabel": "Crafty mining turtle",
       "color": "red",
       "tagline": "Places a row of furnaces and keeps them smelting whatever lands in the chest behind it: no modems, cables or storage system.",
-      "libs": ["nav", "inv", "files", "report", "errlog"],
+      "libs": ["nav", "inv", "files", "report", "errlog", "label"],
       "stats": [
         ["Furnaces", "4 (up to 16)"],
         ["Fuel", "~4 per furnace a round"],
@@ -2042,7 +2047,7 @@
       "deviceLabel": "Any turtle",
       "color": "magenta",
       "tagline": "Pulls endless items out of a Create Creative Crate into a chest: keeps it full, sends a set amount, or keeps the storage system stocked.",
-      "libs": ["files", "net", "report", "errlog"],
+      "libs": ["files", "net", "report", "errlog", "label"],
       "stats": [
         ["Items", "endless"],
         ["Moves", "a stack at a time"],
@@ -2106,7 +2111,8 @@
         "screen",
         "files",
         "report",
-        "errlog"
+        "errlog",
+        "label"
       ],
       "keep": [],
       "autostart": true,
@@ -2389,6 +2395,19 @@
         ["files.delete(path)", "Remove the file and its temp copy."]
       ],
       "notes": "lib/nav.lua's writeFile, readFile and deleteFile are these same functions, so every turtle program installs this too."
+    },
+    {
+      "name": "label",
+      "title": "lib/label",
+      "file": "lib/label.lua",
+      "color": "lightGray",
+      "tagline": "Names every computer and turtle the same way, Storage-4, Excavator-12, Factory-Smelt-Enrich-7, and never touches a label you typed yourself.",
+      "usage": "local label = require(\"lib.label\")\n\nlabel.set(\"Storage\")                     -- Storage-4\nlabel.set(\"Factory\", { \"Smelt\", \"Saw\" }) -- Factory-Smelt-Saw-7, again when it changes",
+      "api": [
+        ["label.set(name, extras)", "Label this computer name-extras-id if it has no label or still has the one it gave itself; returns the label it has."],
+        ["label.name(name, extras)", "The label it would get, without setting it."]
+      ],
+      "notes": "Labels are cut to CC's 32 characters by leaving extras off, so the id is always at the end. The last label it set is kept in /.auto_label: a label you set with 'label set' is never replaced. A labelled turtle keeps its files when broken."
     },
     {
       "name": "inv",

@@ -227,7 +227,7 @@ local function usage()
   print("crate stop         forget the job")
 end
 
-if not os.getComputerLabel() then os.setComputerLabel("Crate-" .. os.getComputerID()) end
+require("lib.label").set("Crate")
 
 local args = { ... }
 local function number(s)

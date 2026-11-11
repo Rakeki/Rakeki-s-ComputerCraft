@@ -827,6 +827,7 @@ end
 
 term.clear()
 if errlog then errlog.init("cannon") end
+require("lib.label").set("CannonFeeder")
 if report then report.init("cannon feeder") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, feedLoop,
   report and report.loop or function() while true do sleep(3600) end end)

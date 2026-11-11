@@ -862,6 +862,7 @@ local function main()
 
   -- start from a clean projector: older shapes may be from another program or run
   projector.clear()
+  require("lib.label").set("Projector")
   if report then report.init("blueprint projector") end
   redraw()
   parallel.waitForAny(panelLoop, drawLoop, villageLoop, buildLoop, instaLoop,

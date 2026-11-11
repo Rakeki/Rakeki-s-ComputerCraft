@@ -375,6 +375,7 @@ local function run()
   if not http then error(explain(nil, nil, url), 0) end
   if openAll() == 0 then error("Attach a wireless or ender modem (or a wired one on the cable to listen to).", 0) end
 
+  require("lib.label").set("Bridge")
   report.init("overseer bridge")
   local s = screen.new(term.current())
 

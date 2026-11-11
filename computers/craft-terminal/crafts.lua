@@ -464,6 +464,7 @@ end
 
 term.clear()
 if errlog then errlog.init("crafts") end
+require("lib.label").set("CraftTerminal")
 if report then report.init("craft terminal") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, refreshLoop,
   function() net.keepOpen("any") end,

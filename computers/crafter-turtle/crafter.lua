@@ -379,7 +379,7 @@ if not turtle or not turtle.craft then
   print("This needs a crafty turtle: a turtle with a crafting table equipped.")
   return
 end
-if not os.getComputerLabel() then os.setComputerLabel("Crafter-" .. os.getComputerID()) end
+require("lib.label").set("Crafter")
 
 local args = { ... }
 if args[1] == "learn" then return learn() end

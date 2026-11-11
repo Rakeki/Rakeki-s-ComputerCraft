@@ -414,6 +414,7 @@ end
 ---------------------------------------------------------------- main
 
 local function main()
+  require("lib.label").set("Updater")
   report.init("update watcher")
   report.set("watching", "checking the website")
   if not net.open() then print("No wireless or ender modem: I can only see myself.") end

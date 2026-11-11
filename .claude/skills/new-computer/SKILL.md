@@ -61,6 +61,9 @@ repo root.
 
 - **Errors and status:** `errlog.init` + `errlog.pcall` around the work,
   `report.init` / `report.set` as it goes ([[lib-errlog]], [[lib-report]]).
+- **Label:** `require("lib.label").set("<Name>")` at start, before
+  `report.init`, with `label` and `files` in its libs; pick a name not yet in
+  the [[labels]] table and add it there.
 - **Items:** if it needs items or fuel from storage, ask the storage computer
   ([[storage-system]]); never read or empty storage chests directly.
 - **Screens:** draw every monitor or terminal UI through `lib/screen.lua`

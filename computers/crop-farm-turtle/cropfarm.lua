@@ -283,7 +283,7 @@ if args[1] == "cancel" then
   return
 end
 
-if not os.getComputerLabel() then os.setComputerLabel("CropFarm-" .. os.getComputerID()) end
+require("lib.label").set("CropFarm")
 job = nav.readFile(JOB_FILE)
 
 -- Nothing moves without GPS: wait for it (nav.waitForGps says why on screen).

@@ -364,6 +364,7 @@ if not reactor then
   print("Connect one; it's picked up when it appears.")
 end
 
+require("lib.label").set("Fusion")
 if report then report.init("fusion control") end
 if errlog then errlog.init("fusion") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop,

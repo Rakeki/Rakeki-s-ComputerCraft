@@ -838,6 +838,7 @@ local function run()
   loadState()
   display = screen.find({ setting = "breed.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
   announce()
+  require("lib.label").set("Breeder")
   if report then report.init("cobblemon breeder") end
   if errlog then errlog.init("breed", function() return { breeders = #state.breeders } end) end
   local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, roundLoop, touchLoop,

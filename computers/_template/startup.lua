@@ -8,6 +8,7 @@ if fs.exists("/install.lua") then shell.run("/install.lua", "boot") end
 local report = require("lib.report")
 local errlog = require("lib.errlog")
 
+require("lib.label").set("Template") -- names it Template-<id> (unless you labelled it)
 report.init("template") -- what this computer is for
 errlog.init("template")
 

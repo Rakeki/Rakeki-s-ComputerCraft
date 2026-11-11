@@ -344,6 +344,7 @@ end
 display = screen.find({ setting = "colony.monitor", scales = { MONITOR_SCALE }, fallback = term.current() })
 announce()
 
+require("lib.label").set("Colony")
 if report then report.init("colony dashboard") end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, refreshLoop, touchLoop, alarmLoop,
   report and report.loop or function() sleep(math.huge) end)

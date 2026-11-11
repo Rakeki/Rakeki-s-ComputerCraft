@@ -439,6 +439,7 @@ if not reactor then
 end
 if latch.reason then print(("Still latched from before: %s. Tap Reset when safe."):format(latch.reason)) end
 
+require("lib.label").set("FissionGuard")
 if report then report.init("fission guard") end
 if errlog then errlog.init("fission", function() return { latch = latch.reason } end) end
 local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, checkLoop, touchLoop, alarmLoop,

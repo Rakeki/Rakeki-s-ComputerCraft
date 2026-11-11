@@ -66,6 +66,7 @@ end
 ---------------------------------------------------------------- main
 
 load()
+require("lib.label").set("Status")
 if not net.open("any") then error("Attach a wireless or ender modem", 0) end
 
 local view = dashboard.new()

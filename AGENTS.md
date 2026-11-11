@@ -32,6 +32,7 @@ lib/                        Shared modules, copied to /lib/ in-game, loaded with
   workchest.lua             A computer's work chest: the storage computer fills it in one request a round, the program loads its machines from it (the factory), on the cable or far away through ender chests
   net.lua                   Rednet: opening modems, requests with ids and deadlines, answers, cached lookups
   crafts.lua                Crafting questions for the craft overseer (the recipe server), added to storage replies: deliver, count, prepare
+  label.lua                 Names the computer "<Name>-<id>" at start (the factory adds its parts); never replaces a player's label
   files.lua                 Crash-safe save files (temp file, then move); nav.writeFile etc. are these
   inv.lua                   Turtle inventory and fuel: count, select, empty slots, refuel
   plan.lua                  Building plans: loads /plans/<name>.json or .lua, places them in the world (turn, corner, world blocks); projector, build-control, instabuild, cannon-feeder (a plan's blocks)
@@ -393,6 +394,7 @@ Detailed guides live in `.claude/skills/`:
 - `lib-setupui`: the `lib/setupui.lua` API for setup screens and chest pickers
 - `performance`: yielding, tick-costly peripheral calls, caching, big data files, message size, redraws
 - `mod-recipes`: a modpack's recipes from its jars (`tools/*.mjs`, the loader jar's tags, recipes a mod builds in code)
+- `labels`: how every program labels its computer (`lib/label.lua`), the names in use, labels that follow what runs (the factory)
 - `testing`: compiling (`node sim/compile.mjs`), headless module checks with CC stubbed, and when to use the simulator
 
 ## Conventions
@@ -436,8 +438,11 @@ Detailed guides live in `.claude/skills/`:
 - **Persistence:** save state with `lib/files.lua` (`files.write` / `read` /
   `delete`; temp-file writes, crash safe), which turtles also have as
   `nav.writeFile` etc. Never `fs.open` a state file directly. Job files are `/.<name>_job`.
-- **Labels:** turtles label themselves (`os.setComputerLabel("Excavator-" .. id)`)
-  so they keep their files when broken.
+- **Labels:** every program labels its computer or turtle at start with
+  `require("lib.label").set("<Name>")` (`Excavator-12`; the factory adds its
+  running parts: `Factory-Smelt-Enrich-7`), never `os.setComputerLabel`, and
+  never replaces a label the player typed (the `labels` skill has the names);
+  a labelled turtle keeps its files when broken.
 - **Junk list**: cobblestone, cobbled_deepslate, stone, deepslate, dirt, gravel,
   andesite, diorite, granite, tuff, calcite, netherrack.
 - **READMEs** follow the format in [Documentation](#documentation) and are

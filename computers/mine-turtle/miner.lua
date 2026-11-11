@@ -486,7 +486,7 @@ end
 openModem()
 report.init("auto miner")
 errlog.init("miner", function() return { pos = nav.getPos(), job = job } end)
-if not os.getComputerLabel() then os.setComputerLabel("Miner-" .. os.getComputerID()) end
+require("lib.label").set("Miner")
 print("AutoMine turtle " .. os.getComputerLabel())
 -- GPS works out the facing by stepping forward, which needs fuel.
 if inv.fuelLevel() < 10 then inv.refuel(100) end

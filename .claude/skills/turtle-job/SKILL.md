@@ -116,7 +116,7 @@ Trips home must follow paths the job has already cleared (excavate's
 | `here` | An old job without GPS: player has put it back on the start block. |
 | `cancel` | `nav.deleteFile(JOB_FILE)`. |
 
-Label on start: `if not os.getComputerLabel() then os.setComputerLabel("Prog-" .. os.getComputerID()) end`.
+Label on start: `require("lib.label").set("Prog")` (see the `labels` skill).
 
 End of file:
 

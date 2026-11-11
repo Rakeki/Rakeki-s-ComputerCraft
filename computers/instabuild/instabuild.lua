@@ -375,6 +375,7 @@ local function main()
   build(cmd, { args[2], args[3], args[4] }, args[2] == "here" and args[3] or args[5])
 end
 
+require("lib.label").set("Instabuild")
 if errlog then errlog.init("instabuild") end
 local ok, err = (errlog and errlog.pcall or pcall)(main)
 if not ok and err ~= "Terminated" then printError(err) end

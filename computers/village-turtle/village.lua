@@ -2158,7 +2158,7 @@ if args[1] == "list" then
   return
 end
 
-if not os.getComputerLabel() then os.setComputerLabel("Villager-" .. os.getComputerID()) end
+require("lib.label").set("Villager")
 job = nav.readFile(JOB_FILE)
 
 if args[1] == "status" then
