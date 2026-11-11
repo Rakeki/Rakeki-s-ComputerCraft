@@ -116,7 +116,7 @@ function M.new(f)
   local requests = {} -- every request, oldest first (REQUEST_DIR)
   local counts = {} -- the storage computer's counts, for the screen
   local shown = {} -- the recipes the page lists: ones a line here can make from what's stored, or that are asked for
-  local hiddenCount = 0 -- stored items only a filtered saw could cut, for the page
+  local ready = {} -- recipe key -> true: a line here can make it now (the rest need a saw with its filter on it)
   local progress = {} -- request at -> when it last had something loaded or made (os.clock)
   local news -- { text, colour, untilTime }
   local outStuck, outWhy, collected
@@ -404,33 +404,30 @@ function M.new(f)
     end
   end
 
-  -- The page's list: recipes a line here can make from what's stored, and
-  -- the ones asked for, by name.
+  -- The page's list: every recipe for what's stored, and the ones asked
+  -- for, by name: what a line here can make now first, then what needs a
+  -- saw with its filter set (framed glass from glass: glass has four).
   local function listShown()
-    local list, seen, only = {}, {}, 0
+    local list, seen, now = {}, {}, {}
+    local function add(rc)
+      if seen[rc.key] then return end
+      seen[rc.key] = true
+      now[rc.key] = anyLine(rc) or nil
+      list[#list + 1] = rc
+    end
     for _, q in ipairs(requests) do
-      if q.recipe and not seen[q.recipe.key] then
-        seen[q.recipe.key] = true
-        list[#list + 1] = q.recipe
-      end
+      if q.recipe then add(q.recipe) end
     end
     for name, n in pairs(counts) do
       if n > (KEEP[name] or 0) and byFrom[name] then
-        local any = false
-        for _, rc in ipairs(byFrom[name]) do
-          if anyLine(rc) then
-            any = true
-            if not seen[rc.key] then
-              seen[rc.key] = true
-              list[#list + 1] = rc
-            end
-          end
-        end
-        if not any then only = only + 1 end
+        for _, rc in ipairs(byFrom[name]) do add(rc) end
       end
     end
-    table.sort(list, function(a, b) return titleOf(a) < titleOf(b) end)
-    shown, hiddenCount = list, only
+    table.sort(list, function(a, b)
+      if (now[a.key] or false) ~= (now[b.key] or false) then return now[a.key] == true end
+      return titleOf(a) < titleOf(b)
+    end)
+    shown, ready = list, now
   end
 
   function self.round(r)
@@ -641,10 +638,14 @@ function M.new(f)
         local bg = keyed and scroll + i == picked and "gray" or "black"
         local nameW = canR - 7
         local title = titleOf(rc)
+        local can = ready[rc.key]
         screen.put(win, 1, y, (" "):rep(canR + 1), "white", bg)
-        screen.put(win, 2, y, fit(title, nameW), n > 0 and "white" or "lightGray", bg)
-        local from = " from " .. nice(rc.from)
-        if #title + 2 < nameW then screen.put(win, 2 + #title, y, fit(from, nameW - #title), bg == "gray" and "lightGray" or "gray", bg) end
+        screen.put(win, 2, y, fit(title, nameW), n > 0 and can and "white" or "lightGray", bg)
+        -- what it's cut from, or (no line has the filter for it) that it needs one
+        local from = can and (" from " .. nice(rc.from)) or " needs a filter"
+        if #title + 2 < nameW then
+          screen.put(win, 2 + #title, y, fit(from, nameW - #title), can and (bg == "gray" and "lightGray" or "gray") or "orange", bg)
+        end
         local can = n > 9999 and "9999+" or tostring(n)
         screen.put(win, canR - #can + 1, y, can, n > 0 and "lime" or bg == "gray" and "lightGray" or "gray", bg)
         local x = bx
@@ -655,9 +656,6 @@ function M.new(f)
     end
     if #shown == 0 then
       screen.put(win, 2, 4, fit(#machines == 0 and "No saws yet." or "Nothing in storage a saw here can cut.", w - 2), "gray")
-    end
-    if hiddenCount > 0 and #shown < rows then
-      screen.put(win, 2, 4 + math.max(#shown, 1), fit(("%d more stored items need a saw with a filter: 'factory saw find'"):format(hiddenCount), w - 2), "gray")
     end
     if #shown > rows then
       screen.put(win, w, 4, scroll > 0 and "^" or " ", "yellow")
@@ -679,8 +677,8 @@ function M.new(f)
   end
 
   function self.key()
-    local key = { self.message[1], self.message[2], scroll, picked, #shown, hiddenCount }
-    for _, rc in ipairs(shown) do key[#key + 1] = rc.key .. "=" .. canMake(rc, counts) end
+    local key = { self.message[1], self.message[2], scroll, picked, #shown }
+    for _, rc in ipairs(shown) do key[#key + 1] = rc.key .. "=" .. canMake(rc, counts) .. (ready[rc.key] and "" or "!") end
     for _, q in ipairs(requests) do key[#key + 1] = table.concat({ q.key, q.made, q.count, q.state or "" }, "/") end
     for _, m in ipairs(machines) do key[#key + 1] = table.concat({ m.title, m.state or "" }, "/") end
     return table.concat(key, "|")
@@ -695,7 +693,7 @@ function M.new(f)
     screen.put(win, 2, 2, screen.fit(("%d saw%s, %d working, %d recipes"):format(#machines, #machines == 1 and "" or "s",
       busy, #recipes), w - 2), "lightGray")
     local footer = {}
-    for _, line in ipairs(screen.wrap(self.message[1], w, self.message[2] == "red" and 4 or 2)) do footer[#footer + 1] = { line, self.message[2] } end
+    for _, line in ipairs(screen.wrap(self.message[1], w, (self.message[2] == "red" or self.message[2] == "orange") and 4 or 2)) do footer[#footer + 1] = { line, self.message[2] } end
     footer[#footer + 1] = { w >= 50 and "Arrows pick. Enter +1, 8 +8, 6 +64. X cancels last" or "Enter +1, 8 +8, 6 +64, X cancels",
       "gray" }
     drawRequests(win, w, h, "terminal", footer)
@@ -728,7 +726,13 @@ function M.new(f)
   local function act(a)
     if a.add then
       request(a.add, a.n * a.add.count)
-      tell(("Asked for %d %s."):format(a.n * a.add.count, titleOf(a.add)), "lime")
+      if ready[a.add.key] then
+        tell(("Asked for %d %s."):format(a.n * a.add.count, titleOf(a.add)), "lime")
+      else
+        -- CC can't set the saw's filter: the player sets it, and tells its line
+        tell(("Asked for %d %s. Set a saw's filter to %s, then that line's Filter on the setup screen (or 'factory saw filter <line> %s')."):format(
+          a.n * a.add.count, titleOf(a.add), nice(a.add.make), a.add.make), "orange")
+      end
     elseif a.scroll then
       scroll = math.max(0, scroll + a.scroll)
       picked = math.max(1, math.min(#shown, picked + a.scroll)) -- else the terminal snaps back to it

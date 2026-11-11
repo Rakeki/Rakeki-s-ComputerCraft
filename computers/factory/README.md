@@ -475,16 +475,20 @@ saw. Then:
 
 So one saw with no filter covers stripped logs and planks; add a line for
 each piece you want made often (oak slabs, stone bricks), with its filter
-set. What no line here can make yet says **needs a saw with its filter
-on ...**.
+set. What no line here can make yet is marked **needs a filter** on the
+Saw tab, and a request for it waits with **needs a saw with its filter on
+...** until a line has one.
 
 ### Asking
 
 You ask the same three ways as the infuser:
 
-- **Its page.** The **Saw** tab (and the monitor's **Saw** page) lists what
-  a saw here can make from what's stored, with how many and **+1**, **+8**
-  and **+64** buttons. What's asked for is listed underneath; tap **x** to
+- **Its page.** The **Saw** tab (and the monitor's **Saw** page) lists
+  everything a saw can make from what's stored, with how many and **+1**,
+  **+8** and **+64** buttons: first what your lines can make now, then the
+  rest, marked **needs a filter** in orange (framed glass from glass, since
+  glass has four recipes). Ask for one of those and it says what to set:
+  the saw's filter, and that line's **Filter** on the setup screen. What's asked for is listed underneath; tap **x** to
   cancel one. On the computer, **Up** / **Down** pick, **Enter**, **8**
   and **6** ask for 1, 8 or 64, and **X** cancels the newest.
 - **`factory saw`** lists the same; `factory saw find slab` looks up any
