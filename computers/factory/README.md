@@ -431,7 +431,7 @@ cut by itself. A saw makes a lot:
 | andesite alloy, and Create's mod-support recipes | shafts, ladders, mod woods' planks, Immersive Engineering wires... |
 
 The factory comes with every one of these for vanilla and Create
-(`saw_recipes.lua`, over 4,000). For a modpack's woods and stones, make
+(`saw_recipes.lua`, over 4,000, framed glass included). For a modpack's woods and stones, make
 its own file with [`tools/saw-recipes.mjs`](../../tools/saw-recipes.mjs)
 on your PC and put it on the computer as `saw_pack.lua`: it's used
 instead (see [Modpack recipes](#modpack-recipes)).
@@ -440,7 +440,7 @@ instead (see [Modpack recipes](#modpack-recipes)).
 
 Create makes its wood recipes for every mod's wood when the game starts,
 and mods add stonecutter recipes, so a modpack's saw does far more than the
-built-in list knows. For All the Mons there's a ready-made file (12,000
+built-in list knows. For All the Mons there's a ready-made file (12,046
 recipes, 280 KB):
 
 ```
@@ -449,9 +449,11 @@ reboot
 ```
 
 For another pack, on your PC run
-`node tools/saw-recipes.mjs saw_pack.lua <minecraft.jar> <the pack's mods folder>`
-(`minecraft.jar` is `versions/1.21.1/1.21.1.jar` in your launcher's
-folder) and copy the file it writes here (drag it onto the open computer
+`node tools/saw-recipes.mjs saw_pack.lua <minecraft.jar> <neoforge.jar> <the pack's mods folder>`
+(in your launcher's folder, `minecraft.jar` is `versions/1.21.1/1.21.1.jar`
+and `neoforge.jar` is `libraries/net/neoforged/neoforge/<version>/neoforge-<version>-universal.jar`:
+NeoForge fills the tags some recipes take, like plain glass for Create's
+framed glass) and copy the file it writes here (drag it onto the open computer
 screen). Updates never touch `saw_pack.lua`; delete it to go back to the
 built-in recipes. A recipe the file still misses goes under `saw` in
 `config.lua` (`recipes`), and one you never want made under `hide`.
@@ -499,11 +501,7 @@ can make it, and what comes out in each line's output chest is counted
 towards it before it goes into storage. The items a request is waiting on
 are left alone by the smelter, so a charcoal order doesn't burn its logs.
 An item that comes out **uncut** (no recipe, or the saw's filter isn't what
-the line was told) ends its request, and the tab says so. With an **ender
-chest** as the output (its twin a storage input chest), what's cut goes home
-by itself and is counted from the stored count going up, never more than
-that line was sent; an uncut item just goes into storage, and the request
-waits. A line shows red
+the line was told) ends its request, and the tab says so. A line shows red
 **not moving** when its feeder hasn't gone down for a minute: is the saw
 turning, and the funnel taking from the feeder?
 
@@ -811,12 +809,17 @@ For each sawing line:
    belt: the **feeder**.
 3. On the saw's other side, a belt or chute carrying what it puts out into
    another **empty chest**: the **output chest**. It needs one: what's cut
-   is counted there. Or an **ender chest** whose twin is a **storage input
-   chest**: what's cut goes straight into storage (handy when the saw is
-   away from the storage cable), and it's counted as the stored count goes
-   up. Only **one saw** on the line: a second would cut it again (stripped
-   logs into planks).
+   is counted there. Only **one saw** on the line: a second would cut it
+   again (stripped logs into planks).
 4. Put a **wired modem** on both chests, joined to the storage network.
+   Or keep the saws on a **cable of their own**, the way every far-away
+   machine works: put **one ender chest** by the saw with a wired modem on
+   that cable (its twin on the storage cable at home), along with the
+   feeder, the output chest and this computer. Logs come in through the
+   ender chest, the factory moves them into the feeder, and what's cut goes
+   from the output chest back into the ender chest and home. Pick it under
+   **Work chest**, **Far away** on the setup screen (see
+   [Far from the storage system](#far-from-the-storage-system)).
 5. On the setup screen, **Machines**, tap **+ Add a Create sawing line**:
    tap its feeder, then its output chest, from the list of every barrel
    and chest on the cable. Or type `factory add saw`.

@@ -11,14 +11,21 @@
 //     2 slabs, a fence, fence gate, door, trapdoor, pressure plate, button
 //     and sign.
 //
-//   node tools/saw-recipes.mjs <out.lua> <minecraft.jar> <mods folder or jar>...
+//   node tools/saw-recipes.mjs <out.lua> <minecraft.jar> <loader.jar> <mods folder or jar>...
 //
 // e.g. node tools/saw-recipes.mjs computers/factory/packs/my-pack-saw.lua \
-//        ~/.minecraft/versions/1.21.1/1.21.1.jar ~/.minecraft/mods
+//        ~/.minecraft/versions/1.21.1/1.21.1.jar \
+//        ~/.minecraft/libraries/net/neoforged/neoforge/21.1.249/neoforge-21.1.249-universal.jar \
+//        ~/.minecraft/mods
+//
+// The loader's jar (NeoForge's universal jar, in the launcher's libraries
+// folder) matters: it fills the common c: tags, e.g. it puts minecraft:glass
+// in c:glass_blocks/colorless, which Create's framed glass recipes take.
+// Without it those recipes have no plain glass.
 //
 // Put the file on the factory computer as /saw_pack.lua: it's used instead
-// of the saw_recipes.lua that comes with the factory (vanilla and Create
-// only, made with this tool). No dependencies: the jars are read with a
+// of the saw_recipes.lua that comes with the factory (vanilla, NeoForge's
+// tags and Create only, made with this tool). No dependencies: the jars are read with a
 // tiny ZIP reader.
 import fs from "node:fs";
 import path from "node:path";
@@ -54,11 +61,15 @@ function readZip(file) {
 
 const [outFile, ...inputs] = process.argv.slice(2);
 if (!outFile || !inputs.length) {
-  console.error("Usage: node tools/saw-recipes.mjs <out.lua> <minecraft.jar> <mods folder or jar>...");
+  console.error("Usage: node tools/saw-recipes.mjs <out.lua> <minecraft.jar> <loader.jar> <mods folder or jar>...");
   process.exit(1);
 }
 const jars = inputs.flatMap((p) => fs.statSync(p).isDirectory()
   ? fs.readdirSync(p).filter((f) => f.endsWith(".jar")).map((f) => path.join(p, f)) : [p]);
+
+if (!jars.some((j) => /^(neo)?forge-.*universal|^fabric-api/i.test(path.basename(j)))) {
+  console.error("No loader jar (NeoForge's universal jar): recipes that take c: tags (framed glass from glass) will miss items.");
+}
 
 const recipes = new Map(); // recipe id -> json (a later jar replaces an earlier one, like a datapack)
 const tagFiles = new Map(); // tag -> list of { replace, values }

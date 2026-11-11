@@ -118,8 +118,6 @@ function M.new(f)
   local shown = {} -- the recipes the page lists: ones a line here can make from what's stored, or that are asked for
   local hiddenCount = 0 -- stored items only a filtered saw could cut, for the page
   local progress = {} -- request at -> when it last had something loaded or made (os.clock)
-  local lastCounts = {} -- item -> its stored count last round, for lines whose output is an ender chest
-  local collectedPending = {} -- item -> how many output chests moved to storage that the stored count hasn't shown yet
   local news -- { text, colour, untilTime }
   local outStuck, outWhy, collected
   local makesKey, makesAt, makesNote = nil, -math.huge, nil
@@ -224,7 +222,6 @@ function M.new(f)
         if type(r) == "table" and type(r.count) == "number" then
           r.file = REQUEST_DIR .. "/" .. file
           r.made, r.sent = r.made or 0, r.sent or 0
-          r.enderSent, r.enderMade = r.enderSent or 0, r.enderMade or 0
           r.recipe = byKey[r.key]
           list[#list + 1] = r
         end
@@ -235,8 +232,7 @@ function M.new(f)
   end
 
   local function plain(r)
-    return { key = r.key, count = r.count, made = r.made, sent = r.sent, enderSent = r.enderSent, enderMade = r.enderMade,
-      at = r.at, job = r.job, done = r.done,
+    return { key = r.key, count = r.count, made = r.made, sent = r.sent, at = r.at, job = r.job, done = r.done,
       ok = r.ok, why = r.why }
   end
 
@@ -285,8 +281,6 @@ function M.new(f)
   -- Count what came out of the output chests towards the requests, oldest
   -- first; then an input that came out uncut ends its requests.
   local function credit(byName)
-    -- they reach storage later: not to be counted again from the stored counts
-    for name, n in pairs(byName) do collectedPending[name] = (collectedPending[name] or 0) + n end
     for _, q in ipairs(requests) do
       if not q.done and q.recipe then
         local n = math.min(byName[q.recipe.make] or 0, left(q))
@@ -307,43 +301,6 @@ function M.new(f)
         tell(capital(q.why), "orange")
         saveRequest(q)
       end
-    end
-  end
-
-  -- A line whose output is an ender chest (its twin a storage input chest)
-  -- sends what it cuts straight home, where the factory can't see it
-  -- arrive: it's counted from the stored count going up since last round,
-  -- never more than that line was sent and hasn't been counted (so other
-  -- things coming into storage aren't taken for it), less what the output
-  -- chests here moved in.
-  local function creditStock()
-    local makes = {}
-    for _, q in ipairs(requests) do
-      if not q.done and q.recipe then makes[q.recipe.make] = true end
-    end
-    for make in pairs(makes) do
-      local now = counts[make] or 0
-      local delta = lastCounts[make] and now - lastCounts[make] or 0
-      lastCounts[make] = now
-      local pending = collectedPending[make] or 0
-      local taken = math.min(math.max(delta, 0), pending)
-      collectedPending[make] = pending - taken
-      delta = delta - taken
-      for _, q in ipairs(requests) do
-        local rc = q.recipe
-        if delta > 0 and not q.done and rc and rc.make == make then
-          local n = math.min(delta, left(q), math.max(0, q.enderSent * rc.count - q.enderMade))
-          if n > 0 then
-            q.made, q.enderMade = q.made + n, q.enderMade + n
-            delta = delta - n
-            progress[q.at] = os.clock()
-            saveRequest(q)
-          end
-        end
-      end
-    end
-    for make in pairs(lastCounts) do
-      if not makes[make] then lastCounts[make], collectedPending[make] = nil, nil end
     end
   end
 
@@ -496,7 +453,6 @@ function M.new(f)
       _, outStuck, outWhy, byName = self.set:collect(machines, input)
       credit(byName)
     end
-    creditStock()
 
     -- finished requests: done, or a craft overseer's that waited too long
     local now = os.clock()
@@ -550,7 +506,7 @@ function M.new(f)
             if n > 0 then
               local got = n
               if plan then
-                plan[#plan + 1] = { m = m, q = q, name = rc.from, n = n, ender = mekfeed.isEnder(m.entry.output) }
+                plan[#plan + 1] = { m = m, q = q, name = rc.from, n = n }
               else
                 local reply = f.ask({ type = "send", to = m.entry.feeder, items = { [rc.from] = n } })
                 got = reply and type(reply.sent) == "table" and reply.sent[rc.from] or 0
@@ -560,7 +516,6 @@ function M.new(f)
               mekfeed.added(m, rc.from, got)
               avail[rc.from] = (avail[rc.from] or 0) - got
               q.sent = q.sent + got
-              if mekfeed.isEnder(m.entry.output) then q.enderSent = q.enderSent + got end
               sent = sent + got
               if got > 0 then progress[q.at], q.dirty = now, true end
             end
@@ -584,7 +539,6 @@ function M.new(f)
         if got < p.n then
           mekfeed.added(p.m, p.name, got - p.n)
           p.q.sent = p.q.sent - (p.n - got)
-          if p.ender then p.q.enderSent = p.q.enderSent - (p.n - got) end
           sent = sent - (p.n - got)
         end
       end

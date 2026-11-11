@@ -46,7 +46,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
   Also Create lines (crushing wheels, washing, blasting and smoking fans, saws), which CC can't see at all: just a feeder
   chest and an output chest, kept topped up and shown red when the feeder stops going down. A set of lines
-  only (no `opts.single`) has no Mekanism machine to add; a line kind with `needOutput` (the saw) must have an output chest (an ender chest is allowed, its twin a storage input chest: never collected or registered, `mekfeed.isEnder`), and `opts.lineRows` adds rows to a line's setup page (the saw's filter).
+  only (no `opts.single`) has no Mekanism machine to add; a line kind with `needOutput` (the saw) must have an output chest, and `opts.lineRows` adds rows to a line's setup page (the saw's filter).
   A set can give each machine a second feeder for its extra slot (`opts.extra`), its own side config
   (`opts.sides`), more reads (`opts.read`) and a required output chest (`opts.needOutput`): the infuser's.
   Used by `factory` (its enricher's chambers, crushers and washers, its smelter's Mekanism smelters and fans, and its
