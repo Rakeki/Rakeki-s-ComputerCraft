@@ -122,6 +122,24 @@ return {
     names = {},
   },
 
+  -- Create mechanical saws: logs, planks and stone cut on request. The
+  -- recipes come from saw_pack.lua (your modpack's: tools/saw-recipes.mjs)
+  -- or the saw_recipes.lua that comes with the factory (vanilla and Create).
+  saw = {
+    -- More recipes, if your pack's file misses one: make (count of it) from one from, e.g.
+    -- { make = "mod:stripped_palm_trunk", from = "mod:palm_trunk", title = "Stripped palm" }.
+    recipes = {},
+    -- Recipes never made (on the screen or for the craft overseer), by what they make.
+    hide = {},
+    -- How many of an item to leave in storage, never cut.
+    keep = {},
+    -- Tell the craft overseer what the saws can make, so its crafting plans
+    -- can have stripped logs and the like cut. false: requests only.
+    offer = true,
+    -- Names on the screen instead of "Saw 1", by feeder name.
+    names = {},
+  },
+
   -- Cobblemon cooking pots.
   cooker = {
     -- What a pot can make, by the name 'factory add pot' lists. make: the item

@@ -44,12 +44,13 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   reach their slots): reads them and their feeders at once, sets their bottom
   to Output with Auto-eject, empties their output chests into storage, tells
   the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
-  Also Create lines (crushing wheels, washing, blasting and smoking fans), which CC can't see at all: just a feeder
-  chest and an output chest, kept topped up and shown red when the feeder stops going down.
+  Also Create lines (crushing wheels, washing, blasting and smoking fans, saws), which CC can't see at all: just a feeder
+  chest and an output chest, kept topped up and shown red when the feeder stops going down. A set of lines
+  only (no `opts.single`) has no Mekanism machine to add; a line kind with `needOutput` (the saw) must have an output chest, and `opts.lineRows` adds rows to a line's setup page (the saw's filter).
   A set can give each machine a second feeder for its extra slot (`opts.extra`), its own side config
   (`opts.sides`), more reads (`opts.read`) and a required output chest (`opts.needOutput`): the infuser's.
   Used by `factory` (its enricher's chambers, crushers and washers, its smelter's Mekanism smelters and fans, and its
-  infuser's Metallurgic Infusers; `mekfeed.register` sends every set's feeders at once).
+  infuser's Metallurgic Infusers, and its saw's sawing lines; `mekfeed.register` sends every set's feeders at once).
 - `workchest.lua`: a computer's work chest: names an empty chest on the
   storage network to the [storage
   computer](../computers/storage-computer/README.md), has it filled in one

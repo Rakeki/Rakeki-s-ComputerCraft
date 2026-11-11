@@ -20,6 +20,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the craft overseer orders them for its crafts too |
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
+| Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
 | Hopper Botany Pots | [Mystical Agriculture](https://www.curseforge.com/minecraft/mc-mods/mystical-agriculture) | [essence](#essence) emptied into storage, and the recipes it crafts into, ready to order |
 
@@ -30,7 +31,7 @@ a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
 The computer's screen has a tab per part that's running (**Enricher**,
-**Smelter**, **Infuser**, **Cooking**, **Essence**; shortened to **Enrich**,
+**Smelter**, **Infuser**, **Saw**, **Cooking**, **Essence**; shortened to **Enrich**,
 **Smelt**, **Infuse**, **Cook** when they don't all fit): tap one, or press
 **Tab**. Everything on them works from the keyboard too, so a basic computer
 (no mouse) can do it all. A **monitor** is a status board you can read from
@@ -46,7 +47,7 @@ blocks wide uses small text); only on a tiny one do some go to "+N more":
 | Red | needs you: no fuel or power, output stuck, a Create line not moving, a pot not cooking, something missing (it says which) |
 
 With cooking pots, the monitor has a **Candy** page too (tap it at the top),
-and with infusers an **Infuse** page to request from.
+with infusers an **Infuse** page to request from, and with saws a **Saw** page.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -416,6 +417,92 @@ The tab shows each request (**on 1 infuser**, **waiting for** an item,
 **queued**), and the status board a tile per infuser, red when it has no
 power or feeder, or its output is stuck.
 
+## Sawing
+
+Runs Create **Mechanical Saws**, but only when asked: nothing in storage is
+cut by itself. A saw makes a lot:
+
+| Goes in | Comes out |
+|---|---|
+| a log, wood, stem or hyphae (any wood, a mod's too) | its stripped kind |
+| a stripped log or wood | 6 planks (a stripped bamboo block: 3) |
+| planks | stairs, 2 slabs, a fence, fence gate, door, trapdoor, pressure plate, button or sign |
+| stone, granite, bricks, Create's stone types... | everything a stonecutter makes from it |
+| andesite alloy, and Create's mod-support recipes | shafts, ladders, mod woods' planks, Immersive Engineering wires... |
+
+The factory comes with every one of these for vanilla and Create
+(`saw_recipes.lua`, over 4,000). For a modpack's woods and stones, make
+its own file with [`tools/saw-recipes.mjs`](../../tools/saw-recipes.mjs)
+on your PC and put it on the computer as `saw_pack.lua`: it's used
+instead (see [Modpack recipes](#modpack-recipes)).
+
+### Modpack recipes
+
+Create makes its wood recipes for every mod's wood when the game starts,
+and mods add stonecutter recipes, so a modpack's saw does far more than the
+built-in list knows. For All the Mons there's a ready-made file (12,000
+recipes, 280 KB):
+
+```
+wget https://rakeki.github.io/Rakeki-s-ComputerCraft/computers/factory/packs/atmons-saw.lua saw_pack.lua
+reboot
+```
+
+For another pack, on your PC run
+`node tools/saw-recipes.mjs saw_pack.lua <minecraft.jar> <the pack's mods folder>`
+(`minecraft.jar` is `versions/1.21.1/1.21.1.jar` in your launcher's
+folder) and copy the file it writes here (drag it onto the open computer
+screen). Updates never touch `saw_pack.lua`; delete it to go back to the
+built-in recipes. A recipe the file still misses goes under `saw` in
+`config.lua` (`recipes`), and one you never want made under `hide`.
+
+### Filters
+
+Planks can become any of nine things, and stone any of several: an item
+with more than one recipe comes out as each of them in turn, unless the
+saw's **filter** (the slot on its side) is set to the one you want. The
+computer can't see or set that filter, so you tell it what each line's saw
+is set to (**Filter** on the line's page on the setup screen, or
+`factory saw filter 1 minecraft:oak_slab`), and set the same item in the
+saw. Then:
+
+- A line **with a filter** only gets what makes that item (oak planks for
+  oak slabs).
+- A line **with no filter** only gets items that have just one recipe:
+  logs (into stripped logs) and stripped logs (into planks).
+
+So one saw with no filter covers stripped logs and planks; add a line for
+each piece you want made often (oak slabs, stone bricks), with its filter
+set. What no line here can make yet says **needs a saw with its filter
+on ...**.
+
+### Asking
+
+You ask the same three ways as the infuser:
+
+- **Its page.** The **Saw** tab (and the monitor's **Saw** page) lists what
+  a saw here can make from what's stored, with how many and **+1**, **+8**
+  and **+64** buttons. What's asked for is listed underneath; tap **x** to
+  cancel one. On the computer, **Up** / **Down** pick, **Enter**, **8**
+  and **6** ask for 1, 8 or 64, and **X** cancels the newest.
+- **`factory saw`** lists the same; `factory saw find slab` looks up any
+  recipe (and says which need a filtered saw), `factory saw stripped spruce
+  log 128` asks for 128, `factory saw cancel` cancels.
+- **The craft overseer.** It's told what the saws here can make, so a
+  craft that needs stripped logs (or anything else only a saw makes) has the
+  saw cut them first. A table is still crafted at a crafting turtle: the
+  overseer only uses a saw where nothing crafts it. Turn this off with
+  `offer = false` under `saw` in `config.lua`.
+
+Each round the oldest request's items go into the feeders of the lines that
+can make it, and what comes out in each line's output chest is counted
+towards it before it goes into storage. The items a request is waiting on
+are left alone by the smelter, so a charcoal order doesn't burn its logs.
+An item that comes out **uncut** (no recipe, or the saw's filter isn't what
+the line was told) ends its request, and the tab says so. A line shows red
+**not moving** when its feeder hasn't gone down for a minute: is the saw
+turning, and the funnel taking from the feeder?
+
 ## Cooking pots
 
 Puts Cobblemon's **campfire cooking pots** to work. Out of the box they make
@@ -603,10 +690,11 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
-- `smelt.lua`, `enrich.lua`, `infuse.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, cooking pots, botany pots)
+- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, cooking pots, botany pots)
 - `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
+- `saw_recipes.lua`: what a Create saw makes, vanilla and Create (from `tools/saw-recipes.mjs`); a `saw_pack.lua` of your own is used instead
 - `essence_recipes.lua`: optional, your modpack's essence recipes (see [Botany pots](#botany-pots)); `packs/` has ready-made ones
 - `startup.lua`: starts it on boot and restarts it if it stops (first it fetches any newer version from the website)
 - [`lib/screen.lua`](../../lib/screen.lua): draws the screens without flashing (copy to `/lib/screen.lua`). Needed.
@@ -615,7 +703,7 @@ input chest, then into the S pot, and so on up to XL.
 - [`lib/mekfeed.lua`](../../lib/mekfeed.lua): Mekanism machines, Create lines and their feeders (copy to `/lib/mekfeed.lua`). Needed.
 - [`lib/workchest.lua`](../../lib/workchest.lua): the work chest (copy to `/lib/workchest.lua`). Needed.
 - [`lib/claim.lua`](../../lib/claim.lua): finds a far-away work chest's twin at home (copy to `/lib/claim.lua`). Needed.
-- [`lib/crafts.lua`](../../lib/crafts.lua): asks the craft overseer for recipes and crafts, and tells it what the infusers and essence farm make (copy to `/lib/crafts.lua`). Needed.
+- [`lib/crafts.lua`](../../lib/crafts.lua): asks the craft overseer for recipes and crafts, and tells it what the infusers, saws and essence farm make (copy to `/lib/crafts.lua`). Needed.
 - [`lib/setupui.lua`](../../lib/setupui.lua): the setup screen (copy to `/lib/setupui.lua`). Needed.
 - [`lib/report.lua`](../../lib/report.lua): reports to the status server (copy to `/lib/report.lua`). Optional.
 - [`lib/errlog.lua`](../../lib/errlog.lua): saves any error to `/errors.log` so you can read it later with `edit /errors.log` (copy to `/lib/errlog.lua`). Optional.
@@ -708,6 +796,27 @@ smoking fan:
 Several lines are fine; each gets a stack at a time. With no chambers, the
 crushers take every ore in the list in `config.lua`, and smelters wait for
 the crushed ores instead of smelting the raw ones.
+
+### Saws
+
+For each sawing line:
+
+1. Put a **Mechanical Saw** facing **up**, powered, with a **belt** running
+   into it from one side; the saw cuts what the belt brings it.
+2. An **empty chest** (or barrel) with a **funnel** onto the start of the
+   belt: the **feeder**.
+3. On the saw's other side, a belt or chute carrying what it puts out into
+   another **empty chest**: the **output chest**. It needs one: what's cut
+   is counted there. Only **one saw** on the line: a second would cut it
+   again (stripped logs into planks).
+4. Put a **wired modem** on both chests, joined to the storage network.
+5. On the setup screen, **Machines**, tap **+ Add a Create sawing line**:
+   tap its feeder, then put any item in its output chest. Or type
+   `factory add saw`.
+6. To make planks into slabs, stone into bricks and the like: set the
+   saw's filter, then tap the line on the setup screen and set its
+   **Filter** to the same item (see [Filters](#filters)). With none it does
+   stripped logs and planks.
 
 ### Cooking pots
 
@@ -824,6 +933,13 @@ factory cancel stone           -- stop making stone ('factory cancel': every sme
 factory infuse                 -- the infusing recipes, how many you can make, and what's asked for
 factory infuse steel 64        -- ask for 64 steel dust (by name, or the number 'factory infuse' lists)
 factory infuse cancel 2        -- cancel request 2 ('factory infuse cancel': all of them)
+factory add saw                -- a Create sawing line: pick its feeder and output chest
+factory saw                    -- what the saws can make from what's stored, and what's asked for
+factory saw find slab          -- every saw recipe with slab in it, and which need a filtered saw
+factory saw stripped spruce log 128   -- ask for 128 stripped spruce logs
+factory saw oak slab 64        -- ask for 64 oak slabs (needs a line with its filter on oak slabs)
+factory saw filter 2 minecraft:oak_slab   -- sawing line 2's saw has its filter on oak slabs ('none': no filter)
+factory saw cancel 2           -- cancel request 2 ('factory saw cancel': all of them)
 factory find iron              -- essence recipes for anything with "iron" in its name, and how many you can make
 factory make 64 iron ingot     -- order 64 iron ingots made from essence (an essence farm: its tab)
 factory chest                  -- pick the work chest from the empty chests on the network

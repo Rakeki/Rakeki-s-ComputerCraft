@@ -34,7 +34,9 @@
 -- feeder for the machine's extra slot: { title, hint }, the Metallurgic
 -- Infuser's infusion items), needOutput (an output chest has to be picked:
 -- what comes out is counted), read(m, call) (more reads for each machine:
--- a list of functions, run alongside the rest).
+-- a list of functions, run alongside the rest), lineRows(ui, i, entry,
+-- change(field, value, text)) (more rows on a Create line's setup page,
+-- e.g. the saw's filter, saved in its entry by change).
 --
 -- Each machine: { n, entry = { machine, feeder, output (nil: none), extra },
 -- title, slots, factory, present, inputs[i], outputs[i] (each { name,
@@ -46,7 +48,7 @@
 -- side.
 --
 -- A set can also hold Create lines (opts.lines = { "crush" } etc., kinds
--- in mekfeed.LINES): Create's crushing wheels and fans aren't peripherals
+-- in mekfeed.LINES): Create's crushing wheels, saws and fans aren't peripherals
 -- at all, so a line is only its feeder (a funnel or chute empties it into
 -- the machine) and the chest what it makes ends up in. Its entry is
 -- { line = kind, feeder, output }, and as a machine it has line = kind,
@@ -65,7 +67,8 @@ local LINE_STUCK = 60 -- seconds a Create line's feeder may sit without going do
 -- Process slots in each tier of factory.
 local FACTORY_SLOTS = { basic = 3, advanced = 5, elite = 7, ultimate = 9 }
 -- Create lines: word (typed after 'add'), title (on the screen), what (in
--- messages), feeds / out (what to pick as its feeder and output chest).
+-- messages), feeds / out (what to pick as its feeder and output chest),
+-- needOutput (it must have an output chest: what comes out is counted).
 local LINES = {
   crush = { word = "crusher", title = "Crusher", what = "crushing line",
     feeds = "The chest a funnel or chute empties onto its crushing wheels.",
@@ -79,6 +82,9 @@ local LINES = {
   smoke = { word = "smokefan", title = "Smoke fan", what = "smoking fan",
     feeds = "The chest a funnel empties onto the belt past the fan (blowing through fire).",
     out = "The chest at the end of the belt." },
+  saw = { word = "saw", title = "Saw", what = "sawing line", needOutput = true,
+    feeds = "The chest a funnel empties onto the belt into the saw (facing up, in line with the belt).",
+    out = "The chest the saw puts things out into, by a belt or chute: what it cuts is counted there." },
 }
 
 mekfeed.STACK = STACK
@@ -149,6 +155,7 @@ function Set:titles(list)
 end
 
 function Set:isMachine(t)
+  if not self.opts.single then return false end -- a set of Create lines only (the saw)
   return t == self.opts.single or t:find(self.opts.factory .. "$") ~= nil
 end
 
@@ -571,6 +578,8 @@ function Set:add(machine, feeder, output, extra)
   local kind = line and LINES[line]
   local asking = not feeder -- an output chest is only asked for along with the feeder
   local wantExtra = self.opts.extra and not line
+  -- what comes out is counted there: the infuser, a saw line
+  local mustOut = (self.opts.needOutput and not line) or (kind and kind.needOutput)
   if not machine or not feeder then print("Right-click a modem to see its block's name.") end
   if line then
     machine = nil
@@ -629,11 +638,13 @@ function Set:add(machine, feeder, output, extra)
         outs[#outs + 1] = name
       end
     end
-    if self.opts.needOutput and #outs == 0 then
-      print("It needs an output chest under it (what it makes is counted there): an empty chest or barrel with a wired modem on it.")
+    if mustOut and #outs == 0 then
+      print(("It needs an output chest%s (what it makes is counted there): an empty chest or barrel with a wired modem on it.")
+        :format(kind and "" or " under it"))
       return
-    elseif self.opts.needOutput then
-      print("Its OUTPUT chest or barrel, under it: what it makes goes here, is counted, then goes into storage.")
+    elseif mustOut then
+      print(kind and ("Its OUTPUT chest: %s"):format(kind.out)
+        or "Its OUTPUT chest or barrel, under it: what it makes goes here, is counted, then goes into storage.")
       output = choose("Which? (Enter to cancel)", outs)
       if not output then return end
     elseif #outs > 0 then
@@ -659,7 +670,7 @@ function Set:add(machine, feeder, output, extra)
     print("The feeders and the output chest have to be different chests.")
     return
   end
-  if self.opts.needOutput and not line and not output then print("It needs an output chest.") return end
+  if mustOut and not output then print("It needs an output chest.") return end
   if wantExtra and not extra then print(("It needs its %s."):format(self.opts.extra.title)) return end
   for _, name in ipairs({ machine or feeder, feeder, output or feeder, extra or feeder }) do
     if not peripheral.isPresent(name) then print(name .. " isn't on the network.") return end
@@ -770,15 +781,16 @@ function Set:setupParts(ui)
   local function pickOutput(skip, current, feeder, kind, done, extra)
     local u = used(skip)
     local far = self:far()
+    local mustOut = (opts.needOutput and not kind) or (kind and kind.needOutput)
     local none = kind and (far and "(none: it ends up in the ender chest)" or "(none: it ends up in a storage input chest)")
       or far and "(none: the ender chest is under it)" or "(none: a storage input chest is under it)"
     local o = { title = "Pick its output chest",
       hint = kind and (kind.out .. (far and " It goes home through the ender chest." or " It goes into storage from there."))
-        or opts.needOutput and "Under it: what it makes goes here and is counted, then goes into storage."
+        or mustOut and "Under it: what it makes goes here and is counted, then goes into storage."
         or far and "Under it: what it makes goes here, then home through the ender chest."
         or "Under it: what it makes goes here, then into storage.",
       names = findOnNetwork(function(t) return isFeeder(t) and not isHopper(t) end), current = current,
-      none = not (opts.needOutput and not kind) and none or nil,
+      none = not mustOut and none or nil,
       roleOf = function(n)
         return u[n] and "another machine's" or (n == feeder or n == extra) and "its feeder"
           or self:taken(n) and "in use" or nil
@@ -843,6 +855,12 @@ function Set:setupParts(ui)
               gone.output and " and output chest" or ""), "lime")
           end },
         }
+        -- the set's own settings for a line (the saw's filter), above Remove it
+        if opts.lineRows and kind then
+          for _, row in ipairs(opts.lineRows(ui, i, e, function(field, value, text) change(i, field, value, text) end)) do
+            table.insert(rows, #rows, row)
+          end
+        end
         if opts.extra and not kind then
           table.insert(rows, 3, { label = extraTitle, value = e.extra or "none: add one",
             colour = e.extra and there(e.extra) or "red", act = function()
@@ -917,8 +935,9 @@ function Set:setupParts(ui)
   end
   -- the + Add rows
   function parts.adds()
-    local adds = { { label = ("+ Add %s %s"):format(an(opts.what), opts.what), colour = "lime",
-      act = function() add(nil) end } }
+    -- a set of Create lines only has no machine of its own to add
+    local adds = opts.single and { { label = ("+ Add %s %s"):format(an(opts.what), opts.what), colour = "lime",
+      act = function() add(nil) end } } or {}
     for _, line in ipairs(opts.lines or {}) do
       local kind = LINES[line]
       if kind then
@@ -931,7 +950,7 @@ function Set:setupParts(ui)
     for _, e in ipairs(self:entries()) do
       if e.machine then anyMachine = true end
     end
-    if not anyMachine and #adds > 1 then table.insert(adds, table.remove(adds, 1)) end
+    if opts.single and not anyMachine and #adds > 1 then table.insert(adds, table.remove(adds, 1)) end
     return adds
   end
   return parts

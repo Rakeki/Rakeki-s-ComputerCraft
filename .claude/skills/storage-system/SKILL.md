@@ -99,7 +99,7 @@ Protocol `craft_overseer` (everyone → craft-overseer, through `lib/crafts.lua`
 | `{ type = "cancel", item }` | `ok` | stop waiting to make the asker's order of it |
 | `{ type = "craft", item, count, to, wait }` | `making` (how many, 0 = none), `waiting` (with `wait`: how many more it's kept to make once there's enough, a standing order in `wants`), `why` (why not, or why fewer), `to` ("own": sent to the asker's chest as made, else "storage") | the craft terminal's order: `count` more, whatever is stored (`orderCraft`); with `to = "chest"` `orderLoop` has the storage computer `deliver` them `for` it (`most` = what's left of the order) |
 | `{ type = "learn", recipe = { make, count, rows, keys } }` | `ok`, `error` | `crafter learn`; saved in `/.overseer_recipes` |
-| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's smelter, `via = "smelt"`: one input cell each; its infuser, `via = "infuse"`; the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
+| `{ type = "makes", via, recipes = { { make, count, rows, keys, max } } }` | `ok` | a machine's recipes (the factory's smelter, `via = "smelt"`: one input cell each; its infuser, `via = "infuse"`; its Create saws, `via = "saw"`: one item in, `count` out, only what a sawing line can make (one-recipe items, or its filter's item); the essence farm, `via = "essence"`, with empty rows and keys and `max` goes), sent when they change and every minute; `crafting.setMachine` swaps them in, forgotten after `MACHINE_FORGET` |
 | `{ type = "jobdone", job = id, ok, why }` | `ok` | from that machine, once it has made (or given up on) a job it was handed |
 | `{ type = "recipes", uses = pattern }` | `recipes` (each `{ make, count, grid }`, grid cell → item name, a name with `*`, or a list; tags come as lists), `error` | the factory's essence part (`uses` = its essence pattern); `crafting.using` |
 | `{ type = "claim", ... }` | as on `storage` | a crafting turtle finding its barrel on a far-away overseer's cable (hub) |
@@ -119,7 +119,7 @@ Putting things away: drop them in the storage computer's **input chest**
 machines' output chests and botany pots; farms use it as their chest).
 
 The factory (`computers/factory`: one program, a part per kind of machine:
-`smelt.lua`, `enrich.lua`, `infuse.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
+`smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
 all of them) only ever `stock`, `send` / `fill` and empties into the input
 chest. Its essence part empties Hopper Botany Pots into the input chest
 itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
