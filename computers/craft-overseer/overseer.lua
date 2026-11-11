@@ -507,9 +507,20 @@ end
 -- The stock to plan with: the storage computer's count, at most
 -- STOCK_FRESH old (it answers stock quickly: it's a count of its cache).
 -- Also what its ME/RS system has patterns for. False if it didn't answer.
+-- One ask at a time: a request, the look and the order loop that want it at
+-- once wait for the same answer instead of each asking (and each waiting).
+local stockAsking = false
 local function freshStock()
   if stock and os.clock() - stockAt < STOCK_FRESH then return true end
-  local s = askStorage({ type = "stock" })
+  if stockAsking then
+    repeat os.pullEvent("overseer_stock") until not stockAsking
+    return stock ~= nil
+  end
+  stockAsking = true
+  local okS, s = pcall(askStorage, { type = "stock" })
+  stockAsking = false
+  os.queueEvent("overseer_stock")
+  if not okS then error(s, 0) end
   if not (s and s.counts) then return stock ~= nil end
   stock, stockAt = s.counts, os.clock()
   patterns = {}
@@ -1060,11 +1071,32 @@ local function handleOrder(o)
 end
 
 -- Every WANT_EVERY: try the rest of each order again.
-local function handleWants()
-  local list = {}
-  for i, w in ipairs(wants) do list[i] = w end
-  for _, w in ipairs(list) do
-    local made = tryWant(w)
+-- start, list: carrying on where an earlier go stopped for a request.
+local function handleWants(start, list)
+  if not list then
+    list = {}
+    for i, w in ipairs(wants) do list[i] = w end
+  end
+  start = start or 1
+  for i = start, #list do
+    local w = list[i]
+    -- a request came in: answer it first, then carry on from here (after
+    -- at least one, so the orders get somewhere even while requests keep coming)
+    if i > start then
+      for _, r in ipairs(inbox) do
+        if not r.wants then
+          wantsQueued = true
+          inbox[#inbox + 1] = { wants = true, start = i, list = list }
+          os.queueEvent("overseer_inbox")
+          return
+        end
+      end
+    end
+    local still = false -- cancelled or finished meanwhile: leave it be
+    for _, x in ipairs(wants) do
+      if x == w then still = true break end
+    end
+    local made = still and tryWant(w) or 0
     if made > 0 then
       local for_ = w.who and (" for computer #%d"):format(w.who) or ""
       say(w.left > 0 and ("Crafting %d more %s%s (%d still to come)."):format(made, nice(w.name), for_, w.left)
@@ -1234,11 +1266,17 @@ end
 local function netLoop()
   while true do
     while #inbox == 0 do os.pullEvent("overseer_inbox") end
-    local req = table.remove(inbox, 1)
+    -- someone waiting on an answer goes before the retry of waiting orders
+    -- (which plans every one of them and can take a while)
+    local at = 1
+    for i, r in ipairs(inbox) do
+      if not r.wants then at = i break end
+    end
+    local req = table.remove(inbox, at)
     local ok, err
     if req.wants then
       wantsQueued = false
-      ok, err = (errlog and errlog.pcall or pcall)(handleWants)
+      ok, err = (errlog and errlog.pcall or pcall)(handleWants, req.start, req.list)
     elseif req.order then ok, err = (errlog and errlog.pcall or pcall)(handleOrder, req.order)
     else ok, err = (errlog and errlog.pcall or pcall)(handleRequest, req.from, req.msg) end
     if not ok then say("A request failed: " .. tostring(err), "red") end

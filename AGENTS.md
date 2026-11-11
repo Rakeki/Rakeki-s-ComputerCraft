@@ -299,7 +299,11 @@ Rules that keep it from stalling:
 
 - The storage computer files incoming requests in an inbox (`netReceive`)
   and a separate loop (`netLoop`) answers them, so a request that arrives
-  while another is being handled is never lost.
+  while another is being handled is never lost. Questions answered from its
+  cache with nothing moved (`count`, `stock`, `crafters`) have their own
+  inbox and loop (`quickLoop`), so they never wait behind chest loads and
+  deliveries (the craft overseer checks `stock` before every plan).
+  The overseer's inbox answers requests before its retry of waiting orders.
 - Anything that waits for a reply has a deadline and says on screen what
   it's waiting for; nothing waits forever without saying why.
 - **The storage computer knows no recipes.** Every crafting request goes to

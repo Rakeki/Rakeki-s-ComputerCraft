@@ -1514,6 +1514,13 @@ end
 -- meanwhile wait here, so none are missed.
 local inbox = {}
 links.inbox = inbox -- for the monitor: how many requests are waiting
+-- Questions answered from the cache, with no items moved: they go in their
+-- own inbox and quickLoop answers them beside netLoop, so a count or the
+-- craft overseer's stock check never waits behind chest loads and deliveries
+-- (with several crafting turtles loading, that held every crafting answer up
+-- for seconds).
+local QUICK = { count = true, stock = true, crafters = true }
+local quick = {}
 
 local function netReceive()
   -- turtles reach us by wireless; the smelter can by the wired network's cable
@@ -1526,7 +1533,11 @@ local function netReceive()
   while true do
     -- requests, and the services' status broadcasts for the monitor
     local from, msg, protocol = rednet.receive()
-    if type(msg) == "table" and protocol == NET_PROTOCOL then
+    if type(msg) == "table" and protocol == NET_PROTOCOL and QUICK[msg.type] then
+      quick[#quick + 1] = { from = from, msg = msg }
+      noteService(from)
+      os.queueEvent("storage_quick")
+    elseif type(msg) == "table" and protocol == NET_PROTOCOL then
       inbox[#inbox + 1] = { from = from, msg = msg }
       noteService(from)
       os.queueEvent("storage_inbox")
@@ -1709,6 +1720,15 @@ local function netLoop()
       links.slow = { type = kind, from = req.from, took = took, at = os.clock() }
     end
     links.busy = nil
+  end
+end
+
+-- The quick questions (QUICK), answered while netLoop is busy moving items.
+local function quickLoop()
+  while true do
+    while #quick == 0 do os.pullEvent("storage_quick") end
+    local req = table.remove(quick, 1)
+    handleRequest(req.from, req.msg)
   end
 end
 
@@ -2644,7 +2664,7 @@ local function setupLoop()
   end
 end
 
-local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, sweepLoop, linksLoop, function() net.keepOpen("any") end,
+local ok, err = (errlog and errlog.pcall or pcall)(parallel.waitForAny, uiLoop, inputLoop, rescanLoop, netReceive, netLoop, quickLoop, sweepLoop, linksLoop, function() net.keepOpen("any") end,
   tidyLoop, sysCraftLoop, dumpLoop, setupLoop, report and report.loop or function() while true do sleep(3600) end end)
 term.setCursorBlink(false)
 term.setBackgroundColor(colors.black)

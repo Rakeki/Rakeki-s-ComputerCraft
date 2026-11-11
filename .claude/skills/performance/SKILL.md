@@ -93,7 +93,11 @@ terminal's 400 counts went from 200 s to 3 s with the same answers.
 A server that does slow work answers from an **inbox**: one loop
 (`netReceive`) files every message, another (`netLoop`) answers them one at
 a time. A request arriving mid-plan is then queued, not dropped (the
-storage computer, the overseer). Everything that waits for a reply has a
+storage computer, the overseer). Questions that only read a cache get their
+own inbox and loop (the storage computer's `quickLoop`: `count`, `stock`,
+`crafters`), so they're never stuck behind slow item moves; background work
+that goes in an inbox (the overseer's `wants` retry) lets requests go first.
+Everything that waits for a reply has a
 deadline (`net.ask` / `peer:ask` with `wait`) and says on screen what it's
 waiting for.
 

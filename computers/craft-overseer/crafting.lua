@@ -80,26 +80,68 @@ end
 
 -- The recipes a machine (via) can run, in place of the ones it sent last
 -- time; tried after the crafting recipes for the same item. How many it took.
+local machines = {} -- via -> { sig = its recipes without max, list = { [i] = the recipe added for raw i } }
+
+-- A machine's recipes as text, leaving out max (how many goes it has the
+-- makings for), which the essence farm changes whenever its essence does.
+local function machineSig(list)
+  local parts = {}
+  for i, raw in ipairs(list) do
+    if type(raw) == "table" then
+      local copy = {}
+      for k, v in pairs(raw) do
+        if k ~= "max" and k ~= "via" then copy[k] = v end
+      end
+      parts[i] = textutils and textutils.serialize(copy) or tostring(i)
+    else
+      parts[i] = "?"
+    end
+  end
+  return table.concat(parts, "\n")
+end
+
 function crafting.setMachine(via, list)
+  list = type(list) == "table" and list or {}
+  -- the same recipes, only how many goes changed: no new plans' worth of
+  -- work (the recipe list, what's reachable and the lookups stay as they are)
+  local sig = textutils and machineSig(list)
+  local known = machines[via]
+  if sig and known and known.sig == sig then
+    local added = 0
+    for i, raw in ipairs(list) do
+      local r = known.list[i]
+      if r then
+        r.max = tonumber(raw.max)
+        added = added + 1
+      end
+    end
+    return added
+  end
   for make, recipes in pairs(byMake) do
     for i = #recipes, 1, -1 do
       if recipes[i].via == via then table.remove(recipes, i) end
     end
     if #recipes == 0 then byMake[make] = nil end
   end
-  local added = 0
-  for _, raw in ipairs(type(list) == "table" and list or {}) do
+  local added, made = 0, {}
+  for i, raw in ipairs(list) do
     if type(raw) == "table" then
       raw.via = via
-      if add(raw) then added = added + 1 end
+      local r = add(raw)
+      if r then
+        added = added + 1
+        made[i] = r
+      end
     end
   end
+  machines[via] = sig and { sig = sig, list = made } or nil
   makeableCache, version = {}, version + 1
   return added
 end
 
 function crafting.load(builtIn)
   byMake, makeableCache, version = {}, {}, version + 1
+  machines = {}
   for _, raw in ipairs(builtIn or {}) do add(raw) end
   learnt = files.read(LEARNT_FILE) or {}
   for _, raw in ipairs(learnt) do add(raw, true) end
@@ -208,8 +250,13 @@ local function makeable(key)
   local hit = makeableCache[key]
   if hit then return hit end
   local list = {}
-  if type(key) == "string" and key:sub(1, 1) ~= "#" and not key:find("*", 1, true) then
-    if byMake[key] then list[1] = key end -- a plain name: no need to look through every recipe
+  local names = fits(key)
+  if names then
+    -- names and #tags: only those items need looking up, not every recipe
+    -- (that took most of a second per tag with a modpack, after every change)
+    for _, item in ipairs(names) do
+      if byMake[item] and #byMake[item] > 0 then list[#list + 1] = item end
+    end
   else
     for make in pairs(byMake) do
       if crafting.matches(key, make) then list[#list + 1] = make end
@@ -493,6 +540,63 @@ end
 -- It only changes when a new kind of item is stored or the last of one goes
 -- (or the recipes change), so the last answer is kept and given again until
 -- then. Don't change the table it returns.
+-- Worked out in one pass over a worklist: each item that turns up ticks off
+-- the recipe keys it fits, and a recipe with every key ticked off adds what
+-- it makes. Going over every recipe again and again until nothing changed
+-- cost a pass per crafting step (planks, then sticks, then ...) over a
+-- modpack's thousands of recipes, after every order.
+-- The index (which keys each item fits, which recipes wait on each key) only
+-- changes with the recipes, so it's built once per version.
+local reachIndex = { version = -1 }
+local function buildReachIndex()
+  local itemKeys = {} -- item -> keys it fits
+  local wild = {} -- keys with a * in them (or lists holding one): every new item is checked against these
+  local waiters = {} -- key -> recipes (indexes into need/makes) that use it
+  local need, makes = {}, {} -- recipe i: how many different keys it uses, what it makes
+  local indexed = {} -- key -> true once its items are in itemKeys
+  local function index(key)
+    if indexed[key] then return end
+    indexed[key] = true
+    local isWild = false
+    local function addName(k)
+      if k:sub(1, 1) == "#" then
+        for item in pairs(tags[k:sub(2)] or {}) do
+          local list = itemKeys[item] or {}
+          itemKeys[item] = list
+          list[#list + 1] = key
+        end
+      elseif k:find("*", 1, true) then
+        isWild = true
+      else
+        local list = itemKeys[k] or {}
+        itemKeys[k] = list
+        list[#list + 1] = key
+      end
+    end
+    for _, k in ipairs(type(key) == "table" and key or { key }) do addName(k) end
+    if isWild then wild[#wild + 1] = key end
+  end
+  for make, list in pairs(byMake) do
+    for _, r in ipairs(list) do
+      breathe()
+      local i = #makes + 1
+      makes[i] = make
+      local seen, n = {}, 0
+      for _, key in pairs(r.grid) do
+        if not seen[key] then
+          seen[key], n = true, n + 1
+          index(key)
+          local w = waiters[key] or {}
+          waiters[key] = w
+          w[#w + 1] = i
+        end
+      end
+      need[i] = n
+    end
+  end
+  reachIndex = { version = version, itemKeys = itemKeys, wild = wild, waiters = waiters, need = need, makes = makes }
+end
+
 local reachLast = { version = -1, base = {}, size = 0 }
 function crafting.reachable(avail)
   local base, size = {}, 0
@@ -506,50 +610,39 @@ function crafting.reachable(avail)
     end
     if same then return reachLast.have end
   end
-  local have = {}
-  for item in pairs(base) do have[item] = true end
-  local known = {} -- keys found to fit something there: have only grows, so they stay fitting
-  local function ok(key)
-    if known[key] then return true end
-    local yes = false
-    if type(key) == "table" then
-      for _, k in ipairs(key) do
-        if ok(k) then yes = true break end
-      end
-    elseif key:sub(1, 1) == "#" then
-      for item in pairs(tags[key:sub(2)] or {}) do
-        if have[item] then yes = true break end
-      end
-    elseif key:find("*", 1, true) then
-      for item in pairs(have) do
-        if glob(key, item) then yes = true break end
-      end
-    else
-      yes = have[key] == true
+  if reachIndex.version ~= version then buildReachIndex() end
+  local idx = reachIndex
+  local left = {} -- recipe i -> keys still to find (need[i] until touched)
+  local done = {} -- keys something there fits
+  local have, todo = {}, {}
+  local function found(item)
+    if not have[item] then
+      have[item] = true
+      todo[#todo + 1] = item
     end
-    if yes then known[key] = true end
-    return yes
   end
-  local changed = true
-  while changed do
-    changed = false
-    for make, list in pairs(byMake) do
-      if not have[make] then
-        for _, r in ipairs(list) do
-          local all = true
-          for _, key in pairs(r.grid) do
-            breathe()
-            if not ok(key) then
-              all = false
-              break
-            end
-          end
-          if all then
-            have[make], changed = true, true
-            break
-          end
-        end
-      end
+  local function tick(key)
+    if done[key] then return end
+    done[key] = true
+    for _, i in ipairs(idx.waiters[key] or {}) do
+      local n = (left[i] or idx.need[i]) - 1
+      left[i] = n
+      if n == 0 then found(idx.makes[i]) end
+    end
+  end
+  for item in pairs(base) do found(item) end
+  -- recipes with nothing in them (a machine with its own ingredients)
+  for i, n in ipairs(idx.need) do
+    if n == 0 then found(idx.makes[i]) end
+  end
+  local at = 1
+  while at <= #todo do
+    breathe()
+    local item = todo[at]
+    at = at + 1
+    for _, key in ipairs(idx.itemKeys[item] or {}) do tick(key) end
+    for _, key in ipairs(idx.wild) do
+      if not done[key] and crafting.matches(key, item) then tick(key) end
     end
   end
   reachLast = { version = version, base = base, size = size, have = have }

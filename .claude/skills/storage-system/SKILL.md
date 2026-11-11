@@ -166,7 +166,11 @@ item and the crafter sorts its chest by name, since barrels ignore slots; it
 replies with the `item` it made), and has it `clear` the chest.
 
 Requests go into an `inbox` (`netReceive`) and `netLoop` answers them one at
-a time, like the storage computer, so none is missed while a plan runs.
+a time, like the storage computer, so none is missed while a plan runs. A
+waiting request is taken before the `{ wants = true }` retry, and that retry
+stops between orders when a request comes in (re-queued with `start`, `list`).
+`freshStock` sends one `stock` ask at a time: others wanting it meanwhile wait
+for that answer (`overseer_stock`).
 
 Crafting turtles each claim a chest (`claim` role `crafter` →
 `setup.crafters[id]` on the storage computer; `setup.crafter` is the shared
@@ -220,7 +224,12 @@ With thousands of recipes, plans must pass `reach` (`crafting.reachable(avail)`,
 cached by `reachNow()` for 10 s): it prunes everything that can't be made
 from what's stored. Work it out once per request, never per item
 (`crafting.reachable` also keeps its last answer until the set of stored
-item names or the recipes change, so asking again is cheap). The craft
+item names or the recipes change, so asking again is cheap; a new answer is
+one worklist pass over an index of which keys each item fits, built once per
+`crafting.version()`). `makeable(key)` looks up a name or `#tag`'s own items
+(`fits`), never every recipe; only `*` keys scan. `setMachine` with the same
+recipes and only `max` changed (the essence farm) updates `max` in place and
+keeps the version, so none of those caches is thrown away. The craft
 terminal's list (`viewLoop`) runs only while a terminal keeps asking, and
 rests `VIEW_REST` times as long as the last count took. The overseer's own
 Craft tab never starts it: it lists every recipe (`allCraftable`, rebuilt when
@@ -263,7 +272,8 @@ alone under Fengari (the trekt-mons pack, 1500 stored items), that took
   `storage setup` keeps them). `reserved` is per chest. Only input and output are required; a missing optional one
   turns its feature off with a footer message.
 - **Loops** run in `parallel`: UI, input, rescan, `netReceive` (files requests
-  in `inbox`) + `netLoop` (answers them one at a time, timing each), sweep
+  in `inbox`) + `netLoop` (answers them one at a time, timing each), `quickLoop`
+  (`count` / `stock` / `crafters` from their own `quick` inbox, beside it), sweep
   (keeps the delivery chest to what turtles reserved), links (the network
   view), tidy, ME/RS crafts done (`sysCraftLoop`), dump. Anything that waits
   has a deadline and a footer message.
