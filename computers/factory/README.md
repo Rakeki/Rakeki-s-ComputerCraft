@@ -501,6 +501,15 @@ You ask the same three ways as the infuser:
   overseer only uses a saw where nothing crafts it. Turn this off with
   `offer = false` under `saw` in `config.lua`.
 
+If what a request is cut from runs short (no glass for framed glass), the
+saw has the craft overseer make it first: glass is smelted from sand by the
+factory's furnaces, and the request shows **waiting for glass: making 64
+first**. An order through the craft overseer plans that by itself. Turn it
+off with `order = false` under `saw` in `config.lua`. What a filtered line
+makes is always listed on the Saw tab, even before any of its input is
+stored, and a name typed with `factory saw` takes the likeliest recipe
+(framed glass from glass, not from another of Create's windows).
+
 Each round the oldest request's items go into the feeders of the lines that
 can make it, and what comes out in each line's output chest is counted
 towards it before it goes into storage. The items a request is waiting on

@@ -136,6 +136,10 @@ return {
     -- Tell the craft overseer what the saws can make, so its crafting plans
     -- can have stripped logs and the like cut. false: requests only.
     offer = true,
+    -- A request made here (the Saw tab, 'factory saw') whose input is short
+    -- has the craft overseer make it first: glass smelted from sand for
+    -- framed glass. false: it just waits for the input.
+    order = true,
     -- Names on the screen instead of "Saw 1", by feeder name.
     names = {},
   },

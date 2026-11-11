@@ -39,6 +39,7 @@ local REQUEST_DIR = "/.factory_saw" -- a file per request, so a request typed in
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
 local GIVE_UP = 600 -- seconds a craft overseer's request may go with nothing loaded or made before it's handed back
 local SHORT_AFTER = 60 -- seconds with everything sent, none of it in a feeder and nothing made, before more is sent
+local ORDER_EVERY = 30 -- seconds between asking the craft overseer to make a request's missing input
 local MAKES_EVERY = 60 -- seconds between telling the craft overseer what the saws can make
 local QUEUE_SHOWN = 3 -- requests listed under the recipes
 local BUTTONS = { 1, 8, 64 } -- the request buttons by each recipe
@@ -70,6 +71,7 @@ function M.new(f)
   local KEEP = config.keep or {} -- item -> how many to leave in storage
   local HIDE = config.hide or {} -- items not to make, e.g. { "minecraft:oak_button" }
   local OFFER = config.offer ~= false -- tell the craft overseer what the saws can make
+  local ORDER = config.order ~= false -- have the craft overseer make a request's input when there's too little (glass from sand)
 
   -- the recipes: the pack's (else the built-in ones), then config's own, less the hidden ones
   local recipes, byKey, byFrom = {}, {}, {}
@@ -157,6 +159,22 @@ function M.new(f)
       if canRun(e, rc) then return true end
     end
     return false
+  end
+
+  -- Within each group, the likeliest first: one a line here can make, from
+  -- what's stored most, from a vanilla item (framed glass from glass, not
+  -- from horizontal framed glass: Create's windows cut into each other).
+  local function likelier(stock)
+    return function(a, b)
+      local ca, cb = anyLine(a), anyLine(b)
+      if ca ~= cb then return ca end
+      local sa, sb = stock and stock[a.from] or 0, stock and stock[b.from] or 0
+      if sa ~= sb then return sa > sb end
+      local va, vb = a.from:find("^minecraft:") ~= nil, b.from:find("^minecraft:") ~= nil
+      if va ~= vb then return va end
+      if #a.from ~= #b.from then return #a.from < #b.from end
+      return a.key < b.key
+    end
   end
 
   -- The setup screen's Filter row for a line: the outputs of items with
@@ -304,6 +322,41 @@ function M.new(f)
     end
   end
 
+  -- A request asked for here (not the overseer's own: its plan already makes
+  -- their inputs first) whose input is short has the craft overseer make the
+  -- rest: glass smelted from sand for framed glass. 'prepare' tops up to a
+  -- total, stored and being made included, so asking again never orders
+  -- twice. Only for what a line here can cut. orderNote says how it went.
+  local orderAt, orderNote = {}, {} -- input -> when last asked (os.clock), what the overseer said
+  local function orderInputs(avail)
+    local need = {}
+    for _, q in ipairs(requests) do
+      local rc = q.recipe
+      if ORDER and rc and not q.job and anyLine(rc) then need[rc.from] = (need[rc.from] or 0) + toSend(q) end
+    end
+    local now = os.clock()
+    for item, n in pairs(need) do
+      local have = math.max(0, (avail[item] or 0) - (KEEP[item] or 0))
+      if n <= have then
+        orderNote[item] = nil
+      elseif now - (orderAt[item] or -math.huge) >= ORDER_EVERY then
+        orderAt[item] = now
+        -- what's left in storage (keep included) plus what's short
+        local reply = f.craft({ type = "prepare", items = { [item] = (avail[item] or 0) + n - have } }, 5)
+        local making = reply and type(reply.crafting) == "table" and tonumber(reply.crafting[item]) or 0
+        local why = reply and type(reply.cantCraft) == "table" and reply.cantCraft[item]
+        orderNote[item] = not reply and "no craft overseer answered"
+          or why and ("can't be made: " .. tostring(why))
+          or reply.craftProblem and making > 0 and ("making it: " .. tostring(reply.craftProblem))
+          or making > 0 and ("making %d first"):format(making)
+          or nil
+      end
+    end
+    for item in pairs(orderNote) do
+      if not need[item] then orderNote[item], orderAt[item] = nil, nil end
+    end
+  end
+
   ---------------------------------------------------------------- the craft overseer
 
   -- What a line here can make, as the craft overseer plans it: one in, count out.
@@ -418,6 +471,18 @@ function M.new(f)
     for _, q in ipairs(requests) do
       if q.recipe then add(q.recipe) end
     end
+    -- what a filtered line makes, even with none of its input stored yet (it can be made first)
+    local filtered = {}
+    for _, e in ipairs(lineList) do
+      if e.filter then filtered[e.filter] = true end
+    end
+    if next(filtered) then
+      local best = {}
+      for _, rc in ipairs(recipes) do
+        if filtered[rc.make] and (not best[rc.make] or likelier(counts)(rc, best[rc.make])) then best[rc.make] = rc end
+      end
+      for _, rc in pairs(best) do add(rc) end
+    end
     for name, n in pairs(counts) do
       if n > (KEEP[name] or 0) and byFrom[name] then
         for _, rc in ipairs(byFrom[name]) do add(rc) end
@@ -524,6 +589,12 @@ function M.new(f)
       elseif toSend(q) > 0 and canMake(rc, avail) == 0 then
         q.state = "waiting for " .. nice(rc.from)
       end
+    end
+    -- what's short is made first (glass from sand), and the request says so
+    orderInputs(avail)
+    for _, q in ipairs(requests) do
+      local note = q.recipe and orderNote[q.recipe.from]
+      if note and q.state == "waiting for " .. nice(q.recipe.from) then q.state = q.state .. ": " .. note end
     end
     if plan then
       local items = {}
@@ -778,19 +849,21 @@ function M.new(f)
 
   -- Every recipe matching text (part of what it makes, or "<make> from
   -- <input>"), the ones a line here can make first.
-  local function matching(text)
+  local function matching(text, stock)
     text = text:lower()
-    local exact, can, other = {}, {}, {}
+    local full, exact, can, other = {}, {}, {}, {}
     for _, rc in ipairs(recipes) do
       local name = titleOf(rc):lower()
-      local full = name .. " from " .. nice(rc.from)
-      if name == text or rc.make == text or full == text then exact[#exact + 1] = rc
-      elseif full:find(text, 1, true) or rc.make:find(text, 1, true) then
+      local whole = name .. " from " .. nice(rc.from)
+      if whole == text then full[#full + 1] = rc
+      elseif name == text or rc.make == text then exact[#exact + 1] = rc
+      elseif whole:find(text, 1, true) or rc.make:find(text, 1, true) then
         if anyLine(rc) then can[#can + 1] = rc else other[#other + 1] = rc end
       end
     end
     local out = {}
-    for _, list in ipairs({ exact, can, other }) do
+    for _, list in ipairs({ full, exact, can, other }) do
+      table.sort(list, likelier(stock))
       for _, rc in ipairs(list) do out[#out + 1] = rc end
     end
     return out
@@ -825,8 +898,8 @@ function M.new(f)
       f.wake()
       return true
     elseif args[2] == "find" and args[3] then
-      local list = matching(table.concat(args, " ", 3))
       local stock = stockCounts()
+      local list = matching(table.concat(args, " ", 3), stock)
       local _, h = term.getSize()
       for i = 1, math.min(#list, h - 3) do print(describe(list[i], stock)) end
       if #list > h - 3 then print(("...and %d more: say more of the name."):format(#list - (h - 3))) end
@@ -863,7 +936,7 @@ function M.new(f)
     end
     local count = tonumber(args[#args] or "")
     if args[2] and count and #args >= 3 then
-      local list = matching(table.concat(args, " ", 2, #args - 1))
+      local list = matching(table.concat(args, " ", 2, #args - 1), stockCounts())
       local rc = list[1]
       if not rc then
         print("No saw recipe called that: 'factory saw find <text>' looks one up.")

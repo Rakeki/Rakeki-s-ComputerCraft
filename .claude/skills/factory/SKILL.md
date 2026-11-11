@@ -112,6 +112,11 @@ what's asked for. The pattern (copy `saw.lua`, the simplest):
   heard. A job with no progress for `GIVE_UP` (10 min) is handed back with
   `ok = false` and the reason (`q.state`). A request whose recipe vanished
   ends too.
+- **Short inputs:** a request made on the part's own page (no `job`) whose
+  input is short asks the overseer to `prepare` it, every `ORDER_EVERY`
+  (the saw's `orderInputs`: glass for framed glass; `prepare` tops up to
+  a total, so asking again never doubles it). The overseer's own jobs
+  don't: its plan already makes their inputs first.
 - **The chain:** `takes()` returns the inputs of open requests (escaped
   `^name$` patterns), so the smelter (rank 2) doesn't smelt them away.
 
