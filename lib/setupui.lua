@@ -13,7 +13,8 @@
 --   rows = function(ui) return { { label, value, colour, labelColour, dim, act = function() end }, ... } end,
 --   buttons = function(ui) return { { " Save ", "black", "lime", function() end }, ... } end, -- optional:
 --                                       -- else Back (Done on the first page)
---   filter = true,                     -- typing on the terminal narrows the rows (label or value)
+--   filter = true,                     -- a Search line: typing (or the Search button's on-screen
+--                                       -- keyboard, for the monitor) narrows the rows (label or value)
 --   empty = function(row) end,         -- optional: an Empty button shows only the rows this passes
 --   tick = function(ui) end }          -- optional: called every second while the page is open
 --
@@ -126,25 +127,30 @@ end
 
 function UI:say(text, colour) self.msg = { text, colour or "lightGray" } end
 
+-- The on-screen keyboard's keys, a row each (" " is a space; the rest are buttons).
+-- "_" matches a space too (labels have spaces, item ids underscores).
+local KEYS = { "abcdefghijklm", "nopqrstuvwxyz", "0123456789_:" }
+
 function UI:open(page)
   if self.page then self.stack[#self.stack + 1] = self.page end
-  self.page, self.sel, self.filter, self.empty, self.pages = page, 1, "", false, {}
+  self.page, self.sel, self.filter, self.empty, self.pages, self.kb = page, 1, "", false, {}, nil
   if page.enter then page.enter(self) end
 end
 
 function UI:back()
   self.page = table.remove(self.stack) or self.page
-  self.sel, self.filter, self.empty, self.pages = 1, "", false, {}
+  self.sel, self.filter, self.empty, self.pages, self.kb = 1, "", false, {}, nil
 end
 
 function UI:finish(result) self.done, self.result = true, result end
 
 -- The rows shown: the page's, narrowed by the filter and the Empty button.
 function UI:rows()
-  local out, f = {}, self.filter:lower()
+  local function plain(t) return (t:lower():gsub("_", " ")) end
+  local out, f = {}, plain(self.filter)
   for _, row in ipairs(self.page.rows(self)) do
-    local keep = row.keep or f == "" or row.label:lower():find(f, 1, true)
-      or (row.value or ""):lower():find(f, 1, true)
+    local keep = row.keep or f == "" or plain(row.label):find(f, 1, true)
+      or plain(row.value or ""):find(f, 1, true)
     if keep and self.empty and self.page.empty and not row.keep and not self.page.empty(row) then keep = false end
     if keep then out[#out + 1] = row end
   end
@@ -166,7 +172,11 @@ function UI:drawOne(i, scr, list)
   -- the hint takes a second line rather than being cut off
   local hint = page.hint and screen.wrap(page.hint, w - 2, 2) or {}
   local first = 2 + math.max(1, #hint) -- the first row's line
-  local per = math.max(1, h - first - 1)
+  -- a searchable page has its Search line first (and the keyboard, while it's open here)
+  local searchY = page.filter and first or nil
+  if searchY then first = first + 1 end
+  local kbRows = self.kb == i and (#KEYS + 1) or 0
+  local per = math.max(1, h - first - 1 - kbRows)
   local pages = math.max(1, math.ceil(#list / per))
   -- the terminal's page follows the keyboard's row
   if i == 1 then self.pages[i] = math.floor((self.sel - 1) / per) + 1 end
@@ -186,6 +196,12 @@ function UI:drawOne(i, scr, list)
   text(2, 1, fit(shorten(head, w - 2 - (#right > 0 and #right + 2 or 0)), w - 2), "yellow", "gray")
   if #right > 0 and #right + 4 <= w then text(w - #right, 1, right, "lightGray", "gray") end
   for k, line in ipairs(hint) do text(2, 1 + k, fit(line, w - 2), "lightGray") end
+  if searchY then
+    local typed = self.filter ~= "" and self.filter or (i == 1 and "type to narrow the list" or "tap Search to narrow the list")
+    text(1, searchY, (" "):rep(w), "white", "gray")
+    text(2, searchY, "Search:", "yellow", "gray")
+    text(10, searchY, fit(typed .. (self.filter ~= "" and "_" or ""), w - 10), self.filter ~= "" and "white" or "lightGray", "gray")
+  end
 
   for r = 1, per do
     local n = (pg - 1) * per + r
@@ -211,6 +227,28 @@ function UI:drawOne(i, scr, list)
     end
   end
 
+  -- the on-screen keyboard, above the message line: a key is 3 wide
+  if self.kb == i then
+    local top = h - 1 - kbRows
+    for r, keysRow in ipairs(KEYS) do
+      local x = 1
+      for k = 1, #keysRow do
+        local ch = keysRow:sub(k, k)
+        if x + 2 <= w then
+          x = button(x, top + r - 1, " " .. ch .. " ", "black", "lightGray", function()
+            self.filter, self.sel, self.pages = self.filter .. ch, 1, {}
+          end) - 1
+        end
+      end
+    end
+    local x = 1
+    x = button(x, top + #KEYS, " Del ", "white", "gray", function()
+      self.filter, self.sel, self.pages = self.filter:sub(1, -2), 1, {}
+    end)
+    x = button(x, top + #KEYS, " Clear ", "white", "gray", function() self.filter, self.sel, self.pages = "", 1, {} end)
+    button(x, top + #KEYS, " Close ", "black", "lime", function() self.kb = nil end)
+  end
+
   text(1, h - 1, fit(" " .. self.msg[1], w), self.msg[2])
   local x = 1
   local buttons = self:buttons()
@@ -226,6 +264,11 @@ function UI:drawOne(i, scr, list)
   if page.empty and x + 7 <= w then
     x = button(x, h, " Empty ", self.empty and "black" or "white", self.empty and "yellow" or "gray", function()
       self.empty, self.sel, self.pages = not self.empty, 1, {}
+    end)
+  end
+  if page.filter and x + 8 <= w then
+    x = button(x, h, " Search ", self.kb == i and "black" or "white", self.kb == i and "yellow" or "gray", function()
+      self.kb = self.kb ~= i and i or nil
     end)
   end
   -- the terminal's keys for the buttons (a basic computer has no mouse)
@@ -290,7 +333,7 @@ function UI:run(page)
     end
     local tw, th = self.screens[1]:size()
     local hintLines = self.page.hint and #screen.wrap(self.page.hint, tw - 2, 2) or 1
-    local per = math.max(1, th - 3 - hintLines)
+    local per = math.max(1, th - 3 - hintLines - (self.page.filter and 1 or 0) - (self.kb == 1 and #KEYS + 1 or 0))
     if tapped then
       tapped()
     elseif e == "peripheral" or e == "peripheral_detach" then

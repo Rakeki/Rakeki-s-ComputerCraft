@@ -464,7 +464,8 @@ Planks can become any of nine things, and stone any of several: an item
 with more than one recipe comes out as each of them in turn, unless the
 saw's **filter** (the slot on its side) is set to the one you want. The
 computer can't see or set that filter, so you tell it what each line's saw
-is set to (**Filter** on the line's page on the setup screen, or
+is set to (**Makes (its filter)** on the line's page on the setup screen:
+a list of everything a filter can pick, with a **Search** to find one; or
 `factory saw filter 1 minecraft:oak_slab`), and set the same item in the
 saw. Then:
 
@@ -488,7 +489,7 @@ You ask the same three ways as the infuser:
   **+8** and **+64** buttons: first what your lines can make now, then the
   rest, marked **needs a filter** in orange (framed glass from glass, since
   glass has four recipes). Ask for one of those and it says what to set:
-  the saw's filter, and that line's **Filter** on the setup screen. What's asked for is listed underneath; tap **x** to
+  the saw's filter, and that line's **Makes (its filter)** on the setup screen. What's asked for is listed underneath; tap **x** to
   cancel one. On the computer, **Up** / **Down** pick, **Enter**, **8**
   and **6** ask for 1, 8 or 64, and **X** cancels the newest.
 - **`factory saw`** lists the same; `factory saw find slab` looks up any
@@ -642,8 +643,8 @@ goes home.
 - **The recipes**: put `essence_recipes.lua` on the farm computer, as in
   [Botany pots](#botany-pots). The craft overseer doesn't need them: the
   farm tells it what it can make.
-- **Make it far away**: run `factory chest remote` (or **Work chest** on the
-  setup screen) and pick the ender chest, as in
+- **Make it far away**: put the ender chest on the farm's cable; the
+  factory links it by itself, as in
   [Far from the storage system](#far-from-the-storage-system).
 - **Every barrel and chest is the farm's store.** There's nothing to add:
   all of them on the cable (but ender chests, the turtles' barrels and
@@ -821,15 +822,15 @@ For each sawing line:
    that cable (its twin on the storage cable at home), along with the
    feeder, the output chest and this computer. Logs come in through the
    ender chest, the factory moves them into the feeder, and what's cut goes
-   from the output chest back into the ender chest and home. Pick it under
-   **Work chest**, **Far away** on the setup screen (see
-   [Far from the storage system](#far-from-the-storage-system)).
+   from the output chest back into the ender chest and home. The factory
+   sees it isn't on the storage cable and links the ender chest by itself
+   (see [Far from the storage system](#far-from-the-storage-system)).
 5. On the setup screen, **Machines**, tap **+ Add a Create sawing line**:
    tap its feeder, then its output chest, from the list of every barrel
    and chest on the cable. Or type `factory add saw`.
 6. To make planks into slabs, stone into bricks and the like: set the
-   saw's filter, then tap the line on the setup screen and set its
-   **Filter** to the same item (see [Filters](#filters)). With none it does
+   saw's filter, then tap the line on the setup screen and set
+   **Makes (its filter)** to the same item (see [Filters](#filters)). With none it does
    stripped logs and planks.
 
 ### Cooking pots
@@ -1004,10 +1005,14 @@ network. The storage computer fills it each round, and what's made,
 leftovers and anything put back go home through it too: each round the
 storage computer takes out everything it didn't just send.
 
-Put an **ender modem** on the factory and one on the storage computer, then
-pick **Work chest**, **Far away** on the [setup screen](#the-setup-screen)
-(or run `factory chest remote`) and pick the chest. The storage computer
-finds its twin at home by dropping an item into each chest it could be
+Put an **ender modem** on the factory and one on the storage computer.
+That's all: the factory sees it isn't on the storage cable (it can't see
+the storage computer's input chest), and with one ender chest on its cable
+it uses that one for everything, by itself. With several, it asks you to
+pick one under **Items come and go** on the [setup screen](#the-setup-screen)
+(first on the page, in orange until it's linked); with none, it says to put
+one there. (`factory chest remote` does the same from the terminal.) The
+storage computer finds its twin at home by dropping an item into each chest it could be
 until it turns up at your end, so it needs something stored. Or pick the
 twin on the storage computer first under
 [Far-away workers](../storage-computer/README.md#far-away-workers) on its
@@ -1063,27 +1068,31 @@ if there is one. It works like the
     Create's.
   - **Picking a feeder or output chest:** every barrel, chest and hopper
     on the cable is listed with what's in it (right-click a modem to see a
-    block's name; **Empty** shows only empty ones, and typing narrows the
-    list). Pick an **empty** one: one with items in it is most likely a
-    storage chest, so it isn't taken until you empty it. Far away (set the
-    work chest first) nothing on the cable is storage, so any can be picked.
+    block's name; **Empty** shows only empty ones, and **Search** narrows
+    the list). Pick an **empty** one: one with items in it is most likely a
+    storage chest, so it isn't taken until you empty it. Off the storage
+    cable (through an ender chest) nothing on the cable is storage, so any
+    can be picked.
 - **Chain**: each step (ores into dust, crushed ores and nuggets; smelting
   and cooking; cooking pots; essence) and where it happens: here, on which
   other factory computers, or nowhere yet. Tap one to switch it off on this
   computer (its machines are left alone) or on again.
-- **Work chest**: a chest on this cable, **Far away**, or **None**. Far away
-  there's nothing to pick: work comes in through the ender chest on its
-  network and what it makes goes home through the same chest (it only asks
-  which when there are several). A separate return chest:
-  `factory chest remote`.
+- **Items come and go** (first on the page): how items get here and back.
+  Off the storage cable it says **Not on the storage cable** and offers only
+  **Through an ender chest** (linked by itself when there's one; you pick
+  when there are several). On the storage cable: **Straight from storage**
+  (each machine filled in turn), **A work chest on this cable** (one empty
+  chest filled once a round: better with many machines), or an ender chest
+  anyway. A separate return chest: `factory chest remote`.
 - **Monitor**: which monitor shows the status board.
 
 Chest lists show what's in each chest and go a page at a time (**<** **>**);
 **Empty** shows only the empty ones, and on the computer you can type to
 narrow the list. On the computer the arrow keys and Enter pick, Page Up and
 Page Down turn the page, Backspace goes back, and a button's first letter
-presses it (D for **Done**, B for **Back**; not on chest lists, where
-typing narrows the list). Each change is saved as you make it, and the
+presses it (D for **Done**, B for **Back**; not on lists with a
+**Search** line, where typing narrows the list). On the monitor, tap
+**Search** for an on-screen keyboard (`_` matches a space too). Each change is saved as you make it, and the
 factory uses it straight away.
 
 ## Moving from the old programs

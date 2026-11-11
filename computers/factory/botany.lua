@@ -578,7 +578,7 @@ function M.new(f)
         ["input chest full?"] = "nothing more fits in the storage input chest",
         ["not on the cable"] = "put a wired modem on it, join it to the cable and right-click it",
         ["nowhere to send it"] = "the storage input chest isn't on this cable. On a cable of its own, pick the"
-          .. " ender chest as the work chest (Setup, Work chest): then every barrel here is a pot barrel",
+          .. " ender chest (Setup, Items come and go): then every barrel here is a pot barrel",
       }
       note(("%s: %s."):format(first.title, first.why or why[first.state] or first.state), "red")
       status("alert", ("%d of %d botany pots need attention"):format(broken, #pots))

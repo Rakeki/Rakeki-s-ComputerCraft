@@ -461,7 +461,7 @@ function M.new(f)
     end
     -- far away without a work chest the storage computer can't see the hoppers
     if problem and not work.chest and problem:find("network", 1, true) then
-      problem = problem .. ". Not on the storage cable? Setup, Work chest"
+      problem = problem .. ". Not on the storage cable? Setup, Items come and go"
     end
 
     -- how each pot is doing, for the screen

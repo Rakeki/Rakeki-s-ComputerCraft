@@ -436,32 +436,34 @@ function Set:register(remote) return mekfeed.register({ self }, remote) end
 -- modems: which one sees the chest, and which (if any) sees the storage
 -- computer (storageId) as a peripheral, which it is when its modem is on.
 local function cableHint(name, storageId)
-  local chestSide, storageSide, wired = nil, nil, {}
+  local chestSide, storageSide, ender = nil, nil, nil
   for _, side in ipairs(peripheral.getNames()) do
     local ok, wireless = pcall(peripheral.call, side, "isWireless")
     if ok and wireless == false then
-      wired[#wired + 1] = side
       local okP, here = pcall(peripheral.call, side, "isPresentRemote", name)
-      if okP and here then chestSide = chestSide or side end
       local okN, names = pcall(peripheral.call, side, "getNamesRemote")
+      if okP and here then chestSide = chestSide or side end
       for _, n in ipairs(okN and names or {}) do
         local okT, id = pcall(peripheral.call, side, "callRemote", n, "getID")
         if storageId and okT and id == storageId then storageSide = storageSide or side end
+        -- an ender chest on the machines' cable: the one to pick for Far away
+        local okY, t = pcall(peripheral.call, side, "getTypeRemote", n)
+        if okP and here and okY and type(t) == "string" and t:find("ender", 1, true) and t:find("chest", 1, true) then
+          ender = ender or n
+        end
       end
     end
   end
-  local who = storageId and ("the storage computer (#%d)"):format(storageId) or "the storage computer"
   if not chestSide then return nil end
-  if storageSide and storageSide ~= chestSide then
-    return ("%s is on the cable of my %s modem, but %s is on my %s modem's: they're two networks. Join the cables, or keep them apart with one ender chest on this cable: Setup, Work chest, Far away")
-      :format(name, chestSide, who, storageSide)
-  end
-  if #wired > 1 then
-    return ("%s can't see %s, which I see through my %s modem: that cable doesn't reach the storage cable (I have %d wired modems). Join the cables, or keep them apart with one ender chest on this cable: Setup, Work chest, Far away")
-      :format(who, name, chestSide, #wired)
-  end
-  return ("%s can't see %s: my cable isn't the storage computer's (do I reach it wirelessly?). Join my cable to the storage cable, or put one ender chest on my cable: Setup, Work chest, Far away")
-    :format(who, name)
+  local short = function(n) return (n:gsub("^minecraft:", "")) end
+  local who = storageId and ("storage computer #%d"):format(storageId) or "the storage computer"
+  -- kept short: the footer shows four lines
+  local where = storageSide and storageSide ~= chestSide
+    and ("it's on my %s modem's cable, #%s on my %s's"):format(chestSide, tostring(storageId), storageSide)
+    or "this cable isn't the storage cable"
+  local fix = ender and ("Use %s: Setup, Items come and go"):format(short(ender))
+    or "Put an ender chest on this cable (twin at home), then Setup, Items come and go"
+  return ("%s can't see %s: %s. %s"):format(who, short(name), where, fix)
 end
 
 -- The same for every set on this computer at once: the storage computer

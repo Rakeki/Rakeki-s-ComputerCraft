@@ -177,8 +177,8 @@ function M.new(f)
         return a.make < b.make
       end)
       return {
-        title = "What its saw's filter is set to",
-        hint = "Set the same item in the saw's filter slot. Type to narrow the list.",
+        title = "What this saw makes",
+        hint = "A saw cuts glass, planks or stone into several things; its filter slot picks one. Pick the same item here.",
         filter = true,
         rows = function()
           local out = { { label = "(none)", value = "only items with one recipe: logs, stripped logs", colour = "gray",
@@ -199,7 +199,7 @@ function M.new(f)
         end,
       }
     end
-    return { { label = "Filter", value = entry.filter and nice(entry.filter) or "none: one-recipe items only",
+    return { { label = "Makes (its filter)", value = entry.filter and nice(entry.filter) or "no filter: logs, planks",
       colour = entry.filter and "lightGray" or "gray", act = function() ui:open(pickPage()) end } }
   end
 

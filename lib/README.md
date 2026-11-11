@@ -60,7 +60,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   work chest for its smelter and enricher).
 - `setupui.lua`: setup screens on the monitor and the terminal at once: pages of
   settings, and chest lists a page at a time with what's in each chest, an Empty
-  filter and typed search. Used by `storage-computer` and `factory`
+  filter and a search (typed, or an on-screen keyboard on the monitor). Used by `storage-computer` and `factory`
   (with `mekfeed.lua`'s and `workchest.lua`'s setup pages); `ui:pickByDrop` picks a chest by
   the item the player drops in it (nothing uses it now: the factory lists every barrel and chest instead).
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into

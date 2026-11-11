@@ -225,10 +225,55 @@ end
 ---------------------------------------------------------------- the setup screen
 
 -- What the work chest is now, in a few words.
+-- Ender chests on the cable (and how many only touch this computer: the
+-- machines' chests can't reach those).
+local function endersOnCable()
+  local out, touching, sides = {}, 0, {}
+  for _, s in ipairs(rs.getSides()) do sides[s] = true end
+  for _, n in ipairs(peripheral.getNames()) do
+    local t = peripheral.getType(n) or ""
+    if t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then
+      if sides[n] then touching = touching + 1 else out[#out + 1] = n end
+    end
+  end
+  table.sort(out)
+  return out, touching
+end
+workchest.enders = endersOnCable
+
+-- Is this computer on the storage cable? It is when it can see the storage
+-- computer's input chest (stockInput, from a 'stock' reply); nil when that
+-- isn't known.
+function workchest.onStorageCable(stockInput)
+  if type(stockInput) ~= "string" then return nil end
+  return peripheral.isPresent(stockInput)
+end
+
+-- Off the storage cable, items can only come and go through an ender chest:
+-- with exactly one on the cable, use it (both ways) without being asked.
+-- Call after each 'stock'. Returns nil when there's nothing to do, else a
+-- message: what it did, or what the player has to do (none, or several to
+-- pick from).
+function Work:auto(stock)
+  if self.remote or not stock or workchest.onStorageCable(stock.input) ~= false then return nil end
+  local list, touching = endersOnCable()
+  if #list == 1 then
+    local ok, why = self:setRemote(list[1], nil)
+    return ok and ("Not on the storage cable: items come and go through %s now."):format(list[1])
+      or ("Not on the storage cable: using %s, but its twin at home isn't found yet (%s)."):format(list[1], why or "no answer"),
+      ok and "lime" or "orange"
+  elseif #list > 1 then
+    return "Not on the storage cable, and there are several ender chests: pick one under Setup, Items come and go.", "orange"
+  elseif touching > 0 then
+    return "Not on the storage cable: the ender chest only touches this computer. Put a wired modem on it, joined to the cable.", "orange"
+  end
+  return "Not on the storage cable: put an ender chest on this cable with a wired modem (its twin on the storage cable at home).", "orange"
+end
+
 function Work:describe()
   readSaved(self)
-  if not self.chest then return "none" end
-  return self.remote and ("far away: " .. self.chest) or self.chest
+  if not self.chest then return "straight from storage" end
+  return self.remote and ("through " .. self.chest) or ("work chest " .. self.chest)
 end
 
 -- A lib/setupui.lua page for the work chest: one on the cable, far away
@@ -238,20 +283,8 @@ function Work:setupPage(ui)
     ui:back()
     if ok then ui:say(text, "lime") else ui:say(("Couldn't: %s."):format(why or "no answer"), "red") end
   end
-  -- ender chests on the cable; one only touching the computer can't be
-  -- reached by the machines' chests, so it's counted apart (touching)
-  local function enders()
-    local out, touching, sides = {}, 0, {}
-    for _, s in ipairs(rs.getSides()) do sides[s] = true end
-    for _, n in ipairs(peripheral.getNames()) do
-      local t = peripheral.getType(n) or ""
-      if t:find("ender", 1, true) and (t:find("chest", 1, true) or t:find("barrel", 1, true)) then
-        if sides[n] then touching = touching + 1 else out[#out + 1] = n end
-      end
-    end
-    table.sort(out)
-    return out, touching
-  end
+  local enders = endersOnCable
+  local near -- true / false: this computer is on the storage cable (asked when the page opens)
   -- Far away: work comes in through the ender chest on this network and
   -- what's made goes home through it, so there's nothing to pick unless
   -- there are several. (A separate return chest: '<program> chest remote'.)
@@ -261,8 +294,8 @@ function Work:setupPage(ui)
       ui:say("Finding its twin on the storage network...", "lightBlue")
       ui:draw()
       local ok, why = self:setRemote(chest, nil)
-      ui:say(ok and ("Far away: work comes in and goes home through %s."):format(chest)
-        or ("Far away through %s, but its twin at home isn't found yet (%s). It keeps looking; or pick it on the storage computer under Far-away workers.")
+      ui:say(ok and ("Items come and go through %s now."):format(chest)
+        or ("Using %s, but its twin at home isn't found yet (%s). It keeps looking; or pick the twin on the storage computer under Far-away workers.")
           :format(chest, why or "no answer"), ok and "lime" or "orange")
     end
     if #list == 0 and touching > 0 then
@@ -281,13 +314,16 @@ function Work:setupPage(ui)
       ui:say("There are several ender chests: tap the one for work.")
     end
   end
-  return {
-    title = "Work chest",
-    hint = "The storage computer fills it in one go each round.",
-    rows = function()
-      return {
-        { label = "Now", value = self:describe(), colour = self.chest and "lightGray" or "gray" },
-        { label = "A chest on this cable", value = "near the storage", colour = "gray", act = function()
+  local function nearRows()
+    return {
+        { label = "Straight from storage", value = "each machine filled in turn", colour = "gray", act = function()
+          ui:say("Asking the storage computer...", "lightBlue")
+          ui:draw()
+          local ok, why = self:set(nil)
+          ui:say(ok and "Straight from storage now: each machine is filled in turn." or ("Couldn't: %s."):format(why or "no answer"),
+            ok and "lime" or "red")
+        end },
+        { label = "A work chest on this cable", value = "one fill a round: many machines", colour = "gray", act = function()
           local names = {}
           for _, n in ipairs(peripheral.getNames()) do
             local t = peripheral.getType(n) or ""
@@ -306,15 +342,30 @@ function Work:setupPage(ui)
             end })
           ui:say("Tap an empty chest.")
         end },
-        { label = "Far away: through the ender chest", value = "another base", colour = "gray", act = far },
-        { label = "None", value = "load each machine in turn", colour = "gray", act = function()
-          ui:say("Asking the storage computer...", "lightBlue")
-          ui:draw()
-          local ok, why = self:set(nil)
-          ui:say(ok and "No work chest now: what was in it went back into storage." or ("Couldn't: %s."):format(why or "no answer"),
-            ok and "lime" or "red")
-        end },
-      }
+    }
+  end
+  return {
+    title = "Items come and go",
+    hint = "How items get here from storage, and what's made gets back.",
+    enter = function()
+      if near == nil then
+        local stock = self.ask({ type = "stock" })
+        near = workchest.onStorageCable(stock and stock.input)
+      end
+    end,
+    rows = function()
+      local rows = { { label = "Now", value = self:describe(), colour = self.chest and "lightGray" or "gray" } }
+      local ender = { label = "Through an ender chest", value = "its twin on the storage cable at home",
+        colour = near == false and "yellow" or "gray", act = far }
+      if near == false then
+        -- off the storage cable: the ender chest is the only way
+        rows[#rows + 1] = { label = "Not on the storage cable", value = "items need an ender chest", colour = "orange" }
+        rows[#rows + 1] = ender
+      else
+        for _, row in ipairs(nearRows()) do rows[#rows + 1] = row end
+        rows[#rows + 1] = ender
+      end
+      return rows
     end,
   }
 end

@@ -22,7 +22,9 @@ presses it): a basic computer has no mouse.
 { title = "Saws", hint = "a line under it",
   rows = function(ui) return { { label, value, colour, labelColour, dim, keep, act = function() end }, ... } end,
   buttons = function(ui) return { { " Save ", "black", "lime", function() end } } end, -- else Back / Done
-  filter = true,                     -- typing on the terminal narrows the rows (label or value)
+  filter = true,                     -- a Search line under the hint: typing, or the Search button's
+                                     -- on-screen keyboard (monitors have no keyboard), narrows the rows
+                                     -- by label or value; "_" matches a space
   empty = function(row) end,         -- an Empty button shows only rows this passes
   enter = function() end,            -- called when the page opens (read contents here, once)
   tick = function(ui) end }          -- every second while open

@@ -108,8 +108,14 @@ after `LINE_STUCK` s without. No power, speed or recipe can be read, so:
 A factory on its own cable (no wired path to the storage computer; it talks
 over rednet, an ender modem if it's far) has **one ender chest** with a
 wired modem on that cable, next to the machines, and the feeders and output
-chests on the same cable. It uses **Setup → Work chest → Far away**
-(`work:setRemote(supply, back)`): an ender chest pair whose twin at home is
+chests on the same cable. Nothing to set: each round `work:auto(stock)`
+sees the factory can't see `stock.input` (`workchest.onStorageCable`),
+and with exactly one ender chest on the cable calls `work:setRemote(it)`
+by itself; with none or several the parts say so and nothing is loaded
+(no `feeders` either, so no "I can't see" error). The setup screen leads
+with **Items come and go** (orange until linked), `work:setupPage` offers
+only the ender chest off the storage cable. It's
+`work:setRemote(supply, back)`: an ender chest pair whose twin at home is
 found by probe (`claim.chest(ask, "work", side)`, like a turtle's chest).
 Everything comes in through it with `fill`, and goes home through it:
 `work:input()` is the ender chest (every `fill` then carries `sweep = true`

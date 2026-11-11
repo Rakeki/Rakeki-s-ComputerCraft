@@ -376,6 +376,18 @@ local function round()
     end
     return
   end
+  -- off the storage cable, items can only come and go through an ender
+  -- chest: the one on this cable is linked without asking (several or none:
+  -- the parts say what to do, and nothing is loaded until it's linked)
+  local note, noteColour = work:auto(reply)
+  if note then f.log(note) end
+  if not work.remote and workchest.onStorageCable(reply.input) == false then
+    for _, p in ipairs(list) do
+      p.message = { note, noteColour or "orange" }
+      p.status = { "waiting", "no ender chest to storage" }
+    end
+    return
+  end
   -- far away, everything goes home through the ender chest (or the return one)
   local useWork = work:check(reply) or work.remote
   -- the pot barrels emptied first: the storage computer only takes an empty one as a feeder
@@ -486,8 +498,8 @@ local function draw()
     local help = "Furnaces and botany pots on the cable are found by themselves. Mekanism machines"
       .. " (infusers too), Create crushers, washers, fans and saws, Cobblemon cooking pots and the barrels"
       .. " botany pots empty into are added on the setup screen: tap Setup, press F1, or type"
-      .. " 'factory setup' in another tab. A botany computer on a cable of its own: pick its ender chest as the"
-      .. " work chest (Setup, Work chest), and every barrel and chest there is a pot barrel."
+      .. " 'factory setup' in another tab. Not on the storage cable? Put one ender chest on this cable (its twin"
+      .. " on the storage cable at home): items come and go through it (Setup, Items come and go)."
     for i, line in ipairs(screen.wrap(help, w - 2, h - 8)) do screen.put(win, 2, 4 + i, screen.fit(line, w - 2), "lightGray") end
     local msg = screen.wrap(message[1], w, 2)
     for i, line in ipairs(msg) do screen.put(win, 1, h - 1 - #msg + i, screen.fit(line, w), message[2]) end
@@ -585,6 +597,7 @@ end
 -- screens (the terminal first). Each change is saved as it's made.
 local function setupScreen(screens)
   local ui = setupui.new({ screens = screens, name = "factory" })
+  local near -- this computer is on the storage cable (true / false), nil if unknown
   local setParts = {
     byId.smelt.set:setupParts(ui), byId.enrich.set:setupParts(ui), byId.infuse.set:setupParts(ui),
     byId.saw.set:setupParts(ui), byId.cook.setupParts(ui), byId.essence.setupParts(ui),
@@ -684,7 +697,14 @@ local function setupScreen(screens)
     }
   end
 
-  ui:say("Tap a setting to change it.")
+  -- is this computer on the storage cable? (it can see the input chest)
+  local stock = ask({ type = "stock" }, 5)
+  near = workchest.onStorageCable(stock and stock.input)
+  if near == false and not work.remote then
+    ui:say("This computer isn't on the storage cable: tap Items come and go and pick the ender chest.", "orange")
+  else
+    ui:say("Tap a setting to change it.")
+  end
   ui:run({
     title = ("Factory #%d setup"):format(myId),
     rows = function()
@@ -695,11 +715,14 @@ local function setupScreen(screens)
       for _, sp in ipairs(setParts) do n = n + #sp.entries() end
       local on = {}
       for _, p in ipairs(runningParts()) do on[#on + 1] = p.title end
+      -- first: how items get here (off the storage cable, an ender chest is a must)
+      local linked = near ~= false or work.remote
       return {
+        { label = "Items come and go", value = linked and work:describe() or "not linked: pick the ender chest",
+          colour = linked and "lightGray" or "orange", act = function() ui:open(work:setupPage(ui)) end },
         { label = "Machines", value = ("%d here"):format(n), act = function() ui:open(machinesPage()) end },
         { label = "Chain", value = #on > 0 and table.concat(on, ", ") or "nothing yet",
           act = function() ui:open(chainPage()) end },
-        { label = "Work chest", value = work:describe(), act = function() ui:open(work:setupPage(ui)) end },
         { label = "Monitor", value = setupui.monitorText("factory.monitor"),
           act = function() ui:monitorPage("factory.monitor", "factory_monitor") end },
       }

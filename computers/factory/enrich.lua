@@ -365,7 +365,7 @@ function M.new(f)
     -- far away without a far-away work chest, the storage computer can't see
     -- the feeders: say what to do
     if problem and not work.chest and (problem:find("network") or problem:find("can't see") or problem:find("exist")) then
-      problem = problem .. ". Far from the storage system? Setup, Work chest, Far away"
+      problem = problem .. ". Not on the storage cable? Setup, Items come and go"
     end
     local noOutput
     for _, m in ipairs(machines) do
