@@ -695,7 +695,7 @@ function M.new(f)
     screen.put(win, 2, 2, screen.fit(("%d saw%s, %d working, %d recipes"):format(#machines, #machines == 1 and "" or "s",
       busy, #recipes), w - 2), "lightGray")
     local footer = {}
-    for _, line in ipairs(screen.wrap(self.message[1], w, 2)) do footer[#footer + 1] = { line, self.message[2] } end
+    for _, line in ipairs(screen.wrap(self.message[1], w, self.message[2] == "red" and 4 or 2)) do footer[#footer + 1] = { line, self.message[2] } end
     footer[#footer + 1] = { w >= 50 and "Arrows pick. Enter +1, 8 +8, 6 +64. X cancels last" or "Enter +1, 8 +8, 6 +64, X cancels",
       "gray" }
     drawRequests(win, w, h, "terminal", footer)

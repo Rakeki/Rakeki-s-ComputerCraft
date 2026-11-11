@@ -429,10 +429,46 @@ end
 -- not to fill (feeder -> true) and why, if any.
 function Set:register(remote) return mekfeed.register({ self }, remote) end
 
+-- A chest the storage computer can't see though this computer can: it's on
+-- a cable of this computer's that isn't the storage computer's (a second
+-- wired modem with its own cable), or this computer only reaches the
+-- storage computer wirelessly. Says which, from this computer's wired
+-- modems: which one sees the chest, and which (if any) sees the storage
+-- computer (storageId) as a peripheral, which it is when its modem is on.
+local function cableHint(name, storageId)
+  local chestSide, storageSide, wired = nil, nil, {}
+  for _, side in ipairs(peripheral.getNames()) do
+    local ok, wireless = pcall(peripheral.call, side, "isWireless")
+    if ok and wireless == false then
+      wired[#wired + 1] = side
+      local okP, here = pcall(peripheral.call, side, "isPresentRemote", name)
+      if okP and here then chestSide = chestSide or side end
+      local okN, names = pcall(peripheral.call, side, "getNamesRemote")
+      for _, n in ipairs(okN and names or {}) do
+        local okT, id = pcall(peripheral.call, side, "callRemote", n, "getID")
+        if storageId and okT and id == storageId then storageSide = storageSide or side end
+      end
+    end
+  end
+  local who = storageId and ("the storage computer (#%d)"):format(storageId) or "the storage computer"
+  if not chestSide then return nil end
+  if storageSide and storageSide ~= chestSide then
+    return ("%s is on the cable of my %s modem, but %s is on my %s modem's: they're two networks. Join the cables, or move the barrel's modem onto the storage cable")
+      :format(name, chestSide, who, storageSide)
+  end
+  if #wired > 1 then
+    return ("%s can't see %s, which I see through my %s modem: that cable doesn't reach the storage cable (I have %d wired modems). Join the cables, or move the barrel's modem onto the storage cable")
+      :format(who, name, chestSide, #wired)
+  end
+  return ("%s can't see %s: my cable isn't the storage computer's (do I reach it wirelessly?). Join my cable to the storage cable, or if this factory is far from storage, Setup, Work chest, Far away")
+    :format(who, name)
+end
+
 -- The same for every set on this computer at once: the storage computer
 -- keeps one list per computer, and each 'feeders' replaces it. The first
--- set remembers what was sent.
-function mekfeed.register(sets, remote)
+-- set remembers what was sent. storageId (optional): the storage
+-- computer's id, to say which cable a chest it can't see is on.
+function mekfeed.register(sets, remote, storageId)
   local unsure = {}
   local self = sets[1]
   if remote or not self then return unsure end
@@ -458,6 +494,8 @@ function mekfeed.register(sets, remote)
       self.feedersRetry = now + FEEDERS_RETRY
       self.feedersProblem = r and r.error or why == "the storage computer didn't answer"
         and "the storage computer doesn't know about barrel feeders: 'install update' it" or why
+      local unseen = r and type(r.error) == "string" and r.error:match("^I can't see (%S+):")
+      if unseen then self.feedersProblem = cableHint(unseen, storageId) or self.feedersProblem end
     end
   end
   if key == self.feedersKey then return unsure end

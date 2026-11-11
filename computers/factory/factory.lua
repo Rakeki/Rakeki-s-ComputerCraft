@@ -381,7 +381,7 @@ local function round()
   -- the pot barrels emptied first: the storage computer only takes an empty one as a feeder
   if running(byId.essence) then byId.essence.beforeRegister(work:input(reply.input)) end
   local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set, byId.infuse.set,
-    byId.saw.set, byId.essence.barrelSet }, work.remote)
+    byId.saw.set, byId.essence.barrelSet }, work.remote, storage.id)
   local r = { stock = reply, useWork = useWork, input = work:input(reply.input), unsure = unsure,
     feedProblem = feedProblem }
   -- in the chain's order, so a smelter sees what the enricher takes this round
