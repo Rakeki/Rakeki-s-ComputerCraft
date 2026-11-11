@@ -58,6 +58,7 @@ sim/                        A headless CC world on the PC (Node + Fengari: `npm 
                             inventories, http), machines, mod stand-ins, the player's typing and taps (script.mjs)
   scenarios/                Parts of a base set up the way each README says, with checks; base.mjs is all of it
   run.mjs, test/all.mjs     Run one scenario (screens at the end) / every scenario's checks (`npm test`)
+  compile.mjs               Compiles Lua files with Fengari and prints syntax errors (`node sim/compile.mjs [paths]`)
   map.mjs                   Runs the whole base and writes site/network.json for the website's network map
 site/                       The website and in-game installer
   network.json              The network map's data, made by `node sim/map.mjs` (commit it after a run)
@@ -382,6 +383,13 @@ Detailed guides live in `.claude/skills/`:
 - `lib-net`: `lib/net.lua` (rednet requests, answers, peers), `lib/files.lua` (crash-safe save files) and `lib/inv.lua` (turtle inventory and fuel)
 - `turtle-job`: the standalone resumable turtle job pattern (from excavate-turtle), and jobs in world coordinates (builder-turtle)
 - `storage-system`: asking the storage computer for items (messages, replies, crafting on request) and how it works inside
+- `item-rules`: the rules for moving, counting and picking items and chests (who may take what, empty-only roles, ender chests, by name not slot)
+- `factory`: the factory's parts, rounds, chain, requests and `makes` offers, and the checklist for adding a part or Create line
+- `factory-io`: getting items into machines and results out (send, work chest, feeders, output chests, crediting, far away with one ender chest, cable mistakes); `lib/mekfeed.lua` and `lib/workchest.lua`
+- `lib-setupui`: the `lib/setupui.lua` API for setup screens and chest pickers
+- `performance`: yielding, tick-costly peripheral calls, caching, big data files, message size, redraws
+- `mod-recipes`: a modpack's recipes from its jars (`tools/*.mjs`, the loader jar's tags, recipes a mod builds in code)
+- `testing`: compiling (`node sim/compile.mjs`), headless module checks with CC stubbed, and when to use the simulator
 
 ## Conventions
 

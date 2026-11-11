@@ -1,6 +1,6 @@
 ---
 name: storage-system
-description: How programs get items from the storage system (the storage protocol, deliveries, fuel) and have things crafted (the craft overseer, lib/crafts.lua), and how storage-computer and craft-overseer work inside (chest / ME / RS backends, fuel chest, the monitor's network view, planning, crafters, machines, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle, craft-overseer or the factory.
+description: How programs get items from the storage system (the storage protocol, deliveries, fuel) and have things crafted (the craft overseer, lib/crafts.lua), and how storage-computer and craft-overseer work inside (chest / ME / RS backends, fuel chest, the monitor's network view, planning, crafters, machines, modpack recipes). Use when writing a program that needs items or fuel, or changing storage-computer, crafter-turtle or craft-overseer (the factory's own workings are in the factory and factory-io skills).
 ---
 
 # The storage system
@@ -118,23 +118,10 @@ Putting things away: drop them in the storage computer's **input chest**
 (the factory pushes furnace output there, and its pots' output hoppers,
 machines' output chests and botany pots; farms use it as their chest).
 
-The factory (`computers/factory`: one program, a part per kind of machine:
-`smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `cook.lua`, `botany.lua`; one `stock` a round for
-all of them) only ever `stock`, `send` / `fill` and empties into the input
-chest. Its essence part empties Hopper Botany Pots into the input chest
-itself (`pushItems` from the pot: a pot shows only its 12 harvest slots, only
-through its bottom face, and only a hopper pot lets them be taken, so each pot
-stands on a full-block wired modem), or empties a "pot barrel" the pots push into
-(`/.factory_pot_barrels`, named to the storage computer with `feeders` so it isn't
-storage; emptied just before each `feeders` request, since only an empty one is taken); far away (work chest an ender chest)
-it's an essence farm instead (below: it keeps its essence and crafts it itself), and orders crafts from the overseer (`f.craft`) with `prepare` set to
-stored + already crafting + wanted (`prepare` tops up to a total). The smelter part's orders (`ORDERS` in smelt.lua: charcoal from logs into
-the fuel chest, stone from cobblestone) each have their own save file and go
-into plain furnaces ahead of ores, in that order, and into Mekanism smelters
-with an output chest (`forOrders`; `made` counts what `collect` empties out
-of it, before the orders are checked). The cooking pots part can't see inside
-a pot: a comparator into a redstone relay says how full it is, and it sends
-the feed hopper only what still fits.
+The factory (`computers/factory`) only ever asks `stock`, `send` / `fill`
+and `feeders`, and empties its own chests into the input chest: its parts
+are in [[factory]], how items get in and out in [[factory-io]].
+
 **Work chests** (`lib/workchest.lua`): a factory computer can name one
 empty chest on the cable (`factory chest` → `work`, recorded in
 `setup.works[id]` and left out of storage; its smelter and enricher parts
@@ -160,37 +147,6 @@ Ender chests (type contains `ender`) are never storage in `chests.lua`.
 The remote terminal (`computers/remote-terminal`) claims an ender chest as
 its delivery chest before each `deliver` and reads `list` (`{ name, label,
 count }` for every plain item); items dropped in go home with the sweep.
-The enricher part fills a feeder for each Mekanism Enrichment Chamber (CC
-can't reach a Mekanism machine's slots: its own peripheral hides them): a
-hopper on top, or a barrel a pipe pulls from into the chamber, which it
-registers with `feeders` so it isn't storage (`mekfeed.register` sends the
-smelter's and enricher's feeders in one list: each `feeders` replaces the
-computer's whole list); and
-the chamber auto-ejects dust into its output chest under it, which the factory
-empties into storage each round (`set:collect`), or an extra input chest. The
-smelter part leaves alone the ores a lower-rank part takes (`f.leave`): the
-enricher here, or on another factory computer (`factory` protocol, `hello` →
-`stages` with `takes` = Lua patterns), and smelts the dust.
-The infuser part (rank 0) runs Metallurgic Infusers only on request: a file
-per request in `/.factory_infuse/` (its page's buttons, `factory infuse`, or
-the craft overseer's `infuse` on the `factory` protocol, carrying `job`).
-Each infuser has two feeders (`opts.extra` in mekfeed: the infusion feeder
-goes in its Extra side) and needs an output chest, where what comes out is
-counted (`credit`). Its `takes` are the inputs and infusion items of open
-requests, so the smelter leaves them alone. A request whose input isn't
-stored but is infused here too gets a child request (`parent`).
-The smelter part smelts ores, dust and food by itself, and everything else
-(RECIPES in `smelt.lua` plus `config.recipes`: stone, glass, charcoal,
-smooth stone, ingots, cooked food...) on request: a file per request in
-`/.factory_smelt/` (C / S / G, `factory smelt`, or the overseer's `smelt`
-with `job`; the old `/.smelter_*` orders are turned into requests on
-start). It offers them with `makes` (`via = "smelt"`, only kinds its
-furnaces can take: plain furnaces and Mekanism smelters with an output chest
-everything, blast furnaces `kind = "ore"`, smokers `kind = "food"`).
-Furnace and output-chest output is `credit`ed to requests by item, oldest
-first; loads go through `addLoaded`. A request whose inputs were all loaded
-but not all made loads the rest again; a job with nothing to smelt from
-waits `GIVE_UP` then reports `jobdone` with `ok = false`.
 
 ## Crafting (the craft overseer)
 
@@ -331,4 +287,4 @@ alone under Fengari (the trekt-mons pack, 1500 stored items), that took
   its twin is another storage system's input chest. `claimable` skips it,
   so probes never fall through to the other side.
 
-Related: [[new-computer]], [[lib-report]], [[lib-errlog]].
+Related: [[factory]], [[factory-io]], [[item-rules]], [[performance]], [[mod-recipes]], [[new-computer]], [[lib-report]], [[lib-errlog]].
