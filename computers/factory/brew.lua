@@ -13,6 +13,11 @@
 -- into it. Ingredients and blaze powder come from storage, straight into
 -- each stand's slots ('send') or through the work chest.
 --
+-- With Cobblemon, its medicine too (Potion, Hyper Potion, Full Heal, PP Up,
+-- the vitamins...: MOD_MIXES, from its brewing_stand recipes; more from
+-- config.recipes). Those are plain items: their bottles come from storage
+-- and what's brewed goes back into it, through the input chest.
+--
 -- CC can't read which potion a bottle holds (a long and a strong potion
 -- have the same name), so each kind is learnt as it's brewed: a water bottle
 -- (by its name, or from the filler) put in with sugar after nether wart is
@@ -105,13 +110,16 @@ for _, e in ipairs(EFFECTS) do
   if e[4] then add("strong_" .. e[1], " II") end
 end
 
--- Every mix, for each form: { from = key, ing = item, to = key }, keys
--- being "<form>:<contents>". Contents mixes first, then form changes, so
--- a splash potion is brewed as a potion and turned splash last.
+-- Every mix: { from = key, ings = { item, ... } (any one of them), ing =
+-- the first, to = key }. A potion's key is "<form>:<contents>"; anything
+-- else is a plain item id (a mod's medicine), which comes from storage and
+-- goes back into it. Contents mixes first, then form changes, so a splash
+-- potion is brewed as a potion and turned splash last.
 local mixes = {}
 local byFrom = {}
-local function mix(from, ing, to)
-  local m = { from = from, ing = ing, to = to }
+local function mix(from, ings, to)
+  if type(ings) == "string" then ings = { ings } end
+  local m = { from = from, ings = ings, ing = ings[1], to = to }
   mixes[#mixes + 1] = m
   byFrom[from] = byFrom[from] or {}
   table.insert(byFrom[from], m)
@@ -136,52 +144,81 @@ for _, id in ipairs(contentOrder) do
   mix("potion:" .. id, "minecraft:gunpowder", "splash:" .. id)
   mix("splash:" .. id, "minecraft:dragon_breath", "lingering:" .. id)
 end
--- pairs() gave FERMENT's in any order: keep each list the same every time
-for _, list in pairs(byFrom) do
-  table.sort(list, function(a, b)
-    local fa, fb = a.ing == "minecraft:gunpowder" or a.ing == "minecraft:dragon_breath",
-      b.ing == "minecraft:gunpowder" or b.ing == "minecraft:dragon_breath"
-    if fa ~= fb then return fb end
-    return a.to < b.to
-  end)
-end
 
--- The shortest way to each potion from a water bottle: key -> { mix, ... }.
-local paths = { ["potion:water"] = {} }
+-- Cobblemon's medicine (its "cobblemon:brewing_stand" recipes, from the
+-- 1.7 and 1.8 jars): bottle, ingredient (or a list: any of them), result.
+-- Medicinal brew takes any potion in its bottle slot: a water bottle here.
+local C = function(name) return "cobblemon:" .. name end
+local MOD_MIXES = {
+  { "potion:water", C("medicinal_leek"), C("medicinal_brew") },
+  { C("medicinal_brew"), C("oran_berry"), C("potion") },
+  { C("medicinal_brew"), { C("figy_berry"), C("wiki_berry"), C("aguav_berry"), C("mago_berry"), C("iapapa_berry") },
+    C("super_potion") },
+  { C("medicinal_brew"), C("sitrus_berry"), C("hyper_potion") },
+  { C("hyper_potion"), C("vivichoke"), C("max_potion") },
+  { C("max_potion"), C("lum_berry"), C("full_restore") },
+  { GLASS, C("pecha_berry"), C("antidote") },
+  { GLASS, C("chesto_berry"), C("awakening") },
+  { GLASS, C("rawst_berry"), C("burn_heal") },
+  { GLASS, C("aspear_berry"), C("ice_heal") },
+  { GLASS, C("cheri_berry"), C("paralyze_heal") },
+  { GLASS, C("lum_berry"), C("full_heal") },
+  { C("awakening"), C("pep_up_flower"), C("full_heal") },
+  { C("ice_heal"), C("pep_up_flower"), C("full_heal") },
+  { C("burn_heal"), C("pep_up_flower"), C("full_heal") },
+  { C("paralyze_heal"), C("pep_up_flower"), C("full_heal") },
+  { C("antidote"), C("pep_up_flower"), C("full_heal") },
+  { C("medicinal_brew"), C("leppa_berry"), C("ether") },
+  { C("medicinal_brew"), C("hopo_berry"), C("elixir") },
+  { C("ether"), C("pep_up_flower"), C("max_ether") },
+  { C("elixir"), C("pep_up_flower"), C("max_elixir") },
+  { C("medicinal_brew"), C("vivichoke"), C("pp_up") },
+  { C("pp_up"), C("energy_root"), C("pp_max") },
+  { C("pp_up"), C("pomeg_berry"), C("hp_up") },
+  { C("pp_up"), C("kelpsy_berry"), C("protein") },
+  { C("pp_up"), C("qualot_berry"), C("iron") },
+  { C("pp_up"), C("hondew_berry"), C("calcium") },
+  { C("pp_up"), C("grepa_berry"), C("zinc") },
+  { C("pp_up"), C("tamato_berry"), C("carbos") },
+  { C("potion"), C("petaya_berry"), C("throat_spray") },
+  { C("medicinal_brew"), "minecraft:dragon_breath", C("ability_capsule") }, -- Cobblemon 1.8
+}
+local modOrder = {} -- plain items brewed, in the order the page lists them
 do
-  local queue, head = { "potion:water" }, 1
-  while queue[head] do
-    local key = queue[head]
-    head = head + 1
-    for _, m in ipairs(byFrom[key] or {}) do
-      if not paths[m.to] then
-        local p = {}
-        for i, step in ipairs(paths[key]) do p[i] = step end
-        p[#p + 1] = m
-        paths[m.to] = p
-        queue[#queue + 1] = m.to
-      end
+  local seen = {}
+  for _, r in ipairs(MOD_MIXES) do
+    mix(r[1], r[2], r[3])
+    if not seen[r[3]] then
+      seen[r[3]] = true
+      modOrder[#modOrder + 1] = r[3]
     end
   end
 end
 
 local function splitKey(key) return key:match("^(%a+):(.+)$") end
 
+-- A potion (kept in the potion chest), not a plain item (kept in storage).
+local POTION_FORMS = { potion = true, splash = true, lingering = true }
+local function isPotion(key) return POTION_FORMS[splitKey(key) or ""] == true end
+
+local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
+
+-- "cobblemon:pp_up" -> "PP Up"
+local SHOUTED = { pp = "PP", hp = "HP" }
+local function itemTitle(id)
+  return (nice(id):gsub("(%a)(%w*)", function(a, b) return SHOUTED[(a .. b):lower()] or (a:upper() .. b) end))
+end
+
 local function titleOf(key)
+  if not isPotion(key) then return itemTitle(key) end
   local form, id = splitKey(key)
-  local c = form and contents[id]
+  local c = contents[id]
   if not c then return key end
   return c[form] .. c.suffix
 end
 
--- Every potion that can be brewed, in the page's order: by form, then base, effect, long, strong.
-local ALL = {}
-for _, fm in ipairs(FORMS) do
-  for _, id in ipairs(contentOrder) do
-    local key = fm[1] .. ":" .. id
-    if paths[key] and key ~= "potion:water" then ALL[#ALL + 1] = key end
-  end
-end
+-- The mod a plain item is from: its tab on the page.
+local function modOf(key) return key:match("^([%w_]+):") or "?" end
 
 -- What a bottle's name says it is, when only one potion has that name
 -- (water, awkward, slowness..., not swiftness: its long kind is named the same).
@@ -193,8 +230,6 @@ for _, fm in ipairs(FORMS) do
     table.insert(byDisplay[shown], fm[1] .. ":" .. id)
   end
 end
-
-local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
 local function escape(name) return "^" .. name:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0") .. "$" end
 
@@ -219,6 +254,61 @@ function M.new(f)
   local WATER_KEEP = config.water or 9 -- water bottles the filler keeps in the potion chest
   local KEEP = config.keep or {} -- item -> how many to leave in storage, never brewed with
   local ORDER = config.order ~= false -- have the craft overseer make a short ingredient (blaze powder, glistering melon)
+
+  -- more brewing-stand recipes from config: { bottle, ingredient, make }, plain items
+  for _, r in ipairs(config.recipes or {}) do
+    if type(r) == "table" and type(r.bottle) == "string" and type(r.make) == "string"
+      and (type(r.ingredient) == "string" or type(r.ingredient) == "table") then
+      mix(r.bottle, r.ingredient, r.make)
+      local known = false
+      for _, k in ipairs(modOrder) do
+        if k == r.make then known = true end
+      end
+      if not known then modOrder[#modOrder + 1] = r.make end
+    end
+  end
+  -- pairs() gave FERMENT's in any order: keep each list the same every time
+  for _, list in pairs(byFrom) do
+    table.sort(list, function(a, b)
+      local fa, fb = a.ing == "minecraft:gunpowder" or a.ing == "minecraft:dragon_breath",
+        b.ing == "minecraft:gunpowder" or b.ing == "minecraft:dragon_breath"
+      if fa ~= fb then return fb end
+      if a.to ~= b.to then return a.to < b.to end
+      return a.from < b.from
+    end)
+  end
+  -- The shortest way to each potion or item from a water bottle or a glass
+  -- bottle (whichever is shorter): key -> { mix, ... }.
+  local paths = { ["potion:water"] = {}, [GLASS] = {} }
+  do
+    local queue, head = { "potion:water", GLASS }, 1
+    while queue[head] do
+      local key = queue[head]
+      head = head + 1
+      for _, m in ipairs(byFrom[key] or {}) do
+        if not paths[m.to] then
+          local p = {}
+          for i, step in ipairs(paths[key]) do p[i] = step end
+          p[#p + 1] = m
+          paths[m.to] = p
+          queue[#queue + 1] = m.to
+        end
+      end
+    end
+  end
+  -- Everything that can be brewed, in the page's order: potions by form
+  -- (base, effect, long, strong), then each mod's items.
+  local ALL = {}
+  for _, fm in ipairs(FORMS) do
+    for _, id in ipairs(contentOrder) do
+      local key = fm[1] .. ":" .. id
+      if paths[key] and key ~= "potion:water" then ALL[#ALL + 1] = key end
+    end
+  end
+  for _, key in ipairs(modOrder) do
+    if paths[key] and key ~= GLASS then ALL[#ALL + 1] = key end
+  end
+  M.paths, M.ALL = paths, ALL -- for checks
 
   local self = { id = "brew", title = "Brewer", short = "Brew", rank = 0, every = 5, what = "Requests -> potions" }
   local stands = {} -- this computer's stands, each { name, list, title }
@@ -364,13 +454,14 @@ function M.new(f)
   -- Everything a request still needs from step i on, as the stands and the
   -- potion chest stand now: for each step, how many bottles still have to
   -- go through it (those past it, in the chest or a stand, count).
-  -- avail: potion key -> bottles free in the chest; inStands: request file -> step -> bottles.
-  local function stepNeeds(q, avail, inStands)
+  -- avail: potion key -> bottles free in the chest; inStands: request file -> step -> bottles;
+  -- coming: plain item -> made this round, not in storage yet (optional).
+  local function stepNeeds(q, avail, inStands, coming)
     local path = paths[q.key]
     local out, beyond = {}, 0
     local mine = inStands[q.file] or {}
     for i = #path, 1, -1 do
-      if i < #path then beyond = beyond + (avail[path[i].to] or 0) end
+      if i < #path then beyond = beyond + (avail[path[i].to] or 0) + (coming and coming[path[i].to] or 0) end
       beyond = beyond + (mine[i] or 0)
       out[i] = math.max(0, left(q) - beyond)
     end
@@ -379,6 +470,25 @@ function M.new(f)
 
   local function spare(item, used)
     return math.max(0, (counts[item] or 0) - (KEEP[item] or 0) - (used and used[item] or 0))
+  end
+
+  -- The ingredient to use for a mix: the first of its list there's any of (nil: none).
+  local function ingOf(m, used)
+    for _, item in ipairs(m.ings) do
+      if spare(item, used) > 0 then return item end
+    end
+    return nil
+  end
+
+  local function ingText(m)
+    if #m.ings == 1 then return nice(m.ing) end
+    return nice(m.ing) .. " or similar"
+  end
+
+  -- How many of a potion or item there are: in the potion chest, or in storage.
+  local function stockOf(key)
+    if isPotion(key) then return have[key] or 0 end
+    return counts[key] or 0
   end
 
   -- What the smelter leaves alone: every ingredient of a request still waiting, and the stands' fuel.
@@ -427,9 +537,13 @@ function M.new(f)
     local seen, pats = {}, {}
     for _, q in ipairs(requests) do
       for _, m in ipairs(paths[q.key] or {}) do
-        if not seen[m.ing] then
-          seen[m.ing] = true
-          pats[#pats + 1] = escape(m.ing)
+        local items = { m.from }
+        for _, item in ipairs(m.ings) do items[#items + 1] = item end
+        for _, item in ipairs(items) do
+          if not seen[item] and not isPotion(item) then
+            seen[item] = true
+            pats[#pats + 1] = escape(item)
+          end
         end
       end
     end
@@ -536,11 +650,29 @@ function M.new(f)
       status("waiting", "potion chest not registered")
       return
     end
-    local where = sortChest(s.chest)
-    local avail = {}
-    for k, n in pairs(have) do avail[k] = n end
+    local where = {}
+    local avail = {} -- potion or item -> bottles free to brew from (the chest's, storage's)
+    local usedIng = {} -- item -> taken from storage this round (ingredients, fuel, bottles)
+    local fresh = {} -- plain item -> made this round, on its way into storage (not in counts yet)
+    local function use(item, n) usedIng[item] = (usedIng[item] or 0) + n end
+    -- (re-)read the chest and work out what's free: potions in the chest,
+    -- plain bottles in storage (less what's been taken, plus what's just made)
+    local function recount()
+      local ok, list = pcall(peripheral.call, s.chest, "list")
+      if ok and type(list) == "table" then chestList = list end
+      where = sortChest(s.chest)
+      avail = {}
+      for k, n in pairs(have) do avail[k] = n end
+      for _, q in ipairs(requests) do
+        for _, m in ipairs(paths[q.key] or {}) do
+          for _, k in ipairs({ m.from, m.to }) do
+            if not isPotion(k) then avail[k] = spare(k, usedIng) end
+          end
+        end
+      end
+    end
 
-    -- a bottle from the chest into a stand slot, of a kind: true if it went
+    -- a bottle from the chest into a stand slot, of a kind: its id if it went
     local function bottleIn(key, stand, slot)
       local list = where[key] or {}
       while #list > 0 do
@@ -559,6 +691,16 @@ function M.new(f)
       local ok, n = pcall(peripheral.call, stand, "pushItems", to, slot)
       return ok and n or 0
     end
+    -- where a bottle goes out of a stand: a potion to the chest, anything else into storage
+    local function home(item) return FORM_OF[item.name] and s.chest or input end
+    local function bottlesOut(stand, l)
+      local left = 0
+      for slot = 1, 3 do
+        local item = l[slot]
+        if item and out(stand, slot, home(item)) < item.count then left = left + 1 end
+      end
+      return left
+    end
 
     -- finished brews out, stuck ones emptied, anything stray put away
     local chestFull = false
@@ -572,10 +714,8 @@ function M.new(f)
         local hasFuel = l[SLOT_FUEL] and l[SLOT_FUEL].name == BLAZE
         if hasFuel and now - (job.at or now) > (BREW_TIME + STUCK_AFTER) * 1000 then
           out(st.name, SLOT_INGREDIENT, input)
-          for slot = 1, 3 do
-            if l[slot] then out(st.name, slot, s.chest) end
-          end
-          stuck = ("%s didn't brew %s into %s: it's back in the chest"):format(st.title, titleOf(job.from), titleOf(job.to))
+          bottlesOut(st.name, l)
+          stuck = ("%s didn't brew %s into %s: it's been put back"):format(st.title, titleOf(job.from), titleOf(job.to))
           jobs[st.name] = nil
           st.state, st.tile = "emptied: it didn't brew", "red"
         else
@@ -588,21 +728,26 @@ function M.new(f)
           inStands[job.req][job.step] = (inStands[job.req][job.step] or 0) + job.n
         end
       elseif job then
-        -- the ingredient's gone: brewed. Each changed bottle is what the mix makes.
+        -- the ingredient's gone: brewed. Each changed potion is what the mix makes.
         local loaded = {}
         for _, id in ipairs(job.ids or {}) do loaded[id] = true end
-        local made, left = 0, 0
+        local made = 0
         for slot = 1, 3 do
           local item = l[slot]
           if item then
             local id = idOf(item)
-            if not loaded[id] and FORM_OF[item.name] then learn(id, job.to) end
-            if names[id] == job.to then made = made + item.count end
-            if out(st.name, slot, s.chest) < item.count then left = left + 1 end
+            if isPotion(job.to) then
+              if not loaded[id] and FORM_OF[item.name] then learn(id, job.to) end
+              if names[id] == job.to then made = made + item.count end
+            elseif item.name == job.to then
+              made = made + item.count
+            end
           end
         end
+        local left = bottlesOut(st.name, l)
         -- dragon's breath leaves its bottle behind
         if ing then out(st.name, SLOT_INGREDIENT, input) end
+        if not isPotion(job.to) then fresh[job.to] = (fresh[job.to] or 0) + made end
         for _, q in ipairs(requests) do
           if q.file == job.req and paths[q.key] and job.step == #paths[q.key] and made > 0 then
             q.made = q.made + made
@@ -612,27 +757,17 @@ function M.new(f)
         if left > 0 then
           -- the rest come out next round (already counted: no request to credit)
           chestFull = true
-          st.state, st.tile = "the potion chest is full", "red"
+          st.state, st.tile = isPotion(job.to) and "the potion chest is full" or "the input chest is full", "red"
           jobs[st.name] = { from = job.from, to = job.to, ing = "-", n = 0, step = job.step, req = "-", ids = {}, at = now }
         else
           jobs[st.name] = nil
         end
       else
-        -- nothing of ours in it: bottles to the chest, anything else to storage
-        for slot = 1, 3 do
-          if l[slot] then out(st.name, slot, s.chest) end
-        end
+        -- nothing of ours in it: potions to the chest, anything else to storage
+        bottlesOut(st.name, l)
         if ing then out(st.name, SLOT_INGREDIENT, input) end
         if l[SLOT_FUEL] and l[SLOT_FUEL].name ~= BLAZE then out(st.name, SLOT_FUEL, input) end
       end
-    end
-    -- re-read the chest after what came in, so this round loads from it
-    local function recount()
-      local ok, list = pcall(peripheral.call, s.chest, "list")
-      if ok and type(list) == "table" then chestList = list end
-      where = sortChest(s.chest)
-      avail = {}
-      for k, n in pairs(have) do avail[k] = n end
     end
     recount()
 
@@ -643,7 +778,8 @@ function M.new(f)
         fs.delete(q.file)
       elseif left(q) == 0 then
         fs.delete(q.file)
-        tell(("Brewed %s. They're in the potion chest."):format(potions(q.made, q.key)), "lime")
+        tell(("Brewed %s. They're %s."):format(potions(q.made, q.key),
+          isPotion(q.key) and "in the potion chest" or "in storage"), "lime")
       elseif fs.exists(q.file) then
         open[#open + 1] = q
       end
@@ -651,22 +787,21 @@ function M.new(f)
     requests = open
 
     -- each free stand: the latest step of the oldest request it can do
-    local usedIng = {}
-    local loads = {} -- { to, slot, item, n, stand (an ingredient for a new brew) }
-    local loading = {} -- stand -> its new job (until its ingredient is known to be there)
+    local loads = {} -- { to, slot, item, n, stand (a new brew's ingredient), bottle (a new brew's plain bottle) }
+    local loading = {} -- stand -> its new job (until its ingredient and bottles are known to be there)
     local function plan()
       for _, q in ipairs(requests) do
         local path = paths[q.key]
-        local needs = stepNeeds(q, avail, inStands)
+        local needs = stepNeeds(q, avail, inStands, fresh)
         for i = #path, 1, -1 do
           local m = path[i]
-          if needs[i] > 0 and (avail[m.from] or 0) > 0 and spare(m.ing, usedIng) > 0 then
-            return q, i, m, math.min(3, needs[i], avail[m.from])
+          local ing = ingOf(m, usedIng)
+          if needs[i] > 0 and (avail[m.from] or 0) > 0 and ing then
+            return q, i, m, ing, math.min(3, needs[i], avail[m.from])
           end
         end
       end
     end
-    local function use(item, n) usedIng[item] = (usedIng[item] or 0) + n end
     for _, st in ipairs(stands) do
       local l = st.list
       local fuel = l[SLOT_FUEL] and l[SLOT_FUEL].name == BLAZE and l[SLOT_FUEL].count or 0
@@ -676,20 +811,30 @@ function M.new(f)
         use(BLAZE, n)
       end
       if st.ok and not jobs[st.name] and not chestFull then
-        local q, i, m, n = plan()
+        local q, i, m, ing, n = plan()
         if q then
-          local ids = {}
-          for slot = 1, n do
-            local id = bottleIn(m.from, st.name, slot)
-            if id then ids[#ids + 1] = id end
+          local ids, count = {}, 0
+          if isPotion(m.from) then
+            for slot = 1, n do
+              local id = bottleIn(m.from, st.name, slot)
+              if id then ids[#ids + 1] = id end
+            end
+            count = #ids
+          else
+            -- plain bottles come from storage, one into each slot
+            for slot = 1, n do
+              loads[#loads + 1] = { to = st.name, slot = slot, item = m.from, n = 1, bottle = st.name }
+            end
+            use(m.from, n)
+            count = n
           end
-          if #ids > 0 then
-            avail[m.from] = avail[m.from] - #ids
-            use(m.ing, 1)
+          if count > 0 then
+            avail[m.from] = avail[m.from] - count
+            use(ing, 1)
             inStands[q.file] = inStands[q.file] or {}
-            inStands[q.file][i] = (inStands[q.file][i] or 0) + #ids
-            loading[st.name] = { from = m.from, to = m.to, ing = m.ing, n = #ids, step = i, req = q.file, ids = ids, at = now }
-            loads[#loads + 1] = { to = st.name, slot = SLOT_INGREDIENT, item = m.ing, n = 1, stand = st.name }
+            inStands[q.file][i] = (inStands[q.file][i] or 0) + count
+            loading[st.name] = { from = m.from, to = m.to, ing = ing, n = count, step = i, req = q.file, ids = ids, at = now }
+            loads[#loads + 1] = { to = st.name, slot = SLOT_INGREDIENT, item = ing, n = 1, stand = st.name }
           end
         end
       end
@@ -702,9 +847,11 @@ function M.new(f)
     -- requests still have to start from water; it gets glass bottles to fill
     local short = {} -- item -> how many more the requests need than storage has
     local waterWanted = 0
-    for _, q in ipairs(requests) do waterWanted = waterWanted + stepNeeds(q, avail, inStands)[1] end
+    for _, q in ipairs(requests) do
+      if paths[q.key][1].from == "potion:water" then waterWanted = waterWanted + stepNeeds(q, avail, inStands, fresh)[1] end
+    end
     if s.filler then
-      fill.want = math.max(0, math.max(WATER_KEEP, waterWanted) - (avail["potion:water"] or 0))
+      fill.want = math.max(0, math.max(WATER_KEEP, waterWanted) - (have["potion:water"] or 0))
       fill.untilTime = os.clock() + 30
       local ok, list = pcall(peripheral.call, s.filler, "list")
       local glass = 0
@@ -725,8 +872,12 @@ function M.new(f)
       fill.want = 0
     end
 
-    -- the ingredients, fuel and glass: through the work chest in one go, else straight in
-    local got = {} -- stand -> its ingredient arrived
+    -- the ingredients, bottles, fuel and glass: through the work chest in one go, else straight in
+    local got, gotBottles = {}, {} -- stand -> its ingredient arrived / how many plain bottles did
+    local function arrived(ld, n)
+      if ld.stand then got[ld.stand] = n > 0 end
+      if ld.bottle then gotBottles[ld.bottle] = (gotBottles[ld.bottle] or 0) + n end
+    end
     if r.useWork then
       local items = {}
       for _, ld in ipairs(loads) do items[ld.item] = (items[ld.item] or 0) + ld.n end
@@ -734,10 +885,7 @@ function M.new(f)
         local reply, why = work:fill(items, 0)
         if reply and reply.error and not reply.nochest then problem = problem or reply.error end
         if not reply then problem = problem or why end
-        for _, ld in ipairs(loads) do
-          local n = work:move(ld.item, ld.to, ld.slot, ld.n)
-          if ld.stand then got[ld.stand] = n > 0 end
-        end
+        for _, ld in ipairs(loads) do arrived(ld, work:move(ld.item, ld.to, ld.slot, ld.n)) end
         work:empty(input)
       end
     else
@@ -750,20 +898,26 @@ function M.new(f)
             and "the storage computer can't load brewing stands yet: 'install update' it" or reply.error)
         end
         if not reply then problem = problem or "the storage computer didn't answer" end
-        if ld.stand then got[ld.stand] = n > 0 end
+        arrived(ld, n)
       end
     end
-    -- a stand whose ingredient didn't come gives its bottles back
+    -- a stand whose ingredient (or plain bottles) didn't come is emptied again
     for _, st in ipairs(stands) do
       local job = loading[st.name]
       if job then
-        if got[st.name] then
+        local bottles = isPotion(job.from) and job.n or (gotBottles[st.name] or 0)
+        if got[st.name] and bottles > 0 then
+          inStands[job.req][job.step] = inStands[job.req][job.step] - job.n + bottles
+          job.n = bottles
           jobs[st.name] = job
           st.state, st.tile = ("brewing %s"):format(titleOf(job.to)), "yellow"
         else
-          for slot = 1, 3 do out(st.name, slot, s.chest) end
+          local ok, l = pcall(peripheral.call, st.name, "list")
+          l = ok and type(l) == "table" and l or {}
+          bottlesOut(st.name, l)
+          if l[SLOT_INGREDIENT] then out(st.name, SLOT_INGREDIENT, input) end
           inStands[job.req][job.step] = inStands[job.req][job.step] - job.n
-          st.state, st.tile = ("no %s came"):format(nice(job.ing)), "orange"
+          st.state, st.tile = ("no %s came"):format(nice(got[st.name] and job.from or job.ing)), "orange"
         end
       end
     end
@@ -773,23 +927,31 @@ function M.new(f)
     recount()
     for _, q in ipairs(requests) do
       local path = paths[q.key]
-      local needs = stepNeeds(q, avail, inStands)
+      local needs = stepNeeds(q, avail, inStands, fresh)
       q.state = nil
       for i = #path, 1, -1 do
         local m = path[i]
         if needs[i] > 0 then
           -- a brew a step, for three bottles each
-          short[m.ing] = (short[m.ing] or 0) + math.ceil(needs[i] / 3)
-          if not q.state and (avail[m.from] or 0) > 0 and spare(m.ing, usedIng) == 0 then
-            q.state = "waiting for " .. nice(m.ing)
+          if not ingOf(m) then short[m.ing] = (short[m.ing] or 0) + math.ceil(needs[i] / 3) end
+          if not q.state and (avail[m.from] or 0) > 0 and not ingOf(m, usedIng) then
+            q.state = "waiting for " .. ingText(m)
           end
         end
       end
-      local busy = 0
+      -- the first bottles: water from the chest, or glass bottles from storage
+      local first = path[1].from
+      if not isPotion(first) and needs[1] > 0 then short[first] = (short[first] or 0) + needs[1] end
+      local busy, onWay = 0, nil
       for _, n in pairs(inStands[q.file] or {}) do busy = busy + n end
+      for _, m in ipairs(path) do
+        if (fresh[m.from] or 0) > 0 then onWay = onWay or m.from end
+      end
       if not q.state then
         q.state = busy > 0 and ("%d brewing"):format(busy)
-          or (avail[path[1].from] or 0) == 0 and (s.filler and "waiting for water bottles from the filler"
+          or onWay and ("%s on its way into storage"):format(titleOf(onWay))
+          or (avail[first] or 0) == 0 and (first ~= "potion:water" and ("waiting for " .. nice(first))
+            or s.filler and "waiting for water bottles from the filler"
             or "needs water bottles in the potion chest")
           or "waiting for a stand"
       end
@@ -841,7 +1003,7 @@ function M.new(f)
     elseif chestFull then
       say("The potion chest is full: take some potions out.", "red")
     elseif #requests == 0 then
-      say("Tap +1, +3 or +9 by a potion (F picks potions, splash or lingering).")
+      say("Tap +1, +3 or +9 by a potion (F picks potions, splash, lingering or a mod's).")
     else
       say(("%s: %s."):format(titleOf(requests[1].key), requests[1].state))
     end
@@ -851,18 +1013,42 @@ function M.new(f)
 
   ---------------------------------------------------------------- screen
 
-  local function shownList()
-    local out = {}
+  -- The page's tabs: the three kinds of potion, then a tab per mod with
+  -- brewing recipes once any of its items is in storage (Cobblemon's
+  -- medicine), or something of it is asked for.
+  local function tabs()
+    local out = { "potion", "splash", "lingering" }
+    local mods, seen = {}, {}
+    for name in pairs(counts) do mods[modOf(name)] = true end
+    for _, q in ipairs(requests) do
+      if not isPotion(q.key) then mods[modOf(q.key)] = true end
+    end
     for _, key in ipairs(ALL) do
-      if splitKey(key) == form then out[#out + 1] = key end
+      local mod = not isPotion(key) and modOf(key)
+      if mod and mods[mod] and not seen[mod] then
+        seen[mod] = true
+        out[#out + 1] = "mod:" .. mod
+      end
     end
     return out
   end
 
-  -- Can it be brewed from what's stored now (every ingredient on its way there)?
+  local function shownList()
+    local out = {}
+    for _, key in ipairs(ALL) do
+      local tab = isPotion(key) and splitKey(key) or ("mod:" .. modOf(key))
+      if tab == form then out[#out + 1] = key end
+    end
+    return out
+  end
+
+  -- Can it be brewed from what's stored now (every ingredient on its way
+  -- there, or bottles past that step already)?
   local function stocked(key)
-    for _, m in ipairs(paths[key] or {}) do
-      if spare(m.ing) == 0 and (have[m.to] or 0) == 0 then return false end
+    local path = paths[key] or {}
+    for i, m in ipairs(path) do
+      if not ingOf(m) and stockOf(m.to) == 0 then return false end
+      if i == 1 and not isPotion(m.from) and spare(m.from) == 0 and stockOf(m.to) == 0 then return false end
     end
     return true
   end
@@ -879,15 +1065,16 @@ function M.new(f)
   end
 
   local FORM_TITLES = { potion = " Drink ", splash = " Splash ", lingering = " Lingering " }
+  local function tabTitle(tab) return FORM_TITLES[tab] or (" " .. capital(tab:gsub("^mod:", "")) .. " ") end
 
   local function drawPage(win, w, h, target, footer)
     zones[target] = {}
     local fit = screen.fit
     local list = shownList()
     local x = 2
-    for _, fm in ipairs(FORMS) do
-      local on = fm[1] == form
-      x = button(win, target, x, 3, FORM_TITLES[fm[1]], { form = fm[1] }, on and "black" or "white", on and "yellow" or "gray")
+    for _, tab in ipairs(tabs()) do
+      local on = tab == form
+      x = button(win, target, x, 3, tabTitle(tab), { form = tab }, on and "black" or "white", on and "yellow" or "gray")
     end
     local btnW = 0
     for _, n in ipairs(BUTTONS) do btnW = btnW + #(" +" .. n .. " ") + 1 end
@@ -912,8 +1099,8 @@ function M.new(f)
         local ok = stocked(key)
         screen.put(win, 1, y, (" "):rep(haveR + 1), "white", bg)
         screen.put(win, 2, y, fit(titleOf(key), haveR - 8), ok and "white" or "lightGray", bg)
-        local n = tostring(have[key] or 0)
-        screen.put(win, haveR - #n + 1, y, n, (have[key] or 0) > 0 and "lime" or "gray", bg)
+        local n = tostring(stockOf(key))
+        screen.put(win, haveR - #n + 1, y, n, stockOf(key) > 0 and "lime" or "gray", bg)
         local bx2 = bx
         for _, k in ipairs(BUTTONS) do
           bx2 = button(win, target, bx2, y, (" +%d "):format(k), { add = key, n = k }, "black", ok and "lightGray" or "gray")
@@ -987,7 +1174,7 @@ function M.new(f)
       picked = math.max(1, math.min(#shownList(), picked + a.scroll))
     elseif a.cancel then
       if fs.exists(a.cancel) then fs.delete(a.cancel) end
-      tell("Cancelled. What's in the stands still brews, into the potion chest.", "lime")
+      tell("Cancelled. What's in the stands still brews.", "lime")
       f.wake()
     end
   end
@@ -1017,10 +1204,11 @@ function M.new(f)
       act({ add = list[picked], n = tonumber(ev[2]) })
     elseif e == "char" and ev[2]:lower() == "f" then
       local i = 1
-      for j, fm in ipairs(FORMS) do
-        if fm[1] == form then i = j end
+      local list = tabs()
+      for j, tab in ipairs(list) do
+        if tab == form then i = j end
       end
-      act({ form = FORMS[i % #FORMS + 1][1] })
+      act({ form = list[i % #list + 1] })
     elseif e == "char" and ev[2]:lower() == "x" and #requests > 0 then
       act({ cancel = requests[#requests].file })
     elseif e == "mouse_scroll" then picked = math.max(1, math.min(#list, picked + ev[2]))
@@ -1290,8 +1478,8 @@ function M.new(f)
       local list = matching(table.concat(args, " ", 3))
       for _, key in ipairs(list) do
         local steps = {}
-        for _, m in ipairs(paths[key]) do steps[#steps + 1] = nice(m.ing) end
-        print(("%s: water + %s"):format(titleOf(key), table.concat(steps, ", ")))
+        for _, m in ipairs(paths[key]) do steps[#steps + 1] = ingText(m) end
+        print(("%s: %s + %s"):format(titleOf(key), titleOf(paths[key][1].from):lower(), table.concat(steps, ", ")))
       end
       if #list == 0 then print("No potion called that.") end
       return true
@@ -1320,6 +1508,6 @@ function M.new(f)
   return self
 end
 
-M.paths, M.titleOf, M.ALL = paths, titleOf, ALL -- for checks
+M.titleOf = titleOf -- for checks
 
 return M

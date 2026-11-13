@@ -228,7 +228,13 @@ less those past it in the chest or stands). A brew is done when slot 4 no
 longer holds its ingredient; the changed bottles' `name#nbt` are learnt as
 the mix's result (`/.factory_brew_names`), since CC can't read potion
 contents and long / strong share a name. Jobs persist in
-`/.factory_brew_stands`. The bottle filler runs in the part's own `loop`:
+`/.factory_brew_stands`. Mod recipes (Cobblemon's medicine in `MOD_MIXES`,
+plus `config.recipes`) use plain item ids as keys (`isPotion` tells them
+apart): their bottles are `send` into slots 1-3 from storage, results go
+back through the input chest, and what was made this round counts as past
+its step (`fresh`) but can't be loaded until the next `stock`. Paths start
+from `potion:water` or a glass bottle; a mix may take any of several
+ingredients (`ings`, `ingOf`). The bottle filler runs in the part's own `loop`:
 empty water out of the dispenser, then pulse once per bottle wanted while
 it has glass and free slots (a full dispenser drops what it fills).
 

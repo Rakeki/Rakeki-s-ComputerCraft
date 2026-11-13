@@ -20,7 +20,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the craft overseer orders them for its crafts too |
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
-| Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser |
+| Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser; with Cobblemon its [medicine](#cobblemon-medicine) too, into storage |
 | Inscribers, chargers, vibration chambers | [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2) | [on request](#applied-energistics): printed circuits, processors, dusts, press copies, charged certus; vibration chambers kept fuelled; the craft overseer orders them for its crafts too |
 | Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
@@ -542,6 +542,27 @@ slices, fermented spider eyes, magma cream, golden carrots) is ordered from
 the [craft overseer](../craft-overseer/README.md) first; one nothing
 crafts (nether wart, ghast tears) is waited for, and the request says so.
 
+### Cobblemon medicine
+
+With [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon), the
+same stands brew its medicine: Potion, Super, Hyper and Max Potion, Full
+Restore, the heals (Antidote, Awakening, Burn Heal, Ice Heal, Paralyze Heal,
+Full Heal), Ether, Elixir and their Max kinds, PP Up and PP Max, the
+vitamins (HP Up, Protein, Iron, Calcium, Zinc, Carbos), Throat Spray and,
+in Cobblemon 1.8, the Ability Capsule. They get a **Cobblemon** tab on the
+page once any Cobblemon item is in storage. Most start from a **medicinal
+brew** (a water bottle from the potion chest with a medicinal leek) or a
+glass bottle with a berry; a Max Potion is a Hyper Potion with a vivichoke,
+and so on, every step made in turn. Unlike potions these are plain items:
+the bottles they start from come out of storage and everything brewed goes
+back into it, medicinal brews too, so ones you already have are used first.
+Berries, leeks and vivichokes aren't crafted, so a request waits for them
+and says which.
+
+A brewing-stand recipe from another mod goes under `brewer` in
+`config.lua` (`recipes`: what goes in the bottle slots, the ingredient,
+what comes out); it gets a tab of its own the same way.
+
 Water bottles: put them in the potion chest by hand, or add a **bottle
 filler**: a dispenser facing a water source that the storage computer puts
 glass bottles in. Each redstone pulse fills one, and the water bottles go
@@ -550,13 +571,14 @@ into the potion chest, nine kept there (more while a request needs them).
 ### Asking
 
 - **Its page.** The **Brewer** tab (and the monitor's **Brew** page) lists
-  every potion with how many are in the potion chest and **+1**, **+3**,
-  **+9** to ask for more. **Drink**, **Splash** and **Lingering** at the
-  top (or **F**) pick which kind it lists; a potion in grey is missing an
+  every potion with how many are in the potion chest (Cobblemon's medicine:
+  in storage) and **+1**, **+3**, **+9** to ask for more. **Drink**,
+  **Splash**, **Lingering** and **Cobblemon** at the top (or **F**) pick
+  which kind it lists; a potion in grey is missing an
   ingredient in storage. What's asked for is listed underneath with what
   it's waiting for; tap **x** to cancel.
 - **`factory brew`** shows the requests; `factory brew potion of healing ii 6`
-  asks for 6, `factory brew find slowness` shows the steps for each match,
+  asks for 6 (`factory brew hyper potion 9` for Cobblemon's), `factory brew find slowness` shows the steps for each match,
   `factory brew cancel` cancels.
 
 ### What it can't see

@@ -157,6 +157,11 @@ return {
     -- first (blaze powder from rods, glistering melon, fermented spider eyes).
     -- false: it just waits.
     order = true,
+    -- More brewing-stand recipes from mods (Cobblemon's medicine is built in), plain
+    -- items: what goes in the bottle slots, the ingredient (or a list: any of them),
+    -- what comes out, e.g. { bottle = "minecraft:glass_bottle",
+    -- ingredient = "somemod:herb", make = "somemod:tonic" }.
+    recipes = {},
     -- Names on the screen instead of "Stand 1", by peripheral name,
     -- e.g. ["minecraft:brewing_stand_0"] = "Left".
     names = {},
