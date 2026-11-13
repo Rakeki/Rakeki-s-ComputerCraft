@@ -167,7 +167,8 @@ One entry per program under `programs`, in the order they appear on the site:
 
 `libraries` has one entry per `lib/` module (`usage` snippet, `api` table,
 `notes`). `plans` has one entry per file in `plans/` (`name`, `file`,
-`title`, `tagline`, `size`, `blocks`): the website lists them and
+`title`, `tagline`, `size`, `blocks`; optional `sizes` = `{ example, setting, notes }` for a
+plan built to a typed size, shown on its page): the website lists them and
 `install plan <name>` installs them. `animations` has one entry per file in `animations/` (`name`, `file`,
 `title`, `tagline`, `kind`): the display monitor's page plays each and `install animation <name>` installs it
 (the build stops if a file isn't listed). The installer takes every `.lua` in the program folder plus its

@@ -604,10 +604,18 @@
   }
 
   // How to use a plan, in each program that takes one.
-  const planUses = (name) => `
-    <div class="box"><h3>Show it</h3>${field(`projector ${name}`)}<p>On the <a href="${progUrl("blueprint-projector")}">blueprint projector</a>: outlines in the world, moved and turned from the monitor, then Build.</p></div>
-    <div class="box"><h3>Have turtles build it</h3>${field(`build ${name} <x> <y> <z> north`)}<p>From <a href="${progUrl("build-control")}">build control</a>: the builder turtles share it, in strips. x y z is its north-west bottom corner.</p></div>
-    <div class="box"><h3>Place it at once (creative)</h3>${field(`instabuild ${name} <x> <y> <z> north`)}<p>From a command computer with <a href="${progUrl("instabuild")}">instabuild</a>; <code>instabuild undo</code> takes it away again.</p></div>`;
+  // A plan that takes a size ("sizes") shows it on each command.
+  const planUses = (name, size) => {
+    const s = size ? " " + size : "";
+    return `
+    <div class="box"><h3>Show it</h3>${field(`projector ${name}${s}`)}<p>On the <a href="${progUrl("blueprint-projector")}">blueprint projector</a>: outlines in the world, moved and turned from the monitor, then Build.</p></div>
+    <div class="box"><h3>Have turtles build it</h3>${field(`build ${name} <x> <y> <z> north${s}`)}<p>From <a href="${progUrl("build-control")}">build control</a>: the builder turtles share it, in strips. x y z is its north-west bottom corner.</p></div>
+    <div class="box"><h3>Place it at once (creative)</h3>${field(`instabuild ${name} <x> <y> <z> north${s}`)}<p>From a command computer with <a href="${progUrl("instabuild")}">instabuild</a>; <code>instabuild undo</code> takes it away again.</p></div>`;
+  };
+
+  // A plan built to any size: the size word, or a setting that holds it.
+  const planSize = (pl) => pl.sizes ? `
+    <div class="box"><h3>Any size</h3>${field(`set ${pl.sizes.setting} ${pl.sizes.example}`)}<p>Or type the size after the plan's name, as in the commands here. ${esc(pl.sizes.notes)}</p></div>` : "";
 
   // A plan for underground (its "hole") is dug first with the excavator.
   const planDig = (pl) => pl.hole ? `
@@ -633,7 +641,7 @@
       <section class="block" style="padding-top:20px"><div class="wrap"><div id="plan-view"></div></div></section>
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>Use it</small>Build it</h2></div>
-        <div class="plan-uses${pl.hole ? " four" : ""}">${planDig(pl)}${planUses(pl.name)}</div>
+        <div class="plan-uses${pl.hole || pl.sizes ? " four" : ""}">${planDig(pl)}${planUses(pl.name, pl.sizes && pl.sizes.example)}${planSize(pl)}</div>
       </div></section>
       <section class="block"><div class="wrap">
         <div class="sec-head"><h2><small>Source</small>plans/${esc(pl.file)}</h2><p>${pl.file.endsWith(".lua") ? "Made by code: a Lua plan returns the same table a JSON plan holds." : "A JSON plan: each layer drawn as rows of letters, seen from above."} <a href="${ROOT}viewer/">View a plan of your own</a>.</p></div>

@@ -2774,7 +2774,12 @@
       "title": "Mossy platform",
       "tagline": "A raised square of moss, any size, its sides an old mossy stone wall: a tuff rim over wall posts on pillars, then staggered rows of blocks over sunken bands, fitted to each side and wrapping the corners. 21 × 21 and 11 high; type a size after it for another (build platform <x> <y> <z> north 31x25x8).",
       "size": "21 × 21 × 11",
-      "blocks": 4419
+      "blocks": 4419,
+      "sizes": {
+        "example": "31x25x8",
+        "setting": "platform.size",
+        "notes": "Wide x long (31x25), or wide x long x high (31x25x8): the whole footprint with the rim, and the height with the moss. Sides 7 to 128, height 5 to 32; one number is a square, and with no height it's 11 high. Every 3 more high adds another row of blocks down the sides. The projector keeps the size with the plan through reboots; its monitor can't take typing, so it uses the setting."
+      }
     },
     {
       "name": "paradise",
