@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, cooking pots' hoppers and relays, botany pots on wired modems or the barrel they empty into); optional monitor, touching it or on the cable (picked with `factory monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, brewing stands and the potion chest, cooking pots' hoppers and relays, botany pots on wired modems or the barrel they empty into); optional monitor, touching it or on the cable (picked with `factory monitor`)
 
 ## What it does
 
@@ -20,19 +20,20 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Metallurgic Infusers | Mekanism | [on request](#infusing): steel, alloys, circuits, bronze, mossy blocks; the craft overseer orders them for its crafts too |
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
+| Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser |
 | Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
 | Hopper Botany Pots | [Mystical Agriculture](https://www.curseforge.com/minecraft/mc-mods/mystical-agriculture) | [essence](#essence) emptied into storage, and the recipes it crafts into, ready to order |
 
 What it makes goes back into storage through the storage computer's input
-chest. Furnaces and botany pots are found by themselves; everything else is
+chest (potions go into a chest of their own). Furnaces, brewing stands and botany pots are found by themselves; everything else is
 added on the [setup screen](#the-setup-screen), in a few taps. With none of
 a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
 The computer's screen has a tab per part that's running (**Enricher**,
-**Smelter**, **Infuser**, **Saw**, **Cooking**, **Essence**; shortened to **Enrich**,
-**Smelt**, **Infuse**, **Cook** when they don't all fit): tap one, or press
+**Smelter**, **Infuser**, **Saw**, **Brewer**, **Cooking**, **Essence**; shortened to **Enrich**,
+**Smelt**, **Infuse**, **Brew**, **Cook** when they don't all fit): tap one, or press
 **Tab**. Everything on them works from the keyboard too, so a basic computer
 (no mouse) can do it all. A **monitor** is a status board you can read from
 across the room, a tile per machine, with how many are working at the top.
@@ -47,7 +48,7 @@ blocks wide uses small text); only on a tiny one do some go to "+N more":
 | Red | needs you: no fuel or power, output stuck, a Create line not moving, a pot not cooking, something missing (it says which) |
 
 With cooking pots, the monitor has a **Candy** page too (tap it at the top),
-with infusers an **Infuse** page to request from, and with saws a **Saw** page.
+with infusers an **Infuse** page to request from, with saws a **Saw** page, and with brewing stands a **Brew** page.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -57,7 +58,7 @@ Put the factory on as many computers as you like, near the machines each
 one runs, all on the storage cable (or [far away](#far-from-the-storage-system)).
 They sort themselves out:
 
-- **Furnaces and botany pots** belong to whichever factory computer saw them
+- **Furnaces, brewing stands and botany pots** belong to whichever factory computer saw them
   first; the others leave them alone. Hand some to another computer on the
   setup screen (**Machines**: tap one), or with `factory give`.
 - **Machines you add** belong to the computer you added them on, and other
@@ -519,6 +520,60 @@ the line was told) ends its request, and the tab says so. A line shows red
 **not moving** when its feeder hasn't gone down for a minute: is the saw
 turning, and the funnel taking from the feeder?
 
+## Brewing
+
+Runs **brewing stands**, but only when asked: say what potion and how many,
+and it works out every step from a water bottle and runs them on all its
+stands, three bottles a brew. A splash potion of long swiftness is water,
+then nether wart (awkward), sugar (swiftness), redstone (long), gunpowder
+(splash); dragon's breath makes a splash potion lingering. Every vanilla
+potion is there, long and strong (II) kinds included, as drinkable, splash
+and lingering.
+
+Potions have extra data on them, which the storage system never stores or
+hands out as plain items, so they never go into storage. They live in the
+**potion chest**: one chest or barrel on the cable that you pick. Water
+bottles go in it and every potion comes out into it; take yours from
+there. The ingredients and blaze powder come from storage, straight into
+each stand. An ingredient that's short (blaze powder, glistering melon
+slices, fermented spider eyes, magma cream, golden carrots) is ordered from
+the [craft overseer](../craft-overseer/README.md) first; one nothing
+crafts (nether wart, ghast tears) is waited for, and the request says so.
+
+Water bottles: put them in the potion chest by hand, or add a **bottle
+filler**: a dispenser facing a water source that the storage computer puts
+glass bottles in. Each redstone pulse fills one, and the water bottles go
+into the potion chest, nine kept there (more while a request needs them).
+
+### Asking
+
+- **Its page.** The **Brewer** tab (and the monitor's **Brew** page) lists
+  every potion with how many are in the potion chest and **+1**, **+3**,
+  **+9** to ask for more. **Drink**, **Splash** and **Lingering** at the
+  top (or **F**) pick which kind it lists; a potion in grey is missing an
+  ingredient in storage. What's asked for is listed underneath with what
+  it's waiting for; tap **x** to cancel.
+- **`factory brew`** shows the requests; `factory brew potion of healing ii 6`
+  asks for 6, `factory brew find slowness` shows the steps for each match,
+  `factory brew cancel` cancels.
+
+### What it can't see
+
+CC can't read which potion a bottle holds: a long potion of swiftness and a
+strong one have the same name. So it learns each kind as it brews it,
+starting from a water bottle (known by its name, or because the filler
+made it). Water, awkward, mundane and thick potions and those with only one
+kind (slowness II has its own name, weakness doesn't have a II...) are known
+by their names too; a potion you put in yourself that it has never brewed
+may show as **not known** and is left alone. Names are read in the server's
+language: in a singleplayer world played in another language, water bottles
+are only known when the filler makes them.
+
+A stand that holds its ingredient a minute past the brew (with fuel) didn't
+brew: its bottles go back to the potion chest, the ingredient back to
+storage, and the tab says so. A full potion chest stops the brewing until
+you take some potions out.
+
 ## Cooking pots
 
 Puts Cobblemon's **campfire cooking pots** to work. Out of the box they make
@@ -706,7 +761,7 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
-- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, cooking pots, botany pots)
+- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `brew.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, brewing stands, cooking pots, botany pots)
 - `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
@@ -842,6 +897,27 @@ For each sawing line:
    **Makes (its filter)** to the same item (see [Filters](#filters)). With none it does
    stripped logs and planks.
 
+### Brewing stands
+
+1. Put down your **brewing stands**, each with a **wired modem** joined to
+   the storage cable (right-click it). They're found by themselves, like
+   furnaces.
+2. Put an **empty chest** (or barrel) on the cable with a wired modem: the
+   potion chest. On the setup screen, **Machines**, tap **+ Set the potion
+   chest** and pick it, or type `factory add potions`. It has to be empty
+   when you pick it (a chest with items in it may be storage).
+3. Put **water bottles** in it, or make a **bottle filler**: a **dispenser**
+   facing a **water source block** (filling bottles never uses it up), with
+   a wired modem on the dispenser, and a way to power it: a side of this
+   computer touching it, or a **redstone relay** on the cable next to it.
+   Tap **+ Add a bottle filler** and pick the dispenser and what powers it,
+   or type `factory add filler`. Nothing else should power the dispenser.
+4. Keep **blaze powder** in storage (or blaze rods, with the craft
+   overseer): each stand gets two in its fuel slot, twenty brews each.
+
+The storage computer has to be up to date (`install update`) to load
+brewing stands and the dispenser.
+
 ### Cooking pots
 
 For each pot:
@@ -964,6 +1040,13 @@ factory saw stripped spruce log 128   -- ask for 128 stripped spruce logs
 factory saw oak slab 64        -- ask for 64 oak slabs (needs a line with its filter on oak slabs)
 factory saw filter 2 minecraft:oak_slab   -- sawing line 2's saw has its filter on oak slabs ('none': no filter)
 factory saw cancel 2           -- cancel request 2 ('factory saw cancel': all of them)
+factory add potions            -- pick the potion chest (an empty chest or barrel on the cable)
+factory add filler             -- the bottle filler: pick its dispenser, then a side of this computer or a relay
+factory add filler minecraft:dispenser_0 redstone_relay_1 top   -- or name them: dispenser, relay and its side (or just a side)
+factory brew                   -- the potion chest, the filler and the brewing requests
+factory brew potion of healing ii 6    -- ask for 6 (by name: 'splash potion of swiftness (long)', 'lingering ... ')
+factory brew find slowness     -- every potion matching, with the ingredients from water
+factory brew cancel 2          -- cancel request 2 ('factory brew cancel': all of them)
 factory find iron              -- essence recipes for anything with "iron" in its name, and how many you can make
 factory make 64 iron ingot     -- order 64 iron ingots made from essence (an essence farm: its tab)
 factory chest                  -- pick the work chest from the empty chests on the network

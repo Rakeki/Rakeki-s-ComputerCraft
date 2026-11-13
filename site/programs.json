@@ -1671,7 +1671,7 @@
       "device": "computer",
       "deviceLabel": "Computer + wired modem",
       "color": "red",
-      "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters, enrichment chambers and infusers, Create crushers, washers, fans and saws, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
+      "tagline": "Every machine that turns stored items into something else, whatever your mods: furnaces, Mekanism smelters, enrichment chambers and infusers, Create crushers, washers, fans and saws, brewing stands, Cobblemon cooking pots and Mystical Agriculture botany pots. One program, on as many computers as you like.",
       "replaces": ["smelter-computer", "enricher-computer", "cooker-computer", "essence-computer"],
       "libs": ["report", "errlog", "screen", "net", "files", "claim", "workchest", "mekfeed", "setupui", "crafts", "label"],
       "keep": ["config.lua"],
@@ -1679,8 +1679,8 @@
       "stats": [
         ["Mods","vanilla, Mekanism, Create, Cobblemon, Mystical Agriculture"],
         ["Computers","one, or one per room"],
-        ["Found by itself","furnaces, botany pots"],
-        ["On request","stone, glass, charcoal, ingots, infusing, sawing"]
+        ["Found by itself","furnaces, brewing stands, botany pots"],
+        ["On request","stone, glass, charcoal, ingots, infusing, sawing, potions"]
       ],
       "features": [
         "Furnaces, blast furnaces and smokers: ores, dust and food smelted and cooked, fuelled from the fuel chest",
@@ -1688,6 +1688,7 @@
         "Mekanism Enrichment Chambers (2 dust per ore block, 4 per 3 raw ores) and Energized Smelters, fed through a hopper or barrel",
         "Mekanism Metallurgic Infusers on request: steel, alloys, circuits, bronze and more, from +1 / +8 / +64 buttons on the Infuser tab or the monitor; the storage computer orders the infusing its crafts need, and a missing in-between step (enriched iron for steel) is made first",
         "Create crushing wheels, washing fans (crushed ores into nuggets and a byproduct, crafted back into ingots) and blasting and smoking fans: no Mekanism needed", "Create mechanical saws on request: stripped logs, planks, slabs, stairs and every stonecutter recipe (over 4,000 for vanilla and Create, a modpack's from tools/saw-recipes.mjs), from +1 / +8 / +64 buttons on the Saw tab or the monitor; each line is told what its saw's filter is set to, and the craft overseer is told what the saws can make, so a craft that needs stripped logs has them cut first",
+        "Brewing stands on request: every vanilla potion, long and II, drinkable, splash and lingering, brewed step by step from water bottles on every stand at once, from +1 / +3 / +9 buttons on the Brewer tab or the monitor; potions go into a potion chest of their own (the storage system doesn't keep items with data), short ingredients like blaze powder are ordered from the craft overseer, and a dispenser facing water can fill the water bottles",
         "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; sculk and honeycomb crafted to keep them coming, when the storage system has recipes; a Candy page on the monitor",
         "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into; far away an essence farm that keeps its essence and crafts what the storage computer asks for with its own turtles",
         "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
@@ -1697,28 +1698,29 @@
         "Replaces the smelter, enricher, cooker and essence computers: they update to it by themselves and keep their setup"
       ],
       "setup": [
-        "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
-        "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces and botany pots are found by themselves (pots that empty into a barrel: add the barrel as a pot barrel).",
-        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines and cooking pots. Pick a work chest if you have many machines.",
+        "Set up the storage system first (install update it if it's older than the factory). Put wired modems on your furnaces, brewing stands and on the hoppers, barrels and chests that feed and empty your other machines, joined to the storage cable.",
+        "Place this computer on the same cable with a wired modem (and a monitor if you like), install and reboot. Furnaces, brewing stands and botany pots are found by themselves (pots that empty into a barrel: add the barrel as a pot barrel; brewing stands need a potion chest: an empty chest picked on the setup screen, with water bottles in it or a dispenser filling them).",
+        "Open the setup screen (Setup on the monitor or screen, F1, or factory setup) and add the rest under Machines: Mekanism machines (an infuser has two feeders: one on top, one at the side), Create lines, cooking pots, the potion chest and bottle filler. Pick a work chest if you have many machines.",
         "With botany pots: put your modpack's essence recipes on this computer as essence_recipes.lua (packs/ has the TRekt Mons ones)."
       ],
       "commands": [
         ["factory","start (runs on boot)"],
         ["factory setup","the setup screen on the monitor and the computer: machines, the chain, the work chest, the monitor; or tap Setup, or press F1"],
-        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan, saw (Create), pot (Cobblemon) or potbarrel (the barrel botany pots empty into)"],
+        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan, saw (Create), pot (Cobblemon), potbarrel (the barrel botany pots empty into), potions (the brewers' potion chest) or filler (a dispenser filling water bottles)"],
         ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
         ["factory remove 2","forget machine 2 (no number: list them)"],
         ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],
         ["factory smelt stone 256","ask the furnaces for 256 stone (factory smelt lists the recipes; factory cancel cancels)"],
         ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone and glass)"],
         ["factory infuse steel 64","ask the infusers for 64 steel dust (factory infuse lists the recipes; factory infuse cancel cancels)"], ["factory saw stripped spruce log 128", "ask the saws for 128 stripped spruce logs (factory saw lists what they can make, factory saw find looks a recipe up, factory saw cancel cancels)"], ["factory saw filter 2 minecraft:oak_slab", "sawing line 2's saw has its filter on oak slabs, so it gets the planks for oak slab orders"],
+        ["factory brew potion of healing ii 6","ask the brewing stands for 6 (factory brew shows the requests, factory brew find slowness the steps, factory brew cancel cancels)"],
         ["factory find iron","essence recipes for anything with iron in its name, and how many you can make"],
         ["factory make 64 iron ingot","order 64 iron ingots made from essence"],
         ["factory chest","pick the work chest (none: stop using one; remote: far away through an ender chest)"],
         ["factory monitor","pick the monitor for the status board"]
       ],
       "integrates": [
-        ["storage-computer","Holds everything, loads the furnaces, feeders and pot hoppers (or fills the work chest in one go), and takes back what's made through its input chest; crafts washed nuggets and essence orders."],
+        ["storage-computer","Holds everything, loads the furnaces, brewing stands, feeders and pot hoppers (or fills the work chest in one go), and takes back what's made through its input chest; crafts washed nuggets and essence orders."],
         ["workchest","One request a round fills the work chest with every furnace's and feeder's load and fuel."],
         ["mekfeed","Reads the Mekanism machines, Create lines and their feeders, sets the machines' sides and tells the storage computer which barrels are feeders."],
         ["crafter-turtle","Crafts the washers' nuggets back into ingots, and the essence orders; on an essence farm, its own turtles do."],

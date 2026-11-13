@@ -62,7 +62,7 @@ label.set("Factory", { "Smelt", "Enrich" })        -- Factory-Smelt-Enrich-7
 | update-watcher | Updater | | | |
 
 The factory's extras are each running part's `short` (else its `title`), in
-the chain's order: `Enrich`, `Smelt`, `Infuse`, `Saw`, `Cook`, `Essence`. A
+the chain's order: `Enrich`, `Smelt`, `Infuse`, `Saw`, `Brew`, `Cook`, `Essence`. A
 factory with nothing running yet is just `Factory-<id>`.
 
 A new program picks a name not in this table and adds it here.

@@ -144,6 +144,24 @@ return {
     names = {},
   },
 
+  -- Brewing stands (found by themselves), the potion chest and the bottle filler.
+  brewer = {
+    -- Blaze powder kept in each stand's fuel slot (one does 20 brews).
+    fuel = 2,
+    -- Water bottles the bottle filler keeps in the potion chest (more while requests need them).
+    water = 9,
+    -- How many of an ingredient to leave in storage, never brewed with,
+    -- e.g. { ["minecraft:golden_carrot"] = 64 }.
+    keep = {},
+    -- A request whose ingredient is short has the craft overseer make it
+    -- first (blaze powder from rods, glistering melon, fermented spider eyes).
+    -- false: it just waits.
+    order = true,
+    -- Names on the screen instead of "Stand 1", by peripheral name,
+    -- e.g. ["minecraft:brewing_stand_0"] = "Left".
+    names = {},
+  },
+
   -- Cobblemon cooking pots.
   cooker = {
     -- What a pot can make, by the name 'factory add pot' lists. make: the item

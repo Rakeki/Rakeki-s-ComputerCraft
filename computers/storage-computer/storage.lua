@@ -1025,6 +1025,7 @@ end
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
+--                                                     or a brewing stand (slot 4 ingredient, 5 blaze powder) or dispenser
 --                                                     or one of the asker's feeders
 --   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (Mekanism machines' barrels: not storage)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
@@ -1077,6 +1078,13 @@ end
 local function isHopper(name)
   local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
   return t and t:find("hopper", 1, true) and true or false
+end
+
+-- The factory's brewer: a brewing stand's ingredient and fuel slots, and
+-- the dispenser that fills its water bottles (glass bottles).
+local function isBrewing(name)
+  local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
+  return t and (t:find("brewing_stand", 1, true) or t:find("dispenser", 1, true)) and true or false
 end
 
 ---------------------------------------------------------------- turtles finding their chest
@@ -1616,8 +1624,8 @@ local function handleRequest(from, msg)
   elseif type(msg) == "table" and msg.type == "send" then
     local sent, failed = {}, nil
     local furnace = isFurnace(msg.to)
-    if not furnace and not isHopper(msg.to) and not isFeederOf(from, msg.to) then
-      failed = ("%s isn't a furnace, hopper or your feeder on my network"):format(tostring(msg.to))
+    if not furnace and not isHopper(msg.to) and not isBrewing(msg.to) and not isFeederOf(from, msg.to) then
+      failed = ("%s isn't a furnace, hopper, brewing stand or your feeder on my network"):format(tostring(msg.to))
     elseif furnace and msg.slot == 2 then
       -- fuel for this many more items, of the first kind there is (a fuel
       -- slot only takes one kind), from the fuel chest first

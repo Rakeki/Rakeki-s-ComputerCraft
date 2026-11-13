@@ -17,6 +17,7 @@ Create-only one, or everything.
 | Smelter | `smelt.lua` | `smelt` / 2 | furnaces, blast furnaces, smokers (found), Mekanism smelters, Create fans | ores/dust/food by itself, the rest on request |
 | Infuser | `infuse.lua` | `infuse` / 0 | Metallurgic Infusers (two feeders) | on request only |
 | Saw | `saw.lua` | `saw` / 0 | Create Mechanical Saw lines | on request only |
+| Brewer | `brew.lua` | `brew` / 0 | brewing stands (found), the potion chest, a dispenser bottle filler | on request only (no `makes`: potions carry data, so the overseer can't plan them) |
 | Cooking | `cook.lua` | `cook` | Cobblemon cooking pots (comparator → redstone relay) | by itself |
 | Essence | `botany.lua` (+ `farm.lua` far away) | `essence` | Hopper Botany Pots (found), pot barrels | by itself; far away a farm that crafts |
 
@@ -208,6 +209,27 @@ hands those to every part.
 5. Docs: README (table, section, setup, commands, files), programs.json
    (tagline, stats, features, commands), AGENTS.md's factory row, root
    README line, lib/README.md "Used by", this skill.
+
+## The brewer
+
+Potions are items with components, which the storage computer never counts
+or sends, so `brew.lua` keeps them out of storage: one potion chest
+(`/.factory_brew_setup`, registered with `feeders` through `feedSet`)
+holds the water bottles and every result; the part moves bottles between
+it and the stands itself (its own chests). Only ingredients and blaze
+powder come from storage (`send` to slots 4 / 5, which the storage computer
+allows for brewing stands and dispensers, or the work chest). Each request
+is a target key `<form>:<contents>`; `paths` is the shortest mix chain from
+`potion:water` (contents mixes before gunpowder / dragon's breath). Each
+round, a free stand takes the latest step of the oldest request that has
+bottles at that step's input (`stepNeeds`: bottles still to pass each step,
+less those past it in the chest or stands). A brew is done when slot 4 no
+longer holds its ingredient; the changed bottles' `name#nbt` are learnt as
+the mix's result (`/.factory_brew_names`), since CC can't read potion
+contents and long / strong share a name. Jobs persist in
+`/.factory_brew_stands`. The bottle filler runs in the part's own `loop`:
+empty water out of the dispenser, then pulse once per bottle wanted while
+it has glass and free slots (a full dispenser drops what it fills).
 
 Related: [[factory-io]] (feeders, work chest, output chests, cables),
 [[storage-system]] (the messages), [[performance]], [[mod-recipes]],
