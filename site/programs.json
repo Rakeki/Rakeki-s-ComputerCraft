@@ -2775,6 +2775,14 @@
       "tagline": "A raised square of moss, any size, its sides an old mossy stone wall: a tuff rim over wall posts on pillars, then staggered rows of blocks over sunken bands, fitted to each side and wrapping the corners. 21 × 21 and 11 high; type a size after it for another (build platform <x> <y> <z> north 31x25x8).",
       "size": "21 × 21 × 11",
       "blocks": 4419
+    },
+    {
+      "name": "paradise",
+      "file": "paradise.lua",
+      "title": "Pokémon Paradise",
+      "tagline": "A one-chunk tower of closed habitats for Cobblemon pastures, five floors under a glass dome: a lobby with a healing counter and PC, a meadow, a lagoon with a fish tank, a grove, a crystal grotto, fire, ice and desert rooms, and a sky garden with floating islands; 23 marked pasture spots and a Create elevator up the corner. Needs Create and Cobblemon (cobblemon=false leaves out the healing machine and PC).",
+      "size": "16 × 16 × 48",
+      "blocks": 6160
     }
   ]
 }

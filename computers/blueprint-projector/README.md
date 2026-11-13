@@ -90,8 +90,11 @@ blocks), a **barn** and silo, a Japanese **teahouse** and garden, a
 an old mossy stone wall (a tuff rim, wall posts on pillars, staggered rows
 of blocks), 21×21 and 11 high or any size you type after it:
 `projector platform 31x25x8` (wide x long x high; or `set platform.size
-31x25x8` once). A few hold water or lava, which the builders place from
-buckets: the tea house's pond (39 water), the villa's
+31x25x8` once). There's also a **paradise** (16×16, one chunk, 48 high,
+about 6,200 blocks): a five-floor tower of closed habitats for Cobblemon
+pastures, with a Create elevator up the middle of it (see
+[Pokémon Paradise](#pokemon-paradise)). A few hold water or lava, which the builders place from
+buckets: the paradise's pools and fish tank (77 water), the tea house's pond (39), the villa's
 pool (30), the market's well (9), the barn's trough (3) and the smithy's
 forge (1 lava). Your own go in
 `/plans` too (see [Plans](#plans)). The same plans work with
@@ -280,6 +283,78 @@ can't place one facing the right way). About 15,300 blocks: mostly
 cobblestone, deepslate tiles, polished andesite, bricks, glass and polished
 deepslate, plus 369 barrels, 371 cable, 266 full wired modems, 32
 furnaces and 6 advanced computers. `projector check factory` lists them.
+
+## Pokemon Paradise
+
+**Pokémon Paradise** (`projector paradise`) is a white tower with a red
+band at each floor that fills exactly one chunk: 16×16, five floors and a
+glass dome on top, every floor split into closed habitats for Cobblemon
+pastures. Habitat doors are the only way in or out, and Pokémon don't open
+doors, so whatever you pasture in a room stays in it. **Chiseled stone
+brick tiles** in the ground mark the 23 pasture spots, with two blocks
+clear above each for the pasture block.
+
+- **Ground floor.** A porch and double doors on the south side into the
+  trainer lobby: a counter with a Cobblemon healing machine on it,
+  bookshelves behind, a PC by the west wall, a table with seats, a rug and
+  a jukebox. Through a door and windows to the east, the **Sunny Meadow**:
+  grass and flowers, a cherry tree, a pond with sugar cane, hay bales.
+- **1st floor.** The **Coral Lagoon**: a sandy beach round a pool lit from
+  below, a palm on an island, a pier, a sunshade with towels, and a glass
+  fish tank three blocks deep against the north wall.
+- **2nd floor.** The **Whispering Grove** (an oak and a birch, moss,
+  mushrooms on podzol, azaleas, a stump, a spring) and the **Crystal
+  Grotto** (rough rock walls with no windows, rock pillars, stalagmites,
+  rock hanging from the roof, an amethyst corner, a pool).
+- **3rd floor.** A hall with windows into three rooms: **Ember Hollow**
+  (blackstone and basalt, basalt columns, magma pits behind blackstone
+  walls so nothing walks on them, crimson roots, orange windows), **Frost
+  Cavern** (snow, packed and blue ice, ice spikes, a snowy spruce; no
+  plain ice, so nothing melts) and **Sunset Dunes** (sand hills, sandstone
+  ruins, a terracotta mesa, dead bushes, yellow windows).
+- **Top floor.** The **Sky Garden** aviary, open up into the glass dome: a
+  great dark oak with branches to perch on, two floating islands, fence
+  perches with lanterns, flowers and a pond.
+
+Each habitat has a block of soil over its floor (so sand and gravel are
+held up and ponds sit in the ground), so its door has a step up inside.
+Every room is lit enough that nothing hostile spawns. Put its north-west
+bottom corner **one block below the ground**, on a chunk corner (x and z
+both multiples of 16; F3 shows the chunk borders with F3+G): the bottom
+layer is the elevator pit, and the ground floor is then level with the
+ground. It needs **Create** for the elevator and **Cobblemon** for the
+healing machine and PC; `projector paradise cobblemon=false` leaves those
+two out. About 6,200 blocks: mostly white concrete, glass, smooth stone and
+red concrete, and 77 water buckets. `projector check paradise` lists them.
+
+### The elevator
+
+A 3×3 shaft runs up the north-west corner from a pit under the ground
+floor to just under the roof, with a door onto each floor's landing (the
+lobby on the ground floor). The plan places the **elevator pulley** at the
+top, an **elevator contact** in each floor's shaft wall (left of the
+door), and the **cabin** waiting under the pulley at the top floor: a
+spruce floor, fence posts at the corners, a roof with a lantern against
+the pulley, a **redstone contact** that lines up with each floor's
+elevator contact, and **contraption controls**. Then it's yours to finish:
+
+1. **Glue the cabin** with super glue (floor, posts, roof, lantern and
+   both Create blocks), so the pulley moves it as one.
+2. **Power the pulley.** Run a shaft to it from a motor or a windmill: it
+   needs turning all the time the elevator is in use.
+3. **Assemble it** at the pulley (Create's Ponder shows how: hold W over
+   the elevator pulley), then name each floor at its elevator contact.
+4. Ride it with the contraption controls in the cabin. To call it to a
+   floor, put a button or lever on that floor's elevator contact.
+
+### Things to know about pastures
+
+- Pastured Pokémon wander round their pasture, so give a habitat to Pokémon
+  that suit it: the lagoon's tank and pool for water types, the dome for
+  flyers, Ember Hollow for fire types, Frost Cavern for ice types.
+- Cobblemon limits how many Pokémon can be pastured in one chunk, and the
+  whole tower is one chunk. If a pasture won't take any more, raise that
+  limit in Cobblemon's config.
 
 ## Following a village turtle
 
