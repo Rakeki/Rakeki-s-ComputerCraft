@@ -236,79 +236,90 @@
     highlight();
   }
 
-  // How the programs talk to each other. Every program reports to the
-  // dashboard (the lime bus and the lime corner on each box); the coloured
-  // lines are the other ways they work together.
+  // How the programs talk to each other. The lime bus is status (lib/report):
+  // the dashboard, turtle finder, update watcher and overseer bridge hear it,
+  // and the lime corner on a box means it reports. The light blue corner means
+  // it finds itself by GPS. The coloured lines are the other ways they work
+  // together. Lines run down the gaps between boxes so they cross as little
+  // as possible: move a box and check its lines still miss the others.
   function diagram() {
+    // [x, y, width, program page, title, device, accent, corners: r = reports, g = GPS]
     const N = {
-      status: [600, 60, 240, "status-server", "Status Dashboard", "computer", "cyan"],
-      server: [130, 220, 190, "mine-server", "AutoMine Server", "computer", "yellow"],
-      projector: [390, 220, 200, "blueprint-projector", "Blueprint Projector", "computer", "magenta"],
-      storage: [690, 220, 180, "storage-computer", "Storage System", "computer", "blue"],
-      colony: [900, 220, 190, "colony-dashboard", "Colony Dashboard", "computer", "orange"],
-      hosts: [1100, 220, 160, "gps-deployer", "GPS hosts × 4", "computer", "purple"],
-      miners: [130, 380, 190, "mine-turtle", "AutoMine Turtles", "turtle", "orange"],
-      crafter: [345, 380, 140, "crafter-turtle", "Crafter", "turtle", "brown"],
-      village: [540, 380, 150, "village-turtle", "Village", "turtle", "lime"],
-      tree: [740, 380, 150, "tree-farm-turtle", "Tree Farm", "turtle", "green"],
-      crop: [920, 380, 150, "crop-farm-turtle", "Crop Farm", "turtle", "yellow"],
-      deployer: [1100, 380, 160, "gps-deployer", "GPS Deployer", "turtle", "purple"],
-      excavate: [340, 540, 150, "excavate-turtle", "Excavator", "turtle", "orange"],
-      strip: [540, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue"],
-      mob: [740, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red"],
-      smelter: [920, 540, 150, "factory", "Factory", "computer", "red"],
-      builder: [130, 540, 150, "builder-turtle", "Builders", "turtle", "pink"],
-      overseer: [1100, 540, 160, "craft-overseer", "Craft Overseer", "computer", "orange"],
+      finder: [250, 60, 180, "turtle-finder", "Turtle Finder", "computer", "lime", "g"],
+      status: [510, 60, 220, "status-server", "Status Dashboard", "computer", "cyan", ""],
+      watcher: [770, 60, 200, "update-watcher", "Update Watcher", "computer", "lime", "r"],
+      bridge: [1030, 60, 200, "overseer-bridge", "Overseer Bridge", "computer", "cyan", "r"],
+      server: [110, 220, 180, "mine-server", "AutoMine Server", "computer", "yellow", "r"],
+      projector: [340, 220, 200, "blueprint-projector", "Blueprint Projector", "computer", "magenta", "r"],
+      storage: [640, 220, 200, "storage-computer", "Storage System", "computer", "blue", "r"],
+      overseer: [900, 220, 180, "craft-overseer", "Craft Overseer", "computer", "orange", "r"],
+      hosts: [1100, 220, 150, "gps-deployer", "GPS hosts × 4", "computer", "purple", ""],
+      miners: [110, 380, 180, "mine-turtle", "AutoMine Turtles", "turtle", "orange", "rg"],
+      builders: [285, 380, 130, "builder-turtle", "Builders", "turtle", "pink", "rg"],
+      village: [435, 380, 130, "village-turtle", "Village", "turtle", "lime", "rg"],
+      farms: [580, 380, 120, "tree-farm-turtle", "Farms", "turtle", "green", "rg"],
+      factory: [740, 380, 140, "factory", "Factory", "computer", "red", "r"],
+      crafters: [905, 380, 150, "crafter-turtle", "Crafters", "turtle", "brown", "r"],
+      deployer: [1100, 380, 150, "gps-deployer", "GPS Deployer", "turtle", "purple", "r"],
+      strip: [110, 540, 150, "strip-mine-turtle", "Strip Miner", "turtle", "lightBlue", "rg"],
+      control: [285, 540, 150, "build-control", "Build Control", "computer", "pink", "r"],
+      instabuild: [445, 540, 140, "instabuild", "Instabuild", "computer", "purple", ""],
+      excavate: [575, 540, 130, "excavate-turtle", "Excavator", "turtle", "orange", "rg"],
+      terminals: [745, 540, 150, "craft-terminal", "Terminals", "computer", "lightBlue", "r"],
+      mob: [1100, 540, 150, "mob-farm-turtle", "Mob Farm", "turtle", "red", "rg"],
     };
     const P = CC.PALETTE;
     const line = (d, c, w = 2.5, extra = "") => `<path class="flow" d="${d}" stroke="${c}" stroke-width="${w}" fill="none"${extra}/>`;
-    const curve = (x1, y1, x2, y2) => `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
     let edges = "";
-    // status: a bus under the dashboard to the row of computers (turtles report too: see the corners)
-    edges += line("M600,88 L600,140 M130,140 L1100,140", P.lime, 2.5, ` opacity=".75"`);
-    for (const k of ["server", "projector", "storage", "colony", "hosts"]) edges += line(`M${N[k][0]},140 L${N[k][0]},192`, P.lime, 2.5, ` opacity=".75"`);
+    // status: a bus between the listeners and the row of computers (turtles report too: see the corners)
+    edges += line("M110,134 L1100,134", P.lime, 2.5, ` opacity=".75"`);
+    for (const k of ["finder", "status", "watcher", "bridge"]) edges += line(`M${N[k][0]},88 L${N[k][0]},134`, P.lime, 2.5, ` opacity=".75"`);
+    for (const k of ["server", "projector", "storage", "overseer", "hosts"]) edges += line(`M${N[k][0]},134 L${N[k][0]},192`, P.lime, 2.5, ` opacity=".75"`);
     // AutoMine jobs and progress
-    edges += line("M100,248 L100,352", P.orange, 3) + line("M150,352 L150,248", P.orange, 3);
+    edges += line("M90,248 L90,352", P.orange, 3) + line("M130,352 L130,248", P.orange, 3);
     // the deployer builds the GPS hosts
     edges += line("M1100,352 L1100,248", P.purple, 3);
-    // GPS: from the hosts to every turtle that checks its position
-    edges += line("M1040,248 L1040,300 L200,300", P.lightBlue);
-    for (const x of [200, 480, 690, 870]) edges += line(`M${x},300 L${x},352`, P.lightBlue);
-    edges += line("M440,300 L440,470 M100,470 L700,470", P.lightBlue);
-    for (const x of [100, 300, 500, 700]) edges += line(`M${x},470 L${x},512`, P.lightBlue);
     // the village shares its current building with the projector
-    edges += line(curve(430, 248, 510, 352), P.magenta, 3);
-    // the projector hands its plan to the builders (down the gap left of the crafter)
-    edges += line("M320,248 L320,320 L250,320 L250,490 L170,490 L170,512", P.magenta, 3);
-    // the storage system sends the village its blocks
-    edges += line(curve(650, 248, 575, 352), P.blue, 3);
-    // the storage system hands crafting jobs to the crafter
-    edges += line(curve(615, 248, 380, 352), P.brown, 3);
-    // the storage system hands its crafting queue to the overseer (down the gap by the GPS deployer)
-    edges += line("M750,248 L750,286 L1008,286 L1008,500 L1060,500 L1060,512", P.brown, 3);
-    // the storage system loads the factory's furnaces and machines (down the gap between the farms)
-    edges += line("M770,248 L770,272 L830,272 L830,470 L900,470 L900,512", P.red, 3);
+    edges += line("M400,352 L400,248", P.magenta, 3);
+    // the projector and build control hand their plan to the builders; the projector's to instabuild too
+    edges += line("M270,248 L270,352", P.magenta, 3) + line("M285,512 L285,408", P.magenta, 3);
+    edges += line("M360,248 L360,490 L420,490 L420,512", P.magenta, 3);
+    // the storage system delivers blocks and fuel to the builders and the village
+    edges += line("M560,248 L560,310 L310,310 L310,352 M470,310 L470,352", P.blue, 3);
     // farms drop their harvest into the storage system's input chest
-    edges += line(curve(740, 352, 715, 248), P.green);
-    edges += line(curve(900, 352, 760, 248), P.green);
+    edges += line("M625,352 L625,248", P.green, 3);
+    // the excavator and the terminals: deliveries and loot, up the gap by the farms
+    edges += line("M575,512 L575,490 L745,490 L745,512 M655,490 L655,248", P.blue, 3);
+    // the storage system fills the factory's machines
+    edges += line("M700,248 C700,300 720,300 720,352", P.red, 3);
+    // the overseer reads storage's stock and has it load chests; it hands out crafts and machine jobs
+    edges += line("M740,212 L810,212 M810,228 L740,228", P.brown, 3);
+    edges += line("M930,248 L930,352", P.brown, 3);
+    edges += line("M850,248 C850,300 790,300 790,352", P.brown, 3);
+    // the craft terminal orders from the overseer (round the right of the crafters)
+    edges += line("M820,540 L1005,540 L1005,290 L970,290 L970,248", P.brown, 3);
 
     let nodes = "";
-    for (const [key, [x, y, w, link, title, dev, col]] of Object.entries(N)) {
+    for (const [, [x, y, w, link, title, dev, col, marks]] of Object.entries(N)) {
+      const corner = (i, c) => `<rect x="${x + w / 2 - 12 - i * 10}" y="${y - 20}" width="7" height="7" fill="${c}"/>`;
+      const corners = [marks.includes("r") && P.lime, marks.includes("g") && P.lightBlue].filter(Boolean).map((c, i) => corner(i, c)).join("");
       nodes += `<a href="${progUrl(link)}"><g class="node">
         <rect x="${x - w / 2 + 4}" y="${y - 24}" width="${w}" height="56" fill="#000" opacity=".5"/>
         <rect class="face" x="${x - w / 2}" y="${y - 28}" width="${w}" height="56" fill="#1d1d24" stroke="#000" stroke-width="2"/>
         <rect x="${x - w / 2}" y="${y - 28}" width="${w}" height="4" fill="${P[col]}"/>
-        ${key === "status" ? "" : `<rect x="${x + w / 2 - 12}" y="${y - 20}" width="7" height="7" fill="${P.lime}"/>`}
+        ${corners}
         <image href="${icon(dev)}" x="${x - w / 2 + 8}" y="${y - 16}" width="32" height="32" style="image-rendering:pixelated"/>
-        <text x="${x - w / 2 + 46}" y="${y + 5}" data-room="${w - 64}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 160 ? 14 : 16}">${esc(title)}</text>
+        <text x="${x - w / 2 + 46}" y="${y + 5}" data-room="${w - 74}" fill="#ecebe6" font-family="Pixelify Sans, monospace" font-size="${w < 160 ? 14 : 16}">${esc(title)}</text>
       </g></a>`;
     }
     const tag = (x, y, t, c) => `<text x="${x}" y="${y}" fill="${c}" font-family="VT323, monospace" font-size="19">${t}</text>`;
-    const labels = tag(612, 124, "report.set()", P.lime) + tag(30, 305, "rednet", P.orange)
-      + tag(210, 292, "gps.locate()", P.lightBlue) + tag(1110, 305, "builds", P.purple)
-      + tag(262, 340, "current building", P.magenta) + tag(628, 322, "blocks", P.blue)
-      + tag(912, 337, "harvest", P.green) + tag(546, 270, "crafts", P.brown) + tag(838, 462, "ores, fuel", P.red)
-      + tag(178, 484, "plans", P.magenta) + tag(1016, 492, "queue", P.brown);
+    const labels = tag(518, 120, "report.set()", P.lime) + tag(778, 120, "update", P.lime)
+      + tag(30, 305, "jobs", P.orange) + tag(1110, 305, "builds", P.purple)
+      + tag(208, 292, "plan", P.magenta) + tag(406, 282, "building", P.magenta)
+      + tag(292, 466, "plan", P.magenta) + tag(366, 470, "build", P.magenta)
+      + tag(478, 336, "items", P.blue) + tag(566, 290, "crops", P.green) + tag(662, 462, "items, loot", P.blue)
+      + tag(708, 290, "fills", P.red) + tag(746, 270, "stock", P.brown) + tag(808, 342, "jobs", P.brown)
+      + tag(936, 300, "crafts", P.brown) + tag(1010, 470, "orders", P.brown);
     return `<svg viewBox="0 0 1200 600" role="img" aria-label="How the programs connect">${edges}${labels}${nodes}</svg>`;
   }
 

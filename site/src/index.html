@@ -74,19 +74,19 @@
       <div class="wrap">
         <div class="sec-head">
           <h2><small>Integration</small>How it all fits together</h2>
-          <p>Every program works on its own. Add a modem and they start talking: miners take jobs from the AutoMine server, GPS keeps turtles on course, the village builder gets its blocks from the storage system and shows its next building through the projector, builder turtles build what the projector shows, the craft overseer shares crafting between crafting turtles, and the dashboard shows everyone. <a href="{{ROOT}}network/">See them all running on one base</a>: the network map, from the simulator.</p>
+          <p>Every program works on its own. Add a modem and they start talking: miners take jobs from the AutoMine server, GPS keeps turtles on course, the storage system delivers blocks and fuel to the builders, the village and the excavator and takes in the farms' harvest, the craft overseer plans every craft and shares the work between crafting turtles and the factory's machines, the projector and build control hand plans to the builder turtles (or instabuild places them at once), terminals pull items and order crafts from anywhere, and the dashboard, turtle finder and update watcher hear everyone. <a href="{{ROOT}}network/">See them all running on one base</a>: the network map, from the simulator.</p>
         </div>
         <div class="diagram-wrap"><div id="diagram"></div>
           <div class="legend">
-            <span><i style="color:var(--cc-lime)"></i>status over rednet (lib/report); the lime corner means it reports</span>
-            <span><i style="color:var(--cc-orange)"></i>AutoMine jobs and docking</span>
-            <span><i style="color:var(--cc-lightBlue)"></i>GPS position checks</span>
+            <span><i style="color:var(--cc-lime)"></i>status over rednet (lib/report), heard by the dashboard, turtle finder, update watcher and overseer bridge; the lime corner means it reports, and the update watcher has out-of-date ones update</span>
+            <span><i style="color:var(--cc-lightBlue)"></i>the light blue corner means it finds itself by GPS (gps.locate)</span>
+            <span><i style="color:var(--cc-orange)"></i>AutoMine jobs and progress</span>
             <span><i style="color:var(--cc-purple)"></i>builds the GPS hosts</span>
-            <span><i style="color:var(--cc-magenta)"></i>village's current building, projected; the projector's plan to the builders</span>
-            <span><i style="color:var(--cc-blue)"></i>blocks and coal sent to the village</span>
+            <span><i style="color:var(--cc-magenta)"></i>the village's current building, projected; the projector's and build control's plan to the builders and instabuild</span>
+            <span><i style="color:var(--cc-blue)"></i>items and fuel delivered by the storage system; loot and the terminals' pulls</span>
             <span><i style="color:var(--cc-green)"></i>harvest into the storage input chest</span>
-            <span><i style="color:var(--cc-brown)"></i>crafting jobs for what isn't stored; the queue to the craft overseer</span>
-            <span><i style="color:var(--cc-red)"></i>ores and fuel loaded into the smelter's furnaces</span>
+            <span><i style="color:var(--cc-brown)"></i>the craft overseer: storage's stock and chest loads, crafts for the crafting turtles, machine jobs for the factory, orders from the craft terminal</span>
+            <span><i style="color:var(--cc-red)"></i>the storage system fills the factory's furnaces and machines</span>
           </div>
         </div>
       </div>
