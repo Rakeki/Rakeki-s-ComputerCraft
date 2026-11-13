@@ -1,46 +1,52 @@
 -- Plan for the blueprint projector and build-control (see lib/plan.lua):
 -- a Lua plan returns the same table a JSON plan holds, made by code.
 --
--- Pokemon Paradise: a five-storey tower that fills exactly one chunk
--- (16x16), every floor a set of closed habitats to put Cobblemon pastures
--- in. A Create elevator in the north-west corner runs the whole height
--- (a 3x3 shaft, the pulley at the top, the cabin parked under it, an
--- elevator contact and a door on every floor; you glue the cabin and
--- power the pulley), opening onto a landing on each floor; birch doors lead
--- from the landing into each habitat, so pastured Pokemon can't wander
--- out. Chiseled stone brick tiles in the ground mark the pasture spots,
--- with room above each for the pasture block.
+-- Pokemon Paradise: an overgrown greenhouse of two glass halls side by
+-- side under barrel vaults ribbed in pale oak, leaves spilling over the
+-- glass and hanging down the walls, on a mossy stone base with a raised
+-- deck and steps at the front and trees at its corners. Inside, closed
+-- habitats for Cobblemon pastures (chiseled stone brick tiles in the
+-- ground mark each pasture spot, two clear blocks above it):
 --
---   ground  Trainer lobby (a porch, a healing counter and a PC, seats, a
---           rug) and a Sunny Meadow with a cherry tree, flowers and a pond
---   1st     Coral Lagoon: a sandy beach round a pool with a palm island,
---           a pier and a sunshade, and a three-deep glass fish tank
---   2nd     Whispering Grove (birch and oak, moss, mushrooms, a spring)
---           and Crystal Grotto (rough rock, stalagmites, amethyst, a pool)
---   3rd     a hall to Ember Hollow (basalt, walled-in magma pits, crimson
---           roots), Frost Cavern (snow, ice spikes, a snowy spruce) and
---           Sunset Dunes (sand hills, sandstone ruins, a terracotta mesa)
---   top     Sky Garden aviary under a glass dome: a great dark oak tree,
---           two floating islands to perch on, perches and a pond
+--   west hall, ground  the foyer (front doors, a healing counter, a PC, a
+--                      fountain, benches), a corridor along the west
+--                      wall, the Coral Lagoon (a beach round a pool with a
+--                      palm island, a pier, a sunshade and a glass fish
+--                      tank) and the Sunny Meadow (a cherry tree, a pond,
+--                      flowers, hay)
+--   west hall, upper   a landing looking out through the front gable, a
+--                      corridor, and under the vault Ember Hollow (basalt,
+--                      walled-in magma pits), Sunset Dunes (sand hills, a
+--                      terracotta mesa, ruins) and Frost Cavern (snow, ice
+--                      spikes, a snowy spruce)
+--   east hall          the Rainforest, open to the vault: a giant jungle
+--                      tree, a mossy cliff with a waterfall into a pond,
+--                      and a canopy walk from the upper landing out to a
+--                      deck round the tree
 --
--- Habitats have raised ground (one block of soil on the floor), so sand
--- and gravel have something under them and ponds sit in the soil. The
--- lobby has a Cobblemon healing machine and PC: 'cobblemon=false' after
--- the plan's name leaves them out (projector paradise cobblemon=false).
--- y 0 is the ground; x runs east, z south; the porch and front doors are
--- on the south side.
+-- A Create elevator joins the floors: a 3x3 shaft in the foyer's
+-- north-west corner, the pulley at the top, the cabin parked under it at
+-- the upper floor, an elevator contact and a door on each floor; you glue
+-- the cabin and power the pulley. Habitats have one block of soil over
+-- their floor, so their doors have a step up inside.
+--
+-- 'cobblemon=false' after the plan's name leaves out the healing machine
+-- and PC (projector paradise cobblemon=false). y 0 is the ground layer
+-- (grass round the building, stone under it); x runs east, z south; the
+-- deck and the front doors are on the south side.
 local opts = ... or {}
 local COBBLEMON = not (opts.cobblemon == "false" or opts.cobblemon == "no" or opts.cobblemon == "off")
 
-local SIZE = 16 -- one chunk
-local STOREY = 8 -- floor to floor; the spiral climbs one turn (8 steps) a storey
-local FLOORS = 5
-local ROOF = STOREY * FLOORS -- the roof layer, 40
-local DOME_R, DOME_H = 6.5, 7 -- the glass dome over the top floor: radius, height
+local G, U = 1, 10 -- the ground floor's and the upper floor's floor layers
+local BASE, R = 10, 8.5 -- the vaults spring from y BASE with this radius
+local Z0, Z1 = 1, 29 -- the back and front walls
+local HALLS = { { x0 = 2, x1 = 18 }, { x0 = 18, x1 = 34 } } -- west and east, sharing x 18
+local PLOT = { x0 = 0, x1 = 36, z0 = 0, z1 = 37 } -- the ground the plan covers
+local DECK = { x0 = 6, x1 = 30, z0 = 30, z1 = 34 }
+local FRAME = "stripped_oak_wood" -- ribs, posts and beams
 local PAD = "chiseled_stone_bricks" -- marks a pasture spot
-local WALL = "white_concrete"
-local BAND = "red_concrete" -- the band round the outside at each floor
 local HABITAT_DOOR = "birch_door"
+local LEAVES = { "oak_leaves", "oak_leaves", "azalea_leaves", "azalea_leaves", "flowering_azalea_leaves", "jungle_leaves" }
 
 local grid = {}
 local function key(x, y, z) return x .. "," .. y .. "," .. z end
@@ -58,50 +64,48 @@ local function noise(x, y, z)
 end
 local function pick(list, n) return list[math.floor(n * #list) + 1] end
 
+---------------------------------------------------------------- the vaults
+
+-- Inside either hall's cross-section (walls up to BASE, a half circle above).
+local function inVault(x, y)
+  if x < HALLS[1].x0 or x > HALLS[2].x1 then return false end
+  if y < BASE then return true end
+  for _, h in ipairs(HALLS) do
+    local dx = x + 0.5 - (h.x0 + h.x1 + 1) / 2
+    if dx * dx + (y - BASE) * (y - BASE) < R * R then return true end
+  end
+  return false
+end
+-- The glass skin: vault cells with open air beside or above them.
+local function shell(x, y)
+  return y >= BASE and inVault(x, y) and not (inVault(x - 1, y) and inVault(x + 1, y) and inVault(x, y + 1))
+end
+-- Open space under the vault (walls below BASE are built separately).
+local function interior(x, y) return inVault(x, y) and not shell(x, y) end
+local function colTop(x)
+  for y = BASE + 12, BASE, -1 do if interior(x, y) then return y end end
+  return BASE - 1
+end
+
 ---------------------------------------------------------------- rooms
 
--- Each floor's rooms: rects { x0, z0, x1, z1 } of the space inside them.
--- A habitat has raised soil; glass is its window glass (nil: no windows),
--- light the block set in its walls.
-local floors = {
-  [0] = {
-    lobby = { rects = { { 1, 5, 8, 12 } }, glass = "glass" },
-    meadow = { rects = { { 5, 1, 14, 3 }, { 10, 4, 14, 14 } }, habitat = true, glass = "glass", light = "shroomlight", soil = { "grass_block" } },
-  },
-  [1] = {
-    landing = { rects = { { 1, 5, 3, 7 } }, glass = "glass" },
-    lagoon = { rects = { { 5, 1, 14, 8 }, { 1, 9, 14, 14 } }, habitat = true, glass = "glass", light = "sea_lantern", soil = { "sand" } },
-  },
-  [2] = {
-    landing = { rects = { { 1, 5, 3, 7 } }, glass = "glass" },
-    grove = { rects = { { 5, 1, 14, 7 } }, habitat = true, glass = "glass", light = "shroomlight",
-      soil = { "grass_block", "grass_block", "grass_block", "moss_block", "moss_block", "podzol", "rooted_dirt" } },
-    grotto = { rects = { { 1, 9, 14, 14 } }, habitat = true, light = "glowstone",
-      soil = { "stone", "stone", "andesite", "tuff", "gravel", "cobblestone", "mossy_cobblestone" } },
-  },
-  [3] = {
-    landing = { rects = { { 1, 5, 3, 7 }, { 1, 8, 14, 8 } }, glass = "glass" },
-    ember = { rects = { { 5, 1, 14, 6 } }, habitat = true, glass = "orange_stained_glass", light = "ochre_froglight",
-      soil = { "blackstone", "blackstone", "basalt", "smooth_basalt", "polished_blackstone", "crimson_nylium" } },
-    frost = { rects = { { 1, 10, 7, 14 } }, habitat = true, glass = "light_blue_stained_glass", light = "sea_lantern",
-      soil = { "snow_block", "snow_block", "snow_block", "packed_ice", "blue_ice" } },
-    dunes = { rects = { { 9, 10, 14, 14 } }, habitat = true, glass = "yellow_stained_glass", light = "glowstone", soil = { "sand" } },
-  },
-  [4] = {
-    landing = { rects = { { 1, 5, 3, 7 } }, glass = "glass" },
-    aviary = { rects = { { 5, 1, 14, 8 }, { 1, 9, 14, 14 } }, habitat = true, glass = "glass", light = "sea_lantern",
-      soil = { "grass_block", "grass_block", "grass_block", "moss_block" } },
-  },
+-- rects { x0, z0, x1, z1 }; a habitat gets raised soil.
+local rooms = {
+  lagoon = { F = G, rects = { { 6, 2, 17, 11 } }, soil = { "sand" }, light = "sea_lantern" },
+  meadow = { F = G, rects = { { 6, 13, 17, 21 } }, soil = { "grass_block" }, light = "shroomlight" },
+  ember = { F = U, rects = { { 6, 2, 17, 7 } }, light = "ochre_froglight",
+    soil = { "blackstone", "blackstone", "basalt", "smooth_basalt", "polished_blackstone", "crimson_nylium" } },
+  dunes = { F = U, rects = { { 6, 9, 17, 14 } }, soil = { "sand" }, light = "glowstone" },
+  frost = { F = U, rects = { { 6, 16, 17, 21 } }, light = "sea_lantern",
+    soil = { "snow_block", "snow_block", "snow_block", "packed_ice", "blue_ice" } },
+  forest = { F = G, rects = { { 19, 2, 33, 28 } }, light = "verdant_froglight",
+    soil = { "grass_block", "grass_block", "grass_block", "moss_block", "moss_block", "podzol", "rooted_dirt", "coarse_dirt" } },
 }
-
 local function inRoom(room, x, z)
   for _, r in ipairs(room.rects) do
     if x >= r[1] and x <= r[3] and z >= r[2] and z <= r[4] then return true end
   end
   return false
-end
-local function roomAt(f, x, z)
-  for _, room in pairs(floors[f]) do if inRoom(room, x, z) then return room end end
 end
 local function eachCell(room, fn)
   for _, r in ipairs(room.rects) do
@@ -109,64 +113,40 @@ local function eachCell(room, fn)
   end
 end
 
----------------------------------------------------------------- the outside walls
-
--- Windows along each side: three runs between piers.
-local WINDOW = { [2] = true, [3] = true, [4] = true, [6] = true, [7] = true, [8] = true, [9] = true, [11] = true, [12] = true, [13] = true }
-local function edge(v) return v == 0 or v == SIZE - 1 end
-local function clampIn(v) return math.max(1, math.min(SIZE - 2, v)) end
-
-for y = 0, ROOF do
-  local f, k = math.floor(y / STOREY), y % STOREY
-  for z = 0, SIZE - 1 do
-    for x = 0, SIZE - 1 do
-      if edge(x) or edge(z) then
-        local p = edge(x) and z or x
-        local block = WALL
-        if edge(x) and edge(z) then block = "quartz_pillar"
-        elseif y == 0 then block = "stone_bricks"
-        elseif k == 0 then block = BAND
-        elseif k >= 2 and k <= 5 and WINDOW[p] and f < FLOORS then
-          local room = roomAt(f, clampIn(x), clampIn(z))
-          if room and room.glass then block = room.glass
-          elseif room then -- no windows: rough rock (the grotto)
-            block = pick({ "stone", "tuff", "andesite", "cobblestone" }, noise(x, y, z))
-          end
+local pads, waters = {}, {}
+local function pad(x, F, z)
+  set(x, F + 1, z, PAD); set(x, F + 2, z, nil); set(x, F + 3, z, nil)
+  pads[#pads + 1] = { x, F + 1, z }
+end
+local function water(x, y, z) set(x, y, z, "water"); waters[#waters + 1] = { x, y, z } end
+local function soil(room)
+  eachCell(room, function(x, z) set(x, room.F + 1, z, pick(room.soil, noise(x, room.F, z))) end)
+end
+-- A flower, fern or tuft on some of a room's ground, where it's clear.
+local function plants(room, list, chance)
+  local F = room.F
+  eachCell(room, function(x, z)
+    local below = get(x, F + 1, z) or ""
+    local ok = below:find("grass_block", 1, true) or below:find("moss_block", 1, true) or below:find("podzol", 1, true)
+    if ok and get(x, F + 2, z) == nil and noise(x, F + 2, z) < chance then set(x, F + 2, z, pick(list, noise(z, x, F))) end
+  end)
+end
+-- A round leafy crown: layers { y, radius } round (cx, cz), only into open space.
+local function crown(cx, cz, layers, leaves, room)
+  for _, l in ipairs(layers) do
+    local y, r = l[1], l[2]
+    for dz = -math.ceil(r), math.ceil(r) do
+      for dx = -math.ceil(r), math.ceil(r) do
+        local x, z = cx + dx, cz + dz
+        local fits = room == nil or (inRoom(room, x, z) and interior(x, y))
+        if dx * dx + dz * dz <= r * r + 0.5 and fits and get(x, y, z) == nil then
+          set(x, y, z, type(leaves) == "table" and pick(leaves, noise(x, y, z)) or leaves)
         end
-        set(x, y, z, block)
       end
     end
   end
 end
--- the grotto's outside walls are rock all the way up
-for y = 2 * STOREY + 1, 3 * STOREY - 1 do
-  for z = 9, 15 do
-    for _, x in ipairs({ 0, 15 }) do set(x, y, z, pick({ "stone", "tuff", "andesite", "cobblestone", "deepslate" }, noise(x, y, z))) end
-  end
-  for x = 1, 14 do set(x, y, 15, pick({ "stone", "tuff", "andesite", "cobblestone", "deepslate" }, noise(x, y, 15))) end
-end
--- a parapet round the roof, lanterns on the corners
-for i = 0, SIZE - 1 do
-  for _, c in ipairs({ { i, 0 }, { i, SIZE - 1 }, { 0, i }, { SIZE - 1, i } }) do
-    set(c[1], ROOF + 1, c[2], (edge(c[1]) and edge(c[2])) and "quartz_pillar" or "smooth_quartz_slab")
-  end
-end
-for _, c in ipairs({ { 0, 0 }, { 0, 15 }, { 15, 0 }, { 15, 15 } }) do set(c[1], ROOF + 2, c[2], "lantern") end
-
----------------------------------------------------------------- floors, walls and the elevator
-
--- A Create elevator in the north-west corner: a 3x3 shaft (x and z 1 to 3)
--- open through every floor, down to a pit under the ground floor, with
--- the elevator pulley at the top. The cabin waits under the pulley at the
--- top floor (a pulley picks up what touches it from below): its floor sits
--- in the top floor's hole, posts at the corners, a roof against the
--- pulley, a redstone contact and contraption controls. Each floor has an
--- elevator contact in the shaft's south wall, facing the cabin's contact
--- when the cabin's floor is level with that floor, and a door at (2, 4).
-local PULLEY_Y = ROOF - 4 -- the pulley; the cabin's roof is just under it
-
-local function wallX(x, z0, z1, F, block) fill(x, F + 1, z0, x, F + STOREY - 1, z1, block or WALL) end
-local function wallZ(z, x0, x1, F, block) fill(x0, F + 1, z, x1, F + STOREY - 1, z, block or WALL) end
+local function trunk(x, z, y0, y1, log) for y = y0, y1 do set(x, y, z, log) end end
 -- A door in a wall: the side it opens from stays empty (the builder stands
 -- there); a habitat's side gets a stair up onto its raised ground.
 local function door(x, z, F, facing, block, stepX, stepZ)
@@ -175,277 +155,229 @@ local function door(x, z, F, facing, block, stepX, stepZ)
   if stepX then set(stepX, F + 1, stepZ, "birch_stairs[facing=" .. facing .. "]") end
 end
 
-for f = 0, FLOORS - 1 do
-  local F = f * STOREY
-  fill(1, F, 1, 14, F, 14, f == 0 and "stone_bricks" or "smooth_stone")
-  -- the shaft: walls on its inner sides, a hole in the floor, the contact
-  wallX(4, 0, 4, F); wallZ(4, 0, 4, F)
-  fill(1, F, 1, 3, F, 3, nil)
-  set(1, F + 1, 4, "create:elevator_contact[facing=north]")
-  set(2, F + 1, 4, "spruce_door[facing=north]"); set(2, F + 2, 4, nil) -- opened from the landing side
-  set(3, F + 4, 4, "sea_lantern") -- lights the landing side and the shaft
-end
-fill(1, -1, 1, 3, -1, 3, "stone_bricks") -- the pit's floor, under the cabin's lowest stop
-fill(1, ROOF, 1, 3, ROOF, 3, WALL) -- the shaft's roof
-set(2, PULLEY_Y, 2, "create:elevator_pulley")
--- the cabin, at the top floor
-do
-  local F = (FLOORS - 1) * STOREY
-  fill(1, F, 1, 3, F, 3, "spruce_planks")
-  fill(1, PULLEY_Y - 1, 1, 3, PULLEY_Y - 1, 3, "spruce_planks")
-  set(2, PULLEY_Y - 1, 2, "sea_lantern")
-  for _, c in ipairs({ { 1, 1 }, { 3, 1 }, { 1, 3 }, { 3, 3 } }) do
-    for y = F + 1, PULLEY_Y - 2 do set(c[1], y, c[2], "spruce_fence") end
-  end
-  set(1, F + 1, 3, "create:redstone_contact[facing=south]") -- faces each floor's elevator contact
-  set(3, F + 1, 2, "create:contraption_controls[facing=west]")
-end
-
--- Raise a habitat's ground: one layer of soil over its floor.
-local function soil(room, F)
-  eachCell(room, function(x, z) set(x, F + 1, z, pick(room.soil, noise(x, F, z))) end)
-end
--- Lights in the walls round a room, high up, every few blocks.
-local function wallLights(room, F)
-  local y = F + 6
-  eachCell(room, function(x, z)
-    for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
-      local nx, nz = x + d[1], z + d[2]
-      local b = get(nx, y, nz)
-      if b and not inRoom(room, nx, nz) and (nx + nz) % 4 == 0 and not (edge(nx) and edge(nz))
-        and not b:find("stairs", 1, true) and b ~= "minecraft:quartz_pillar" then
-        set(nx, y, nz, room.light)
-      end
-    end
-  end)
-end
-local pads = {} -- every pasture spot, checked at the end
-local function pad(x, F, z)
-  set(x, F + 1, z, PAD); set(x, F + 2, z, nil); set(x, F + 3, z, nil)
-  pads[#pads + 1] = { x, F + 1, z }
-end
-local waters = {}
-local function water(x, y, z) set(x, y, z, "water"); waters[#waters + 1] = { x, y, z } end
--- A flower, fern or tuft of grass on some of a room's ground, where it's clear.
-local function plants(room, F, list, chance)
-  eachCell(room, function(x, z)
-    local below = get(x, F + 1, z)
-    local ok = below and (below:find("grass_block", 1, true) or below:find("moss_block", 1, true) or below:find("podzol", 1, true))
-    if ok and get(x, F + 2, z) == nil and noise(x, F + 2, z) < chance then
-      set(x, F + 2, z, pick(list, noise(z, x, F)))
-    end
-  end)
-end
--- A round leafy crown: layers { y, radius }, round (x, z).
-local function crown(cx, cz, layers, leaves, light)
-  for _, l in ipairs(layers) do
-    local y, r = l[1], l[2]
-    for dz = -math.ceil(r), math.ceil(r) do
-      for dx = -math.ceil(r), math.ceil(r) do
-        if dx * dx + dz * dz <= r * r + 0.5 and get(cx + dx, y, cz + dz) == nil then set(cx + dx, y, cz + dz, leaves) end
+-- A glass screen with oak posts every 4 blocks and an oak sill, from the
+-- floor up to the ceiling (or into the vault), some posts lit.
+local function screen(x0, z0, x1, z1, F, light)
+  for z = z0, z1 do
+    for x = x0, x1 do
+      local along = x0 == x1 and z or x
+      local top = F == G and U - 1 or colTop(x)
+      for y = F + 1, top do
+        local post = along % 4 == 1
+        local block = (y == F + 1 or post) and FRAME or "glass"
+        if post and y == F + 4 and light then block = light end
+        set(x, y, z, block)
       end
     end
   end
-  if light then set(cx + light[1], light[2], cz + light[3], light[4]) end
 end
-local function trunk(x, z, y0, y1, log) for y = y0, y1 do set(x, y, z, log) end end
 
----------------------------------------------------------------- ground floor: lobby and meadow
+---------------------------------------------------------------- the ground and the shell
 
-do
-  local F = 0
-  local lobby, meadow = floors[0].lobby, floors[0].meadow
-  wallZ(4, 4, 9, F); wallX(9, 4, 14, F)
-  -- the front: a wall at z 13 with the doors, a porch in front of it
-  wallZ(13, 1, 8, F)
-  wallX(2, 14, 14, F); wallX(7, 14, 14, F)
-  fill(1, 1, 14, 1, 7, 14, WALL); fill(8, 1, 14, 8, 7, 14, WALL)
-  fill(3, 1, 15, 6, 3, 15, nil) -- the porch's opening
-  fill(3, 4, 15, 6, 5, 15, WALL); set(3, 4, 15, "sea_lantern"); set(6, 4, 15, "sea_lantern")
-  set(2, 4, 15, WALL); set(2, 5, 15, WALL); set(7, 4, 15, WALL); set(7, 5, 15, WALL)
-  for z = 14, 15 do for x = 3, 6 do set(x, 0, z, "polished_andesite") end end
-  set(3, 1, 14, "lantern"); set(6, 1, 14, "lantern")
-  door(4, 13, F, "south", "dark_oak_door"); door(5, 13, F, "south", "dark_oak_door")
+-- the ground layer: stone under the building and deck, grass round it
+for z = PLOT.z0, PLOT.z1 do
+  for x = PLOT.x0, PLOT.x1 do
+    local under = x >= 2 and x <= 34 and z >= Z0 and z <= Z1 or x >= DECK.x0 and x <= DECK.x1 and z >= DECK.z0 and z <= DECK.z1
+    local n = noise(x, 0, z)
+    set(x, 0, z, under and (n < 0.3 and "mossy_stone_bricks" or "stone_bricks")
+      or n < 0.12 and "coarse_dirt" or n < 0.25 and "moss_block" or "grass_block")
+  end
+end
+-- the floor
+for z = Z0, Z1 do
+  for x = 2, 34 do set(x, G, z, noise(x, G, z) < 0.3 and "mossy_stone_bricks" or "stone_bricks") end
+end
 
-  -- lobby floor: a quartz and diorite check
-  eachCell(lobby, function(x, z) set(x, F, z, (x + z) % 2 == 0 and "smooth_quartz" or "polished_diorite") end)
-  -- a rug: red border, white, a yellow sun in the middle
-  for z = 8, 11 do
-    for x = 3, 6 do
-      local border = x == 3 or x == 6 or z == 8 or z == 11
-      set(x, F + 1, z, border and "red_carpet" or (x == 4 or x == 5) and (z == 9 or z == 10) and "yellow_carpet" or "white_carpet")
+-- The walls up to the vault: a stone footing, oak posts in line with the
+-- ribs, glass between, an oak beam on top.
+local function wallCell(x, y, z, along)
+  if y == G + 1 then return noise(x, y, z) < 0.4 and "mossy_stone_bricks" or "stone_bricks" end
+  if y == BASE - 1 or along % 4 == 1 then return FRAME end
+  return "glass"
+end
+for y = G + 1, BASE - 1 do
+  for z = Z0, Z1 do
+    set(2, y, z, wallCell(2, y, z, z)); set(34, y, z, wallCell(34, y, z, z))
+  end
+  for x = 2, 34 do
+    set(x, y, Z0, wallCell(x, y, Z0, x)); set(x, y, Z1, wallCell(x, y, Z1, x))
+  end
+end
+-- the wall between the halls, glass up into the vault
+for y = G + 1, colTop(18) do
+  for z = Z0 + 1, Z1 - 1 do set(18, y, z, (y == G + 1 or y == BASE - 1 or z % 4 == 1) and FRAME or "glass") end
+end
+-- the vaults: glass between oak ribs every 4 blocks, two purlins and a ridge
+for z = Z0, Z1 do
+  for x = 2, 34 do
+    for y = BASE, BASE + 10 do
+      if shell(x, y) then
+        local rib = (z - Z0) % 4 == 0 or z == Z1
+        local purlin = y == BASE + 3 or y == BASE + 6 or x == 10 or x == 26
+        set(x, y, z, (rib or purlin) and FRAME or "glass")
+      elseif interior(x, y) and (z == Z0 or z == Z1) then
+        -- the gables: glass in an oak grid, with a round window's frame
+        local frame = x % 4 == 2 or (y - BASE) % 3 == 2
+        set(x, y, z, frame and FRAME or "glass")
+      end
     end
   end
-  -- the healing counter, shelves behind it
-  for x = 6, 8 do
-    set(x, F + 1, 6, "quartz_bricks")
-    for y = F + 1, F + 3 do set(x, y, 5, "bookshelf") end
-  end
-  set(5, F + 1, 6, "smooth_quartz_stairs[facing=west]")
-  if COBBLEMON then set(7, F + 2, 6, "cobblemon:healing_machine[facing=south]") else set(7, F + 2, 6, "lantern") end
-  set(8, F + 2, 6, "lantern")
-  -- a PC by the west wall, with room above for its top half
-  if COBBLEMON then set(1, F + 1, 10, "cobblemon:pc[facing=east]"); set(1, F + 2, 10, nil) end
-  set(1, F + 1, 9, "chiseled_bookshelf[facing=east]"); set(1, F + 1, 11, "chiseled_bookshelf[facing=east]")
-  -- a table with three seats
-  set(2, F + 1, 12, "spruce_fence"); set(2, F + 2, 12, "spruce_pressure_plate")
-  set(1, F + 1, 12, "spruce_stairs[facing=west]"); set(3, F + 1, 12, "spruce_stairs[facing=east]")
-  set(2, F + 1, 11, "spruce_stairs[facing=north]")
-  -- plants in the corners, a jukebox
-  for _, c in ipairs({ { 1, 5 }, { 8, 12 }, { 8, 8 } }) do set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], "flowering_azalea") end
-  set(1, F + 1, 7, "jukebox")
-  -- lights in the ceiling (under the lagoon's sand)
-  for _, c in ipairs({ { 6, 7 }, { 2, 10 }, { 6, 10 }, { 4, 14 } }) do set(c[1], STOREY, c[2], "sea_lantern") end
-  -- windows from the lobby into the meadow
-  for _, z in ipairs({ 6, 7, 8, 12 }) do for y = F + 2, F + 4 do set(9, y, z, "glass") end end
-
-  -- the meadow
-  soil(meadow, F)
-  for _, c in ipairs({ { 12, 10 }, { 13, 10 }, { 12, 11 }, { 13, 11 }, { 11, 11 }, { 12, 12 }, { 13, 12 } }) do
-    water(c[1], F + 1, c[2]); set(c[1], F, c[2], "clay")
-  end
-  for _, c in ipairs({ { 11, 10 }, { 11, 12 } }) do set(c[1], F + 2, c[2], "sugar_cane"); set(c[1], F + 3, c[2], "sugar_cane") end
-  trunk(12, 6, F + 2, F + 5, "cherry_log")
-  crown(12, 6, { { F + 5, 2 }, { F + 6, 2 }, { F + 7, 1 } }, "cherry_leaves", { 0, F + 6, 0, "cherry_log" })
-  set(13, F + 2, 1, "hay_block"); set(14, F + 2, 1, "hay_block"); set(14, F + 3, 1, "hay_block"); set(14, F + 2, 2, "hay_block")
-  set(10, F + 2, 14, "oak_fence"); set(10, F + 3, 14, "lantern")
-  pad(7, F, 2); pad(10, F, 12); pad(14, F, 9); pad(13, F, 14)
-  plants(meadow, F, { "poppy", "dandelion", "cornflower", "oxeye_daisy", "allium", "azure_bluet", "lily_of_the_valley", "short_grass", "short_grass", "short_grass" }, 0.4)
-  door(9, 10, F, "east", nil, 10, 10)
-  wallLights(meadow, F)
 end
 
----------------------------------------------------------------- landings (floors 1 to 4)
+---------------------------------------------------------------- the west hall: floors, corridors, screens
 
-local function landing(f)
-  local F = f * STOREY
-  for z = 5, 7 do for x = 1, 3 do set(x, F, z, (x + z) % 2 == 0 and "smooth_quartz" or "polished_diorite") end end
-  wallX(4, 4, f == 3 and 7 or 8, F)
-  if f ~= 3 then wallZ(8, 0, 4, F) end
-  set(1, F + 1, 7, "lantern")
-  set(1, F + 1, 5, "moss_block"); set(1, F + 2, 5, "azalea")
+-- the upper floor, which is the ground floor's ceiling
+fill(3, U, Z0 + 1, 17, U, Z1 - 1, "spruce_planks")
+for z = 4, 28, 4 do
+  for _, x in ipairs({ 8, 12, 16 }) do set(x, U, z, "sea_lantern") end
+end
+-- corridors along the west wall, x 3 and 4, on both floors
+for z = Z0 + 1, 22 do
+  for x = 3, 4 do set(x, G, z, "spruce_planks") end
+end
+for _, z in ipairs({ 4, 10, 16, 21 }) do set(3, G + 1, z, "lantern"); set(3, U + 1, z, "lantern") end
+-- screens: the corridors' east side, then between rooms
+for _, F in ipairs({ G, U }) do screen(5, 2, 5, 22, F) end
+screen(6, 12, 17, 12, G, "sea_lantern"); screen(6, 22, 17, 22, G, "shroomlight")
+screen(6, 8, 17, 8, U, "ochre_froglight"); screen(6, 15, 17, 15, U, "glowstone"); screen(6, 22, 17, 22, U, "sea_lantern")
+-- lights in the screen along the corridors
+for _, F in ipairs({ G, U }) do
+  for z = 5, 21, 4 do set(5, F + 4, z, "sea_lantern") end
 end
 
----------------------------------------------------------------- 1st floor: the lagoon
+---------------------------------------------------------------- the elevator
+
+-- A 3x3 shaft (x 3..5, z 26..28) from the foyer up into the vault, the
+-- pulley at the top; the cabin waits under it at the upper floor (a pulley
+-- picks up what touches it from below): floor, corner posts, a roof
+-- against the pulley, a redstone contact and contraption controls. Each
+-- floor has an elevator contact facing the cabin's and a door at (4, 25).
+local PULLEY_Y = U + 4
+for y = G + 1, colTop(6) do
+  for z = 25, 28 do set(6, y, z, y == U and "spruce_planks" or FRAME) end
+  for x = 2, 6 do if interior(x, y) or y < BASE then set(x, y, 25, y == U and "spruce_planks" or FRAME) end end
+end
+for x = 3, 5 do for z = 26, 28 do for y = G, colTop(x) do set(x, y, z, nil) end end end
+for _, F in ipairs({ G, U }) do
+  set(3, F + 1, 25, "create:elevator_contact[facing=south]")
+  set(4, F + 1, 25, "spruce_door[facing=north]"); set(4, F + 2, 25, nil)
+  set(5, F + 3, 25, "sea_lantern")
+end
+set(4, PULLEY_Y, 27, "create:elevator_pulley")
+fill(3, U, 26, 5, U, 28, "spruce_planks")
+fill(3, PULLEY_Y - 1, 26, 5, PULLEY_Y - 1, 28, "spruce_planks")
+set(4, PULLEY_Y - 1, 27, "sea_lantern")
+for _, c in ipairs({ { 3, 28 }, { 5, 26 }, { 5, 28 } }) do trunk(c[1], c[2], U + 1, PULLEY_Y - 2, "spruce_fence") end
+set(3, U + 1, 26, "create:redstone_contact[facing=north]"); set(3, U + 2, 26, "spruce_fence")
+set(5, U + 1, 27, "create:contraption_controls[facing=west]")
+
+---------------------------------------------------------------- the foyer and the landing
 
 do
-  local f, F = 1, STOREY
-  local lagoon = floors[1].lagoon
-  landing(f)
-  soil(lagoon, F)
-  -- the fish tank against the north wall: glass three deep, water inside
+  local F = G
+  door(10, Z1, F, "south", "spruce_door"); door(11, Z1, F, "south", "spruce_door")
+  -- a counter with the healing machine, shelves behind it
+  for x = 13, 16 do
+    set(x, F + 1, 24, FRAME)
+    for y = F + 1, F + 3 do set(x, y, 23, "bookshelf") end
+  end
+  set(15, F + 2, 24, COBBLEMON and "cobblemon:healing_machine[facing=south]" or "lantern")
+  set(13, F + 2, 24, "lantern")
+  if COBBLEMON then set(17, F + 1, 28, "cobblemon:pc[facing=west]"); set(17, F + 2, 28, nil) end
+  -- a fountain by the doors
+  for z = 26, 28 do
+    for x = 12, 15 do
+      if x == 12 or x == 15 or z == 26 or z == 28 then set(x, F + 1, z, "mossy_stone_bricks") else water(x, F + 1, z) end
+    end
+  end
+  set(12, F + 2, 26, "lantern"); set(15, F + 2, 26, "lantern")
+  -- benches with their backs to the screen, planters
+  for x = 8, 10 do set(x, F + 1, 23, "spruce_stairs[facing=north]") end
+  for _, c in ipairs({ { 7, 23 }, { 11, 23 }, { 17, 23 }, { 7, 28 } }) do
+    set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], pick({ "flowering_azalea", "azalea" }, noise(c[1], F, c[2])))
+  end
+  for z = 24, 27 do for x = 7, 11 do if get(x, F + 1, z) == nil and noise(x, F + 1, z) < 0.3 then set(x, F + 1, z, "moss_carpet") end end end
+  door(18, 26, F, "east", nil, 19, 26) -- into the rainforest
+end
+do
+  local F = U
+  -- the landing: seats facing the front gable, plants, and a door out
+  -- onto the canopy walk
+  for x = 9, 12 do set(x, F + 1, 27, "spruce_stairs[facing=north]") end
+  for _, c in ipairs({ { 7, 23 }, { 17, 23 }, { 8, 28 }, { 13, 28 } }) do
+    set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], pick({ "flowering_azalea", "azalea" }, noise(c[1], F, c[2])))
+  end
+  set(16, F + 1, 28, "lantern"); set(10, F + 1, 24, "lantern")
+  door(18, 26, F, "east", "spruce_door")
+end
+
+---------------------------------------------------------------- ground floor: lagoon and meadow
+
+do
+  local room, F = rooms.lagoon, G
+  soil(room)
+  -- the fish tank in the back corner: glass three deep
   for y = F + 1, F + 4 do
-    for z = 1, 4 do set(5, y, z, "glass"); set(10, y, z, "glass") end
-    for x = 5, 10 do set(x, y, 4, "glass") end
+    for z = 2, 5 do set(10, y, z, "glass") end
+    for x = 6, 10 do set(x, y, 5, "glass") end
   end
-  for z = 1, 3 do
+  for z = 2, 4 do
     for x = 6, 9 do
-      set(x, F, z, (x == 7 or x == 8) and z == 2 and "sea_lantern" or "dark_prismarine")
+      set(x, F, z, (x == 7 or x == 8) and z == 3 and "sea_lantern" or "dark_prismarine")
       for y = F + 1, F + 3 do water(x, y, z) end
     end
   end
   -- the pool: an oval in the sand with an island in it
-  for z = 9, 13 do
-    for x = 7, 14 do
-      local dx, dz = (x + 0.5 - 11) / 3.3, (z + 0.5 - 11.5) / 2.5
-      local island = (x == 10 or x == 11) and z == 11
+  for z = 6, 10 do
+    for x = 10, 17 do
+      local dx, dz = (x + 0.5 - 13.5) / 3.2, (z + 0.5 - 8.5) / 2.2
+      local island = (x == 13 or x == 14) and z == 8
       if dx * dx + dz * dz <= 1 and not island then
         water(x, F + 1, z)
         set(x, F, z, noise(x, F, z) < 0.2 and "sea_lantern" or pick({ "prismarine", "prismarine_bricks", "dark_prismarine" }, noise(z, F, x)))
       end
     end
   end
-  -- a palm on the island
-  trunk(10, 11, F + 2, F + 6, "jungle_log")
+  trunk(13, 8, F + 2, F + 6, "jungle_log")
   for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
-    set(10 + d[1], F + 7, 11 + d[2], "jungle_leaves")
-    set(10 + 2 * d[1], F + 6, 11 + 2 * d[2], "jungle_leaves")
+    set(13 + d[1], F + 7, 8 + d[2], "jungle_leaves")
+    set(13 + 2 * d[1], F + 6, 8 + 2 * d[2], "jungle_leaves")
   end
-  set(10, F + 7, 11, "jungle_leaves")
-  set(11, F + 2, 11, "dead_bush")
-  -- a pier from the west shore
-  for x = 7, 9 do set(x, F + 2, 12, "spruce_slab") end
-  set(7, F + 2, 13, "spruce_fence"); set(7, F + 3, 13, "lantern")
-  -- a sunshade and towels on the beach
-  trunk(13, 6, F + 2, F + 4, "spruce_fence")
-  for z = 5, 7 do for x = 12, 14 do set(x, F + 5, z, (x + z) % 2 == 0 and "red_wool" or "white_wool") end end
-  set(12, F + 2, 7, "red_carpet"); set(14, F + 2, 5, "yellow_carpet")
-  -- rocks and kelp-green prismarine along the beach
-  for _, c in ipairs({ { 14, 14 }, { 1, 14 }, { 2, 14 }, { 14, 12 } }) do set(c[1], F + 2, c[2], pick({ "prismarine", "prismarine_bricks", "mossy_cobblestone" }, noise(c[1], F, c[2]))) end
-  set(1, F + 3, 14, "sea_lantern")
-  pad(7, F, 6); pad(12, F, 2); pad(3, F, 11); pad(14, F, 9)
-  door(4, 6, F, "east", nil, 5, 6)
-  wallLights(lagoon, F)
+  set(13, F + 7, 8, "jungle_leaves"); set(14, F + 2, 8, "dead_bush")
+  for z = 8, 9 do set(10, F + 2, z, "spruce_slab") end -- a pier
+  trunk(16, 3, F + 2, F + 4, "spruce_fence") -- a sunshade, towels
+  for z = 2, 4 do for x = 15, 17 do set(x, F + 5, z, (x + z) % 2 == 0 and "red_wool" or "white_wool") end end
+  set(15, F + 2, 4, "red_carpet"); set(17, F + 2, 2, "yellow_carpet")
+  for _, c in ipairs({ { 17, 11 }, { 6, 11 }, { 12, 2 } }) do set(c[1], F + 2, c[2], pick({ "prismarine", "mossy_cobblestone" }, noise(c[1], F, c[2]))) end
+  pad(7, F, 7); pad(13, F, 3); pad(8, F, 10); pad(16, F, 11)
+  door(5, 9, F, "east", nil, 6, 9)
+end
+do
+  local room, F = rooms.meadow, G
+  soil(room)
+  trunk(14, 16, F + 2, F + 5, "cherry_log")
+  crown(14, 16, { { F + 5, 2.5 }, { F + 6, 3 }, { F + 7, 2.5 }, { F + 8, 1.5 } }, "cherry_leaves", room)
+  set(14, F + 7, 16, "shroomlight")
+  for _, c in ipairs({ { 8, 19 }, { 9, 19 }, { 8, 20 }, { 9, 20 }, { 10, 20 } }) do water(c[1], F + 1, c[2]); set(c[1], F, c[2], "clay") end
+  for _, c in ipairs({ { 7, 19 }, { 10, 19 } }) do set(c[1], F + 2, c[2], "sugar_cane"); set(c[1], F + 3, c[2], "sugar_cane") end
+  for _, c in ipairs({ { 17, 13, 2 }, { 16, 13, 1 }, { 17, 14, 1 } }) do trunk(c[1], c[2], F + 2, F + 1 + c[3], "hay_block") end
+  set(6, F + 2, 21, "oak_fence"); set(6, F + 3, 21, "lantern")
+  pad(7, F, 14); pad(11, F, 21); pad(17, F, 20); pad(11, F, 14)
+  plants(room, { "poppy", "dandelion", "cornflower", "oxeye_daisy", "allium", "azure_bluet", "lily_of_the_valley", "short_grass", "short_grass", "short_grass" }, 0.4)
+  door(5, 17, F, "east", nil, 6, 17)
 end
 
----------------------------------------------------------------- 2nd floor: grove and grotto
+---------------------------------------------------------------- upper floor: ember, dunes, frost
 
-do
-  local f, F = 2, 2 * STOREY
-  local grove, grotto = floors[2].grove, floors[2].grotto
-  landing(f)
-  local function rock(x, y, z) return pick({ "stone", "stone", "tuff", "andesite", "deepslate", "cobbled_deepslate", "dripstone_block" }, noise(x, y, z)) end
-  fill(5, F + 1, 8, 14, F + STOREY - 1, 8, WALL)
-  for y = F + 1, F + STOREY - 1 do for x = 0, 14 do set(x, y, 8, rock(x, y, 8)) end end -- rock on the grotto's side
-
-  -- the grove
-  soil(grove, F)
-  trunk(8, 3, F + 2, F + 4, "oak_log")
-  crown(8, 3, { { F + 4, 2 }, { F + 5, 2 }, { F + 6, 1.5 }, { F + 7, 1 } }, "oak_leaves", { 0, F + 6, 0, "shroomlight" })
-  trunk(12, 3, F + 2, F + 5, "birch_log")
-  crown(12, 3, { { F + 5, 1.5 }, { F + 6, 1.5 }, { F + 7, 1 } }, "birch_leaves", { 0, F + 6, 0, "shroomlight" })
-  for _, c in ipairs({ { 6, 1 }, { 14, 6 }, { 9, 6 } }) do set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], pick({ "azalea", "flowering_azalea" }, noise(c[1], F, c[2]))) end
-  set(13, F + 2, 6, "oak_log"); set(13, F + 3, 6, "moss_carpet") -- a mossy stump
-  for _, c in ipairs({ { 11, 6 }, { 12, 6 } }) do water(c[1], F + 1, c[2]); set(c[1], F, c[2], "mossy_cobblestone") end
-  pad(6, F, 6); pad(13, F, 1); pad(10, F, 1)
-  -- mushrooms on the podzol, ferns and flowers on the grass and moss
-  eachCell(grove, function(x, z)
-    if get(x, F + 1, z) == "minecraft:podzol" and get(x, F + 2, z) == nil then
-      set(x, F + 2, z, noise(x, z, F) < 0.5 and "brown_mushroom" or "red_mushroom")
-    end
-  end)
-  plants(grove, F, { "fern", "fern", "short_grass", "lily_of_the_valley", "blue_orchid", "short_grass" }, 0.45)
-
-  -- the grotto: rock, pillars, stalagmites, rock hanging from the roof
-  soil(grotto, F)
-  for _, c in ipairs({ { 5, 11 }, { 6, 11 }, { 10, 13 } }) do
-    for y = F + 2, F + STOREY - 1 do set(c[1], y, c[2], rock(c[1], y, c[2])) end
+-- A column of blocks on a room's ground, as tall as asked or the vault lets it.
+local function column(x, z, F, h, block)
+  for y = F + 2, F + 1 + h do
+    if interior(x, y) then set(x, y, z, type(block) == "function" and block(y - F - 1, h) or block) end
   end
-  eachCell(grotto, function(x, z)
-    if noise(x, F + 7, z) < 0.35 then set(x, F + 7, z, rock(x, F + 7, z)) end
-    if get(x, F + 7, z) and noise(x, F + 6, z) < 0.2 then set(x, F + 6, z, rock(x, F + 6, z)) end
-  end)
-  for _, c in ipairs({ { 8, 10 }, { 12, 11 }, { 3, 14 }, { 7, 13 }, { 13, 9 } }) do
-    set(c[1], F + 1, c[2], "stone")
-    set(c[1], F + 2, c[2], "pointed_dripstone[vertical_direction=up]")
-  end
-  -- an amethyst corner, glowing a little
-  for _, c in ipairs({ { 1, 9 }, { 2, 9 }, { 1, 10 } }) do set(c[1], F + 1, c[2], "amethyst_block"); set(c[1], F + 2, c[2], "amethyst_cluster[facing=up]") end
-  set(1, F + 2, 9, "amethyst_block"); set(1, F + 3, 9, "amethyst_cluster[facing=up]")
-  for _, c in ipairs({ { 12, 13 }, { 13, 13 }, { 12, 14 }, { 13, 14 } }) do water(c[1], F + 1, c[2]); set(c[1], F, c[2], "gravel") end
-  set(14, F + 2, 14, "glowstone")
-  pad(4, F, 12); pad(9, F, 11)
-  door(4, 6, F, "east", nil, 5, 6)
-  door(2, 8, F, "south", nil, 2, 9)
-  wallLights(grove, F); wallLights(grotto, F)
 end
-
----------------------------------------------------------------- 3rd floor: the hall, ember, frost and dunes
-
 do
-  local f, F = 3, 3 * STOREY
-  local ember, frost, dunes = floors[3].ember, floors[3].frost, floors[3].dunes
-  landing(f)
-  for x = 1, 14 do set(x, F, 8, x % 3 == 0 and "polished_andesite" or "polished_diorite") end
-  wallZ(7, 4, 14, F); wallZ(9, 0, 14, F); wallX(8, 9, 14, F)
-  -- windows from the hall into each room
-  for _, x in ipairs({ 6, 7, 11, 12 }) do for y = F + 2, F + 3 do set(x, y, 7, ember.glass) end end
-  for _, x in ipairs({ 5, 6 }) do for y = F + 2, F + 3 do set(x, y, 9, frost.glass) end end
-  for _, x in ipairs({ 12, 13 }) do for y = F + 2, F + 3 do set(x, y, 9, dunes.glass) end end
-  for _, x in ipairs({ 5, 9, 13 }) do set(x, F + STOREY, 8, "sea_lantern") end -- under the aviary's soil
-
-  -- ember hollow: walled-in magma pits, basalt columns, crimson growth
-  soil(ember, F)
+  local room, F = rooms.ember, U
+  soil(room)
   local function pit(x0, z0, x1, z1)
     for z = z0 - 1, z1 + 1 do
       for x = x0 - 1, x1 + 1 do
@@ -453,153 +385,202 @@ do
       end
     end
   end
-  pit(8, 3, 9, 4); pit(13, 2, 13, 2)
-  for _, c in ipairs({ { 14, 5, 4 }, { 13, 6, 2 }, { 6, 1, 3 }, { 11, 1, 5 } }) do
-    for y = F + 2, F + 1 + c[3] do set(c[1], y, c[2], y == F + 1 + c[3] and "polished_basalt" or "basalt") end
-  end
-  set(11, F + 7, 1, "basalt")
-  set(6, F + 2, 4, "gilded_blackstone"); set(10, F + 2, 6, "gilded_blackstone")
-  eachCell(ember, function(x, z)
+  pit(10, 4, 11, 5); pit(15, 3, 15, 3)
+  local function basalt(i, h) return i == h and "polished_basalt" or "basalt" end
+  column(8, 2, F, 5, basalt); column(9, 2, F, 3, basalt); column(17, 6, F, 2, basalt); column(13, 7, F, 4, basalt)
+  set(7, F + 2, 5, "gilded_blackstone"); set(14, F + 2, 6, "gilded_blackstone")
+  eachCell(room, function(x, z)
     if get(x, F + 1, z) == "minecraft:crimson_nylium" and get(x, F + 2, z) == nil then
       set(x, F + 2, z, noise(x, z, F) < 0.6 and "crimson_roots" or "crimson_fungus")
     end
   end)
-  pad(6, F, 6); pad(11, F, 4)
-
-  -- frost cavern: snow and ice, spikes, a snowy spruce
-  soil(frost, F)
-  for _, c in ipairs({ { 2, 11, 4 }, { 1, 12, 2 }, { 6, 14, 3 }, { 7, 13, 1 } }) do
-    for y = F + 2, F + 1 + c[3] do set(c[1], y, c[2], y == F + 1 + c[3] and "blue_ice" or "packed_ice") end
-  end
-  trunk(5, 12, F + 2, F + 5, "spruce_log")
-  crown(5, 12, { { F + 3, 1.5 }, { F + 4, 1 }, { F + 5, 1.5 }, { F + 6, 1 }, { F + 7, 0 } }, "spruce_leaves")
-  set(5, F + 7, 12, "snow_block")
-  pad(3, F, 13); pad(7, F, 10)
-
-  -- sunset dunes: sand hills, sandstone ruins, a terracotta mesa
-  soil(dunes, F)
-  eachCell(dunes, function(x, z)
-    if x >= 12 and z >= 12 and noise(x, F + 2, z) < 0.7 then set(x, F + 2, z, "sand") end
+  pad(7, F, 3); pad(13, F, 2); pad(16, F, 7)
+  door(5, 5, F, "east", nil, 6, 5)
+end
+do
+  local room, F = rooms.dunes, U
+  soil(room)
+  eachCell(room, function(x, z)
+    if x >= 14 and z >= 12 and noise(x, F + 2, z) < 0.7 and get(x, F + 2, z) == nil then set(x, F + 2, z, "sand") end
   end)
   local mesa = { "orange_terracotta", "yellow_terracotta", "white_terracotta", "red_terracotta", "terracotta" }
-  for _, c in ipairs({ { 14, 14, 5 }, { 13, 14, 3 }, { 14, 13, 4 }, { 14, 12, 2 } }) do
-    for y = F + 2, F + 1 + c[3] do set(c[1], y, c[2], mesa[(y - F - 2) % #mesa + 1]) end
+  for _, c in ipairs({ { 15, 9, 4 }, { 16, 9, 3 }, { 15, 10, 2 }, { 17, 9, 2 } }) do
+    column(c[1], c[2], F, c[3], function(i) return mesa[(i - 1) % #mesa + 1] end)
   end
-  for _, x in ipairs({ 9, 11 }) do
-    set(x, F + 2, 14, "cut_sandstone"); set(x, F + 3, 14, "cut_sandstone"); set(x, F + 4, 14, "chiseled_sandstone")
-  end
+  for _, x in ipairs({ 9, 11 }) do column(x, 14, F, 3, function(i, h) return i == h and "chiseled_sandstone" or "cut_sandstone" end) end
   set(10, F + 4, 14, "smooth_sandstone_slab")
-  set(9, F + 2, 12, "sandstone_stairs[facing=east]")
-  for _, c in ipairs({ { 10, 11 }, { 13, 10 }, { 9, 13 } }) do if get(c[1], F + 2, c[2]) == nil then set(c[1], F + 2, c[2], "dead_bush") end end
-  pad(10, F, 12); pad(12, F, 11)
-
-  door(4, 6, F, "east", nil, 5, 6)
-  door(3, 9, F, "south", nil, 3, 10)
-  door(11, 9, F, "south", nil, 11, 10)
-  wallLights(ember, F); wallLights(frost, F); wallLights(dunes, F)
+  set(12, F + 2, 9, "sandstone_stairs[facing=north]")
+  for _, c in ipairs({ { 8, 11 }, { 13, 13 }, { 17, 11 } }) do if get(c[1], F + 2, c[2]) == nil then set(c[1], F + 2, c[2], "dead_bush") end end
+  pad(8, F, 9); pad(12, F, 12)
+  door(5, 12, F, "east", nil, 6, 12)
+end
+do
+  local room, F = rooms.frost, U
+  soil(room)
+  local function ice(i, h) return i == h and "blue_ice" or "packed_ice" end
+  column(7, 21, F, 4, ice); column(8, 21, F, 2, ice); column(16, 17, F, 3, ice); column(17, 18, F, 1, ice); column(14, 21, F, 2, ice)
+  trunk(11, 19, F + 2, F + 5, "spruce_log")
+  crown(11, 19, { { F + 3, 2 }, { F + 4, 1.5 }, { F + 5, 2 }, { F + 6, 1.5 }, { F + 7, 1 }, { F + 8, 0 } }, "spruce_leaves", room)
+  pad(8, F, 16); pad(15, F, 20); pad(14, F, 16)
+  door(5, 19, F, "east", nil, 6, 19)
 end
 
----------------------------------------------------------------- top floor: the sky garden and its dome
-
--- The dome: a half ellipsoid on the roof, glass with white ribs and a lit
--- crown. Below the roof the top floor's walls hold the aviary in.
-local function inDome(x, y, z)
-  if x < 0 or x >= SIZE or z < 0 or z >= SIZE then return false end
-  if y < ROOF then return true end
-  local dx, dz, dy = (x + 0.5 - SIZE / 2) / DOME_R, (z + 0.5 - SIZE / 2) / DOME_R, (y - ROOF) / DOME_H
-  return dx * dx + dz * dz + dy * dy <= 1
-end
+---------------------------------------------------------------- the east hall: rainforest
 
 do
-  local f, F = 4, 4 * STOREY
-  local aviary = floors[4].aviary
-  landing(f)
-  -- the core and landing reach the roof; the rest of the roof is the dome
-  wallX(4, 4, 8, F); wallZ(8, 0, 4, F)
-  for z = 1, 14 do
-    for x = 1, 14 do
-      set(x, ROOF, z, (x <= 4 and z <= 8 or not inDome(x, ROOF, z)) and WALL or nil)
-    end
-  end
-  for y = ROOF, ROOF + DOME_H do
-    for z = 0, SIZE - 1 do
-      for x = 0, SIZE - 1 do
-        if inDome(x, y, z) and not (y == ROOF and x <= 4 and z <= 8) then
-          local shell = not (inDome(x + 1, y, z) and inDome(x - 1, y, z) and inDome(x, y + 1, z) and inDome(x, y, z + 1) and inDome(x, y, z - 1))
-          if shell then
-            local rib = x == 7 or x == 8 or z == 7 or z == 8
-            set(x, y, z, rib and WALL or "glass")
-          end
-        end
+  local room, F = rooms.forest, G
+  soil(room)
+  local function rock(x, y, z) return pick({ "stone", "mossy_cobblestone", "andesite", "tuff", "cobblestone", "mossy_stone_bricks" }, noise(x, y, z)) end
+  -- a mossy cliff in the back corner, a waterfall off it into a pond
+  local tops = { [2] = 9, [3] = 8, [4] = 6 }
+  for z = 2, 4 do
+    for x = 28, 33 do
+      local top = tops[z] - math.max(0, 30 - x) * 2
+      if not (x == 31 and z == 4) then
+        for y = F + 1, F + top do set(x, y, z, y == F + top and "moss_block" or rock(x, y, z)) end
       end
     end
   end
-  for z = 7, 8 do for x = 7, 8 do set(x, ROOF + DOME_H - 1, z, "sea_lantern") end end
-  -- planters on the roof round the dome
-  for _, c in ipairs({ { 13, 13 }, { 13, 2 }, { 2, 13 }, { 2, 2 } }) do
-    set(c[1], ROOF + 1, c[2], "moss_block"); set(c[1], ROOF + 2, c[2], "flowering_azalea")
+  set(30, F + 8, 3, rock(30, 9, 3)); set(32, F + 8, 3, rock(32, 9, 3)); set(31, F + 8, 3, rock(31, 9, 3))
+  set(30, F + 7, 3, rock(30, 8, 3)); set(31, F + 7, 3, rock(31, 8, 3))
+  set(30, F + 9, 2, rock(30, 10, 2)); set(32, F + 9, 2, rock(32, 10, 2)); set(31, F + 9, 2, rock(31, 10, 2))
+  set(30, F + 9, 3, "moss_block"); set(32, F + 9, 3, "moss_block")
+  set(31, F + 9, 3, "water") -- the waterfall's source: it pours over the front and falls into the pond
+  set(29, F + 4, 3, "glowstone"); set(33, F + 6, 2, "glowstone")
+  for z = 4, 8 do
+    for x = 28, 33 do
+      local dx, dz = (x + 0.5 - 31) / 3, (z + 0.5 - 6.5) / 2.6
+      if (dx * dx + dz * dz <= 1 and z >= 5) or (x == 31 and z == 4) then water(x, F + 1, z); set(x, F, z, pick({ "clay", "gravel", "mossy_cobblestone" }, noise(x, F, z))) end
+    end
+  end
+  for _, c in ipairs({ { 27, 6 }, { 27, 7 } }) do if get(c[1], F + 2, c[2]) == nil then set(c[1], F + 2, c[2], "sugar_cane"); set(c[1], F + 3, c[2], "sugar_cane") end end
+
+  -- the giant tree: a 2x2 jungle trunk, buttress roots, branches
+  for z = 15, 16 do for x = 26, 27 do trunk(x, z, F + 2, colTop(x) - 3, "jungle_log") end end
+  for _, c in ipairs({ { 25, 15, 2 }, { 28, 16, 3 }, { 26, 14, 2 }, { 27, 17, 1 }, { 25, 17, 1 }, { 28, 14, 1 } }) do
+    trunk(c[1], c[2], F + 2, F + 1 + c[3], "jungle_wood")
+  end
+  for _, b in ipairs({ { 24, 13, 15 }, { 23, 13, 15 }, { 29, 13, 16 }, { 30, 13, 16 }, { 26, 14, 13 }, { 26, 14, 12 }, { 27, 13, 18 }, { 27, 13, 19 } }) do
+    set(b[1], b[2], b[3], "jungle_wood")
+  end
+  crown(26, 15, { { 13, 3 }, { 14, 5 }, { 15, 6 }, { 16, 5.5 }, { 17, 4 }, { 18, 2.5 } }, { "jungle_leaves", "jungle_leaves", "jungle_leaves", "flowering_azalea_leaves" }, room)
+  crown(27, 16, { { 15, 5 }, { 16, 4 } }, "jungle_leaves", room)
+  for _, c in ipairs({ { 23, 15, 15 }, { 30, 15, 17 }, { 26, 17, 12 }, { 28, 16, 19 }, { 25, 14, 18 } }) do
+    if interior(c[1], c[2]) then set(c[1], c[2], c[3], "shroomlight") end
   end
 
-  soil(aviary, F)
-  -- the great tree in the middle: a 2x2 dark oak trunk, branches to perch on
-  for z = 7, 8 do for x = 7, 8 do trunk(x, z, F + 2, ROOF + 1, "dark_oak_log") end end
-  for _, b in ipairs({ { 6, F + 5, 7 }, { 5, F + 5, 7 }, { 9, F + 6, 8 }, { 10, F + 6, 8 }, { 11, F + 7, 8 },
-    { 7, F + 4, 9 }, { 7, F + 4, 10 }, { 8, F + 7, 6 }, { 8, F + 7, 5 } }) do
-    set(b[1], b[2], b[3], "dark_oak_wood")
+  -- boulders, bushes, lamp posts
+  for _, c in ipairs({ { 20, 9 }, { 21, 9 }, { 32, 19 }, { 22, 27 } }) do set(c[1], F + 2, c[2], rock(c[1], F + 2, c[2])); set(c[1], F + 3, c[2], "moss_carpet") end
+  for _, c in ipairs({ { 33, 12 }, { 19, 4 }, { 24, 22 }, { 31, 27 }, { 20, 16 }, { 33, 24 } }) do
+    set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], pick({ "azalea", "flowering_azalea" }, noise(c[1], F, c[2])))
   end
-  local canopy = { { F + 6, 1.5 }, { F + 7, 3 }, { ROOF, 4 }, { ROOF + 1, 4 }, { ROOF + 2, 3.5 }, { ROOF + 3, 2.5 }, { ROOF + 4, 1.5 } }
-  for _, l in ipairs(canopy) do
-    local y, r = l[1], l[2]
-    for dz = -5, 5 do
-      for dx = -5, 5 do
-        local x, z = 8 + dx, 8 + dz
-        local cx, cz = x + 0.5 - 8, z + 0.5 - 8
-        local inside = cx * cx + cz * cz <= r * r
-        local clear = not (x <= 4 and z <= 8) and x >= 1 and x <= 14 and z >= 1 and z <= 14
-        if inside and clear and get(x, y, z) == nil then
-          local shell = y >= ROOF and not (inDome(x + 1, y, z) and inDome(x - 1, y, z) and inDome(x, y + 1, z) and inDome(x, y, z + 1) and inDome(x, y, z - 1))
-          if not shell then
-            set(x, y, z, noise(x, y, z) < 0.25 and "flowering_azalea_leaves" or "dark_oak_leaves")
-          end
+  for _, c in ipairs({ { 21, 6 }, { 30, 11 }, { 22, 20 }, { 32, 22 }, { 25, 26 } }) do
+    trunk(c[1], c[2], F + 2, F + 3, "oak_fence"); set(c[1], F + 4, c[2], room.light)
+  end
+  pad(20, F, 3); pad(23, F, 9); pad(32, F, 14); pad(21, F, 13); pad(29, F, 24); pad(25, F, 21)
+  plants(room, { "fern", "fern", "short_grass", "blue_orchid", "allium", "lily_of_the_valley", "short_grass" }, 0.45)
+
+  -- the canopy walk: a platform outside the landing's door, a bridge to a
+  -- deck round the tree, fence rails along the open sides
+  local walk = {}
+  local function plank(x, z) walk[key(x, 0, z)] = true; set(x, U, z, "spruce_planks") end
+  for z = 23, 28 do for x = 19, 22 do plank(x, z) end end
+  for z = 17, 22 do for x = 20, 21 do plank(x, z) end end
+  for x = 22, 24 do for z = 16, 17 do plank(x, z) end end
+  for dz = -4, 4 do
+    for dx = -4, 4 do
+      local x, z = 27 + dx, 16 + dz
+      local cx, cz = x + 0.5 - 27, z + 0.5 - 16
+      if cx * cx + cz * cz <= 12.5 and not ((x == 26 or x == 27) and (z == 15 or z == 16)) then plank(x, z) end
+    end
+  end
+  for k in pairs(walk) do
+    local x, z = k:match("^(-?%d+),0,(-?%d+)$")
+    x, z = tonumber(x), tonumber(z)
+    for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+      local nx, nz = x + d[1], z + d[2]
+      if not walk[key(nx, 0, nz)] and inRoom(room, nx, nz) and get(nx, U + 1, nz) == nil and get(nx, U, nz) == nil then
+        set(nx, U + 1, nz, "spruce_fence")
+      end
+    end
+  end
+  for _, c in ipairs({ { 19, 23 }, { 22, 28 }, { 24, 13 }, { 30, 18 } }) do set(c[1], U + 1, c[2], "lantern") end
+  -- the trunk and branches pass through the walk
+  for z = 15, 16 do for x = 26, 27 do set(x, U, z, "jungle_log") end end
+end
+
+---------------------------------------------------------------- outside: deck, steps, trees, overgrowth
+
+do
+  local F = G
+  fill(DECK.x0, F, DECK.z0, DECK.x1, F, DECK.z1, "oak_planks")
+  for x = DECK.x0, DECK.x1 do
+    if x < 9 or x > 12 then set(x, F + 1, DECK.z1, x % 4 == 2 and "stripped_oak_log" or "oak_fence") end
+  end
+  for z = DECK.z0, DECK.z1 do set(DECK.x0, F + 1, z, "oak_fence"); set(DECK.x1, F + 1, z, "oak_fence") end
+  for _, x in ipairs({ DECK.x0, 8, 13, DECK.x1 }) do set(x, F + 2, DECK.z1, "lantern") end
+  for x = 9, 12 do set(x, F, DECK.z1 + 1, "oak_stairs[facing=north]") end -- steps down to the ground
+  for z = DECK.z1 + 2, PLOT.z1 do for x = 9, 12 do set(x, 0, z, "dirt_path") end end
+  -- seats and planters along the front wall
+  for _, x in ipairs({ 15, 16, 20, 21, 25, 26 }) do set(x, F + 1, DECK.z0, "oak_stairs[facing=north]") end
+  for _, x in ipairs({ 7, 14, 17, 19, 22, 24, 27, 29 }) do
+    set(x, F + 1, DECK.z0, "moss_block"); set(x, F + 2, DECK.z0, pick({ "azalea", "flowering_azalea" }, noise(x, F, DECK.z0)))
+  end
+end
+-- trees at the front corners and the back
+local function tree(x, z, h)
+  trunk(x, z, 1, h, "oak_log")
+  crown(x, z, { { h - 2, 2.5 }, { h - 1, 3.2 }, { h, 3.2 }, { h + 1, 2.5 }, { h + 2, 1.5 } }, LEAVES)
+end
+tree(3, 34, 7); tree(33, 34, 8)
+-- bushes and flowers on the grass
+for z = PLOT.z0, PLOT.z1 do
+  for x = PLOT.x0, PLOT.x1 do
+    local g = get(x, 0, z)
+    if (g == "minecraft:grass_block" or g == "minecraft:moss_block") and get(x, 1, z) == nil then
+      local n = noise(x, 1, z)
+      if n < 0.06 then set(x, 1, z, pick(LEAVES, noise(z, 1, x)))
+      elseif n < 0.2 then set(x, 1, z, pick({ "short_grass", "short_grass", "fern", "poppy", "dandelion", "azure_bluet" }, noise(z, x, 1))) end
+    end
+  end
+end
+-- leaves over the vaults, thickest low down, and hanging down the walls
+for z = Z0, Z1 do
+  for x = 2, 34 do
+    for y = BASE, BASE + 10 do
+      if shell(x, y) and not inVault(x, y + 1) and get(x, y + 1, z) == nil then
+        local chance = 0.45 - (y - BASE) * 0.03
+        if noise(x, y, z) < chance then
+          set(x, y + 1, z, pick(LEAVES, noise(z, y, x)))
+          if noise(z, x, y) < 0.15 then set(x, y + 2, z, pick(LEAVES, noise(y, z, x))) end
         end
       end
     end
   end
-  for _, c in ipairs({ { 6, ROOF + 1, 9 }, { 10, ROOF, 7 }, { 8, ROOF + 2, 10 }, { 9, F + 7, 9 } }) do set(c[1], c[2], c[3], "shroomlight") end
-  -- two floating islands for flyers
-  local function island(cx, cz, y)
-    set(cx, y - 2, cz, "stone")
-    for dz = -1, 1 do
-      for dx = -1, 1 do
-        set(cx + dx, y - 1, cz + dz, (dx == 0 or dz == 0) and "dirt" or "stone")
-        set(cx + dx, y, cz + dz, "grass_block")
-      end
-    end
-    set(cx, y + 1, cz, "flowering_azalea"); set(cx + 1, y + 1, cz - 1, "poppy"); set(cx - 1, y + 1, cz + 1, "cornflower")
-  end
-  island(12, 4, F + 6); island(3, 12, F + 6)
-  -- perches, a pond, bushes
-  for _, c in ipairs({ { 6, 12 }, { 13, 6 } }) do trunk(c[1], c[2], F + 2, F + 3, "oak_fence"); set(c[1], F + 4, c[2], "lantern") end
-  for _, c in ipairs({ { 12, 12 }, { 13, 12 }, { 12, 13 }, { 13, 13 } }) do water(c[1], F + 1, c[2]); set(c[1], F, c[2], "clay") end
-  for _, c in ipairs({ { 14, 14 }, { 5, 1 }, { 1, 14 } }) do set(c[1], F + 1, c[2], "moss_block"); set(c[1], F + 2, c[2], "flowering_azalea") end
-  pad(6, F, 3); pad(13, F, 9); pad(3, F, 10); pad(10, F, 13)
-  plants(aviary, F, { "poppy", "dandelion", "cornflower", "allium", "pink_tulip", "short_grass", "short_grass" }, 0.35)
-  door(4, 6, F, "east", nil, 5, 6)
-  wallLights(aviary, F)
 end
+local function drape(x, z, along)
+  local n = noise(x, 50, z)
+  if n < 0.35 then
+    local len = 1 + math.floor(noise(z, 51, x) * 6)
+    for y = BASE, BASE - len + 1, -1 do
+      if get(x, y, z) == nil then set(x, y, z, pick(LEAVES, noise(x, y, z))) end
+    end
+  end
+end
+for z = Z0, Z1 do drape(1, z); drape(35, z) end
+for x = 2, 34 do drape(x, Z0 - 1) end
+for x = 2, 34 do if x < 8 or x > 13 then drape(x, Z1 + 1) end end
+-- the front doorway kept clear of hanging leaves
+for x = 9, 12 do for y = 2, 4 do if get(x, y, Z1 + 1) and get(x, y, Z1 + 1):find("leaves") then set(x, y, Z1 + 1, nil) end end end
 
 ---------------------------------------------------------------- checks
 
 -- Water is placed last in its layer: every pool must be held in on all
 -- sides and below, so it can't run off. Pasture spots need two clear blocks.
-local function solid(x, y, z)
-  local b = get(x, y, z)
-  return b ~= nil
-end
 for _, w in ipairs(waters) do
   local x, y, z = w[1], w[2], w[3]
   for _, d in ipairs({ { 1, 0, 0 }, { -1, 0, 0 }, { 0, 0, 1 }, { 0, 0, -1 }, { 0, -1, 0 } }) do
-    if not solid(x + d[1], y + d[2], z + d[3]) then error(("water at %d %d %d can run off"):format(x, y, z), 0) end
+    if get(x + d[1], y + d[2], z + d[3]) == nil then error(("water at %d %d %d can run off"):format(x, y, z), 0) end
   end
 end
 for _, p in ipairs(pads) do

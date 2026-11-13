@@ -2787,9 +2787,9 @@
       "name": "paradise",
       "file": "paradise.lua",
       "title": "Pokémon Paradise",
-      "tagline": "A one-chunk tower of closed habitats for Cobblemon pastures, five floors under a glass dome: a lobby with a healing counter and PC, a meadow, a lagoon with a fish tank, a grove, a crystal grotto, fire, ice and desert rooms, and a sky garden with floating islands; 23 marked pasture spots and a Create elevator up the corner. Needs Create and Cobblemon (cobblemon=false leaves out the healing machine and PC).",
-      "size": "16 × 16 × 48",
-      "blocks": 6160
+      "tagline": "An overgrown greenhouse of two glass halls under oak-ribbed barrel vaults, leaves spilling over the glass, a deck at the front: closed habitats for Cobblemon pastures (a lagoon with a fish tank, a meadow, fire, desert and ice rooms upstairs, and a rainforest with a giant tree, a waterfall and a canopy walk), a foyer with a healing counter and PC, 22 marked pasture spots and a Create elevator. Needs Create and Cobblemon (cobblemon=false leaves out the healing machine and PC).",
+      "size": "37 × 38 × 21",
+      "blocks": 9404
     }
   ]
 }
