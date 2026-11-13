@@ -4,7 +4,7 @@
 - **Computer ID:** 
 - **Label:** 
 - **Location:** 
-- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, brewing stands and the potion chest, cooking pots' hoppers and relays, botany pots on wired modems or the barrel they empty into); optional monitor, touching it or on the cable (picked with `factory monitor`)
+- **Peripherals:** wired modem joined to the [storage system's](../storage-computer/README.md) network; whichever machines it runs, on that network (furnaces, Mekanism machines with their feeders and output chests, Create lines' feeder and output chests, brewing stands and the potion chest, AE2 inscribers, chargers and vibration chambers, cooking pots' hoppers and relays, botany pots on wired modems or the barrel they empty into); optional monitor, touching it or on the cable (picked with `factory monitor`)
 
 ## What it does
 
@@ -21,18 +21,19 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Crushing wheels, washing fans | [Create](https://www.curseforge.com/minecraft/mc-mods/create) | ores [crushed](#create-crushing-wheels), crushed ores [washed](#create-washing-fans) into nuggets and a byproduct |
 | Blasting and smoking fans | Create | [smelt ores, cook food](#create-fans), no fuel |
 | Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser |
+| Inscribers, chargers, vibration chambers | [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2) | [on request](#applied-energistics): printed circuits, processors, dusts, press copies, charged certus; vibration chambers kept fuelled; the craft overseer orders them for its crafts too |
 | Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
 | Hopper Botany Pots | [Mystical Agriculture](https://www.curseforge.com/minecraft/mc-mods/mystical-agriculture) | [essence](#essence) emptied into storage, and the recipes it crafts into, ready to order |
 
 What it makes goes back into storage through the storage computer's input
-chest (potions go into a chest of their own). Furnaces, brewing stands and botany pots are found by themselves; everything else is
+chest (potions go into a chest of their own). Furnaces, brewing stands, botany pots and AE2 machines are found by themselves; everything else is
 added on the [setup screen](#the-setup-screen), in a few taps. With none of
 a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
 The computer's screen has a tab per part that's running (**Enricher**,
-**Smelter**, **Infuser**, **Saw**, **Brewer**, **Cooking**, **Essence**; shortened to **Enrich**,
+**Smelter**, **Infuser**, **Saw**, **Brewer**, **AE2**, **Cooking**, **Essence**; shortened to **Enrich**,
 **Smelt**, **Infuse**, **Brew**, **Cook** when they don't all fit): tap one, or press
 **Tab**. Everything on them works from the keyboard too, so a basic computer
 (no mouse) can do it all. A **monitor** is a status board you can read from
@@ -48,7 +49,8 @@ blocks wide uses small text); only on a tiny one do some go to "+N more":
 | Red | needs you: no fuel or power, output stuck, a Create line not moving, a pot not cooking, something missing (it says which) |
 
 With cooking pots, the monitor has a **Candy** page too (tap it at the top),
-with infusers an **Infuse** page to request from, with saws a **Saw** page, and with brewing stands a **Brew** page.
+with infusers an **Infuse** page to request from, with saws a **Saw** page, with brewing stands a **Brew** page, and
+with AE2 inscribers or chargers an **AE2** page.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
 
@@ -58,7 +60,7 @@ Put the factory on as many computers as you like, near the machines each
 one runs, all on the storage cable (or [far away](#far-from-the-storage-system)).
 They sort themselves out:
 
-- **Furnaces, brewing stands and botany pots** belong to whichever factory computer saw them
+- **Furnaces, brewing stands, botany pots and AE2 machines** belong to whichever factory computer saw them
   first; the others leave them alone. Hand some to another computer on the
   setup screen (**Machines**: tap one), or with `factory give`.
 - **Machines you add** belong to the computer you added them on, and other
@@ -574,6 +576,51 @@ brew: its bottles go back to the potion chest, the ingredient back to
 storage, and the tab says so. A full potion chest stops the brewing until
 you take some potions out.
 
+## Applied Energistics
+
+Runs **AE2 inscribers** and **chargers**, but only when asked, and keeps
+**vibration chambers** fuelled. They're found by themselves, like furnaces:
+a wired modem on each, joined to the storage cable.
+
+| Machine | Makes |
+|---|---|
+| Inscriber with a press in its top slot | printed calculation (certus quartz), engineering (diamond), logic (gold) circuits and printed silicon; a copy of its press from a block of iron |
+| Inscriber without a press | calculation, engineering and logic processors (printed circuit on top, redstone in the middle, printed silicon below); certus quartz, sky stone, ender and fluix dust |
+| Charger | charged certus quartz, the meteorite compass |
+| Vibration chamber | power: topped up to 32 coal (or charcoal) from the fuel chest once it's down to 8 |
+
+A press is never taken out of an inscriber: one with the logic press in it
+only ever makes printed logic circuits (and logic press copies). When a
+request needs a press that isn't in any inscriber, the factory puts it in an
+empty one from storage, and it stays there; it always leaves one inscriber
+without a press for processors and dust. Put the presses in yourself if you
+like (`presses = false` in `config.lua` stops it doing it). An addon's
+recipes (MEGA cells' accumulation processor and the like) go in
+`config.lua`'s `ae2.recipes`.
+
+Results come out of the inscriber's result slot (and the charger, once
+charged) into storage, and count towards the request. Ask for processors
+with none of their printed circuits in storage and the craft overseer is
+asked to make them first, which has an inscriber here print them.
+
+### Asking AE2
+
+- **Its page.** The **AE2** tab (and the monitor's **AE2** page) lists what
+  the machines here can make, how many what's stored would do, and **+1**,
+  **+8**, **+64** to ask; the requests below it, **x** cancels one.
+- **`factory ae2`** lists the recipes; `factory ae2 logic processor 16` asks
+  for 16; `factory ae2 cancel` cancels.
+- **The craft overseer** is told what the machines here can make, so a
+  crafting plan that needs a processor or charged certus has this make it.
+
+### What it can't run
+
+- **Molecular assemblers**: your ME system's autocrafting (or the crafting
+  turtles) already crafts.
+- **Condensers**: they destroy what goes in, and CC can't set their mode.
+- **Crystal growth accelerators**: they have no inventory; budding certus
+  grows by itself.
+
 ## Cooking pots
 
 Puts Cobblemon's **campfire cooking pots** to work. Out of the box they make
@@ -761,7 +808,7 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
-- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `brew.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, brewing stands, cooking pots, botany pots)
+- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `brew.lua`, `ae2.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, brewing stands, AE2 inscribers / chargers / vibration chambers, cooking pots, botany pots)
 - `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
@@ -918,6 +965,23 @@ For each sawing line:
 The storage computer has to be up to date (`install update`) to load
 brewing stands and the dispenser.
 
+### AE2 machines
+
+1. Put a **wired modem** on each **inscriber**, **charger** and **vibration
+   chamber** and join it to the storage cable (right-click it). They're found
+   by themselves, like furnaces.
+2. Leave each inscriber's **Separate Sides** off (its default) and its
+   **auto-export** off: the factory takes results out itself. A tile goes
+   red if Separate Sides is on.
+3. Power the inscribers and chargers (on your ME network, or an energy
+   acceptor / crank for a charger).
+4. Keep the **presses** in storage (or put one in an inscriber's top slot
+   yourself), and the inputs: certus quartz, gold, diamonds, silicon,
+   redstone. Coal or charcoal in the fuel chest for vibration chambers.
+
+The storage computer has to be up to date (`install update`) to load AE2
+machines.
+
 ### Cooking pots
 
 For each pot:
@@ -1047,6 +1111,9 @@ factory brew                   -- the potion chest, the filler and the brewing r
 factory brew potion of healing ii 6    -- ask for 6 (by name: 'splash potion of swiftness (long)', 'lingering ... ')
 factory brew find slowness     -- every potion matching, with the ingredients from water
 factory brew cancel 2          -- cancel request 2 ('factory brew cancel': all of them)
+factory ae2                    -- what the inscribers and chargers can make, and the requests
+factory ae2 logic processor 16 -- ask for 16 (by name or id)
+factory ae2 cancel 2           -- cancel request 2 ('factory ae2 cancel': all of them)
 factory find iron              -- essence recipes for anything with "iron" in its name, and how many you can make
 factory make 64 iron ingot     -- order 64 iron ingots made from essence (an essence farm: its tab)
 factory chest                  -- pick the work chest from the empty chests on the network

@@ -17,6 +17,7 @@ Create-only one, or everything.
 | Smelter | `smelt.lua` | `smelt` / 2 | furnaces, blast furnaces, smokers (found), Mekanism smelters, Create fans | ores/dust/food by itself, the rest on request |
 | Infuser | `infuse.lua` | `infuse` / 0 | Metallurgic Infusers (two feeders) | on request only |
 | Saw | `saw.lua` | `saw` / 0 | Create Mechanical Saw lines | on request only |
+| AE2 | `ae2.lua` | `ae2` / 0 | AE2 inscribers, chargers, vibration chambers (found) | on request (inscribers, chargers); chambers kept fuelled |
 | Brewer | `brew.lua` | `brew` / 0 | brewing stands (found), the potion chest, a dispenser bottle filler | on request only (no `makes`: potions carry data, so the overseer can't plan them) |
 | Cooking | `cook.lua` | `cook` | Cobblemon cooking pots (comparator → redstone relay) | by itself |
 | Essence | `botany.lua` (+ `farm.lua` far away) | `essence` | Hopper Botany Pots (found), pot barrels | by itself; far away a farm that crafts |
@@ -176,7 +177,7 @@ waits `GIVE_UP` then reports `jobdone` with `ok = false`.
 ## Config
 
 `config.lua` has a table per part (`smelter`, `enricher`, `infuser`, `saw`,
-`cooker`, `essence`; listed in `SECTIONS`). It's a `keep` file, so a player's
+`brewer`, `ae2`, `cooker`, `essence`; listed in `SECTIONS`). It's a `keep` file, so a player's
 copy never gets new sections: **every setting needs a default in code**.
 A config.lua from before the factory has its settings at the top; `section`
 hands those to every part.
@@ -230,6 +231,26 @@ contents and long / strong share a name. Jobs persist in
 `/.factory_brew_stands`. The bottle filler runs in the part's own `loop`:
 empty water out of the dispenser, then pulse once per bottle wanted while
 it has glass and free slots (a full dispenser drops what it fills).
+
+## The AE2 part
+
+`ae2.lua` finds `ae2:inscriber`, `ae2:charger` and `ae2:vibration_chamber`
+(exact peripheral types) and claims them like furnaces. An inscriber is read
+through its combined inventory (`size() == 4`: 1 top, 2 bottom, 3 middle, 4
+result; anything else means Separate Sides is on, a red tile). A recipe is
+`{ make, middle, top, bottom, keep, machine, count }`; `keep` = top / bottom
+stay (presses). Each round: results out (slot 4, a charger's slot once it
+holds no chargeable item) credited by name, then each request, oldest first,
+takes inscribers whose contents `fits` it, loading top / bottom level with
+the middle (one each per craft; `getItemLimit` read once per inscriber), a
+request's planned loads counted by `want` so two inscribers never both get
+the whole amount. A press request with no inscriber holding the press puts
+one from storage into an empty inscriber, always leaving one without a
+press. Everything sent, nothing left in a machine, no progress for
+`RESEND_AFTER`: `sent` drops back to what was made. Vibration chambers get
+`send` `fuel` (the storage computer allows `ae2:*` machines). Offers via
+`ae2`; jobs come back as `{ type = "ae2", make, grid }` and are matched by
+`make` and the middle item in the grid.
 
 Related: [[factory-io]] (feeders, work chest, output chests, cables),
 [[storage-system]] (the messages), [[performance]], [[mod-recipes]],

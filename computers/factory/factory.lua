@@ -10,7 +10,9 @@
 --   Cobblemon cooking pots                  exp candy (cook.lua)
 --   Hopper Botany Pots                      Mystical Agriculture essence (botany.lua)
 --   brewing stands                          potions on request, into the potion chest (brew.lua)
--- Furnaces, brewing stands and botany pots are found by themselves; the rest are added on
+--   AE2 inscribers, chargers, vibration chambers
+--                                           processors, charged certus, dust on request; fuel (ae2.lua)
+-- Furnaces, brewing stands, botany pots and AE2 machines are found by themselves; the rest are added on
 -- the setup screen (or with 'factory add').
 --
 --   factory                         start (startup.lua runs this)
@@ -36,6 +38,8 @@
 --   factory saw [what count]        what the saws can make, or request count of one; find <text>, filter <n> <item>
 --   factory saw cancel [n]          cancel sawing request n (no number: all of them)
 --   factory brew [potion count]     the requests, or brew count of a potion; find <text>, cancel [n]
+--   factory ae2 [what count]        the AE2 recipes, or request count of one (inscriber or charger)
+--   factory ae2 cancel [n]          cancel AE2 request n (no number: all of them)
 --   factory find <text>             essence recipes for items matching text, and how many you can make
 --   factory make <count> <text>     order count of an item made from essence (the first match)
 --   factory chest [name|none]       use an empty chest on the network as the work chest
@@ -80,10 +84,10 @@ local myId = os.getComputerID()
 
 ---------------------------------------------------------------- settings
 
--- config.lua has a table per part (smelter, enricher, infuser, saw, brewer, cooker, essence). One
+-- config.lua has a table per part (smelter, enricher, infuser, saw, brewer, ae2, cooker, essence). One
 -- from before the factory has its settings at the top: they're used for
 -- every part, as that computer only ran one of them.
-local SECTIONS = { "smelter", "enricher", "infuser", "saw", "brewer", "cooker", "essence" }
+local SECTIONS = { "smelter", "enricher", "infuser", "saw", "brewer", "ae2", "cooker", "essence" }
 local sectioned = false
 for _, s in ipairs(SECTIONS) do
   if type(config[s]) == "table" then sectioned = true end
@@ -221,6 +225,7 @@ parts = {
   require("infuse").new(f),
   require("saw").new(f),
   require("brew").new(f),
+  require("ae2").new(f),
   require("cook").new(f),
   require("botany").new(f),
 }
@@ -511,7 +516,8 @@ local function draw()
     current.draw(win, w, h)
   else
     screen.put(win, 2, 3, "Nothing set up yet.", "white")
-    local help = "Furnaces, brewing stands and botany pots on the cable are found by themselves. Mekanism machines"
+    local help = "Furnaces, brewing stands, botany pots and AE2 inscribers, chargers and vibration chambers on the"
+      .. " cable are found by themselves. Mekanism machines"
       .. " (infusers too), Create crushers, washers, fans and saws, Cobblemon cooking pots and the barrels"
       .. " botany pots empty into are added on the setup screen: tap Setup, press F1, or type"
       .. " 'factory setup' in another tab. Not on the storage cable? Put one ender chest on this cable (its twin"
@@ -1012,7 +1018,7 @@ elseif verb then
   end
   print("Usage: factory [setup | add <kind> | list | remove [n] | give <name|all> <id> | relay <n> | charcoal <n> |")
   print("  stone <n> | glass <n> | smelt [what n] | cancel [n] | infuse [what n | cancel] | saw [what n | cancel] |")
-  print("  brew [potion n | find <text> | cancel [n]] | find <text> | make <n> <text> |")
+  print("  brew [potion n | find <text> | cancel [n]] | ae2 [what n | cancel [n]] | find <text> | make <n> <text> |")
   print("  chest [name|none|remote] | monitor]")
   return
 end

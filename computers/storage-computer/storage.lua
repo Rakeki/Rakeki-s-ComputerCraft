@@ -1025,7 +1025,9 @@ end
 --   { type = "send", to, slot = 1, items = { [name] = n } } -> { re = "send", sent, fuel }  (load a furnace)
 --   { type = "send", to, slot = 2, fuel = n, item }  -> the same, with fuel for n more items (only item, if given)
 --   { type = "send", to = hopper, slot, items }     -> the same, into a hopper (slot optional; the cooker's pots)
---                                                     or a brewing stand (slot 4 ingredient, 5 blaze powder) or dispenser
+--                                                     or a brewing stand (slot 4 ingredient, 5 blaze powder) or dispenser,
+--                                                     or an AE2 inscriber / charger (the factory's AE2 part)
+--   { type = "send", to = vibration chamber, fuel = n, item } -> fuel for n smelts' worth into its fuel slot
 --                                                     or one of the asker's feeders
 --   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (Mekanism machines' barrels: not storage)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
@@ -1085,6 +1087,17 @@ end
 local function isBrewing(name)
   local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
   return t and (t:find("brewing_stand", 1, true) or t:find("dispenser", 1, true)) and true or false
+end
+
+-- The factory's AE2 part: an inscriber's slots, a charger, and a vibration
+-- chamber's fuel slot (fuel like a furnace's, into its only slot).
+local AE2_MACHINES = { ["ae2:inscriber"] = true, ["ae2:charger"] = true, ["ae2:vibration_chamber"] = true }
+local function isAe2(name)
+  local t = type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name)
+  return t and AE2_MACHINES[t] or false
+end
+local function isVibration(name)
+  return type(name) == "string" and peripheral.isPresent(name) and peripheral.getType(name) == "ae2:vibration_chamber"
 end
 
 ---------------------------------------------------------------- turtles finding their chest
@@ -1624,15 +1637,17 @@ local function handleRequest(from, msg)
   elseif type(msg) == "table" and msg.type == "send" then
     local sent, failed = {}, nil
     local furnace = isFurnace(msg.to)
-    if not furnace and not isHopper(msg.to) and not isBrewing(msg.to) and not isFeederOf(from, msg.to) then
-      failed = ("%s isn't a furnace, hopper, brewing stand or your feeder on my network"):format(tostring(msg.to))
-    elseif furnace and msg.slot == 2 then
+    local chamber = isVibration(msg.to)
+    if not furnace and not isHopper(msg.to) and not isBrewing(msg.to) and not isAe2(msg.to)
+      and not isFeederOf(from, msg.to) then
+      failed = ("%s isn't a furnace, hopper, brewing stand, AE2 machine or your feeder on my network"):format(tostring(msg.to))
+    elseif (furnace and msg.slot == 2) or (chamber and msg.fuel) then
       -- fuel for this many more items, of the first kind there is (a fuel
       -- slot only takes one kind), from the fuel chest first
       local want = tonumber(msg.fuel) or 0
       for _, f in ipairs(FUEL) do
         if want > 0 and (msg.item == nil or msg.item == f[1]) then
-          local got, err = fetch(f[1], math.min(64, math.ceil(want / f[2])), msg.to, 2, true)
+          local got, err = fetch(f[1], math.min(64, math.ceil(want / f[2])), msg.to, chamber and 1 or 2, true)
           failed = failed or err
           if got > 0 then
             sent[f[1]] = got

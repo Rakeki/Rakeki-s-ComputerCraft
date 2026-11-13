@@ -162,6 +162,35 @@ return {
     names = {},
   },
 
+  -- Applied Energistics 2 inscribers, chargers and vibration chambers (found by themselves).
+  ae2 = {
+    -- More recipes, e.g. an addon's: make, middle (what goes in the middle,
+    -- or the charger), top / bottom (the inscriber's other slots), keep = true
+    -- if top and bottom aren't used up (presses), machine = "charger" for the
+    -- charger, count (how many one makes, 1 if not given), e.g.
+    -- { make = "megacells:accumulation_processor", top = "megacells:printed_accumulation_processor",
+    --   middle = "minecraft:redstone", bottom = "ae2:printed_silicon" }.
+    recipes = {},
+    -- Recipes never made (on the screen or for the craft overseer), by what they make.
+    hide = {},
+    -- How many of an item to leave in storage, never used, e.g. { ["minecraft:diamond"] = 16 }.
+    keep = {},
+    -- A request for printed circuits with no inscriber holding its press puts
+    -- the press from storage into an empty inscriber (one is always left
+    -- without a press). false: put the presses in by hand.
+    presses = true,
+    -- Keep vibration chambers fuelled from the fuel chest. false: leave them be.
+    chambers = true,
+    -- Tell the craft overseer what the machines here can make. false: requests only.
+    offer = true,
+    -- A request made here whose input is short has the craft overseer make it
+    -- first (printed circuits for a processor). false: it just waits.
+    order = true,
+    -- Names on the screen instead of "Inscriber 1", by peripheral name,
+    -- e.g. ["ae2:inscriber_0"] = "Logic".
+    names = {},
+  },
+
   -- Cobblemon cooking pots.
   cooker = {
     -- What a pot can make, by the name 'factory add pot' lists. make: the item

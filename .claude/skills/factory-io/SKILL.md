@@ -27,6 +27,7 @@ and that empties into the machine by itself:
 | Machine | Feeder |
 |---|---|
 | furnace / blast furnace / smoker | none: `send` targets the furnace's slot 1 (input) or 2 (fuel) |
+| AE2 inscriber / charger / vibration chamber | none: `send` targets the inscriber's slot 1 top, 2 bottom, 3 middle (4 is the result, taken out with `pushItems`), the charger's one slot, or the chamber's fuel (`fuel = n`) |
 | Mekanism machine | a hopper on top (pointing down), or a barrel/chest a pipe (logistical transporter set to pull, a funnel) empties into it |
 | infuser | the above for its input, plus an **extra** feeder into a side (infusion items) |
 | Create line (crusher, washer, fans, saw) | a chest a funnel or chute empties onto the wheels/belt |
