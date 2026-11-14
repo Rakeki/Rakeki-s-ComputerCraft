@@ -791,7 +791,10 @@ local function runJob(id, job)
       match = function(msg) return (msg.type == "crafted" and msg.id == craft.id) or msg.type == "hello" end })
     if c.hub then
       withHub(function() emptyBarrel(c.chest) end)
-    else
+    elseif not (reply and reply.type == "crafted" and (reply.made or 0) > 0 and reply.item == job.name
+      and job.left > r.steps) then
+      -- between batches of a job that went well the next load empties the
+      -- chest first, so the extra round trip is only for the last batch
       askStorage({ type = "clear", crafter = id }, LOAD_WAIT)
     end
     c.note = nil

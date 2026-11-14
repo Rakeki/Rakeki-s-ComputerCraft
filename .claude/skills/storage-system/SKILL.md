@@ -87,7 +87,7 @@ The craft overseer's own requests (same protocol; only it sends these):
 |---|---|---|
 | `{ type = "crafters" }` | `crafters` (turtle id → its chest, present ones only), `shared` (`setup.crafter`) | which turtles can take a job |
 | `{ type = "load", crafter = id, grid, steps }` | `steps` (batches loaded, 0 when short), `missing`, `error` | one batch into that turtle's chest; when short, the overseer orders what's `missing` (beyond `pending`), since a plan counts on stock a delivery can take before its step runs |
-| `{ type = "clear", crafter = id }` | `ok` | empty its chest back into storage |
+| `{ type = "clear", crafter = id }` | `ok` | empty its chest back into storage (after a job's last batch, or one that went wrong: `load` empties the chest first, so it's skipped between good batches) |
 | `{ type = "syscraft", item, count }` | `ok`, `error` | the ME/RS system crafts it from its pattern (`store.craft`); counted in `stock.syscrafting` until `isCrafting` says it's done |
 
 Protocol `craft_overseer` (everyone → craft-overseer, through `lib/crafts.lua`):
@@ -263,6 +263,13 @@ alone under Fengari (the trekt-mons pack, 1500 stored items), that took
   `getItems` / `exportItem` APIs, picked by which methods exist; adds
   `canCraft`, `craftables`, `craft`, `isCrafting`). The bridge can't target a
   slot, so slot moves go through the **transfer chest**.
+- **Cache, not reads** (chests): `fetch` takes a move that went as the cache
+  said straight off the cached slot and reads the store again only when it
+  didn't (or another loop read it meanwhile). Put-aways inside
+  `store.batch(fn)` (storage.lua's `batch`: input chests, the delivery sweep,
+  crafter and work chest clears) mark the stores they filled and read each
+  once, all at once, at the end. A crafter load's cells go in in parallel
+  (chests only: the bridge's slot moves share the transfer chest).
 - **Fuel chest** sits above the backend in storage.lua: fuel goes there
   first on `putAway`, `fetch(..., fuelFirst)` takes from it first, and its
   contents count as stock.
