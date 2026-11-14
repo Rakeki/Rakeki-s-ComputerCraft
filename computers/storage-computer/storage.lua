@@ -1029,7 +1029,8 @@ end
 --                                                     or an AE2 inscriber / charger (the factory's AE2 part)
 --   { type = "send", to = vibration chamber, fuel = n, item } -> fuel for n smelts' worth into its fuel slot
 --                                                     or one of the asker's feeders
---   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (Mekanism machines' barrels: not storage)
+--   { type = "feeders", chests = { name, ... } }   -> { re = "feeders", ok, error }  (machines' barrels: not storage;
+--                                                     a machine itself too: the factory's custom machines, filled straight)
 --   { type = "claim", role, items }                 -> a turtle finding its chest (see claimChest)
 --   { type = "list" }                               -> { re = "list", items = { { name, label, count } } }  (remote terminal)
 --   { type = "work", chest }                        -> { re = "work", ok, chest, error }  (a computer's work chest; no chest: stop)
@@ -1484,7 +1485,7 @@ end
 -- a barrel or chest a pipe empties into it (lib/mekfeed.lua). A barrel or chest on my cable would be
 -- storage, so it names them (all of them, every time they change):
 --   { type = "feeders", chests = { name, ... } } -> { re = "feeders", ok = true } or { ok = false, error }
--- They're kept out of storage, and "send" may fill them. One it didn't
+-- They're kept out of storage, and "send" may fill them. A chest it didn't
 -- have before must be empty, so a storage chest full of items never is taken.
 local function isFeederOf(id, name)
   for _, chest in ipairs(setup.feeders[id] or {}) do
@@ -1501,12 +1502,22 @@ local function feeders(from, msg)
     if type(chest) ~= "string" or not peripheral.isPresent(chest) or not isInventory(chest) then
       return no(("I can't see %s: put a wired modem on it, on my cable, and right-click it"):format(tostring(chest)))
     end
+    -- a machine (the factory's custom machines: anything with slots that
+    -- isn't a chest, barrel, hopper or ender chest) is never storage, so it
+    -- needn't be empty: "send" may fill it straight
+    local t = peripheral.getType(chest) or ""
+    local machine = not t:find("ender", 1, true) and not t:find("hopper", 1, true) and not t:find("drawer", 1, true)
+    for _, kind in ipairs(CLAIM_TYPES) do
+      if t:find(kind, 1, true) then machine = false end
+    end
     if not isFeederOf(from, chest) then
       for id, names in pairs(setup.feeders) do
         for _, name in ipairs(names) do
           if name == chest then return no(("%s is computer #%d's feeder"):format(chest, id)) end
         end
       end
+    end
+    if not isFeederOf(from, chest) and not machine then
       if not claimable(chest) or chest == setup.delivery or chest == setup.crafter then
         return no(("%s is one of my own chests"):format(chest))
       end

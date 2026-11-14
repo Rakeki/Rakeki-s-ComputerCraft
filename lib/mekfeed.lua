@@ -86,8 +86,8 @@ local LINES = {
   saw = { word = "saw", title = "Saw", what = "sawing line", needOutput = true,
     feeds = "The chest a funnel empties onto the belt into the saw (facing up, in line with the belt).",
     out = "The chest the saw puts things out into, by a belt or chute: what it cuts is counted there." },
-  -- any machine at all, run from the player's own recipes (the factory's custom part)
-  custom = { word = "machine", title = "Machine", what = "custom machine", needOutput = true, plain = true,
+  -- a machine CC can't reach, run from the player's own recipes (the factory's custom part; ones it can reach are found)
+  custom = { word = "hidden", title = "Hidden machine", what = "machine CC can't see", needOutput = true, plain = true,
     feeds = "The hopper into the machine, or the barrel or chest a pipe pulls from into it.",
     out = "The chest the machine puts what it makes into (a hopper or pipe from it): what it makes is counted there." },
 }

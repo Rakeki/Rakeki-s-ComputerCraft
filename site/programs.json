@@ -1679,7 +1679,7 @@
       "stats": [
         ["Mods","vanilla, Mekanism, Create, AE2, Cobblemon, Mystical Agriculture"],
         ["Computers","one, or one per room"],
-        ["Found by itself","furnaces, brewing stands, botany pots, AE2 machines"],
+        ["Found by itself","furnaces, brewing stands, botany pots, AE2 machines, any other machine"],
         ["On request","stone, glass, charcoal, ingots, infusing, sawing, potions, processors, your own recipes"]
       ],
       "features": [
@@ -1692,7 +1692,7 @@
         "Applied Energistics 2 inscribers and chargers on request: printed circuits, the three processors, certus, sky stone, ender and fluix dust, press copies, charged certus quartz; presses put into a free inscriber from storage (one always kept free for processors), and the craft overseer is told what they make, so a crafting plan that needs logic processors has them printed and pressed first. Vibration chambers kept fuelled from the fuel chest",
         "Cobblemon cooking pots: exp candy from sculk and honeycomb, compressed up to XL, read through a comparator so a pot never jams; sculk and honeycomb crafted to keep them coming, when the storage system has recipes; a Candy page on the monitor",
         "Hopper Botany Pots of Mystical Agriculture essence emptied into storage, and a recipe finder that orders what the essence crafts into; far away an essence farm that keeps its essence and crafts what the storage computer asks for with its own turtles",
-        "Custom machines: any machine a hopper or pipe feeds from a barrel, with recipes you give it (one go's inputs and outputs, shown in its output chest on the setup screen or typed); each recipe runs on request from +1 / +8 / +64 buttons on the Custom tab, or keeps an amount in storage for good, and the craft overseer is told what they make",
+        "Custom machines: every other machine on the cable with slots is found by itself (a press, a mixer, a modded furnace); give it recipes (one go's inputs and outputs, shown in any empty chest on the setup screen, or typed) and its inputs go straight into it and what it makes comes straight out; each recipe runs on request from +1 / +8 / +64 buttons on the Custom tab, or keeps an amount in storage for good, and the craft overseer is told what they make. Machines CC can't see run the same way through a feeder barrel and an output chest",
         "Runs only what it finds or you add: Create only, furnaces only or everything, with one program",
         "Several factory computers share a cable: each furnace and botany pot belongs to one, and smelters leave the ores an enricher anywhere takes; the Chain page shows what happens where",
         "One setup screen for everything: found machines and whose they are, + Add rows for each kind, feeders and output chests picked from a list of every barrel and chest on the cable, with what's in each",
@@ -1708,14 +1708,14 @@
       "commands": [
         ["factory","start (runs on boot)"],
         ["factory setup","the setup screen on the monitor and the computer: machines, the chain, the work chest, the monitor; or tap Setup, or press F1"],
-        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan, saw (Create), machine (any machine, your own recipes), pot (Cobblemon), potbarrel (the barrel botany pots empty into), potions (the brewers' potion chest) or filler (a dispenser filling water bottles)"],
+        ["factory add crusher","add a machine: chamber, smelter, infuser (Mekanism), crusher, washer, fan, smokefan, saw (Create), hidden (a machine CC can't see, fed from a barrel), pot (Cobblemon), potbarrel (the barrel botany pots empty into), potions (the brewers' potion chest) or filler (a dispenser filling water bottles)"],
         ["factory list","every machine added here, and the furnaces and botany pots found and whose they are"],
         ["factory remove 2","forget machine 2 (no number: list them)"],
         ["factory give all 14","hand this computer's furnaces and botany pots to factory computer 14"],
         ["factory smelt stone 256","ask the furnaces for 256 stone (factory smelt lists the recipes; factory cancel cancels)"],
         ["factory charcoal 256 spruce","make 256 charcoal from spruce logs (also stone and glass)"],
         ["factory infuse steel 64","ask the infusers for 64 steel dust (factory infuse lists the recipes; factory infuse cancel cancels)"], ["factory saw stripped spruce log 128", "ask the saws for 128 stripped spruce logs (factory saw lists what they can make, factory saw find looks a recipe up, factory saw cancel cancels)"], ["factory saw filter 2 minecraft:oak_slab", "sawing line 2's saw has its filter on oak slabs, so it gets the planks for oak slab orders"],
-        ["factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel","custom machine 1 makes 1 steel ingot from 2 iron ingots and a coal (factory custom lists the machines and recipes)"],
+        ["factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel","custom machine 1 (any machine found on the cable: factory custom lists them, numbered) makes 1 steel ingot from 2 iron ingots and a coal"],
         ["factory custom keep 1 1 64","keep 64 of what machine 1's recipe 1 makes in storage for good (off: only on request; factory custom steel 64 asks for 64 once)"],
         ["factory brew potion of healing ii 6","ask the brewing stands for 6 (factory brew shows the requests, factory brew find slowness the steps, factory brew cancel cancels)"],
         ["factory ae2 logic processor 16","ask the inscribers for 16 logic processors, printed circuits first (factory ae2 lists the recipes, factory ae2 cancel cancels)"],

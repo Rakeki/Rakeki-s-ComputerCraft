@@ -17,7 +17,7 @@ Create-only one, or everything.
 | Smelter | `smelt.lua` | `smelt` / 2 | furnaces, blast furnaces, smokers (found), Mekanism smelters, Create fans | ores/dust/food by itself, the rest on request |
 | Infuser | `infuse.lua` | `infuse` / 0 | Metallurgic Infusers (two feeders) | on request only |
 | Saw | `saw.lua` | `saw` / 0 | Create Mechanical Saw lines | on request only |
-| Custom | `custom.lua` | `custom` / 0 | any machine: a feeder and an output chest (mekfeed line `custom`, `plain`), recipes the player gives each one (`entry.recipes` = { ins, outs, keep }) | on request; `keep` = a standing request topped up whenever storage is under it |
+| Custom | `custom.lua` | `custom` / 0 | every other inventory peripheral on the cable (found: `machineType`, not `NOT_MACHINES` / `config.ignore` / `f.used`), and hidden ones as mekfeed lines `hidden` (feeder + output chest) | on request; `keep` = a standing request topped up whenever storage is under it |
 | AE2 | `ae2.lua` | `ae2` / 0 | AE2 inscribers, chargers, vibration chambers (found) | on request (inscribers, chargers); chambers kept fuelled |
 | Brewer | `brew.lua` | `brew` / 0 | brewing stands (found), the potion chest, a dispenser bottle filler | on request only (no `makes`: potions carry data, so the overseer can't plan them) |
 | Cooking | `cook.lua` | `cook` | Cobblemon cooking pots (comparator → redstone relay) | by itself |
@@ -214,22 +214,38 @@ hands those to every part.
 
 ## Custom machines
 
-`custom.lua` runs any machine CC doesn't drive: a mekfeed set of lines of
-kind `custom` (`plain`: not Create, `needOutput`), each entry carrying
-`recipes = { { ins = { {name,count} }, outs = { {name,count} }, keep } }`
-(saved with the line in `/.custom_machines`). `compile` gives each a `key`
-(the same recipe on two machines is one, run on both, keeping the larger
-`keep`); `make` = `outs[1]`, the item counted and asked for; other outputs
-just go to storage. Inputs go a whole go at a time (`goesFrom`), up to
-`fill` items in a feeder, and only into a feeder that's empty or holds the
-same recipe's inputs (`feederFree`). `keep` is a standing request (`keep =
+`custom.lua` runs machines no other part knows, from the player's recipes
+(`{ ins = { {name,count} }, outs = { {name,count} }, keep }`). Two kinds of
+**unit**:
+
+- **Found**: every peripheral on the cable (not a side: the storage
+  computer must reach it) whose types include `inventory` and whose type
+  has none of `NOT_MACHINES` (chests, hoppers, furnaces, `ae2:`, pots...) or
+  `config.ignore`, and that no part here uses (`f.used`: myUses) or another
+  computer owns. Recipes in `/.factory_custom_recipes` (name -> list).
+  `found()` returns only those with recipes, so factory.lua claims a
+  machine once it has one (`f.mine` decides who runs it). Fed straight:
+  `send` to the machine, which `feedSet` names in the one `feeders`
+  request (the storage computer takes a non-chest machine as a feeder
+  without it being empty), or `work:move` into it. Emptied of what its
+  recipes make and none takes (`u.outputs` and not `u.inputs`), so inputs
+  stay in. `stalled`: inputs sat with none used or made for `STUCK_AFTER`.
+- **Hidden**: a mekfeed line of kind `custom` (word `hidden`, `plain`,
+  `needOutput`), recipes saved on the entry (`entry.recipes`). Fed through
+  the feeder, its output chest emptied whole (`set:collect`).
+
+`compile` gives each recipe a `key` (the same recipe on two machines is one,
+run on both, keeping the larger `keep`); `make` = `outs[1]`, the item
+counted and asked for. Inputs go a whole go at a time (`goesFrom`), up to
+`fill` input items waiting (`room`), and only into a machine holding no
+other recipe's inputs (`canTake`). `keep` is a standing request (`keep =
 true` in its file), topped up while stored + open requests' left < keep,
-not within `KEEP_SETTLE` of something coming out (storage may not have
-counted it). Recipes are learnt on the setup screen from the output chest
-(`learning[output]`: not collected while the learn page has it open) or
-typed (`parse`: "2 iron_ingot coal = mod:steel"). Offered via `custom` when
-`perGo <= 9` (a grid cell per item); jobs are matched by `make` and the
-grid's item counts (`recipeFor`).
+not within `KEEP_SETTLE` of something coming out. Recipes are learnt on the
+setup screen from a chest (`learn`: a hidden machine's output chest, else
+any empty chest found with `ui:pickByDrop`; `learning[chest]` keeps it from
+being emptied or filled meanwhile) or typed (`parse`). Offered via `custom`
+when `perGo <= 9`; jobs are matched by `make` and the grid's counts
+(`recipeFor`).
 
 ## The brewer
 

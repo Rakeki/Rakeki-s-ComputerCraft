@@ -144,12 +144,13 @@ return {
     names = {},
   },
 
-  -- Custom machines: any machine a hopper or pipe feeds from a barrel, with
-  -- the recipes you give it (setup screen, or 'factory custom recipe').
+  -- Custom machines: every machine on the cable with slots that nothing
+  -- else runs, found by itself, with the recipes you give it (setup screen,
+  -- or 'factory custom recipe'); and machines CC can't see, fed from a barrel.
   custom = {
     -- How many of an input to leave in storage, never used.
     keep = {},
-    -- Items kept waiting in each machine's feeder (never less than one go).
+    -- Input items kept waiting in each machine (or its feeder), never less than one go.
     fill = 64,
     -- Tell the craft overseer what the custom machines make (recipes of up
     -- to 9 inputs), so its crafting plans can use them. false: requests only.
@@ -157,8 +158,11 @@ return {
     -- A request (or a kept item) whose inputs are short has the craft
     -- overseer make them first. false: it just waits for them.
     order = true,
-    -- Names on the screen instead of "Machine 1", by feeder name, e.g.
-    -- { ["minecraft:barrel_12"] = "Press" }.
+    -- Machines never taken for a custom machine, by a word in their type,
+    -- e.g. { "tank", "generator" } (chests, furnaces and the like never are).
+    ignore = {},
+    -- Names on the screen instead of "Press 0", by machine (or feeder) name,
+    -- e.g. { ["thermal:machine_press_0"] = "Steel press" }.
     names = {},
   },
 

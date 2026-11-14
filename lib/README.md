@@ -44,7 +44,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   reach their slots): reads them and their feeders at once, sets their bottom
   to Output with Auto-eject, empties their output chests into storage, tells
   the storage computer which barrels are feeders and output chests, puts back what doesn't go in, and the `add` / `remove` commands.
-  Also Create lines (crushing wheels, washing, blasting and smoking fans, saws) and plain custom machines (`plain`: any machine a hopper or pipe feeds), which CC doesn't see: just a feeder
+  Also Create lines (crushing wheels, washing, blasting and smoking fans, saws) and the factory's hidden custom machines (`plain`: any machine CC can't see, fed from a barrel): just a feeder
   chest and an output chest, kept topped up and shown red when the feeder stops going down. A set of lines
   only (no `opts.single`) has no Mekanism machine to add; a line kind with `needOutput` (the saw) must have an output chest, and `opts.lineRows` adds rows to a line's setup page (the saw's filter).
   A set can give each machine a second feeder for its extra slot (`opts.extra`), its own side config

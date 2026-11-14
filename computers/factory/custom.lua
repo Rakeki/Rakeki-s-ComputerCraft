@@ -1,40 +1,52 @@
 -- The factory's custom machines (factory.lua loads it): any machine at all,
--- run from the recipes the player gives it. CC doesn't need to know the
--- machine: a custom machine is two chests on the storage network, its feeder
--- (a hopper into the machine, or a barrel a pipe pulls from into it) and its
--- output chest (where the machine puts what it makes, by a hopper or pipe).
--- Each one has its own recipes: what goes in for one go (2 iron ingots and
--- a coal) and what comes out (1 steel ingot, maybe a byproduct too). They're
--- set on the setup screen (shown by putting one go's inputs, then outputs,
--- in its output chest) or typed with 'factory custom recipe'.
+-- run from the recipes the player gives it. Every machine on the cable with
+-- slots that no other part runs (not a chest, barrel, furnace, brewing stand,
+-- AE2 machine...) is found by itself: a press, a mixer, a modded furnace.
+-- Give one a recipe, what goes in for one go (2 iron ingots and a coal) and
+-- what comes out (1 steel ingot, maybe a byproduct too), and its inputs go
+-- straight into it from storage and what it makes is taken out of it into
+-- storage. Recipes are set on the setup screen (shown by putting one go's
+-- inputs, then outputs, in any empty chest) or typed with 'factory custom recipe'.
+--
+-- A machine CC can't see at all (Create's, or one with no item port on the
+-- cable) is added by hand instead, as two chests: a feeder a hopper or pipe
+-- empties into it, and the output chest it puts what it makes into.
 --
 -- A recipe runs on request (its page's +1, +8 or +64, 'factory custom', or
 -- the craft overseer, which is told what the custom machines make), or
 -- keeps an amount in storage for good: with 'keep 64' it makes more whenever
 -- storage holds fewer than 64 of what it makes, for as long as it's set.
--- What arrives in the output chest is counted towards the requests (the
--- first thing a recipe makes), then everything there goes into storage.
+-- What comes out is counted towards the requests (the first thing a recipe
+-- makes), then goes into storage.
 --
 -- The items a request waits on are left alone by the smelter (rank 0 in the
 -- chain), so it doesn't smelt them away first.
 local screen = require("lib.screen") -- flicker-free drawing
-local mekfeed = require("lib.mekfeed") -- the machines' feeders and output chests
+local mekfeed = require("lib.mekfeed") -- the hidden machines' feeders and output chests
 local files = require("lib.files") -- crash-safe save files
 
 local M = {}
 
 local REQUEST_DIR = "/.factory_custom" -- a file per request, so a request typed in another tab is never lost
+local RECIPE_FILE = "/.factory_custom_recipes" -- found machine name -> its recipes ({ ins, outs, keep } each)
 local SEND_MAX = 64 -- most of one item the storage computer sends at once
-local FILL = 64 -- items kept waiting in a machine's feeder (config.fill), never less than one go
+local FILL = 64 -- input items kept waiting in a machine or its feeder (config.fill), never less than one go
 local GIVE_UP = 600 -- seconds a craft overseer's request may go with nothing loaded or made before it's handed back
-local SHORT_AFTER = 60 -- seconds with everything sent, none of it in a feeder and nothing made, before more is sent
+local SHORT_AFTER = 60 -- seconds with everything sent, none of it waiting and nothing made, before more is sent
+local STUCK_AFTER = 60 -- seconds a found machine may hold inputs with nothing used or made before it shows red
 local ORDER_EVERY = 30 -- seconds between asking the craft overseer to make a request's missing inputs
 local MAKES_EVERY = 60 -- seconds between telling the craft overseer what the custom machines make
 local KEEP_SETTLE = 15 -- seconds after something came out before a kept item is topped up (it may not be counted in storage yet)
-local LEARN_FOR = 30 -- seconds the output chest is left alone after the learn page was last open
+local LEARN_FOR = 30 -- seconds a chest is left alone after the learn page last looked at it
 local QUEUE_SHOWN = 3 -- requests listed under the recipes
 local BUTTONS = { 1, 8, 64 } -- the request buttons by each recipe
 local KEEP_CHOICES = { 1, 16, 32, 64, 128, 256, 512, 1024, 4096 } -- the setup screen's keep amounts
+-- Peripheral types (any part of the name) that are never a custom machine:
+-- storage and its chests, and the machines other parts run.
+local NOT_MACHINES = { "chest", "barrel", "shulker", "crate", "drawer", "vault", "hopper", "dropper", "dispenser",
+  "ender", "furnace", "smoker", "brewing_stand", "ae2:", "pot", "computer", "turtle", "interface", "bridge",
+  "drive", "storage", "tank", "crafter" }
+local LEARN_TYPES = { "chest", "barrel" } -- chests a recipe can be shown in
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
 
@@ -69,13 +81,13 @@ end
 -- recipe on two machines shares. nil if it's broken.
 local function compile(raw)
   if type(raw) ~= "table" or type(raw.ins) ~= "table" or type(raw.outs) ~= "table" then return nil end
-  local ins, outs, merged = {}, {}, {}
+  local outs, merged = {}, {}
   for _, it in ipairs(raw.ins) do
     if type(it) == "table" and type(it.name) == "string" and tonumber(it.count) then
       merged[it.name] = (merged[it.name] or 0) + math.max(1, math.floor(tonumber(it.count)))
     end
   end
-  ins = listOf(merged)
+  local ins = listOf(merged)
   for _, it in ipairs(raw.outs) do
     if type(it) == "table" and type(it.name) == "string" and tonumber(it.count) then
       outs[#outs + 1] = { name = it.name, count = math.max(1, math.floor(tonumber(it.count))) }
@@ -125,26 +137,59 @@ local function parse(words)
   return listOf(sides[1]), listOf(sides[2])
 end
 
--- f: the factory (factory.lua): ask, craft, work, config, wake, changed, event, taken.
+-- A peripheral that can be a custom machine: it has slots, and its type is
+-- nothing another part (or storage) has.
+local function machineType(name, ignore)
+  local types = { peripheral.getType(name) }
+  local inventory = false
+  for _, t in ipairs(types) do
+    if t == "inventory" then inventory = true end
+  end
+  local t = types[1]
+  if not inventory or type(t) ~= "string" then return false end
+  for _, list in ipairs({ NOT_MACHINES, ignore }) do
+    for _, word in ipairs(list) do
+      if t:find(word, 1, true) then return false end
+    end
+  end
+  return true
+end
+
+-- Peripherals on the wired network (not touching this computer: the
+-- storage computer can't reach those) that pass test(name).
+local function onNetwork(test)
+  local sides, list = {}, {}
+  for _, s in ipairs(rs.getSides()) do sides[s] = true end
+  for _, name in ipairs(peripheral.getNames()) do
+    if not sides[name] and test(name) then list[#list + 1] = name end
+  end
+  table.sort(list)
+  return list
+end
+
+-- f: the factory (factory.lua): ask, craft, work, config, wake, changed, event, taken, mine.
 function M.new(f)
   local config = f.config("custom")
   local KEEP = config.keep or {} -- item -> how many of an input to leave in storage
   local OFFER = config.offer ~= false -- tell the craft overseer what the custom machines make
   local ORDER = config.order ~= false -- have the craft overseer make a request's inputs when there are too few
   local FILL_TO = tonumber(config.fill) or FILL
+  local IGNORE = config.ignore or {} -- more peripheral types (part of the name) never taken for a machine
+  local NAMES = config.names or {} -- machine (or feeder) name -> what the screen calls it
 
   local self = { id = "custom", title = "Custom", short = "Custom", rank = 0, every = 5,
     what = "Your recipes -> anything, kept in stock" }
-  local machines = {}
+  local units = {} -- every machine run here this round: found ones (mine, with recipes) and hidden ones
   local recipes, byKey = {}, {} -- every recipe on a machine here, once each (by key), with keep = the most any asks
   local requests = {} -- every request, oldest first (REQUEST_DIR)
   local counts = {} -- the storage computer's counts, for the screen
   local progress = {} -- request at -> when it last had something loaded or made (os.clock)
-  local lastOut = {} -- item -> when some last came out of an output chest (os.clock)
+  local lastOut = {} -- item -> when some last came out (os.clock)
+  local watch = {} -- found machine -> { total, since }: when its inputs last went down
   local news -- { text, colour, untilTime }
   local outStuck, outWhy, collected
   local makesKey, makesAt, makesNote = nil, -math.huge, nil
-  local learning = {} -- output chest -> until when (os.clock) the learn page has it: not emptied
+  local learning = {} -- chest -> until when (os.clock) the learn page has it: not emptied, not filled
   local scroll = 0 -- the first recipe shown
   local picked = 1 -- the recipe the terminal's keys ask for (a basic computer has no mouse)
   local zones = {} -- target -> { { x1, x2, y, action } }: what a tap does on the terminal or monitor
@@ -163,16 +208,91 @@ function M.new(f)
 
   local function status(state, detail) self.status = { state, detail } end
 
-  ---------------------------------------------------------------- the machines and their recipes
+  local function isLearning(name)
+    return name ~= nil and learning[name] ~= nil and os.clock() < learning[name]
+  end
+
+  -- What's in a chest or machine, by name.
+  local function contents(name)
+    local ok, list = pcall(peripheral.call, name, "list")
+    local map = {}
+    for _, it in pairs(ok and type(list) == "table" and list or {}) do map[it.name] = (map[it.name] or 0) + it.count end
+    return listOf(map), ok and type(list) == "table"
+  end
+
+  ---------------------------------------------------------------- machines and their recipes
+
+  -- The hidden machines: lib/mekfeed.lua lines of kind "custom" (a feeder
+  -- and an output chest). Their recipes are saved with the line.
+
+  local function readRecipeFile()
+    local t = files.read(RECIPE_FILE)
+    return type(t) == "table" and t or {}
+  end
+
+  -- Every machine on the cable this could run: not another computer's.
+  local function candidates()
+    return onNetwork(function(name)
+      if not machineType(name, IGNORE) then return false end
+      return not (f.used and f.used(name)) and not (f.taken(name) and not f.mine(name))
+    end)
+  end
+
+  local function titleOf(name)
+    return NAMES[name] or capital(nice(name))
+  end
+
+  -- A machine's saved recipes, by its key: "m:<machine>" for a found one,
+  -- "l:<feeder>" for a hidden one.
+  local function recipesAt(key)
+    local kind, name = key:sub(1, 1), key:sub(3)
+    if kind == "m" then
+      local t = readRecipeFile()[name]
+      return type(t) == "table" and t or {}
+    end
+    for _, e in ipairs(self.set:entries()) do
+      if e.feeder == name then return type(e.recipes) == "table" and e.recipes or {} end
+    end
+    return {}
+  end
+
+  local function saveRecipesAt(key, list)
+    local kind, name = key:sub(1, 1), key:sub(3)
+    if kind == "m" then
+      local t = readRecipeFile()
+      t[name] = #list > 0 and list or nil
+      files.write(RECIPE_FILE, t)
+      os.queueEvent(f.event) -- the running factory, if this is another tab
+      return
+    end
+    local entries = self.set:entries()
+    for _, e in ipairs(entries) do
+      if e.feeder == name then e.recipes = list end
+    end
+    self.set:save(entries)
+  end
+
+  -- The found machines that have recipes and are this computer's (or no
+  -- one's yet: factory.lua claims them).
+  local function foundWithRecipes()
+    local t = readRecipeFile()
+    local out = {}
+    for _, name in ipairs(candidates()) do
+      if type(t[name]) == "table" and #t[name] > 0 then out[#out + 1] = name end
+    end
+    return out
+  end
 
   -- The recipes on every machine, once each: the same recipe on two machines
   -- is one, run on both, keeping the larger amount either asks for.
-  local function refreshRecipes(entries)
+  local function refreshRecipes()
     recipes, byKey = {}, {}
-    for _, e in ipairs(entries) do
-      for _, raw in ipairs(type(e.recipes) == "table" and e.recipes or {}) do
+    for _, u in ipairs(units) do
+      u.keys = {}
+      for _, raw in ipairs(u.raw) do
         local rc = compile(raw)
         if rc then
+          u.keys[rc.key] = true
           local known = byKey[rc.key]
           if known then
             if rc.keep and (known.keep or 0) < rc.keep then known.keep = rc.keep end
@@ -182,6 +302,13 @@ function M.new(f)
           end
         end
       end
+      -- what a found machine makes and takes, so its outputs can be taken out of it
+      u.inputs, u.outputs = {}, {}
+      for _, raw in ipairs(u.raw) do
+        local rc = compile(raw)
+        for _, it in ipairs(rc and rc.ins or {}) do u.inputs[it.name] = true end
+        for _, it in ipairs(rc and rc.outs or {}) do u.outputs[it.name] = true end
+      end
     end
     table.sort(recipes, function(a, b)
       if a.title ~= b.title then return a.title < b.title end
@@ -189,49 +316,160 @@ function M.new(f)
     end)
   end
 
-  -- Whether a machine (its entry) has this recipe.
-  local function hasRecipe(entry, rc)
-    for _, raw in ipairs(type(entry.recipes) == "table" and entry.recipes or {}) do
-      local c = compile(raw)
-      if c and c.key == rc.key then return true end
+  -- The machines this round: found ones that are mine, then hidden ones.
+  -- Without reading them (commands and the overseer's jobs use this too).
+  local function listUnits()
+    local out = {}
+    local t = readRecipeFile()
+    for _, name in ipairs(foundWithRecipes()) do
+      if f.mine(name) then
+        out[#out + 1] = { key = "m:" .. name, name = name, found = true, title = titleOf(name), feed = name,
+          out = name, raw = t[name] }
+      end
+    end
+    local entries = self.set:entries()
+    local titles = self.set:titles(entries)
+    for i, e in ipairs(entries) do
+      out[#out + 1] = { key = "l:" .. e.feeder, name = e.feeder, found = false, title = titles[i], feed = e.feeder,
+        out = e.output, raw = type(e.recipes) == "table" and e.recipes or {} }
+    end
+    return out
+  end
+
+  local function refreshUnits()
+    units = listUnits()
+    refreshRecipes()
+  end
+
+  local function hasRecipe(u, rc) return u.keys and u.keys[rc.key] == true end
+
+  local function anyUnit(rc)
+    for _, u in ipairs(units) do
+      if hasRecipe(u, rc) then return true end
     end
     return false
   end
 
-  local lineList = {}
-  local function refreshLines()
-    lineList = self.set:entries()
-    refreshRecipes(lineList)
-  end
-
-  local function anyLine(rc)
-    for _, e in ipairs(lineList) do
-      if hasRecipe(e, rc) then return true end
+  -- Read every found machine at once (a call each takes a tick), and the
+  -- hidden ones' feeders and output chests (lib/mekfeed.lua).
+  local function readUnits()
+    local lines = self.set:read()
+    local byFeeder = {}
+    for _, m in ipairs(lines) do byFeeder[m.entry.feeder] = m end
+    local jobs = {}
+    for _, u in ipairs(units) do
+      if u.found then
+        jobs[#jobs + 1] = function()
+          local ok, list = pcall(peripheral.call, u.name, "list")
+          u.present = ok and type(list) == "table"
+          u.list = u.present and list or {}
+          u.have = {}
+          for _, it in pairs(u.list) do u.have[it.name] = (u.have[it.name] or 0) + it.count end
+        end
+      else
+        u.m = byFeeder[u.feed]
+      end
     end
-    return false
+    if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
   end
 
-  -- A feeder holding another recipe's inputs isn't given this one's: the
-  -- machine would get them mixed up.
-  local function feederFree(m, rc)
+  -- What's waiting to go into a machine: in it (a found one, its inputs
+  -- only) or in its feeder (a hidden one), by name.
+  local function waiting(u)
+    if u.found then
+      local out = {}
+      for name, n in pairs(u.have or {}) do
+        if u.inputs[name] then out[name] = n end
+      end
+      return out
+    end
+    return u.m and u.m.feed or {}
+  end
+
+  local function total(map)
+    local n = 0
+    for _, v in pairs(map) do n = n + v end
+    return n
+  end
+
+  -- Ready to take a recipe's inputs: there, working, and not holding another
+  -- of its recipes' inputs (the machine would get them mixed up).
+  local function canTake(u, rc, unsure)
+    if isLearning(u.feed) or isLearning(u.out) then return false end
+    if u.found then
+      if not u.present then return false end
+    else
+      local m = u.m
+      if not m or not mekfeed.ready(m) or not m.outOk or unsure[m.entry.feeder] then return false end
+    end
     local mine = {}
     for _, it in ipairs(rc.ins) do mine[it.name] = true end
-    for name, n in pairs(m.feed) do
+    for name, n in pairs(waiting(u)) do
       if n > 0 and not mine[name] then return false end
     end
     return true
   end
 
-  local function isLearning(output)
-    return output ~= nil and learning[output] ~= nil and os.clock() < learning[output]
+  -- How many goes a machine has room for: up to the fill (never less than
+  -- one go) of inputs waiting, and, for a feeder, its free slots.
+  local function room(u, rc)
+    local fill = math.max(FILL_TO, rc.perGo)
+    local n = math.floor(math.max(0, fill - total(waiting(u))) / rc.perGo)
+    if not u.found and u.m then
+      n = math.min(n, math.floor(math.max(0, u.m.feedSize * mekfeed.STACK - u.m.feedTotal) / rc.perGo))
+    end
+    return n
   end
 
-  -- What's in a chest, by name (the learn page).
-  local function contents(name)
-    local ok, list = pcall(peripheral.call, name, "list")
-    local map = {}
-    for _, it in pairs(ok and type(list) == "table" and list or {}) do map[it.name] = (map[it.name] or 0) + it.count end
-    return listOf(map), ok and type(list) == "table"
+  local function added(u, name, n)
+    if u.found then
+      u.have[name] = (u.have[name] or 0) + n
+      if watch[u.name] then watch[u.name].total = watch[u.name].total + n end
+    elseif u.m then
+      mekfeed.added(u.m, name, n)
+    end
+  end
+
+  -- Take what a found machine made out of it, into input: only what one of
+  -- its recipes makes and none takes, so its inputs stay in. The hidden
+  -- machines' output chests are emptied whole. Item -> how many moved, and
+  -- whether some didn't fit, and why a move failed.
+  local function collect(input)
+    local byName, stuck, why = {}, false, nil
+    if not input then return byName, false, nil end
+    local hidden = {}
+    for _, u in ipairs(units) do
+      if u.found and u.present and not isLearning(u.name) then
+        for slot, it in pairs(u.list) do
+          if u.outputs[it.name] and not u.inputs[it.name] then
+            local ok, n = pcall(peripheral.call, u.name, "pushItems", input, slot)
+            if not ok then why = ("can't move what %s made into %s: %s"):format(u.title, input, tostring(n)) end
+            n = ok and n or 0
+            byName[it.name] = (byName[it.name] or 0) + n
+            u.have[it.name] = math.max(0, (u.have[it.name] or 0) - n)
+            if n > 0 then u.made = true end
+            if n < it.count then stuck = true end
+          end
+        end
+      elseif not u.found and u.m and not isLearning(u.out) then
+        hidden[#hidden + 1] = u.m
+      end
+    end
+    local _, lineStuck, lineWhy, lineNames = self.set:collect(hidden, input)
+    for name, n in pairs(lineNames) do byName[name] = (byName[name] or 0) + n end
+    return byName, stuck or lineStuck, why or lineWhy
+  end
+
+  -- A found machine holding inputs that hasn't used any or made anything
+  -- for STUCK_AFTER isn't working (no power, wrong recipe, output full).
+  local function stalled(u, now)
+    local n = total(waiting(u))
+    local t = watch[u.name]
+    if not t or n < t.total or u.made or n == 0 then t = { since = now } end
+    t.total = n
+    watch[u.name] = t
+    u.made = nil
+    return n > 0 and now - t.since > STUCK_AFTER
   end
 
   ---------------------------------------------------------------- the setup screen
@@ -239,21 +477,20 @@ function M.new(f)
   local function keepText(keep) return keep and ("keep %d"):format(keep) or "on request" end
 
   -- A recipe's keep amount: off (on request only) or one of KEEP_CHOICES.
-  local function keepPage(ui, i, j, change)
+  local function keepPage(ui, key, j)
     return {
       title = "Keep in stock",
       hint = "It makes more whenever storage has fewer than this of what it makes. Off: only on request.",
       rows = function()
-        local e = self.set:entries()[i]
-        local raw = e and type(e.recipes) == "table" and e.recipes[j]
+        local list = recipesAt(key)
+        local raw = list[j]
         if not raw then return { { label = "Removed.", dim = true } } end
         local function pick(n)
           return function()
-            local list = e.recipes
             list[j].keep = n
+            saveRecipesAt(key, list)
             ui:back()
-            change("recipes", list, n and ("Keeps %d %s in storage."):format(n, nice(list[j].outs[1].name))
-              or "Only on request now.")
+            ui:say(n and ("Keeps %d %s in storage."):format(n, nice(list[j].outs[1].name)) or "Only on request now.", "lime")
             f.wake()
           end
         end
@@ -262,33 +499,26 @@ function M.new(f)
           out[#out + 1] = { label = tostring(n), value = raw.keep == n and "now" or "",
             colour = raw.keep == n and "lime" or "white", act = pick(n) }
         end
-        out[#out + 1] = { label = "Another amount", value = "factory custom keep " .. i .. " " .. j .. " <n>", colour = "gray" }
+        out[#out + 1] = { label = "Another amount", value = "factory custom keep", colour = "gray" }
         return out
       end,
     }
   end
 
-  -- Learning a recipe: one go's inputs, then its outputs, put in the
-  -- machine's output chest and read from there (the factory leaves that
-  -- chest alone meanwhile; what's put in goes into storage afterwards).
-  local function learnPage(ui, i, j, change)
+  -- Learning a recipe from a chest: one go's inputs, then its outputs, put
+  -- in it and read from there (the factory leaves that chest alone
+  -- meanwhile). j: the recipe to learn again, nil for a new one.
+  local function learnPage(ui, key, j, chest)
     local stage, ins = "in", nil
-    local function entry() return self.set:entries()[i] end
     local page
     page = {
       title = function() return stage == "in" and "What goes IN" or "What comes OUT" end,
-      hint = "Put ONE go's inputs in its output chest, then tap Use these.",
-      tick = function()
-        local e = entry()
-        if e and e.output then learning[e.output] = os.clock() + LEARN_FOR end
-      end,
+      hint = ("Put ONE go's inputs in %s, then tap Use these."):format(chest),
+      tick = function() learning[chest] = os.clock() + LEARN_FOR end,
       rows = function()
-        local e = entry()
-        if not e then return { { label = "Removed.", dim = true } } end
-        if not e.output then return { { label = "It has no output chest: pick one first.", colour = "red" } } end
-        learning[e.output] = os.clock() + LEARN_FOR
-        local list, ok = contents(e.output)
-        if not ok then return { { label = e.output .. " isn't on the network.", colour = "red" } } end
+        learning[chest] = os.clock() + LEARN_FOR
+        local list, ok = contents(chest)
+        if not ok then return { { label = chest .. " isn't on the network.", colour = "red" } } end
         local out = {}
         if stage == "out" then
           out[#out + 1] = { label = "In:", value = sideText(ins), colour = "lightGray", dim = true }
@@ -296,24 +526,22 @@ function M.new(f)
         for _, it in ipairs(list) do
           out[#out + 1] = { label = capital(nice(it.name)), value = ("x%d"):format(it.count), colour = "white" }
         end
-        if #list == 0 then out[#out + 1] = { label = ("(%s is empty)"):format(e.output), colour = "gray", dim = true } end
+        if #list == 0 then out[#out + 1] = { label = ("(%s is empty)"):format(chest), colour = "gray", dim = true } end
         return out
       end,
       buttons = function()
         return {
           { " Use these ", "black", "lime", function()
-            local e = entry()
-            if not e or not e.output then return end
-            local list = contents(e.output)
-            if #list == 0 then ui:say("The output chest is empty: put the items in it first.", "orange") return end
+            local list = contents(chest)
+            if #list == 0 then ui:say("The chest is empty: put the items in it first.", "orange") return end
             if stage == "in" then
               ins, stage = list, "out"
-              page.hint = "Take the inputs out, put ONE go's outputs in (what it's for in the first slot), tap Use these."
+              page.hint = ("Take the inputs out of %s, put ONE go's outputs in (what it's for in the first slot), tap Use these."):format(chest)
               ui:say("Inputs read.", "lime")
               return
             end
             -- what it's for: the item in the lowest slot
-            local okL, raw = pcall(peripheral.call, e.output, "list")
+            local okL, raw = pcall(peripheral.call, chest, "list")
             local first, low = nil, math.huge
             for slot, it in pairs(okL and type(raw) == "table" and raw or {}) do
               if slot < low then first, low = it.name, slot end
@@ -322,17 +550,17 @@ function M.new(f)
               if (a.name == first) ~= (b.name == first) then return a.name == first end
               return a.name < b.name
             end)
-            local recs = type(e.recipes) == "table" and e.recipes or {}
+            local recs = recipesAt(key)
             local new = { ins = ins, outs = list, keep = j and recs[j] and recs[j].keep or nil }
             if j and recs[j] then recs[j] = new else recs[#recs + 1] = new end
-            learning[e.output] = nil
+            saveRecipesAt(key, recs)
+            learning[chest] = nil
             ui:back()
-            change("recipes", recs, ("%s = %s. What's in the chest goes into storage."):format(sideText(ins), sideText(list)))
+            ui:say(("%s = %s. Take the items back out of %s."):format(sideText(ins), sideText(list), chest), "lime")
             f.wake()
           end },
           { " Cancel ", "white", "gray", function()
-            local e = entry()
-            if e and e.output then learning[e.output] = nil end
+            learning[chest] = nil
             ui:back()
           end },
         }
@@ -341,25 +569,44 @@ function M.new(f)
     return page
   end
 
-  local function recipePage(ui, i, j, change)
+  -- Where to show a recipe: a hidden machine's own output chest, else any
+  -- empty chest or barrel, picked by putting the first input in it.
+  local function learn(ui, key, j, output)
+    if output then return ui:open(learnPage(ui, key, j, output)) end
+    ui:pickByDrop({ title = "Show it the recipe",
+      hint = "Put ONE go's inputs in any empty chest or barrel on the cable.",
+      names = onNetwork(function(n)
+        local t = peripheral.getType(n) or ""
+        for _, w in ipairs(LEARN_TYPES) do
+          if t:find(w, 1, true) and not t:find("ender", 1, true) then return true end
+        end
+        return false
+      end),
+      drop = "Put the inputs in an empty chest now.",
+      pick = function(chest)
+        ui:back()
+        ui:open(learnPage(ui, key, j, chest))
+      end })
+  end
+
+  local function recipePage(ui, key, j, output)
     return {
       title = "Recipe",
       rows = function()
-        local e = self.set:entries()[i]
-        local raw = e and type(e.recipes) == "table" and e.recipes[j]
-        local rc = raw and compile(raw)
+        local list = recipesAt(key)
+        local rc = list[j] and compile(list[j])
         if not rc then return { { label = "Removed.", dim = true } } end
         return {
           { label = "In", value = sideText(rc.ins), colour = "lightGray", dim = false },
           { label = "Out", value = sideText(rc.outs), colour = "lightGray", dim = false },
           { label = "Keep in stock", value = rc.keep and tostring(rc.keep) or "off: only on request",
-            colour = rc.keep and "lime" or "gray", act = function() ui:open(keepPage(ui, i, j, change)) end },
-          { label = "Learn it again", colour = "white", act = function() ui:open(learnPage(ui, i, j, change)) end },
+            colour = rc.keep and "lime" or "gray", act = function() ui:open(keepPage(ui, key, j)) end },
+          { label = "Show it again", colour = "white", act = function() learn(ui, key, j, output) end },
           { label = "Remove it", colour = "red", act = function()
-            local list = e.recipes
             table.remove(list, j)
+            saveRecipesAt(key, list)
             ui:back()
-            change("recipes", list, "Recipe removed.")
+            ui:say("Recipe removed.", "lime")
             f.wake()
           end },
         }
@@ -367,28 +614,89 @@ function M.new(f)
     }
   end
 
-  -- The rows on a custom machine's setup page (lib/mekfeed.lua's lineRows).
-  local function lineRows(ui, i, entry, change)
-    local recs = type(entry.recipes) == "table" and entry.recipes or {}
+  -- A machine's recipes as setup rows, then + Add a recipe.
+  local function recipeRows(ui, key, output)
     local rows = {}
-    for j, raw in ipairs(recs) do
+    for j, raw in ipairs(recipesAt(key)) do
       local rc = compile(raw)
-      rows[#rows + 1] = { label = rc and ("%s"):format(sideText(rc.outs)) or "(broken recipe)",
+      rows[#rows + 1] = { label = rc and sideText(rc.outs) or "(broken recipe)",
         value = rc and (("from %s, %s"):format(sideText(rc.ins), keepText(rc.keep))) or "",
-        colour = rc and "white" or "red", act = function() ui:open(recipePage(ui, i, j, change)) end }
+        colour = rc and "white" or "red", act = function() ui:open(recipePage(ui, key, j, output)) end }
     end
-    rows[#rows + 1] = { label = "+ Add a recipe", value = "shown in its output chest", colour = "lime",
-      act = function() ui:open(learnPage(ui, i, nil, change)) end }
+    rows[#rows + 1] = { label = "+ Add a recipe", value = output and "shown in its output chest" or "shown in any empty chest",
+      colour = "lime", act = function() learn(ui, key, nil, output) end }
     return rows
   end
 
-  self.set = mekfeed.new({ name = "custom", cmd = "factory", event = f.event, what = "custom machine", title = "Machine",
-    names = config.names, ask = f.ask, tell = tell, far = function() return f.work.remote end,
+  -- The rows on a hidden machine's setup page (lib/mekfeed.lua's lineRows).
+  local function lineRows(ui, _, entry)
+    return recipeRows(ui, "l:" .. entry.feeder, entry.output)
+  end
+
+  self.set = mekfeed.new({ name = "custom", cmd = "factory", event = f.event, what = "machine CC can't see",
+    title = "Machine", names = NAMES, ask = f.ask, tell = tell, far = function() return f.work.remote end,
     taken = f.taken, lines = { "custom" }, pageTitle = "Custom machines", lineRows = lineRows, lineFill = FILL_TO })
 
-  function self.found() return {} end
+  -- For factory.lua's one 'feeders' request: the found machines are fed
+  -- straight from storage, so the storage computer has to know them.
+  self.feedSet = { entries = function()
+    local out = {}
+    for _, name in ipairs(foundWithRecipes()) do
+      if f.mine(name) then out[#out + 1] = { feeder = name } end
+    end
+    return out
+  end }
+
+  -- The setup screen's Machines rows: every machine found on the cable (tap
+  -- it for its recipes), then the hidden ones.
+  function self.setupParts(ui)
+    local parts = self.set:setupParts(ui)
+    local function machinePage(name)
+      local key = "m:" .. name
+      return {
+        title = function() return titleOf(name) end,
+        hint = ("%s: what goes in for one go, and what comes out."):format(name),
+        rows = function()
+          local rows = { { label = "Machine", value = (peripheral.getType(name) or "missing"), colour = "lightGray", dim = false } }
+          if f.taken(name) and not f.mine(name) then
+            rows[#rows + 1] = { label = "Another factory computer runs it.", colour = "orange", dim = true }
+          end
+          for _, row in ipairs(recipeRows(ui, key, nil)) do rows[#rows + 1] = row end
+          return rows
+        end,
+      }
+    end
+    return {
+      entries = function()
+        local out = {}
+        local t = readRecipeFile()
+        for _, name in ipairs(candidates()) do
+          local n = type(t[name]) == "table" and #t[name] or 0
+          out[#out + 1] = { label = titleOf(name), value = n > 0 and ("%d recipe%s"):format(n, n == 1 and "" or "s")
+            or ("%s: no recipe"):format(name), colour = n > 0 and "lightGray" or "gray",
+            act = function() ui:open(machinePage(name)) end }
+        end
+        for _, row in ipairs(parts.entries()) do out[#out + 1] = row end
+        return out
+      end,
+      adds = parts.adds,
+    }
+  end
+
+  -- Found machines with recipes, for factory.lua to claim (so two factory
+  -- computers never run one); one with no recipe is nobody's.
+  function self.found()
+    local out = {}
+    for _, name in ipairs(foundWithRecipes()) do out[#out + 1] = { name = name, kind = "custom" } end
+    return out
+  end
   function self.uses() return self.set:uses() end
-  function self.active() return #self.set:entries() > 0 end
+  function self.active()
+    for _, name in ipairs(foundWithRecipes()) do
+      if f.mine(name) then return true end
+    end
+    return #self.set:entries() > 0
+  end
 
   ---------------------------------------------------------------- requests
 
@@ -465,8 +773,8 @@ function M.new(f)
     return n
   end
 
-  -- Count what came out of the output chests towards the requests, oldest
-  -- first (each by the first thing its recipe makes).
+  -- Count what came out towards the requests, oldest first (each by the
+  -- first thing its recipe makes).
   local function credit(byName)
     local now = os.clock()
     for name, n in pairs(byName) do
@@ -485,15 +793,6 @@ function M.new(f)
     end
   end
 
-  -- Every output chest but those the learn page has open.
-  local function collectable()
-    local out = {}
-    for _, m in ipairs(machines) do
-      if not isLearning(m.entry.output) then out[#out + 1] = m end
-    end
-    return out
-  end
-
   -- A recipe kept in stock that's under its amount gets a request (one per
   -- recipe, topped up), counting what's stored and what open requests will
   -- still make. Not just after something came out: storage may not have
@@ -510,7 +809,7 @@ function M.new(f)
       end
     end
     for _, rc in ipairs(recipes) do
-      if rc.keep and rc.keep > 0 and now - (lastOut[rc.make] or -math.huge) >= KEEP_SETTLE and anyLine(rc) then
+      if rc.keep and rc.keep > 0 and now - (lastOut[rc.make] or -math.huge) >= KEEP_SETTLE and anyUnit(rc) then
         local short = rc.keep - (counts[rc.make] or 0) - (open[rc.key] or 0)
         if short > 0 then
           local mine
@@ -537,7 +836,7 @@ function M.new(f)
     local need = {}
     for _, q in ipairs(requests) do
       local rc = q.recipe
-      if ORDER and rc and not q.job and not q.done and anyLine(rc) then
+      if ORDER and rc and not q.job and not q.done and anyUnit(rc) then
         for _, it in ipairs(rc.ins) do need[it.name] = (need[it.name] or 0) + toSend(q) * it.count end
       end
     end
@@ -589,7 +888,7 @@ function M.new(f)
     if not OFFER then return end
     local crafts, keys = {}, {}
     for _, rc in ipairs(recipes) do
-      local c = anyLine(rc) and asCraft(rc)
+      local c = anyUnit(rc) and asCraft(rc)
       if c then
         crafts[#crafts + 1] = c
         keys[#keys + 1] = rc.key
@@ -617,17 +916,18 @@ function M.new(f)
 
   -- The recipe a craft overseer's job is for: what it makes, and its grid's items.
   local function recipeFor(make, grid)
-    local have = {}
-    for _, item in pairs(type(grid) == "table" and grid or {}) do have[item] = (have[item] or 0) + 1 end
+    local have, kinds = {}, 0
+    for _, item in pairs(type(grid) == "table" and grid or {}) do
+      if not have[item] then kinds = kinds + 1 end
+      have[item] = (have[item] or 0) + 1
+    end
     for _, rc in ipairs(recipes) do
-      if rc.make == make then
+      if rc.make == make and #rc.ins == kinds then
         local same = true
         for _, it in ipairs(rc.ins) do
           if have[it.name] ~= it.count then same = false end
         end
-        local n = 0
-        for _ in pairs(have) do n = n + 1 end
-        if same and n == #rc.ins then return rc end
+        if same then return rc end
       end
     end
     return nil
@@ -637,11 +937,10 @@ function M.new(f)
   -- of its plans) and 'cancel'. The reply, or nil if it isn't one.
   function self.request(from, msg)
     if msg.type == "custom" then
-      refreshLines()
+      refreshUnits()
       local rc = recipeFor(tostring(msg.make), msg.grid)
       local count = math.floor(tonumber(msg.count) or 0)
       if not rc or count < 1 then return { ok = false, why = "no custom machine here has that recipe" } end
-      if not anyLine(rc) then return { ok = false, why = "no custom machine here has that recipe any more" } end
       newRequest(rc.key, count, msg.job)
       f.wake()
       return { ok = true }
@@ -660,23 +959,22 @@ function M.new(f)
   function self.takes() return taking end
 
   function self.summary()
-    local n = #self.set:entries()
-    local waiting, kept = 0, 0
+    local waitingN, kept = 0, 0
     for _, q in ipairs(requests) do
-      if not q.done then waiting = waiting + 1 end
+      if not q.done then waitingN = waitingN + 1 end
     end
     for _, rc in ipairs(recipes) do
       if rc.keep then kept = kept + 1 end
     end
-    return ("%d machine%s%s%s"):format(n, n == 1 and "" or "s", kept > 0 and (", %d kept"):format(kept) or "",
-      waiting > 0 and (", %d requests"):format(waiting) or "")
+    return ("%d machine%s%s%s"):format(#units, #units == 1 and "" or "s", kept > 0 and (", %d kept"):format(kept) or "",
+      waitingN > 0 and (", %d requests"):format(waitingN) or "")
   end
 
   ---------------------------------------------------------------- a round
 
   function self.read(remote, remoteInput)
-    machines = self.set:read()
-    refreshLines()
+    refreshUnits()
+    readUnits()
     requests = loadRequests()
     local seen, list = {}, {}
     for _, q in ipairs(requests) do
@@ -692,8 +990,8 @@ function M.new(f)
     taking = list
     outStuck, outWhy, collected = false, nil, false
     if remote then
-      local _, byName
-      _, outStuck, outWhy, byName = self.set:collect(collectable(), remoteInput)
+      local byName
+      byName, outStuck, outWhy = collect(remoteInput)
       credit(byName)
       collected = true
     end
@@ -704,13 +1002,13 @@ function M.new(f)
     counts = r.stock.counts
     local problem = r.feedProblem
     offer()
-    if #machines == 0 then
-      say("Nothing set up yet: add a custom machine on the setup screen ('factory add machine').", "orange")
+    if #units == 0 then
+      say("Nothing set up yet: on the setup screen, Machines, tap a machine and give it a recipe.", "orange")
       status("waiting", "nothing set up")
       return
     end
     if #recipes == 0 then
-      say("No recipes yet: tap a custom machine on the setup screen, then + Add a recipe.", "orange")
+      say("No recipes yet: on the setup screen, Machines, tap a machine, then + Add a recipe.", "orange")
       status("waiting", "no recipes")
     end
     local input = r.input
@@ -718,8 +1016,8 @@ function M.new(f)
     for name, n in pairs(counts) do avail[name] = n end
 
     if not collected then
-      local _, byName
-      _, outStuck, outWhy, byName = self.set:collect(collectable(), input)
+      local byName
+      byName, outStuck, outWhy = collect(input)
       credit(byName)
     end
 
@@ -755,46 +1053,43 @@ function M.new(f)
     for _, q in ipairs(requests) do
       q.state = nil
       local rc = q.recipe
-      -- everything sent, none of it waiting in a feeder, nothing made for a
-      -- while: the machine gave fewer than the recipe says, so send the rest
+      -- everything sent, none of it waiting, nothing made for a while: the
+      -- machine gave fewer than the recipe says, so send the rest
       if toSend(q) == 0 and left(q) > 0 and now - progress[q.at] > SHORT_AFTER then
-        local inFeeders = 0
-        for _, m in ipairs(machines) do
-          for _, it in ipairs(rc.ins) do inFeeders = inFeeders + (m.feed[it.name] or 0) end
+        local inside = 0
+        for _, u in ipairs(units) do
+          local w = waiting(u)
+          for _, it in ipairs(rc.ins) do inside = inside + (w[it.name] or 0) end
         end
-        if inFeeders == 0 then
+        if inside == 0 then
           q.sent = math.max(0, q.sent - math.ceil(left(q) / rc.count))
           q.dirty, progress[q.at] = true, now
         end
       end
-      local lines = 0
-      for _, m in ipairs(machines) do
-        if hasRecipe(m.entry, rc) then
-          lines = lines + 1
+      local machines = 0
+      for _, u in ipairs(units) do
+        if hasRecipe(u, rc) then
+          machines = machines + 1
           local want = toSend(q)
-          if want > 0 and mekfeed.ready(m) and not r.unsure[m.entry.feeder] and m.outOk and feederFree(m, rc)
-            and not isLearning(m.entry.output) then
-            local fill = math.max(m.fill, rc.perGo)
-            local room = math.floor(math.max(0, fill - m.feedTotal) / rc.perGo)
-            local slots = math.floor(math.max(0, m.feedSize * mekfeed.STACK - m.feedTotal) / rc.perGo)
-            local goes = math.min(want, goesFrom(rc, avail), room, slots, math.floor(SEND_MAX / rc.most))
+          if want > 0 and canTake(u, rc, r.unsure) and not (u.found and r.unsure[u.name]) then
+            local goes = math.min(want, goesFrom(rc, avail), room(u, rc), math.floor(SEND_MAX / rc.most))
             if goes > 0 then
               local items = {}
               for _, it in ipairs(rc.ins) do items[it.name] = it.count * goes end
-              local got = {}
+              local got
               if plan then
-                plan[#plan + 1] = { m = m, q = q, rc = rc, items = items, goes = goes }
+                plan[#plan + 1] = { u = u, q = q, rc = rc, items = items, goes = goes }
                 got = items
               else
-                local reply = f.ask({ type = "send", to = m.entry.feeder, items = items })
+                local reply = f.ask({ type = "send", to = u.feed, items = items })
                 got = reply and type(reply.sent) == "table" and reply.sent or {}
                 if reply and reply.error then problem = reply.error end
-                if not reply then problem = "the storage computer didn't answer while loading " .. m.title end
+                if not reply then problem = "the storage computer didn't answer while loading " .. u.title end
               end
               local done = goes
               for _, it in ipairs(rc.ins) do
                 local n = tonumber(got[it.name]) or 0
-                mekfeed.added(m, it.name, n)
+                added(u, it.name, n)
                 avail[it.name] = (avail[it.name] or 0) - n
                 sent = sent + n
                 done = math.min(done, math.floor(n / it.count))
@@ -805,7 +1100,7 @@ function M.new(f)
           end
         end
       end
-      if lines == 0 then
+      if machines == 0 then
         q.state = "no machine has this recipe"
       elseif toSend(q) > 0 and goesFrom(rc, avail) == 0 then
         local short, names = {}, {}
@@ -841,9 +1136,9 @@ function M.new(f)
       for _, p in ipairs(plan) do
         local done = p.goes
         for name, n in pairs(p.items) do
-          local got = work:move(name, p.m.entry.feeder, nil, n)
+          local got = work:move(name, p.u.feed, nil, n)
           if got < n then
-            mekfeed.added(p.m, name, got - n)
+            added(p.u, name, got - n)
             sent = sent - (n - got)
           end
           for _, it in ipairs(p.rc.ins) do
@@ -861,12 +1156,26 @@ function M.new(f)
 
     -- how each machine and request is doing
     local working, broken = 0, 0
-    for _, m in ipairs(machines) do
-      local item = mekfeed.current(m)
-      local colour, text = mekfeed.status(m, item and ("making from " .. nice(item)))
-      if isLearning(m.entry.output) then colour, text = "yellow", "learning a recipe" end
-      m.state, m.tile = text, colour
-      m.colour = ({ red = "red", orange = "lime", yellow = "lime", lime = "gray" })[colour] or "gray"
+    for _, u in ipairs(units) do
+      local colour, text
+      if isLearning(u.feed) or isLearning(u.out) then
+        colour, text = "yellow", "learning a recipe"
+      elseif u.found then
+        local w = waiting(u)
+        local name = next(w)
+        if not u.present then colour, text = "red", "not on network"
+        elseif r.unsure[u.name] then colour, text = "red", "not taken as a feeder"
+        elseif stalled(u, now) then colour, text = "red", "not working"
+        elseif name then colour, text = total(w) >= mekfeed.STACK and "orange" or "yellow", "making from " .. nice(name)
+        else colour, text = "lime", "idle" end
+      elseif u.m then
+        local item = mekfeed.current(u.m)
+        colour, text = mekfeed.status(u.m, item and ("making from " .. nice(item)))
+      else
+        colour, text = "red", "no feeder"
+      end
+      u.state, u.tile = text, colour
+      u.colour = ({ red = "red", orange = "lime", yellow = "lime", lime = "gray" })[colour] or "gray"
       if colour == "red" then broken = broken + 1
       elseif colour == "orange" or colour == "yellow" then working = working + 1 end
     end
@@ -876,7 +1185,7 @@ function M.new(f)
 
     if outWhy then problem = problem or outWhy
     elseif outStuck then
-      problem = problem or ("the %s is full: what's made is waiting in the output chests"):format(work.remote and "ender chest" or "storage input chest")
+      problem = problem or ("the %s is full: what's made is waiting in the machines"):format(work.remote and "ender chest" or "storage input chest")
     end
     if news and os.clock() < news[3] then
       self.message = { news[1], news[2] }
@@ -885,16 +1194,19 @@ function M.new(f)
     elseif work.problem then
       say(("Not using the work chest: %s."):format(work.problem), "orange")
     elseif broken > 0 then
-      local m
-      for _, x in ipairs(machines) do
-        if x.tile == "red" then m = m or x end
+      local u
+      for _, x in ipairs(units) do
+        if x.tile == "red" then u = u or x end
       end
       local why = {
         ["no feeder"] = "its feeder isn't on the network",
         ["no output chest"] = "its output chest isn't on the network",
         ["not moving"] = "nothing goes out of its feeder: is the machine running, and does a hopper or pipe take from the feeder?",
+        ["not working"] = "its inputs sit in it and nothing comes out: has it power, and is the recipe right?",
+        ["not on network"] = "it isn't on the network any more: is its modem on?",
+        ["not taken as a feeder"] = "the storage computer won't fill it: 'install update' the storage computer",
       }
-      say(("%s: %s"):format(m.title, why[m.state] or m.state), "red")
+      say(("%s: %s"):format(u.title, why[u.state] or u.state), "red")
     elseif #recipes == 0 then
       return
     elseif makesNote and #requests == 0 then
@@ -902,12 +1214,12 @@ function M.new(f)
     elseif #requests == 0 then
       say("Tap +1, +8 or +64 by what you want made. Everything kept is stocked.")
     elseif sent > 0 then
-      say(("Sent %d items to the machine%s."):format(sent, #machines == 1 and "" or "s"))
+      say(("Sent %d items to the machine%s."):format(sent, #units == 1 and "" or "s"))
     else
       say(("%s: %s."):format(requests[1].recipe.title, requests[1].state))
     end
     status(broken > 0 and "alert" or working > 0 and "running" or "idle",
-      ("%d of %d machines working, %d requests"):format(working, #machines, #requests))
+      ("%d of %d machines working, %d requests"):format(working, #units, #requests))
   end
 
   ---------------------------------------------------------------- screen
@@ -968,7 +1280,7 @@ function M.new(f)
       end
     end
     if #recipes == 0 then
-      screen.put(win, 2, 4, fit(#machines == 0 and "No custom machines yet." or "No recipes yet: add one on the setup screen.", w - 2), "gray")
+      screen.put(win, 2, 4, fit("No recipes yet: give a machine one on the setup screen.", w - 2), "gray")
     end
     if #recipes > rows then
       screen.put(win, w, 4, scroll > 0 and "^" or " ", "yellow")
@@ -994,16 +1306,16 @@ function M.new(f)
     local key = { self.message[1], self.message[2], scroll, picked, #recipes }
     for _, rc in ipairs(recipes) do key[#key + 1] = rc.key .. "=" .. (counts[rc.make] or 0) .. "/" .. (rc.keep or "") .. "/" .. goesFrom(rc, counts) end
     for _, q in ipairs(requests) do key[#key + 1] = table.concat({ q.key, q.made, q.count, q.state or "" }, "/") end
-    for _, m in ipairs(machines) do key[#key + 1] = table.concat({ m.title, m.state or "" }, "/") end
+    for _, u in ipairs(units) do key[#key + 1] = table.concat({ u.title, u.state or "" }, "/") end
     return table.concat(key, "|")
   end
 
   function self.draw(win, w, h)
     local busy = 0
-    for _, m in ipairs(machines) do
-      if m.colour == "lime" then busy = busy + 1 end
+    for _, u in ipairs(units) do
+      if u.colour == "lime" then busy = busy + 1 end
     end
-    screen.put(win, 2, 2, screen.fit(("%d machine%s, %d working, %d recipes"):format(#machines, #machines == 1 and "" or "s",
+    screen.put(win, 2, 2, screen.fit(("%d machine%s, %d working, %d recipes"):format(#units, #units == 1 and "" or "s",
       busy, #recipes), w - 2), "lightGray")
     local footer = {}
     for _, line in ipairs(screen.wrap(self.message[1], w, (self.message[2] == "red" or self.message[2] == "orange") and 4 or 2)) do footer[#footer + 1] = { line, self.message[2] } end
@@ -1020,7 +1332,7 @@ function M.new(f)
 
   function self.tiles()
     local tiles = {}
-    for _, m in ipairs(machines) do tiles[#tiles + 1] = { m.title, m.state or "idle", m.tile or "lime" } end
+    for _, u in ipairs(units) do tiles[#tiles + 1] = { u.title, u.state or "idle", u.tile or "lime" } end
     return tiles
   end
 
@@ -1045,7 +1357,7 @@ function M.new(f)
       picked = math.max(1, math.min(#recipes, picked + a.scroll))
     elseif a.cancel then
       cancel(a.cancel)
-      tell("Cancelled. What's already in a feeder still gets made (a kept one is asked for again when it's short).", "lime")
+      tell("Cancelled. What's already in a machine still gets made (a kept one is asked for again when it's short).", "lime")
       f.wake()
     end
   end
@@ -1094,14 +1406,41 @@ function M.new(f)
     return exact
   end
 
-  -- A machine by its number, or nil (and the list printed).
-  local function lineArg(text)
-    local list = self.set:entries()
+  -- Every machine a recipe can go on, numbered for the commands: each found
+  -- one on the cable, then the hidden ones. { key, title, where }.
+  local function numbered()
+    local out = {}
+    for _, name in ipairs(candidates()) do
+      out[#out + 1] = { key = "m:" .. name, title = titleOf(name), where = name }
+    end
+    local entries = self.set:entries()
+    local titles = self.set:titles(entries)
+    for i, e in ipairs(entries) do
+      out[#out + 1] = { key = "l:" .. e.feeder, title = titles[i],
+        where = ("fed by %s, out to %s"):format(e.feeder, e.output or "?") }
+    end
+    return out
+  end
+
+  local function printMachines(list)
+    for i, m in ipairs(list) do
+      local recs = recipesAt(m.key)
+      do
+        print(("%d  %s: %s"):format(i, m.title, m.where))
+        for j, raw in ipairs(recs) do
+          local rc = compile(raw)
+          print(("   %d. %s"):format(j, rc and ("%s = %s, %s"):format(sideText(rc.ins), sideText(rc.outs), keepText(rc.keep)) or "broken"))
+        end
+      end
+    end
+    if #list == 0 then print("No machine found: put a wired modem on one, join it to the cable and right-click it.") end
+  end
+
+  local function machineArg(text)
+    local list = numbered()
     local n = tonumber(text or "")
-    if n and list[n] then return list, n end
-    local titles = self.set:titles(list)
-    for i, e in ipairs(list) do print(("%d  %s: fed by %s, out to %s"):format(i, titles[i], e.feeder, e.output or "?")) end
-    if #list == 0 then print("No custom machines yet: 'factory add machine'.") end
+    if n and list[n] then return list[n] end
+    printMachines(list)
     return nil
   end
 
@@ -1117,7 +1456,7 @@ function M.new(f)
   -- 'factory custom ...'. True if args was it.
   function self.command(args)
     if args[1] ~= "custom" then return false end
-    refreshLines()
+    refreshUnits()
     local queued = loadRequests()
     local verb = args[2]
     if verb == "cancel" then
@@ -1133,8 +1472,8 @@ function M.new(f)
       f.wake()
       return true
     elseif verb == "recipe" then
-      local list, i = lineArg(args[3])
-      if not list then
+      local m = machineArg(args[3])
+      if not m then
         print("Usage: factory custom recipe <machine> <in> = <out>")
         return true
       end
@@ -1146,19 +1485,18 @@ function M.new(f)
         print("e.g. factory custom recipe 1 2 iron_ingot coal = steel_ingot (counts before items; mod:item for mods)")
         return true
       end
-      local e = list[i]
-      e.recipes = type(e.recipes) == "table" and e.recipes or {}
-      e.recipes[#e.recipes + 1] = { ins = ins, outs = outs }
-      self.set:save(list)
-      print(("%s: %s = %s (recipe %d)."):format(self.set:titles(list)[i], sideText(ins), sideText(outs), #e.recipes))
-      print(("Keep some in stock: factory custom keep %d %d <n>"):format(i, #e.recipes))
+      local recs = recipesAt(m.key)
+      recs[#recs + 1] = { ins = ins, outs = outs }
+      saveRecipesAt(m.key, recs)
+      print(("%s: %s = %s (recipe %d)."):format(m.title, sideText(ins), sideText(outs), #recs))
+      print(("Keep some in stock: factory custom keep %s %d <n>"):format(args[3], #recs))
+      f.wake()
       return true
     elseif verb == "keep" or verb == "forget" then
-      local list, i = lineArg(args[3])
+      local m = machineArg(args[3])
       local j = tonumber(args[4] or "")
-      local e = list and list[i]
-      local recs = e and type(e.recipes) == "table" and e.recipes or {}
-      if not e or not j or not recs[j] or (verb == "keep" and not args[5]) then
+      local recs = m and recipesAt(m.key) or {}
+      if not m or not j or not recs[j] or (verb == "keep" and not args[5]) then
         for k, raw in ipairs(recs) do
           local rc = compile(raw)
           print(("  recipe %d: %s"):format(k, rc and ("%s = %s, %s"):format(sideText(rc.ins), sideText(rc.outs), keepText(rc.keep)) or "broken"))
@@ -1175,7 +1513,7 @@ function M.new(f)
         print(recs[j].keep and ("Keeps %d %s in storage from now on."):format(recs[j].keep, nice(recs[j].outs[1].name))
           or "Only on request now.")
       end
-      self.set:save(list)
+      saveRecipesAt(m.key, recs)
       f.wake()
       return true
     end
@@ -1195,16 +1533,7 @@ function M.new(f)
       usage()
       return true
     end
-    local list = self.set:entries()
-    local titles = self.set:titles(list)
-    for i, e in ipairs(list) do
-      print(("%d  %s: fed by %s, out to %s"):format(i, titles[i], e.feeder, e.output or "?"))
-      for j, raw in ipairs(type(e.recipes) == "table" and e.recipes or {}) do
-        local rc = compile(raw)
-        print(("   %d. %s"):format(j, rc and ("%s = %s, %s"):format(sideText(rc.ins), sideText(rc.outs), keepText(rc.keep)) or "broken"))
-      end
-    end
-    if #list == 0 then print("No custom machines yet: 'factory add machine'.") end
+    printMachines(numbered())
     for i, q in ipairs(queued) do
       print(("Request %d: %s %d/%d%s"):format(i, q.recipe and q.recipe.title or q.key, q.made, q.count,
         q.job and " (for the craft overseer)" or q.keep and " (kept in stock)" or ""))

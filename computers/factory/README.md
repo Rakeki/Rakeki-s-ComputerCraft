@@ -23,12 +23,12 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser; with Cobblemon its [medicine](#cobblemon-medicine) too, into storage |
 | Inscribers, chargers, vibration chambers | [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2) | [on request](#applied-energistics): printed circuits, processors, dusts, press copies, charged certus; vibration chambers kept fuelled; the craft overseer orders them for its crafts too |
 | Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
-| Any machine at all | any | [your own recipes](#custom-machines): say what goes in and what comes out, then make some on request or keep an amount in storage for good; the craft overseer orders them for its crafts too |
+| Any other machine | any | found by itself, run from [your own recipes](#custom-machines): say what goes in and what comes out, then make some on request or keep an amount in storage for good; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
 | Hopper Botany Pots | [Mystical Agriculture](https://www.curseforge.com/minecraft/mc-mods/mystical-agriculture) | [essence](#essence) emptied into storage, and the recipes it crafts into, ready to order |
 
 What it makes goes back into storage through the storage computer's input
-chest (potions go into a chest of their own). Furnaces, brewing stands, botany pots and AE2 machines are found by themselves; everything else is
+chest (potions go into a chest of their own). Furnaces, brewing stands, botany pots, AE2 machines and any other machine with slots are found by themselves; everything else is
 added on the [setup screen](#the-setup-screen), in a few taps. With none of
 a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
@@ -526,17 +526,20 @@ turning, and the funnel taking from the feeder?
 ## Custom machines
 
 For any machine the other parts don't know: a press, a mixer, a modded
-furnace, a Create mixer basin, anything a hopper or pipe can feed. The
-computer never touches the machine. It only fills a **feeder** (the hopper
-into the machine, or a barrel a pipe pulls from into it) and empties an
-**output chest** (where the machine puts what it makes), so it works with
-any mod.
+furnace, a crusher from another mod. Every machine on the cable with slots
+that nothing else here runs (not a chest, barrel, hopper, furnace, brewing
+stand or AE2 machine) is **found by itself**: put a wired modem on it, join
+it to the storage cable and right-click it, and it's on the setup screen's
+**Machines** page. Give it a recipe and its inputs go **straight into it**
+from storage, and what it makes is **taken out of it** into storage: only
+what its recipes make, so its inputs stay in. A machine with no recipe is
+left alone.
 
 You tell each machine its **recipes**: what goes in for **one go** and what
 comes out, e.g. `2 iron ingot + 1 coal = 1 steel ingot`. A machine can have
 several. The first thing a recipe makes is what it's for (counted and
 asked for); anything else it gives (a byproduct, a bucket back) just goes
-into storage. Each recipe works one of two ways:
+into storage too. Each recipe works one of two ways:
 
 - **On request.** Nothing is made until you ask: the **Custom** tab (and the
   monitor's **Custom** page) lists every recipe with how many are stored and
@@ -548,35 +551,45 @@ into storage. Each recipe works one of two ways:
   in lime on the tab, and the stored count turns orange while it's under.
 
 What goes in is sent a whole go at a time (never 2 iron without its coal),
-up to `fill` items waiting in the feeder (64, set in `config.lua`). What
-arrives in the output chest is counted towards the requests, then goes
-into storage. If a recipe's inputs run short, the craft overseer is asked
-to make them first (`order = false` under `custom` turns that off); the
-request waits, saying what for. The craft overseer is also told what the
-custom machines make (recipes of up to 9 inputs), so its crafting plans
-use them like any other machine (`offer = false`: only your requests).
-While a request is waiting, the smelter leaves its inputs alone.
+up to `fill` items waiting in the machine (64, set in `config.lua`). What
+comes out is counted towards the requests, then goes into storage. If a
+recipe's inputs run short, the craft overseer is asked to make them first
+(`order = false` under `custom` turns that off); the request waits, saying
+what for. The craft overseer is also told what the custom machines make
+(recipes of up to 9 inputs), so its crafting plans use them like any other
+machine (`offer = false`: only your requests). While a request is waiting,
+the smelter leaves its inputs alone.
 
 A machine with several recipes runs one at a time: it only gets a
-recipe's inputs while its feeder is empty or holds that same recipe's, so
-two recipes never get mixed up in it. It shows red **not moving** when its
-feeder hasn't gone down for a minute: is the machine running, and does the
-hopper or pipe take from the feeder?
+recipe's inputs while it holds none of another recipe's, so two recipes
+never get mixed up in it. It shows red **not working** when its inputs have
+sat in it for a minute with nothing used and nothing made: has it power,
+and is the recipe right? A machine that's found but shouldn't be (a tank
+with an item slot, say) is never used without a recipe; to hide it, put a
+word from its type under `ignore` in `config.lua`. With several factory
+computers, a machine with recipes belongs to one of them, like a furnace.
+
+**Machines CC can't see** (Create's mixers and presses, or anything with no
+item port on the cable) are added by hand instead, as two chests: a feeder
+a hopper or pipe empties into the machine, and an output chest it puts what
+it makes into (see [Hidden machines](#hidden-machines)).
 
 ### Giving it a recipe
 
 On the setup screen, **Machines**, tap the machine, then **+ Add a recipe**.
-You show it the recipe in its **output chest** (the factory leaves that
-chest alone while the page is open):
+You show it the recipe in a chest:
 
-1. Put **one go's inputs** in the output chest and tap **Use these**.
+1. Put **one go's inputs** in any **empty chest or barrel** on the cable;
+   the screen sees which one you used. (A hidden machine uses its own
+   output chest instead.) Tap **Use these**.
 2. Take them out, put **one go's outputs** in, with the main one in the
    **first slot**, and tap **Use these** again.
 
-Whatever is left in the chest goes into storage afterwards. Tap a recipe
-to set **Keep in stock** (off, or 1 up to 4096), learn it again, or remove it.
-Or type it, counts before items (`mod:item` for a modded item; a plain name
-is Minecraft's):
+Take the items back out afterwards (from a hidden machine's output chest
+they go into storage by themselves). Tap a recipe to set **Keep in stock**
+(off, or 1 up to 4096), show it again, or remove it. Or type it, counts
+before items (`mod:item` for a modded item; a plain name is Minecraft's),
+with the machine's number from `factory custom`:
 
 ```
 factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel
@@ -1029,7 +1042,17 @@ For each sawing line:
 
 ### A custom machine
 
-For each machine:
+1. Put a **wired modem** on the machine, joined to the storage cable, and
+   right-click it. Or keep it on a **cable of its own** with an ender chest,
+   as for [saws](#saws).
+2. On the setup screen, **Machines**, tap it (it's listed by its name, e.g.
+   **Press 0**) and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
+3. Install update the **storage computer** too: an older one won't fill a
+   machine straight (the machine shows red **not taken as a feeder**).
+
+### Hidden machines
+
+For a machine CC can't see:
 
 1. An **empty barrel** (or chest, or a hopper) that feeds the machine: a
    hopper pointing into it, or a pipe pulling from the barrel into the
@@ -1038,11 +1061,10 @@ For each machine:
    in, by a hopper under it or a pipe from its output: the **output chest**.
    It needs one: what it makes is counted there. Only the outputs should
    go there, not the inputs.
-3. A **wired modem** on both, joined to the storage network (or on a cable
-   of their own with an ender chest, as for [saws](#saws)).
-4. On the setup screen, **Machines**, tap **+ Add a custom machine**: its
-   feeder, then its output chest. Or type `factory add machine`.
-5. Tap it and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
+3. A **wired modem** on both, joined to the storage network.
+4. On the setup screen, **Machines**, tap **+ Add a machine CC can't see**:
+   its feeder, then its output chest. Or type `factory add hidden`.
+5. Tap it and **+ Add a recipe**.
 
 ### Brewing stands
 
@@ -1204,7 +1226,7 @@ factory saw stripped spruce log 128   -- ask for 128 stripped spruce logs
 factory saw oak slab 64        -- ask for 64 oak slabs (needs a line with its filter on oak slabs)
 factory saw filter 2 minecraft:oak_slab   -- sawing line 2's saw has its filter on oak slabs ('none': no filter)
 factory saw cancel 2           -- cancel request 2 ('factory saw cancel': all of them)
-factory add machine            -- a custom machine: pick its feeder and output chest
+factory add hidden             -- a machine CC can't see: pick its feeder and output chest
 factory custom                 -- every custom machine, its recipes, and what's asked for
 factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel   -- machine 1: 2 iron + 1 coal make 1 steel
 factory custom keep 1 1 64     -- machine 1's recipe 1: keep 64 in storage for good ('off': only on request)
