@@ -233,14 +233,15 @@ hands those to every part.
 - **Sealed** (found, `u.sealed`): no `inventory` type, but a `getInput*`
   method (`seenType`: Mekanism's reaction chamber, crusher...; not
   `NOT_SEEN`, the Mekanism machines other parts run, cables, generators).
-  Run straight like found ones: read by `readSealed` (every `getInput*` /
-  `getOutput*` that returns `{ name, count }`, side by side), filled by
-  `send` (the storage computer takes a non-inventory machine as a feeder),
-  emptied by `pullSealed`: the input chest `pullItems` from the machine's
-  slots, the output slots (`outSlots`) found by trying `SEALED_SLOTS` once
-  (at most every `PROBE_EVERY`), diffing the input chest and pushing back
-  whatever isn't an output. Fails red ("can't take out what it made");
-  the machine page's **Use a hopper and output chest** runs mekfeed's
+  Listed (orange "needs a hopper and output chest") but never run straight:
+  `foundWithRecipes` leaves them out, so they're not claimed, fed or units.
+  CC reaches them through Mekanism's own peripheral, with no side, and
+  Mekanism's `ProxyHandler` makes a side-less handler read-only
+  (`readOnly = side == null`): `pushItems` / `pullItems` move nothing
+  (tried in-game: a reaction chamber's substrate never came out). Only
+  `readSealed` (every `getInput*` / `getOutput*` that returns
+  `{ name, count }`) is used, by `holding` while watching for a recipe.
+  The machine page's **Give it a hopper and output chest** runs mekfeed's
   `parts.add("custom", name)`, so it becomes a hidden line whose entry keeps
   `machine` (its title, `uses`, and the recipes it had until it saves its own).
 - **Hidden**: a mekfeed line of kind `custom` (word `hidden`, `plain`,

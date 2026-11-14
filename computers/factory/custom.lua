@@ -39,8 +39,6 @@ local MAKES_EVERY = 60 -- seconds between telling the craft overseer what the cu
 local KEEP_SETTLE = 15 -- seconds after something came out before a kept item is topped up (it may not be counted in storage yet)
 local LEARN_FOR = 30 -- seconds a chest is left alone after the learn page last looked at it
 local WATCH_EVERY = 0.2 -- seconds between looks at a machine being watched for its recipe (in the running factory)
-local SEALED_SLOTS = 12 -- slots tried when looking for where a machine CC can't list keeps what it made
-local PROBE_EVERY = 60 -- seconds between trying every slot of such a machine when its output can't be found
 local QUEUE_SHOWN = 3 -- requests listed under the recipes
 local BUTTONS = { 1, 8, 64 } -- the request buttons by each recipe
 local KEEP_CHOICES = { 1, 16, 32, 64, 128, 256, 512, 1024, 4096 } -- the setup screen's keep amounts
@@ -375,12 +373,15 @@ function M.new(f)
   end
 
   -- The found machines that have recipes and are this computer's (or no
-  -- one's yet: factory.lua claims them).
+  -- one's yet: factory.lua claims them). Not ones CC can't list (Mekanism's):
+  -- reached through their own modem they have no side, and Mekanism gives a
+  -- side-less look read-only, so nothing can be put in or taken out. They run
+  -- as a hidden machine (a hopper and an output chest), set up on its page.
   local function foundWithRecipes()
     local t = readRecipeFile()
     local out = {}
     for _, name in ipairs(candidates()) do
-      if type(t[name]) == "table" and #t[name] > 0 then out[#out + 1] = name end
+      if type(t[name]) == "table" and #t[name] > 0 and not isSealed(name) then out[#out + 1] = name end
     end
     return out
   end
@@ -425,7 +426,7 @@ function M.new(f)
     local t = readRecipeFile()
     for _, name in ipairs(foundWithRecipes()) do
       if f.mine(name) then
-        out[#out + 1] = { key = "m:" .. name, name = name, found = true, sealed = isSealed(name), title = titleOf(name),
+        out[#out + 1] = { key = "m:" .. name, name = name, found = true, title = titleOf(name),
           feed = name, out = name, raw = t[name] }
       end
     end
@@ -461,12 +462,7 @@ function M.new(f)
     for _, m in ipairs(lines) do byFeeder[m.entry.feeder] = m end
     local jobs = {}
     for _, u in ipairs(units) do
-      if u.found and u.sealed then
-        jobs[#jobs + 1] = function()
-          u.have, u.outHave, u.present = readSealed(u.name)
-          u.list = {}
-        end
-      elseif u.found then
+      if u.found then
         jobs[#jobs + 1] = function()
           local ok, list = pcall(peripheral.call, u.name, "list")
           u.present = ok and type(list) == "table"
@@ -542,89 +538,12 @@ function M.new(f)
   -- its recipes makes and none takes, so its inputs stay in. The hidden
   -- machines' output chests are emptied whole. Item -> how many moved, and
   -- whether some didn't fit, and why a move failed.
-  -- A machine CC can't list is emptied by having input pull from its slots
-  -- (pullItems: CC finds the machine's slots itself), but which slot holds
-  -- what can't be seen. So when it says it has an output, slots are tried
-  -- one by one: what comes out is looked at in input, an output stays and
-  -- that slot is noted, anything else (an input, a battery) goes straight
-  -- back in. Item -> how many came out, and why it couldn't, if it couldn't.
-  local outSlots = {} -- machine -> { slot, ... } its outputs come out of
-  local probedAt = {} -- machine -> when its slots were last all tried (os.clock): not every round
-  local pullWhys = {} -- machine -> why what it made couldn't be taken out of it
-  local function inputCounts(input)
-    local ok, list = pcall(peripheral.call, input, "list")
-    local map, at = {}, {}
-    for slot, it in pairs(ok and type(list) == "table" and list or {}) do
-      map[it.name] = (map[it.name] or 0) + it.count
-      at[it.name] = slot
-    end
-    return map, at
-  end
-  local function pullSealed(u, input)
-    local got = {}
-    local want = 0
-    for name, n in pairs(u.outHave or {}) do
-      if not u.inputs[name] then want = want + n end
-    end
-    if want == 0 then return got end
-    local function pull(slot)
-      local before = inputCounts(input)
-      local ok, n = pcall(peripheral.call, input, "pullItems", u.name, slot)
-      if not ok then return nil, tostring(n) end
-      if (n or 0) == 0 then return 0 end
-      local after, at = inputCounts(input)
-      local isOut = false
-      for name, count in pairs(after) do
-        local d = count - (before[name] or 0)
-        if d > 0 then
-          if u.outputs[name] and not u.inputs[name] then
-            got[name] = (got[name] or 0) + d
-            isOut = true
-          else
-            pcall(peripheral.call, input, "pushItems", u.name, at[name], d) -- not an output: back it goes
-          end
-        end
-      end
-      return isOut and n or 0
-    end
-    local moved = 0
-    for _, slot in ipairs(outSlots[u.name] or {}) do
-      local n, err = pull(slot)
-      if not n then return got, err end
-      moved = moved + n
-    end
-    if moved == 0 and os.clock() - (probedAt[u.name] or -math.huge) >= PROBE_EVERY then
-      probedAt[u.name] = os.clock()
-      -- not where it was (or never looked for): try every slot
-      local found = {}
-      for slot = 1, SEALED_SLOTS do
-        local n, err = pull(slot)
-        if not n then return got, err end
-        if n > 0 then found[#found + 1] = slot end
-      end
-      if #found > 0 then outSlots[u.name] = found end
-      if not next(got) then
-        return got, "it says it has made something, but none of it came out of its slots"
-      end
-    end
-    return got
-  end
-
   local function collect(input)
     local byName, stuck, why = {}, false, nil
     if not input then return byName, false, nil end
     local hidden = {}
     for _, u in ipairs(units) do
-      if u.found and u.sealed and u.present and not isLearning(u.name) then
-        local got, err = pullSealed(u, input)
-        -- kept between rounds: a failed look at every slot is only tried again after PROBE_EVERY
-        if err then pullWhys[u.name] = err elseif next(got) then pullWhys[u.name] = nil end
-        u.pullWhy = pullWhys[u.name]
-        for name, n in pairs(got) do
-          byName[name] = (byName[name] or 0) + n
-          u.made = true
-        end
-      elseif u.found and u.present and not isLearning(u.name) then
+      if u.found and u.present and not isLearning(u.name) then
         for slot, it in pairs(u.list) do
           if u.outputs[it.name] and not u.inputs[it.name] then
             local ok, n = pcall(peripheral.call, u.name, "pushItems", input, slot)
@@ -1011,9 +930,10 @@ function M.new(f)
           end
           for _, row in ipairs(recipeRows(ui, key, nil)) do rows[#rows + 1] = row end
           if isSealed(name) then
-            -- straight through the modem is tried first; if CC won't move its items, a hopper and chest do
-            rows[#rows + 1] = { label = "Use a hopper and output chest", value = "if it can't be filled or emptied straight",
-              colour = "gray", act = function() parts.add("custom", name) end }
+            -- Mekanism lets CC read it through its modem but not move items in or out (see foundWithRecipes)
+            rows[#rows + 1] = { label = "CC can read it but can't move items in or out.", colour = "orange", dim = true }
+            rows[#rows + 1] = { label = "Give it a hopper and output chest", value = "needed to run it",
+              colour = "yellow", act = function() parts.add("custom", name) end }
           end
           return rows
         end,
@@ -1025,8 +945,10 @@ function M.new(f)
         local t = readRecipeFile()
         for _, name in ipairs(candidates()) do
           local n = type(t[name]) == "table" and #t[name] or 0
-          out[#out + 1] = { label = titleOf(name), value = n > 0 and ("%d recipe%s"):format(n, n == 1 and "" or "s")
-            or ("%s: no recipe"):format(name), colour = n > 0 and "lightGray" or "gray",
+          local sealed = isSealed(name)
+          out[#out + 1] = { label = titleOf(name), value = sealed and "needs a hopper and output chest"
+            or n > 0 and ("%d recipe%s"):format(n, n == 1 and "" or "s")
+            or ("%s: no recipe"):format(name), colour = sealed and "orange" or n > 0 and "lightGray" or "gray",
             act = function() ui:open(machinePage(name)) end }
         end
         for _, row in ipairs(parts.entries()) do out[#out + 1] = row end
@@ -1518,7 +1440,6 @@ function M.new(f)
         local name = next(w)
         if not u.present then colour, text = "red", "not on network"
         elseif r.unsure[u.name] then colour, text = "red", "not taken as a feeder"
-        elseif u.pullWhy then colour, text = "red", "can't take out what it made"
         elseif stalled(u, now) then colour, text = "red", "not working"
         elseif name then colour, text = total(w) >= mekfeed.STACK and "orange" or "yellow", "making from " .. nice(name)
         else colour, text = "lime", "idle" end
@@ -1559,10 +1480,8 @@ function M.new(f)
         ["not working"] = "its inputs sit in it and nothing comes out: has it power, and is the recipe right?",
         ["not on network"] = "it isn't on the network any more: is its modem on?",
         ["not taken as a feeder"] = "the storage computer won't fill it: 'install update' the storage computer",
-        ["can't take out what it made"] = "CC can't take what it made out of it: tap it on the setup screen and give it an output chest instead",
       }
-      say(("%s: %s%s"):format(u.title, why[u.state] or u.state, u.state == "can't take out what it made" and u.pullWhy
-        and (" (" .. u.pullWhy .. ")") or ""), "red")
+      say(("%s: %s"):format(u.title, why[u.state] or u.state), "red")
     elseif #recipes == 0 then
       return
     elseif makesNote and #requests == 0 then
