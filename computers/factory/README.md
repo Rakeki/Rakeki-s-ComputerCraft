@@ -576,20 +576,34 @@ it makes into (see [Hidden machines](#hidden-machines)).
 
 ### Giving it a recipe
 
-On the setup screen, **Machines**, tap the machine, then **+ Add a recipe**.
-You show it the recipe in a chest:
+On the setup screen, **Machines**, tap the machine, then **+ Add a recipe
+(watch it make one)**. The factory watches the machine work it out:
 
-1. Put **one go's inputs** in any **empty chest or barrel** on the cable;
-   the screen sees which one you used. (A hidden machine uses its own
-   output chest instead.) Tap **Use these**.
-2. Take them out, put **one go's outputs** in, with the main one in the
-   **first slot**, and tap **Use these** again.
+1. Put **a stack or two of its inputs** into the machine yourself (a hidden
+   machine: into its feeder). It can already be running.
+2. Wait while it works. The screen shows what's been **used up** and
+   what's been **made**, and **one go** worked out from them (8 iron and 4
+   coal in, 3 steel out so far: 2 iron + 1 coal = 1 steel).
+3. Once something has come out, tap **Use this**. **Start over** forgets
+   what it's seen so far.
 
-Take the items back out afterwards (from a hidden machine's output chest
-they go into storage by themselves). Tap a recipe to set **Keep in stock**
-(off, or 1 up to 4096), show it again, or remove it. Or type it, counts
-before items (`mod:item` for a modded item; a plain name is Minecraft's),
-with the machine's number from `factory custom`:
+Whatever went down in the machine is an input, whatever only went up is an
+output, the most made first (what the recipe is for). The factory leaves
+the machine alone while the page is open, so take out what's left when
+you're done, or leave it: next round what it made goes into storage. Put
+in a few goes rather than one: a go used up within a moment of going in
+can be missed.
+
+Or show it instead, with **+ Add a recipe (shown in a chest)**: put one
+go's inputs in any **empty chest or barrel** on the cable (the screen sees
+which; a hidden machine uses its own output chest), tap **Use these**, take
+them out, put one go's outputs in, the main one in the **first slot**, and
+tap **Use these** again.
+
+Tap a recipe to set **Keep in stock** (off, or 1 up to 4096), watch or
+show it again, or remove it. Or type it, counts before items (`mod:item`
+for a modded item; a plain name is Minecraft's), with the machine's number
+from `factory custom`:
 
 ```
 factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel
@@ -1064,7 +1078,7 @@ For a machine CC can't see:
 3. A **wired modem** on both, joined to the storage network.
 4. On the setup screen, **Machines**, tap **+ Add a machine CC can't see**:
    its feeder, then its output chest. Or type `factory add hidden`.
-5. Tap it and **+ Add a recipe**.
+5. Tap it and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
 
 ### Brewing stands
 

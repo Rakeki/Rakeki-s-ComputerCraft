@@ -241,11 +241,16 @@ counted and asked for. Inputs go a whole go at a time (`goesFrom`), up to
 other recipe's inputs (`canTake`). `keep` is a standing request (`keep =
 true` in its file), topped up while stored + open requests' left < keep,
 not within `KEEP_SETTLE` of something coming out. Recipes are learnt on the
-setup screen from a chest (`learn`: a hidden machine's output chest, else
-any empty chest found with `ui:pickByDrop`; `learning[chest]` keeps it from
-being emptied or filled meanwhile) or typed (`parse`). Offered via `custom`
-when `perGo <= 9`; jobs are matched by `make` and the grid's counts
-(`recipeFor`).
+setup screen by watching (`watchPage`: a found machine's contents, or a
+hidden one's feeder + output chest summed, sampled every `WATCH_EVERY` by
+`self.loop` and every second by the page's `tick`; each fall adds to
+`used`, each rise to `rose`; inputs = `used`, outputs = `rose` of items
+never used, the most made first; one go = all counts divided by their gcd),
+from a chest (`learn`: a hidden machine's output chest, else any empty
+chest found with `ui:pickByDrop`), or typed (`parse`). `learning[name]`
+keeps the factory from filling or emptying what's being watched or shown.
+Offered via `custom` when `perGo <= 9`; jobs are matched by `make` and the
+grid's counts (`recipeFor`).
 
 ## The brewer
 

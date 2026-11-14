@@ -38,6 +38,7 @@ local ORDER_EVERY = 30 -- seconds between asking the craft overseer to make a re
 local MAKES_EVERY = 60 -- seconds between telling the craft overseer what the custom machines make
 local KEEP_SETTLE = 15 -- seconds after something came out before a kept item is topped up (it may not be counted in storage yet)
 local LEARN_FOR = 30 -- seconds a chest is left alone after the learn page last looked at it
+local WATCH_EVERY = 0.2 -- seconds between looks at a machine being watched for its recipe (in the running factory)
 local QUEUE_SHOWN = 3 -- requests listed under the recipes
 local BUTTONS = { 1, 8, 64 } -- the request buttons by each recipe
 local KEEP_CHOICES = { 1, 16, 32, 64, 128, 256, 512, 1024, 4096 } -- the setup screen's keep amounts
@@ -190,6 +191,7 @@ function M.new(f)
   local outStuck, outWhy, collected
   local makesKey, makesAt, makesNote = nil, -math.huge, nil
   local learning = {} -- chest -> until when (os.clock) the learn page has it: not emptied, not filled
+  local watches = {} -- watch page -> { names, prev, used, rose, untilTime }: a machine watched for its recipe
   local scroll = 0 -- the first recipe shown
   local picked = 1 -- the recipe the terminal's keys ask for (a basic computer has no mouse)
   local zones = {} -- target -> { { x1, x2, y, action } }: what a tap does on the terminal or monitor
@@ -589,6 +591,166 @@ function M.new(f)
       end })
   end
 
+  -- Learning a recipe by watching: what a machine (a found one itself; a
+  -- hidden one's feeder and output chest together) uses up and makes while
+  -- the page is open. Whatever goes down was used (an input), whatever only
+  -- goes up was made (an output); the factory leaves the machine alone
+  -- meanwhile, so it's all the player's and the machine's doing. Sampled
+  -- every WATCH_EVERY by self.loop in the running factory, and every second
+  -- by the page (the only sampling when the factory isn't running).
+  local function watchNames(key, output)
+    local kind, name = key:sub(1, 1), key:sub(3)
+    if kind == "m" then return { name } end
+    return output and { name, output } or { name }
+  end
+
+  local function readAll(names)
+    local map, ok = {}, true
+    for _, n in ipairs(names) do
+      local okL, list = pcall(peripheral.call, n, "list")
+      if not okL or type(list) ~= "table" then ok = false end
+      for _, it in pairs(okL and type(list) == "table" and list or {}) do map[it.name] = (map[it.name] or 0) + it.count end
+    end
+    return map, ok
+  end
+
+  local function sample(w)
+    local now, ok = readAll(w.names)
+    w.ok = ok
+    if not ok then return end
+    if not w.prev then
+      w.prev = now
+      return
+    end
+    local seen = {}
+    for name in pairs(now) do seen[name] = true end
+    for name in pairs(w.prev) do seen[name] = true end
+    for name in pairs(seen) do
+      local d = (now[name] or 0) - (w.prev[name] or 0)
+      if d < 0 then w.used[name] = (w.used[name] or 0) - d
+      elseif d > 0 then w.rose[name] = (w.rose[name] or 0) + d end
+    end
+    w.prev = now
+  end
+
+  local function gcd(a, b)
+    while b > 0 do a, b = b, a % b end
+    return a
+  end
+
+  -- What a watch saw: inputs (used up), outputs (only went up: the most made
+  -- first, what it's for), and how many goes that looks like (the counts'
+  -- common factor), so one go is the counts divided by it.
+  local function seen(w)
+    local ins, outs = {}, {}
+    for name, n in pairs(w.used) do ins[name] = n end
+    for name, n in pairs(w.rose) do
+      if not w.used[name] then outs[name] = n end
+    end
+    local inList, outList = listOf(ins), listOf(outs)
+    table.sort(outList, function(a, b)
+      if a.count ~= b.count then return a.count > b.count end
+      return a.name < b.name
+    end)
+    local goes = 0
+    for _, list in ipairs({ inList, outList }) do
+      for _, it in ipairs(list) do goes = gcd(it.count, goes) end
+    end
+    return inList, outList, math.max(1, goes)
+  end
+
+  local function divided(list, by)
+    local out = {}
+    for _, it in ipairs(list) do out[#out + 1] = { name = it.name, count = math.floor(it.count / by) } end
+    return out
+  end
+
+  function self.loop()
+    while true do
+      local any = false
+      for id, w in pairs(watches) do
+        if os.clock() > w.untilTime then
+          watches[id] = nil
+        else
+          any = true
+          sample(w)
+        end
+      end
+      sleep(any and WATCH_EVERY or 1)
+    end
+  end
+
+  local function watchPage(ui, key, j, output)
+    local names = watchNames(key, output)
+    local id = {}
+    local w = { names = names, used = {}, rose = {}, untilTime = os.clock() + LEARN_FOR }
+    watches[id] = w
+    local function hold()
+      w.untilTime = os.clock() + LEARN_FOR
+      for _, n in ipairs(names) do learning[n] = os.clock() + LEARN_FOR end
+    end
+    local function stop()
+      watches[id] = nil
+      for _, n in ipairs(names) do learning[n] = nil end
+    end
+    local function save(ins, outs)
+      local recs = recipesAt(key)
+      local new = { ins = ins, outs = outs, keep = j and recs[j] and recs[j].keep or nil }
+      if j and recs[j] then recs[j] = new else recs[#recs + 1] = new end
+      saveRecipesAt(key, recs)
+      stop()
+      ui:back()
+      ui:say(("%s = %s."):format(sideText(ins), sideText(outs)), "lime")
+      f.wake()
+    end
+    hold()
+    sample(w)
+    return {
+      title = "Watching it work",
+      hint = ("Put a stack or two of what goes in into %s. Once some has come out, tap Use this."):format(
+        output and names[1] .. " (its feeder)" or "the machine"),
+      tick = function()
+        hold()
+        sample(w)
+      end,
+      rows = function()
+        hold()
+        if w.ok == false then return { { label = "Can't read " .. table.concat(names, " or ") .. ".", colour = "red" } } end
+        local ins, outs, goes = seen(w)
+        local out = { { label = "Used up", value = #ins > 0 and sideText(ins) or "nothing yet", colour = "white", dim = false },
+          { label = "Made", value = #outs > 0 and sideText(outs) or "nothing yet", colour = "white", dim = false } }
+        if #ins > 0 and #outs > 0 then
+          out[#out + 1] = { label = "One go", value = ("%s = %s"):format(sideText(divided(ins, goes)), sideText(divided(outs, goes))),
+            colour = "lime", dim = false }
+          out[#out + 1] = { label = goes > 1 and ("(it looks like %d goes so far)"):format(goes) or "(the first thing made is what it's for)",
+            colour = "gray", dim = true }
+        end
+        return out
+      end,
+      buttons = function()
+        return {
+          { " Use this ", "black", "lime", function()
+            local ins, outs, goes = seen(w)
+            if #ins == 0 or #outs == 0 then
+              ui:say("Nothing used up and made yet: put its inputs in and wait for something to come out.", "orange")
+              return
+            end
+            save(divided(ins, goes), divided(outs, goes))
+          end },
+          { " Start over ", "black", "lightGray", function()
+            w.used, w.rose, w.prev = {}, {}, nil
+            sample(w)
+            ui:say("Watching again from now.", "lightGray")
+          end },
+          { " Cancel ", "white", "gray", function()
+            stop()
+            ui:back()
+          end },
+        }
+      end,
+    }
+  end
+
   local function recipePage(ui, key, j, output)
     return {
       title = "Recipe",
@@ -601,7 +763,8 @@ function M.new(f)
           { label = "Out", value = sideText(rc.outs), colour = "lightGray", dim = false },
           { label = "Keep in stock", value = rc.keep and tostring(rc.keep) or "off: only on request",
             colour = rc.keep and "lime" or "gray", act = function() ui:open(keepPage(ui, key, j)) end },
-          { label = "Show it again", colour = "white", act = function() learn(ui, key, j, output) end },
+          { label = "Watch it again", colour = "white", act = function() ui:open(watchPage(ui, key, j, output)) end },
+          { label = "Show it in a chest", colour = "white", act = function() learn(ui, key, j, output) end },
           { label = "Remove it", colour = "red", act = function()
             table.remove(list, j)
             saveRecipesAt(key, list)
@@ -623,8 +786,10 @@ function M.new(f)
         value = rc and (("from %s, %s"):format(sideText(rc.ins), keepText(rc.keep))) or "",
         colour = rc and "white" or "red", act = function() ui:open(recipePage(ui, key, j, output)) end }
     end
-    rows[#rows + 1] = { label = "+ Add a recipe", value = output and "shown in its output chest" or "shown in any empty chest",
-      colour = "lime", act = function() learn(ui, key, nil, output) end }
+    rows[#rows + 1] = { label = "+ Add a recipe", value = "watch it make one", colour = "lime",
+      act = function() ui:open(watchPage(ui, key, nil, output)) end }
+    rows[#rows + 1] = { label = "+ Add a recipe", value = output and "shown in its output chest" or "shown in a chest",
+      colour = "lightGray", act = function() learn(ui, key, nil, output) end }
     return rows
   end
 
