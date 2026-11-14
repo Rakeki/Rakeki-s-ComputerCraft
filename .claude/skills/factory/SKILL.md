@@ -230,6 +230,12 @@ hands those to every part.
   without it being empty), or `work:move` into it. Emptied of what its
   recipes make and none takes (`u.outputs` and not `u.inputs`), so inputs
   stay in. `stalled`: inputs sat with none used or made for `STUCK_AFTER`.
+- **Seen but not fillable**: no `inventory` type, but a `getInput*` method
+  (`seenType`: Mekanism's reaction chamber, crusher...; not `NOT_SEEN`, the
+  Mekanism machines other parts run and cables / generators). Listed in
+  orange (`seenMachines`); tapping one runs mekfeed's `parts.add("custom",
+  name)`, so it becomes a hidden line whose entry keeps `machine` (its title
+  and `uses`).
 - **Hidden**: a mekfeed line of kind `custom` (word `hidden`, `plain`,
   `needOutput`), recipes saved on the entry (`entry.recipes`). Fed through
   the feeder, its output chest emptied whole (`set:collect`).

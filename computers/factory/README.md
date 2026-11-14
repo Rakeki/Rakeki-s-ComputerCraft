@@ -525,8 +525,8 @@ turning, and the funnel taking from the feeder?
 
 ## Custom machines
 
-For any machine the other parts don't know: a press, a mixer, a modded
-furnace, a crusher from another mod. Every machine on the cable with slots
+For any machine the other parts don't know: a press, a mixer, a Mekanism
+Pressurized Reaction Chamber, a crusher from another mod. Every machine on the cable with slots
 that nothing else here runs (not a chest, barrel, hopper, furnace, brewing
 stand or AE2 machine) is **found by itself**: put a wired modem on it, join
 it to the storage cable and right-click it, and it's on the setup screen's
@@ -568,6 +568,16 @@ and is the recipe right? A machine that's found but shouldn't be (a tank
 with an item slot, say) is never used without a recipe; to hide it, put a
 word from its type under `ignore` in `config.lua`. With several factory
 computers, a machine with recipes belongs to one of them, like a furnace.
+
+**Machines CC sees but can't fill** (Mekanism's Pressurized Reaction
+Chamber, Crusher, Purification Chamber and the like: Mekanism gives the
+computer its own controls for them, which can't move items) are listed on
+**Machines** too, in orange, **needs a feeder and output chest**. Tap one
+and pick them: a hopper on top pointing into it (its top set to item Input
+in its side configuration), and a chest under it (its bottom set to item
+Output, Auto-eject on). From then on it's run through those two, like a
+hidden machine. Anything else it needs, like the reaction chamber's water
+and gas, and its power, you pipe in yourself.
 
 **Machines CC can't see** (Create's mixers and presses, or anything with no
 item port on the cable) are added by hand instead, as two chests: a feeder
@@ -1061,7 +1071,11 @@ For each sawing line:
    as for [saws](#saws).
 2. On the setup screen, **Machines**, tap it (it's listed by its name, e.g.
    **Press 0**) and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
-3. Install update the **storage computer** too: an older one won't fill a
+3. A machine shown in orange, **needs a feeder and output chest** (a Mekanism
+   one): tap it, then its feeder (a hopper on top, pointing into it) and its
+   output chest (under it, the machine set to eject into it), each with a
+   wired modem on the cable. Then tap it again for **+ Add a recipe**.
+4. Install update the **storage computer** too: an older one won't fill a
    machine straight (the machine shows red **not taken as a feeder**).
 
 ### Hidden machines

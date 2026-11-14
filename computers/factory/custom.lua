@@ -47,6 +47,11 @@ local KEEP_CHOICES = { 1, 16, 32, 64, 128, 256, 512, 1024, 4096 } -- the setup s
 local NOT_MACHINES = { "chest", "barrel", "shulker", "crate", "drawer", "vault", "hopper", "dropper", "dispenser",
   "ender", "furnace", "smoker", "brewing_stand", "ae2:", "pot", "computer", "turtle", "interface", "bridge",
   "drive", "storage", "tank", "crafter" }
+-- Machine types (any part of the name) never listed as a machine CC sees but can't fill: the
+-- Mekanism machines other parts run, and things that read an input but make no items.
+local NOT_SEEN = { "enrichmentChamber", "energizedSmelter", "metallurgicInfuser", "EnrichingFactory",
+  "SmeltingFactory", "InfusingFactory", "Generator", "generator",
+  "Cable", "Tube", "Pipe", "Conductor", "Cube", "Matrix", "Reactor", "Turbine", "Boiler", "Tank" }
 local LEARN_TYPES = { "chest", "barrel" } -- chests a recipe can be shown in
 
 local function nice(name) return (name:gsub("^[%w_]+:", ""):gsub("_", " ")) end
@@ -156,6 +161,35 @@ local function machineType(name, ignore)
   return true
 end
 
+-- A machine CC can see but not fill: no slots of its own to CC (a Mekanism
+-- machine's own computer methods hide them), but it reads its input
+-- (getInput, getInputItem...). It's run like a hidden machine, through a
+-- feeder and an output chest, and listed so the player can set those up.
+local function seenType(name, ignore)
+  local types = { peripheral.getType(name) }
+  local t = types[1]
+  if type(t) ~= "string" then return false end
+  for _, other in ipairs(types) do
+    if other == "inventory" then return false end
+  end
+  for _, list in ipairs({ NOT_MACHINES, NOT_SEEN, ignore }) do
+    for _, word in ipairs(list) do
+      if t:find(word, 1, true) then return false end
+    end
+  end
+  local ok, methods = pcall(peripheral.getMethods, name)
+  for _, m in ipairs(ok and type(methods) == "table" and methods or {}) do
+    if m:find("^getInput") then return true end
+  end
+  return false
+end
+
+-- "pressurizedReactionChamber_0" or "thermal:machine_press_0" as words.
+local function machineTitle(name)
+  local words = name:gsub("^[%w_]+:", ""):gsub("(%l)(%u)", "%1 %2"):gsub("_", " "):lower()
+  return (words:gsub("^%l", string.upper))
+end
+
 -- Peripherals on the wired network (not touching this computer: the
 -- storage computer can't reach those) that pass test(name).
 local function onNetwork(test)
@@ -240,8 +274,20 @@ function M.new(f)
     end)
   end
 
+  -- Machines CC sees but can't fill, not set up yet (one with a feeder is a hidden
+  -- machine's, so f.used), nor another computer's.
+  local function seenMachines()
+    return onNetwork(function(name)
+      if not seenType(name, IGNORE) then return false end
+      for _, e in ipairs(self.set:entries()) do
+        if e.machine == name then return false end
+      end
+      return not (f.used and f.used(name)) and not f.taken(name)
+    end)
+  end
+
   local function titleOf(name)
-    return NAMES[name] or capital(nice(name))
+    return NAMES[name] or machineTitle(name)
   end
 
   -- A machine's saved recipes, by its key: "m:<machine>" for a found one,
@@ -332,7 +378,8 @@ function M.new(f)
     local entries = self.set:entries()
     local titles = self.set:titles(entries)
     for i, e in ipairs(entries) do
-      out[#out + 1] = { key = "l:" .. e.feeder, name = e.feeder, found = false, title = titles[i], feed = e.feeder,
+      out[#out + 1] = { key = "l:" .. e.feeder, name = e.feeder, found = false,
+        title = e.machine and titleOf(e.machine) or titles[i], feed = e.feeder,
         out = e.output, raw = type(e.recipes) == "table" and e.recipes or {} }
     end
     return out
@@ -840,6 +887,11 @@ function M.new(f)
           out[#out + 1] = { label = titleOf(name), value = n > 0 and ("%d recipe%s"):format(n, n == 1 and "" or "s")
             or ("%s: no recipe"):format(name), colour = n > 0 and "lightGray" or "gray",
             act = function() ui:open(machinePage(name)) end }
+        end
+        -- machines CC sees but can't fill: tap one to give it a feeder and an output chest
+        for _, name in ipairs(seenMachines()) do
+          out[#out + 1] = { label = titleOf(name), value = "needs a feeder and output chest", colour = "orange",
+            act = function() parts.add("custom", name) end }
         end
         for _, row in ipairs(parts.entries()) do out[#out + 1] = row end
         return out
@@ -1581,7 +1633,7 @@ function M.new(f)
     local entries = self.set:entries()
     local titles = self.set:titles(entries)
     for i, e in ipairs(entries) do
-      out[#out + 1] = { key = "l:" .. e.feeder, title = titles[i],
+      out[#out + 1] = { key = "l:" .. e.feeder, title = e.machine and titleOf(e.machine) or titles[i],
         where = ("fed by %s, out to %s"):format(e.feeder, e.output or "?") }
     end
     return out
@@ -1598,7 +1650,10 @@ function M.new(f)
         end
       end
     end
-    if #list == 0 then print("No machine found: put a wired modem on one, join it to the cable and right-click it.") end
+    for _, name in ipairs(seenMachines()) do
+      print(("-  %s: needs a feeder and output chest (setup screen, Machines)"):format(titleOf(name)))
+    end
+    if #list == 0 and #seenMachines() == 0 then print("No machine found: put a wired modem on one, join it to the cable and right-click it.") end
   end
 
   local function machineArg(text)

@@ -146,7 +146,7 @@ function Set:lineWord(word)
   return nil
 end
 
--- Each saved entry's title: its name from config, else "Chamber 2" or
+-- Each saved entry's title: its name from config, a line's machine's name, else "Chamber 2" or
 -- "Crusher 1", counted per kind.
 function Set:titles(list)
   local out, count = {}, {}
@@ -154,7 +154,10 @@ function Set:titles(list)
     local kind = entry.line or ""
     count[kind] = (count[kind] or 0) + 1
     local title = entry.line and (LINES[entry.line] or LINES.crush).title or self.opts.title
-    out[i] = self.names[entry.machine or entry.feeder] or ("%s %d"):format(title, count[kind])
+    -- a line that feeds a machine CC can see is called after it ("Pressurized reaction chamber 0")
+    local named = entry.line and entry.machine
+      and (entry.machine:gsub("^[%w_]+:", ""):gsub("(%l)(%u)", "%1 %2"):gsub("_", " "):lower():gsub("^%l", string.upper))
+    out[i] = self.names[entry.machine or entry.feeder] or named or ("%s %d"):format(title, count[kind])
   end
   return out
 end
@@ -888,7 +891,8 @@ function Set:setupParts(ui)
         local noOutput = self:far() and "none: the ender chest" or "none: a storage input chest"
         local extraTitle = opts.extra and opts.extra.title:gsub("^%l", string.upper)
         local rows = {
-          kind and { label = "Machine", value = (kind.plain and "" or "Create ") .. kind.what, colour = "lightGray", dim = false }
+          kind and { label = "Machine", value = e.machine or ((kind.plain and "" or "Create ") .. kind.what),
+            colour = e.machine and there(e.machine) or "lightGray", dim = false }
             or { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
           { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
             pickFeeder(i, e.feeder, kind, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
@@ -926,7 +930,9 @@ function Set:setupParts(ui)
   end
 
   -- line: a Create line kind to add, nil for a Mekanism machine
-  local function add(line)
+  -- machine: for a line, the machine it feeds when CC can see it (a Mekanism machine run from
+  -- the player's recipes), kept with the entry so it's known as that machine's
+  local function add(line, machine)
     local kind = line and LINES[line]
     local function withMachine(machine)
       pickFeeder(nil, nil, kind, function(feeder)
@@ -952,7 +958,7 @@ function Set:setupParts(ui)
         end
       end)
     end
-    if kind then return withMachine(nil) end
+    if kind then return withMachine(machine) end
     local free = self:free()
     if #free == 0 then
       ui:say(("No %s on the network that isn't added: put a wired modem on it and right-click it."):format(opts.what), "orange")
