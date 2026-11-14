@@ -144,6 +144,24 @@ return {
     names = {},
   },
 
+  -- Custom machines: any machine a hopper or pipe feeds from a barrel, with
+  -- the recipes you give it (setup screen, or 'factory custom recipe').
+  custom = {
+    -- How many of an input to leave in storage, never used.
+    keep = {},
+    -- Items kept waiting in each machine's feeder (never less than one go).
+    fill = 64,
+    -- Tell the craft overseer what the custom machines make (recipes of up
+    -- to 9 inputs), so its crafting plans can use them. false: requests only.
+    offer = true,
+    -- A request (or a kept item) whose inputs are short has the craft
+    -- overseer make them first. false: it just waits for them.
+    order = true,
+    -- Names on the screen instead of "Machine 1", by feeder name, e.g.
+    -- { ["minecraft:barrel_12"] = "Press" }.
+    names = {},
+  },
+
   -- Brewing stands (found by themselves), the potion chest and the bottle filler.
   brewer = {
     -- Blaze powder kept in each stand's fuel slot (one does 20 brews).

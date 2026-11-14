@@ -10,6 +10,7 @@
 --   Cobblemon cooking pots                  exp candy (cook.lua)
 --   Hopper Botany Pots                      Mystical Agriculture essence (botany.lua)
 --   brewing stands                          potions on request, into the potion chest (brew.lua)
+--   any machine a hopper or pipe feeds     your own recipes, on request or kept in stock (custom.lua)
 --   AE2 inscribers, chargers, vibration chambers
 --                                           processors, charged certus, dust on request; fuel (ae2.lua)
 -- Furnaces, brewing stands, botany pots and AE2 machines are found by themselves; the rest are added on
@@ -19,7 +20,7 @@
 --   factory setup                   the setup screen, on the monitor and the terminal: machines, the chain,
 --                                   the work chest and the monitor (in the running factory if there is one;
 --                                   or Setup on its monitor or screen, or F1)
---   factory add <kind> [...]        add a machine: chamber, crusher, washer, smelter, fan, smokefan, saw
+--   factory add <kind> [...]        add a machine: chamber, crusher, washer, smelter, fan, smokefan, saw, machine
 --                                   ([machine] feeder [output]), infuser ([machine feeder extra output]),
 --                                   pot ([recipe feed output relay]), or potbarrel ([barrel | all]: the one
 --                                   Hopper Botany Pots empty into), potions ([chest]: where potions go),
@@ -37,6 +38,8 @@
 --   factory infuse cancel [n]       cancel infusing request n (no number: all of them)
 --   factory saw [what count]        what the saws can make, or request count of one; find <text>, filter <n> <item>
 --   factory saw cancel [n]          cancel sawing request n (no number: all of them)
+--   factory custom [what count]     the custom machines and recipes, or request count of one; recipe <n> <in> = <out>,
+--                                   keep <n> <recipe> <amount|off> (kept in storage for good), forget, cancel [n]
 --   factory brew [potion count]     the requests, or brew count of a potion; find <text>, cancel [n]
 --   factory ae2 [what count]        the AE2 recipes, or request count of one (inscriber or charger)
 --   factory ae2 cancel [n]          cancel AE2 request n (no number: all of them)
@@ -84,10 +87,10 @@ local myId = os.getComputerID()
 
 ---------------------------------------------------------------- settings
 
--- config.lua has a table per part (smelter, enricher, infuser, saw, brewer, ae2, cooker, essence). One
+-- config.lua has a table per part (smelter, enricher, infuser, saw, custom, brewer, ae2, cooker, essence). One
 -- from before the factory has its settings at the top: they're used for
 -- every part, as that computer only ran one of them.
-local SECTIONS = { "smelter", "enricher", "infuser", "saw", "brewer", "ae2", "cooker", "essence" }
+local SECTIONS = { "smelter", "enricher", "infuser", "saw", "custom", "brewer", "ae2", "cooker", "essence" }
 local sectioned = false
 for _, s in ipairs(SECTIONS) do
   if type(config[s]) == "table" then sectioned = true end
@@ -224,6 +227,7 @@ parts = {
   require("smelt").new(f),
   require("infuse").new(f),
   require("saw").new(f),
+  require("custom").new(f),
   require("brew").new(f),
   require("ae2").new(f),
   require("cook").new(f),
@@ -403,7 +407,7 @@ local function round()
   -- the pot barrels emptied first: the storage computer only takes an empty one as a feeder
   if running(byId.essence) then byId.essence.beforeRegister(work:input(reply.input)) end
   local unsure, feedProblem = mekfeed.register({ byId.enrich.set, byId.smelt.set, byId.infuse.set,
-    byId.saw.set, byId.essence.barrelSet, byId.brew.feedSet }, work.remote, storage.id)
+    byId.saw.set, byId.custom.set, byId.essence.barrelSet, byId.brew.feedSet }, work.remote, storage.id)
   local r = { stock = reply, useWork = useWork, input = work:input(reply.input), unsure = unsure,
     feedProblem = feedProblem }
   -- in the chain's order, so a smelter sees what the enricher takes this round
@@ -518,7 +522,7 @@ local function draw()
     screen.put(win, 2, 3, "Nothing set up yet.", "white")
     local help = "Furnaces, brewing stands, botany pots and AE2 inscribers, chargers and vibration chambers on the"
       .. " cable are found by themselves. Mekanism machines"
-      .. " (infusers too), Create crushers, washers, fans and saws, Cobblemon cooking pots and the barrels"
+      .. " (infusers too), Create crushers, washers, fans and saws, custom machines, Cobblemon cooking pots and the barrels"
       .. " botany pots empty into are added on the setup screen: tap Setup, press F1, or type"
       .. " 'factory setup' in another tab. Not on the storage cable? Put one ender chest on this cable (its twin"
       .. " on the storage cable at home): items come and go through it (Setup, Items come and go)."
@@ -622,7 +626,8 @@ local function setupScreen(screens)
   local near -- this computer is on the storage cable (true / false), nil if unknown
   local setParts = {
     byId.smelt.set:setupParts(ui), byId.enrich.set:setupParts(ui), byId.infuse.set:setupParts(ui),
-    byId.saw.set:setupParts(ui), byId.brew.setupParts(ui), byId.cook.setupParts(ui), byId.essence.setupParts(ui),
+    byId.saw.set:setupParts(ui), byId.custom.set:setupParts(ui), byId.brew.setupParts(ui), byId.cook.setupParts(ui),
+    byId.essence.setupParts(ui),
   }
 
   local function machinesPage()
@@ -879,14 +884,15 @@ end
 local KINDS = { -- 'factory add <kind>': which part and how
   chamber = { part = "enrich" }, crusher = { part = "enrich", line = true }, washer = { part = "enrich", line = true },
   smelter = { part = "smelt" }, fan = { part = "smelt", line = true }, smokefan = { part = "smelt", line = true },
-  infuser = { part = "infuse", extra = true }, saw = { part = "saw", line = true }, pot = { part = "cook" },
+  infuser = { part = "infuse", extra = true }, saw = { part = "saw", line = true }, machine = { part = "custom", line = true },
+  pot = { part = "cook" },
   potbarrel = { part = "essence" }, potions = { part = "brew" }, filler = { part = "brew" },
 }
 
 -- Every machine added here, numbered for 'factory remove': { text, remove() }.
 local function listed()
   local out = {}
-  for _, id in ipairs({ "enrich", "smelt", "infuse", "saw" }) do
+  for _, id in ipairs({ "enrich", "smelt", "infuse", "saw", "custom" }) do
     local set = byId[id].set
     local list = set:entries()
     local titles = set:titles(list)
@@ -924,6 +930,7 @@ if verb == "add" then
     print("  chamber, smelter [machine feeder [output]]  (Mekanism)")
     print("  infuser [machine feeder extra output]  (Mekanism)")
     print("  crusher, washer, fan, smokefan, saw [feeder [output]]  (Create)")
+    print("  machine [feeder output]  (any machine a hopper or pipe feeds: your own recipes)")
     print("  pot [recipe feed output relay]  (Cobblemon)")
     print("  potbarrel [barrel | all]  (the barrel Hopper Botany Pots empty into; all: every free one)")
     print("  potions [chest]  (where potions go), filler [dispenser [side | relay side]]  (water bottles)")
@@ -1018,7 +1025,8 @@ elseif verb then
   end
   print("Usage: factory [setup | add <kind> | list | remove [n] | give <name|all> <id> | relay <n> | charcoal <n> |")
   print("  stone <n> | glass <n> | smelt [what n] | cancel [n] | infuse [what n | cancel] | saw [what n | cancel] |")
-  print("  brew [potion n | find <text> | cancel [n]] | ae2 [what n | cancel [n]] | find <text> | make <n> <text> |")
+  print("  custom [what n | recipe | keep | cancel] | brew [potion n | find <text> | cancel [n]] | ae2 [what n | cancel [n]] |")
+  print("  find <text> | make <n> <text> |")
   print("  chest [name|none|remote] | monitor]")
   return
 end

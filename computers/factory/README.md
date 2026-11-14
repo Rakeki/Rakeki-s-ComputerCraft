@@ -23,6 +23,7 @@ mods you have. It runs whichever of these it finds on its cable or you add:
 | Brewing stands | vanilla | potions [on request](#brewing), every kind, splash and lingering too, into a potion chest; water bottles from a dispenser; with Cobblemon its [medicine](#cobblemon-medicine) too, into storage |
 | Inscribers, chargers, vibration chambers | [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2) | [on request](#applied-energistics): printed circuits, processors, dusts, press copies, charged certus; vibration chambers kept fuelled; the craft overseer orders them for its crafts too |
 | Mechanical saws | Create | [on request](#sawing): stripped logs, planks, slabs and stairs, every stonecutter recipe; the craft overseer orders them for its crafts too |
+| Any machine at all | any | [your own recipes](#custom-machines): say what goes in and what comes out, then make some on request or keep an amount in storage for good; the craft overseer orders them for its crafts too |
 | Campfire cooking pots | [Cobblemon](https://www.curseforge.com/minecraft/mc-mods/cobblemon) | [exp candy](#cooking-pots), compressed up to XL |
 | Hopper Botany Pots | [Mystical Agriculture](https://www.curseforge.com/minecraft/mc-mods/mystical-agriculture) | [essence](#essence) emptied into storage, and the recipes it crafts into, ready to order |
 
@@ -33,7 +34,7 @@ a kind, that part simply doesn't run: a Create-only world, a furnaces-only
 one and one with everything all use the same program.
 
 The computer's screen has a tab per part that's running (**Enricher**,
-**Smelter**, **Infuser**, **Saw**, **Brewer**, **AE2**, **Cooking**, **Essence**; shortened to **Enrich**,
+**Smelter**, **Infuser**, **Saw**, **Custom**, **Brewer**, **AE2**, **Cooking**, **Essence**; shortened to **Enrich**,
 **Smelt**, **Infuse**, **Brew**, **Cook** when they don't all fit): tap one, or press
 **Tab**. Everything on them works from the keyboard too, so a basic computer
 (no mouse) can do it all. A **monitor** is a status board you can read from
@@ -49,7 +50,7 @@ blocks wide uses small text); only on a tiny one do some go to "+N more":
 | Red | needs you: no fuel or power, output stuck, a Create line not moving, a pot not cooking, something missing (it says which) |
 
 With cooking pots, the monitor has a **Candy** page too (tap it at the top),
-with infusers an **Infuse** page to request from, with saws a **Saw** page, with brewing stands a **Brew** page, and
+with infusers an **Infuse** page to request from, with saws a **Saw** page, with custom machines a **Custom** page, with brewing stands a **Brew** page, and
 with AE2 inscribers or chargers an **AE2** page.
 With a wireless modem it also reports to the
 [status server](../status-server/README.md).
@@ -522,6 +523,66 @@ the line was told) ends its request, and the tab says so. A line shows red
 **not moving** when its feeder hasn't gone down for a minute: is the saw
 turning, and the funnel taking from the feeder?
 
+## Custom machines
+
+For any machine the other parts don't know: a press, a mixer, a modded
+furnace, a Create mixer basin, anything a hopper or pipe can feed. The
+computer never touches the machine. It only fills a **feeder** (the hopper
+into the machine, or a barrel a pipe pulls from into it) and empties an
+**output chest** (where the machine puts what it makes), so it works with
+any mod.
+
+You tell each machine its **recipes**: what goes in for **one go** and what
+comes out, e.g. `2 iron ingot + 1 coal = 1 steel ingot`. A machine can have
+several. The first thing a recipe makes is what it's for (counted and
+asked for); anything else it gives (a byproduct, a bucket back) just goes
+into storage. Each recipe works one of two ways:
+
+- **On request.** Nothing is made until you ask: the **Custom** tab (and the
+  monitor's **Custom** page) lists every recipe with how many are stored and
+  **+1**, **+8**, **+64** (terminal: arrows, **Enter**, **8**, **6**), or type
+  `factory custom steel ingot 64`.
+- **Kept in stock.** Give the recipe an amount to keep and it makes more
+  whenever storage has fewer than that, for good, until you turn it off.
+  `keep 64` steel: you take 20 out, it makes 20 more. The kept amount shows
+  in lime on the tab, and the stored count turns orange while it's under.
+
+What goes in is sent a whole go at a time (never 2 iron without its coal),
+up to `fill` items waiting in the feeder (64, set in `config.lua`). What
+arrives in the output chest is counted towards the requests, then goes
+into storage. If a recipe's inputs run short, the craft overseer is asked
+to make them first (`order = false` under `custom` turns that off); the
+request waits, saying what for. The craft overseer is also told what the
+custom machines make (recipes of up to 9 inputs), so its crafting plans
+use them like any other machine (`offer = false`: only your requests).
+While a request is waiting, the smelter leaves its inputs alone.
+
+A machine with several recipes runs one at a time: it only gets a
+recipe's inputs while its feeder is empty or holds that same recipe's, so
+two recipes never get mixed up in it. It shows red **not moving** when its
+feeder hasn't gone down for a minute: is the machine running, and does the
+hopper or pipe take from the feeder?
+
+### Giving it a recipe
+
+On the setup screen, **Machines**, tap the machine, then **+ Add a recipe**.
+You show it the recipe in its **output chest** (the factory leaves that
+chest alone while the page is open):
+
+1. Put **one go's inputs** in the output chest and tap **Use these**.
+2. Take them out, put **one go's outputs** in, with the main one in the
+   **first slot**, and tap **Use these** again.
+
+Whatever is left in the chest goes into storage afterwards. Tap a recipe
+to set **Keep in stock** (off, or 1 up to 4096), learn it again, or remove it.
+Or type it, counts before items (`mod:item` for a modded item; a plain name
+is Minecraft's):
+
+```
+factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel
+factory custom keep 1 1 64          -- machine 1's recipe 1: keep 64 in storage
+```
+
 ## Brewing
 
 Runs **brewing stands**, but only when asked: say what potion and how many,
@@ -830,7 +891,7 @@ input chest, then into the S pot, and so on up to XL.
 ## Files
 
 - `factory.lua`: the program: the screens, the setup screen, the commands and the rounds
-- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `brew.lua`, `ae2.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, brewing stands, AE2 inscribers / chargers / vibration chambers, cooking pots, botany pots)
+- `smelt.lua`, `enrich.lua`, `infuse.lua`, `saw.lua`, `custom.lua`, `brew.lua`, `ae2.lua`, `cook.lua`, `botany.lua`: its parts (furnaces and smelters, chambers and Create lines, infusers, saws, custom machines, brewing stands, AE2 inscribers / chargers / vibration chambers, cooking pots, botany pots)
 - `farm.lua`: the essence farm (botany pots far away with crafting turtles of their own)
 - `smelter.lua`, `enricher.lua`, `cooker.lua`, `essence.lua`: the old programs' commands, which now run `factory` (`smelter charcoal 64` still works)
 - `config.lua`: each part's settings (kept when you update)
@@ -965,6 +1026,23 @@ For each sawing line:
    saw's filter, then tap the line on the setup screen and set
    **Makes (its filter)** to the same item (see [Filters](#filters)). With none it does
    stripped logs and planks.
+
+### A custom machine
+
+For each machine:
+
+1. An **empty barrel** (or chest, or a hopper) that feeds the machine: a
+   hopper pointing into it, or a pipe pulling from the barrel into the
+   machine's input. This is the **feeder**.
+2. Another **empty chest** or barrel that what the machine makes ends up
+   in, by a hopper under it or a pipe from its output: the **output chest**.
+   It needs one: what it makes is counted there. Only the outputs should
+   go there, not the inputs.
+3. A **wired modem** on both, joined to the storage network (or on a cable
+   of their own with an ender chest, as for [saws](#saws)).
+4. On the setup screen, **Machines**, tap **+ Add a custom machine**: its
+   feeder, then its output chest. Or type `factory add machine`.
+5. Tap it and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
 
 ### Brewing stands
 
@@ -1126,6 +1204,13 @@ factory saw stripped spruce log 128   -- ask for 128 stripped spruce logs
 factory saw oak slab 64        -- ask for 64 oak slabs (needs a line with its filter on oak slabs)
 factory saw filter 2 minecraft:oak_slab   -- sawing line 2's saw has its filter on oak slabs ('none': no filter)
 factory saw cancel 2           -- cancel request 2 ('factory saw cancel': all of them)
+factory add machine            -- a custom machine: pick its feeder and output chest
+factory custom                 -- every custom machine, its recipes, and what's asked for
+factory custom recipe 1 2 iron_ingot coal = mekanism:ingot_steel   -- machine 1: 2 iron + 1 coal make 1 steel
+factory custom keep 1 1 64     -- machine 1's recipe 1: keep 64 in storage for good ('off': only on request)
+factory custom forget 1 2      -- remove machine 1's recipe 2
+factory custom steel 64        -- ask for 64 of what a recipe makes (by name)
+factory custom cancel 2        -- cancel request 2 ('factory custom cancel': all of them)
 factory add potions            -- pick the potion chest (an empty chest or barrel on the cable)
 factory add filler             -- the bottle filler: pick its dispenser, then a side of this computer or a relay
 factory add filler minecraft:dispenser_0 redstone_relay_1 top   -- or name them: dispenser, relay and its side (or just a side)

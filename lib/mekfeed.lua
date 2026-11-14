@@ -68,7 +68,8 @@ local LINE_STUCK = 60 -- seconds a Create line's feeder may sit without going do
 local FACTORY_SLOTS = { basic = 3, advanced = 5, elite = 7, ultimate = 9 }
 -- Create lines: word (typed after 'add'), title (on the screen), what (in
 -- messages), feeds / out (what to pick as its feeder and output chest),
--- needOutput (it must have an output chest: what comes out is counted).
+-- needOutput (it must have an output chest: what comes out is counted),
+-- plain (not a Create machine: any machine a hopper or pipe feeds).
 local LINES = {
   crush = { word = "crusher", title = "Crusher", what = "crushing line",
     feeds = "The chest a funnel or chute empties onto its crushing wheels.",
@@ -85,6 +86,10 @@ local LINES = {
   saw = { word = "saw", title = "Saw", what = "sawing line", needOutput = true,
     feeds = "The chest a funnel empties onto the belt into the saw (facing up, in line with the belt).",
     out = "The chest the saw puts things out into, by a belt or chute: what it cuts is counted there." },
+  -- any machine at all, run from the player's own recipes (the factory's custom part)
+  custom = { word = "machine", title = "Machine", what = "custom machine", needOutput = true, plain = true,
+    feeds = "The hopper into the machine, or the barrel or chest a pipe pulls from into it.",
+    out = "The chest the machine puts what it makes into (a hopper or pipe from it): what it makes is counted there." },
 }
 
 mekfeed.STACK = STACK
@@ -757,7 +762,8 @@ function Set:add(machine, feeder, output, extra)
   if extra then print(("Its %s: %s."):format(self.opts.extra.title, extra)) end
   if kind then
     print(("%s added, fed by %s."):format(title, feeder))
-    print("A funnel or chute has to move its items into the machine; the computer can't see the machine itself.")
+    print(kind.plain and "A hopper or pipe has to move its items into the machine; the computer doesn't use the machine itself."
+      or "A funnel or chute has to move its items into the machine; the computer can't see the machine itself.")
     if output then
       print(("What it makes has to end up in %s, and from there it goes into storage."):format(output))
     else
@@ -882,7 +888,7 @@ function Set:setupParts(ui)
         local noOutput = self:far() and "none: the ender chest" or "none: a storage input chest"
         local extraTitle = opts.extra and opts.extra.title:gsub("^%l", string.upper)
         local rows = {
-          kind and { label = "Machine", value = "Create " .. kind.what, colour = "lightGray", dim = false }
+          kind and { label = "Machine", value = (kind.plain and "" or "Create ") .. kind.what, colour = "lightGray", dim = false }
             or { label = "Machine", value = e.machine, colour = there(e.machine), dim = false },
           { label = "Feeder", value = e.feeder, colour = there(e.feeder), act = function()
             pickFeeder(i, e.feeder, kind, function(n) change(i, "feeder", n, ("Feeder: %s."):format(n)) end)
@@ -931,7 +937,7 @@ function Set:setupParts(ui)
             self:save(list)
             local title = self:titles(list)[#list]
             if kind then
-              ui:say(("%s added. A funnel or chute has to move its items in."):format(title), "lime")
+              ui:say(("%s added. A %s has to move its items in."):format(title, kind.plain and "hopper or pipe" or "funnel or chute"), "lime")
             else
               local hopper = isHopper(peripheral.getType(feeder) or "")
               ui:say(("%s added.%s"):format(title, hopper and ""
@@ -988,7 +994,7 @@ function Set:setupParts(ui)
     for _, line in ipairs(opts.lines or {}) do
       local kind = LINES[line]
       if kind then
-        adds[#adds + 1] = { label = ("+ Add a Create %s"):format(kind.what), colour = "lime",
+        adds[#adds + 1] = { label = ("+ Add a %s%s"):format(kind.plain and "" or "Create ", kind.what), colour = "lime",
           act = function() add(line) end }
       end
     end
