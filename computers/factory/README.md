@@ -569,15 +569,20 @@ with an item slot, say) is never used without a recipe; to hide it, put a
 word from its type under `ignore` in `config.lua`. With several factory
 computers, a machine with recipes belongs to one of them, like a furnace.
 
-**Machines CC sees but can't fill** (Mekanism's Pressurized Reaction
-Chamber, Crusher, Purification Chamber and the like: Mekanism gives the
-computer its own controls for them, which can't move items) are listed on
-**Machines** too, in orange, **needs a feeder and output chest**. Tap one
-and pick them: a hopper on top pointing into it (its top set to item Input
-in its side configuration), and a chest under it (its bottom set to item
-Output, Auto-eject on). From then on it's run through those two, like a
-hidden machine. Anything else it needs, like the reaction chamber's water
-and gas, and its power, you pipe in yourself.
+**Mekanism machines** (the Pressurized Reaction Chamber, Crusher,
+Purification Chamber and the like) are found and run the same way,
+straight through their modem, though CC can't list what's in them:
+Mekanism gives the computer its own controls for them. The factory reads
+what they hold through those, sends their inputs in as for any machine,
+and takes what they make out by trying their slots once to find where it
+comes out (anything else it pulls while looking goes straight back in).
+Turn the machine's **Auto-eject off**, so what it makes stays in for the
+factory to take. Anything else it needs, like the reaction chamber's water
+and gas, and its power, you pipe in yourself. If a machine won't let the
+computer move its items, it shows red **can't take out what it made** (or
+the storage computer says it can't send to it): tap it on the setup
+screen, **Use a hopper and output chest**, and it's run through those
+instead, keeping its recipes.
 
 **Machines CC can't see** (Create's mixers and presses, or anything with no
 item port on the cable) are added by hand instead, as two chests: a feeder
@@ -1071,10 +1076,11 @@ For each sawing line:
    as for [saws](#saws).
 2. On the setup screen, **Machines**, tap it (it's listed by its name, e.g.
    **Press 0**) and **+ Add a recipe** (see [Giving it a recipe](#giving-it-a-recipe)).
-3. A machine shown in orange, **needs a feeder and output chest** (a Mekanism
-   one): tap it, then its feeder (a hopper on top, pointing into it) and its
-   output chest (under it, the machine set to eject into it), each with a
-   wired modem on the cable. Then tap it again for **+ Add a recipe**.
+3. A Mekanism machine is listed the same way: set its **Auto-eject off**
+   (what it makes stays in for the factory to take) and give it a recipe.
+   If it shows red **can't take out what it made**, tap it and **Use a
+   hopper and output chest** (a hopper on top pointing in, a chest under
+   it, the machine set to eject into it).
 4. Install update the **storage computer** too: an older one won't fill a
    machine straight (the machine shows red **not taken as a feeder**).
 

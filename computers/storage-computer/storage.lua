@@ -1499,16 +1499,17 @@ local function feeders(from, msg)
   if type(msg.chests) ~= "table" then return no("no chests given") end
   local list = {}
   for _, chest in ipairs(msg.chests) do
-    if type(chest) ~= "string" or not peripheral.isPresent(chest) or not isInventory(chest) then
-      return no(("I can't see %s: put a wired modem on it, on my cable, and right-click it"):format(tostring(chest)))
-    end
-    -- a machine (the factory's custom machines: anything with slots that
-    -- isn't a chest, barrel, hopper or ender chest) is never storage, so it
-    -- needn't be empty: "send" may fill it straight
-    local t = peripheral.getType(chest) or ""
-    local machine = not t:find("ender", 1, true) and not t:find("hopper", 1, true) and not t:find("drawer", 1, true)
+    -- a machine (the factory's custom machines: anything that isn't a chest,
+    -- barrel, hopper or ender chest) is never storage, so it needn't be
+    -- empty, nor have slots CC lists (a Mekanism machine's own computer
+    -- methods hide them): "send" may fill it straight
+    local t = type(chest) == "string" and peripheral.isPresent(chest) and peripheral.getType(chest) or ""
+    local machine = t ~= "" and not t:find("ender", 1, true) and not t:find("hopper", 1, true) and not t:find("drawer", 1, true)
     for _, kind in ipairs(CLAIM_TYPES) do
       if t:find(kind, 1, true) then machine = false end
+    end
+    if type(chest) ~= "string" or not peripheral.isPresent(chest) or (not machine and not isInventory(chest)) then
+      return no(("I can't see %s: put a wired modem on it, on my cable, and right-click it"):format(tostring(chest)))
     end
     if not isFeederOf(from, chest) then
       for id, names in pairs(setup.feeders) do

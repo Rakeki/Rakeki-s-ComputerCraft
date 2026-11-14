@@ -230,12 +230,19 @@ hands those to every part.
   without it being empty), or `work:move` into it. Emptied of what its
   recipes make and none takes (`u.outputs` and not `u.inputs`), so inputs
   stay in. `stalled`: inputs sat with none used or made for `STUCK_AFTER`.
-- **Seen but not fillable**: no `inventory` type, but a `getInput*` method
-  (`seenType`: Mekanism's reaction chamber, crusher...; not `NOT_SEEN`, the
-  Mekanism machines other parts run and cables / generators). Listed in
-  orange (`seenMachines`); tapping one runs mekfeed's `parts.add("custom",
-  name)`, so it becomes a hidden line whose entry keeps `machine` (its title
-  and `uses`).
+- **Sealed** (found, `u.sealed`): no `inventory` type, but a `getInput*`
+  method (`seenType`: Mekanism's reaction chamber, crusher...; not
+  `NOT_SEEN`, the Mekanism machines other parts run, cables, generators).
+  Run straight like found ones: read by `readSealed` (every `getInput*` /
+  `getOutput*` that returns `{ name, count }`, side by side), filled by
+  `send` (the storage computer takes a non-inventory machine as a feeder),
+  emptied by `pullSealed`: the input chest `pullItems` from the machine's
+  slots, the output slots (`outSlots`) found by trying `SEALED_SLOTS` once
+  (at most every `PROBE_EVERY`), diffing the input chest and pushing back
+  whatever isn't an output. Fails red ("can't take out what it made");
+  the machine page's **Use a hopper and output chest** runs mekfeed's
+  `parts.add("custom", name)`, so it becomes a hidden line whose entry keeps
+  `machine` (its title, `uses`, and the recipes it had until it saves its own).
 - **Hidden**: a mekfeed line of kind `custom` (word `hidden`, `plain`,
   `needOutput`), recipes saved on the entry (`entry.recipes`). Fed through
   the feeder, its output chest emptied whole (`set:collect`).
