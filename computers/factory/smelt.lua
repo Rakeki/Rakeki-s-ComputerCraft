@@ -873,8 +873,11 @@ function M.new(f)
       elseif next(items) or fuelWanted > 0 then
         problem = why
       end
-      for _, p in ipairs(plan) do
-        local moved = work:move(p.name, p.f.name, 1, p.n)
+      -- furnaces' and Mekanism / Create feeders' loads all at once
+      local moves = work:moveAll(plan, function(p) return p.name, p.f.name, 1, p.n end)
+      local mekMoves = work:moveAll(mekPlan, function(p) return p.name, p.m.entry.feeder, nil, p.n end)
+      for i, p in ipairs(plan) do
+        local moved = moves[i]
         local short = p.n - moved
         if short > 0 then
           local fu = p.f
@@ -903,8 +906,8 @@ function M.new(f)
           if not fu.fuel then unfuelled = true end
         end
       end
-      for _, p in ipairs(mekPlan) do
-        local got = work:move(p.name, p.m.entry.feeder, nil, p.n)
+      for i, p in ipairs(mekPlan) do
+        local got = mekMoves[i]
         mekfeed.added(p.m, p.name, got)
         addLoaded(p.name, got - p.n)
         if got > 0 then loaded, into = loaded + got, into + 1 end

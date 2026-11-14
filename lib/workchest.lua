@@ -25,6 +25,7 @@
 --     local input = work:input(stock.input)           -- where finished items go back
 --     local r, why = work:fill(items, fuel)           -- top it up to items (name -> n), fuel for that many smelts
 --     local n = work:move(name, furnace, 1, 64)       -- from it into a machine (slot optional): how many went
+--     local got = work:moveAll(plan, function(p) return p.name, p.to, p.slot, p.n end) -- all at once
 --     work:empty(input)                               -- the rest back into storage
 --   end
 --   ui:open(work:setupPage(ui))                       -- on a lib/setupui.lua setup screen
@@ -211,14 +212,34 @@ function Work:move(name, to, toSlot, n)
   return moved
 end
 
+-- Every load of a round at once (each move takes a game tick, so ten
+-- machines loaded one after another took ten): spec(entry) gives the
+-- entry's item, machine, slot (or nil) and count. Returns how many went
+-- for each entry, in the list's order. Loads into the same slot of the
+-- same machine that depend on each other's results stay with work:move.
+function Work:moveAll(list, spec)
+  local got, jobs = {}, {}
+  for i, entry in ipairs(list) do
+    got[i] = 0
+    local name, to, toSlot, n = spec(entry)
+    if name and to and (n or 0) > 0 then
+      jobs[#jobs + 1] = function() got[i] = self:move(name, to, toSlot, n) end
+    end
+  end
+  if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+  return got
+end
+
 -- Everything left goes back into storage (input: from work:input); what
 -- doesn't fit stays for next round (fill counts it).
 function Work:empty(input)
   -- one ender chest both ways: it stays, and the next fill sweeps it home
   if not self.active or not input or input == self.active then return end
+  local jobs = {}
   for slot in pairs(readList(self.active)) do
-    pcall(peripheral.call, self.active, "pushItems", input, slot)
+    jobs[#jobs + 1] = function() pcall(peripheral.call, self.active, "pushItems", input, slot) end
   end
+  if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
   self.list = {}
 end
 

@@ -63,7 +63,9 @@ minute over the round's own message.
 
 ## A round
 
-`workLoop` runs `round()` every `EVERY` (5 s), or at once on `factory_added`:
+`workLoop` runs `round()` every `EVERY` (5 s), or at once on `factory_added`
+(and straight after a round in which another coroutine called `f.wake()`: a
+request that came in mid-round, whose event the round's own waits swallowed):
 
 1. `askPeers()` (every 30 s: other factory computers' `stages` and `owns`),
    `settle()` (claim free found machines; drop ones another computer had first).

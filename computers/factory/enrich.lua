@@ -309,8 +309,9 @@ function M.new(f)
       local reply, why = work:fill(items, 0)
       if reply and reply.error and not reply.nochest then problem = reply.error end
       if not reply and next(items) then problem = why end
-      for _, p in ipairs(plan) do
-        local got = work:move(p.name, p.m.entry.feeder, nil, p.n)
+      local gots = work:moveAll(plan, function(p) return p.name, p.m.entry.feeder, nil, p.n end)
+      for i, p in ipairs(plan) do
+        local got = gots[i]
         mekfeed.added(p.m, p.name, got)
         avail[p.name] = avail[p.name] + p.n - got
         sent = sent + got

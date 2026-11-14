@@ -178,7 +178,14 @@ local f = { work = work, ask = ask, event = "factory_added", config = section }
 f.craft = require("lib.crafts").ask
 local parts -- the parts below, in the chain's order
 
-function f.wake() os.queueEvent("factory_added") end
+-- A wake from another coroutine (a request on the net loop, a setup page)
+-- while a round runs would be lost: the round's own waits for answers take
+-- every event. So it's noted too, and the next round starts as soon as this one ends.
+local workCo, woken = nil, false
+function f.wake()
+  if coroutine.running() ~= workCo then woken = true end
+  os.queueEvent("factory_added")
+end
 function f.changed() os.queueEvent("factory_changed") end
 function f.log(text) if report then report.log(text) end end
 function f.mine(name) return ownerOf(name) == "me" end
@@ -828,17 +835,24 @@ local function uiLoop()
 end
 
 local function workLoop()
+  workCo = coroutine.running()
   while true do
+    woken = false
     local ok, err = (errlog and errlog.pcall or pcall)(round)
     if not ok then message = { "Error: " .. tostring(err), "red" } end
     reportStatus()
     os.queueEvent("factory_changed")
-    -- a machine added from another tab starts straight away
-    local timer = os.startTimer(EVERY)
-    repeat
-      local event, value = os.pullEvent()
-      if event == "factory_added" then due = {} end
-    until (event == "timer" and value == timer) or event == "factory_added"
+    -- a machine added from another tab, or a request (a job from the craft
+    -- overseer) that came in during the round, starts straight away
+    if woken then
+      due = {}
+    else
+      local timer = os.startTimer(EVERY)
+      repeat
+        local event, value = os.pullEvent()
+        if event == "factory_added" then due = {} end
+      until (event == "timer" and value == timer) or event == "factory_added"
+    end
   end
 end
 

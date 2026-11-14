@@ -50,7 +50,9 @@ mistake. Until it says yes, those feeders are `unsure` and aren't filled;
 - **The work chest** (`lib/workchest.lua`): one empty chest on the cable,
   `setup.works[id]` on the storage computer. Each part **plans** every load
   (`plan[#plan+1] = { m, name, n }`), asks for the lot with one
-  `work:fill(items, fuel)`, then `work:move(name, feeder, slot, n)` into each
+  `work:fill(items, fuel)`, then `work:moveAll(plan, spec)` (every machine's
+  `work:move(name, feeder, slot, n)` at once, a tick for all; keep `work:move`
+  for loads that depend on each other, like the cooker's first item) into each
   machine, **undoes what didn't arrive** (`mekfeed.added(m, name, got - n)`,
   request `sent` too), and `work:empty(input)` sends the rest back. Far
   away there's no `send` fallback.

@@ -708,8 +708,9 @@ function M.new(f)
       local reply, why = work:fill(items, 0)
       if reply and reply.error and not reply.nochest then self.problem = reply.error end
       if not reply and next(items) then self.problem = why end
-      for _, p in ipairs(plan) do
-        local got = work:move(p.name, p.to, nil, p.n)
+      local gots = work:moveAll(plan, function(p) return p.name, p.to, nil, p.n end)
+      for i, p in ipairs(plan) do
+        local got = gots[i]
         if got < p.n then
           if p.extra then
             p.m.extraFeed[p.name] = (p.m.extraFeed[p.name] or 0) - (p.n - got)

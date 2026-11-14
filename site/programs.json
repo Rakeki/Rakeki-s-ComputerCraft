@@ -2351,6 +2351,7 @@
         ["work:check(stock)", "After each 'stock' reply: true while the work chest is in use. Claims the saved one again if the storage computer forgot it (once a minute); work.problem says why not."],
         ["work:fill(items, fuel)", "Top it up to items (name -> n) and fuel for that many smelts, in one request; with one ender chest both ways it asks every round and first sends home what wasn't asked for. The reply, or nil and why."],
         ["work:move(name, to, slot, n)", "Move up to n of an item from it into a furnace or hopper (slot optional). How many went."],
+        ["work:moveAll(list, spec)", "Every load at once (a tick for all, not one per machine): spec(entry) gives its item, machine, slot and n. How many went, per entry."],
         ["work:empty(input)", "Send everything left back through the storage input chest."],
         ["work:command(arg)", "The '<program> chest [name|none|remote]' command: pick, name, set up far away or drop the work chest, printing how it went."]
       ],

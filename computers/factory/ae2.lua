@@ -700,7 +700,8 @@ function M.new(f)
         local reply, why = work:fill(items, fuel)
         if reply and reply.error and not reply.nochest then problem = problem or reply.error end
         if not reply then problem = problem or why end
-        for _, ld in ipairs(loads) do went(ld, work:move(ld.item, ld.to, ld.slot, ld.n)) end
+        local moves = work:moveAll(loads, function(ld) return ld.item, ld.to, ld.slot, ld.n end)
+        for i, ld in ipairs(loads) do went(ld, moves[i]) end
         for _, x in ipairs(fuels) do
           for name, per in pairs(FUELS) do
             if (not x.item or x.item == name) and x.smelts > 0 then
