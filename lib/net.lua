@@ -29,7 +29,10 @@ local BOOT_GRACE = 300 -- seconds after boot while other computers may still be 
 local BOOT_RETRY = 5 -- seconds between lookups for a missing peer meanwhile
 local MODEM_WAIT = 15 -- seconds after boot that net.open waits for a modem to attach
 
-local nextId = 0 -- shared by every coroutine on this computer, so ids never repeat
+-- Shared by every coroutine on this computer, so ids never repeat; from the
+-- clock, so not after a reboot either (from 0, a late answer to a request
+-- sent before the reboot could be taken for the first one after it).
+local nextId = os.epoch and os.epoch("utc") or 0
 
 local function openNow(kind)
   for _, side in ipairs(peripheral.getNames()) do
