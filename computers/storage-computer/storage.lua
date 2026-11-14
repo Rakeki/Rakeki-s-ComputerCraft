@@ -232,6 +232,13 @@ local function putAway(from, slot, item, count)
   return left
 end
 
+-- Empty a whole chest (or several) with fn(...): the stores items went into
+-- are read again once at the end, not after every slot (chests backend).
+local function batch(fn, ...)
+  if store.batch then return store.batch(fn, ...) end
+  return fn(...)
+end
+
 -- The input chest, then any extra ones (setup.inputs). Programs that send
 -- items back (smelter, cooker) only use the first.
 local function inputChests()
@@ -242,15 +249,26 @@ end
 
 local function storeInput()
   local any, full = false, false
-  for _, chest in ipairs(inputChests()) do
-    local ok, list = pcall(peripheral.call, chest, "list")
-    if ok and next(list) then
-      any = true
-      for slot, item in pairs(list) do
-        if putAway(chest, slot, item, item.count) > 0 then full = true end
-      end
+  -- every input chest read at once (a tick each)
+  local chests, lists, jobs = inputChests(), {}, {}
+  for i, chest in ipairs(chests) do
+    jobs[i] = function()
+      local ok, list = pcall(peripheral.call, chest, "list")
+      lists[i] = ok and list or nil
     end
   end
+  parallel.waitForAll(table.unpack(jobs))
+  batch(function()
+    for i, chest in ipairs(chests) do
+      local list = lists[i]
+      if list and next(list) then
+        any = true
+        for slot, item in pairs(list) do
+          if putAway(chest, slot, item, item.count) > 0 then full = true end
+        end
+      end
+    end
+  end)
   if full then
     message = { "Storage is full: some items are still in the input chest.", "red" }
     if report then report.log("storage full") end
@@ -968,11 +986,14 @@ end
 local function clearCrafter(chest)
   local ok, list = pcall(peripheral.call, chest, "list")
   if not ok then return false end
-  local empty = true
-  for slot, item in pairs(list) do
-    if putAway(chest, slot, item, item.count) > 0 then empty = false end
-  end
-  return empty
+  if not next(list) then return true end
+  return batch(function()
+    local empty = true
+    for slot, item in pairs(list) do
+      if putAway(chest, slot, item, item.count) > 0 then empty = false end
+    end
+    return empty
+  end)
 end
 
 -- Put one batch of a job's ingredients in a crafter chest: steps of each
@@ -980,14 +1001,16 @@ end
 -- more steps than the smallest stack among the ingredients. Returns how
 -- many steps went in, or 0, why, and what's short (item -> how many).
 local function loadCrafter(chest, grid, steps)
-  local items = allItems()
-  local batch = steps
-  for _, item in pairs(grid) do batch = math.min(batch, items[item] and items[item].maxCount or 64) end
-  batch = math.max(1, batch)
+  -- emptied first, so what was in it (the last batch's results, leftovers)
+  -- is counted below: the overseer skips the clear between a job's batches
   if not clearCrafter(chest) then return 0, "the crafter chest won't empty: is storage full?" end
+  local items = allItems()
+  local size = steps
+  for _, item in pairs(grid) do size = math.min(size, items[item] and items[item].maxCount or 64) end
+  size = math.max(1, size)
   -- all there? (so a batch is never half loaded for want of one item)
   local need, missing = {}, nil
-  for _, item in pairs(grid) do need[item] = (need[item] or 0) + batch end
+  for _, item in pairs(grid) do need[item] = (need[item] or 0) + size end
   for item, n in pairs(need) do
     local have = items[item] and items[item].count or 0
     if have < n then
@@ -996,24 +1019,39 @@ local function loadCrafter(chest, grid, steps)
     end
   end
   if missing then return 0, "not enough ingredients", missing end
+  -- each cell into its own slot, all at once with chests (a move is a
+  -- tick: a full grid took nine); a bridge has one transfer chest for
+  -- slot moves, so there they go one at a time
+  local gots, errs, jobs = {}, {}, {}
   for k = 1, 9 do
     local item = grid[k]
     if item then
-      local got, err = fetch(item, batch, chest, k)
-      if got < batch then
+      jobs[#jobs + 1] = function() gots[k], errs[k] = fetch(item, size, chest, k) end
+    end
+  end
+  if store.batch then
+    parallel.waitForAll(table.unpack(jobs))
+  else
+    for _, job in ipairs(jobs) do job() end
+  end
+  for k = 1, 9 do
+    local item = grid[k]
+    if item then
+      local got, err = gots[k], errs[k]
+      if got < size then
         -- the chest wouldn't take it in that slot (a barrel with upgrades
         -- picks its own, or no transfer chest with a bridge): any slot
         -- will do, the turtle sorts them by name
-        local more, why = fetch(item, batch - got, chest)
+        local more, why = fetch(item, size - got, chest)
         got, err = got + more, why or err
       end
-      if got < batch then
+      if got < size then
         clearCrafter(chest)
-        return 0, err or ("not enough " .. nameOf(item)), { [item] = batch - got }
+        return 0, err or ("not enough " .. nameOf(item)), { [item] = size - got }
       end
     end
   end
-  return batch
+  return size
 end
 
 -- Requests from turtles over rednet:
@@ -1422,17 +1460,19 @@ local function sweepWork(to, msg)
     if type(name) == "string" and type(n) == "number" then keep[name] = math.floor(n) end
   end
   local okL, list = pcall(peripheral.call, to, "list")
-  for slot, item in pairs(okL and list or {}) do
-    local kept = 0
-    if not item.nbt and keep[item.name] then
-      kept = math.min(item.count, keep[item.name])
-      keep[item.name] = keep[item.name] - kept
-    elseif not item.nbt and fuelSmelts[item.name] and fuelLeft > 0 then
-      kept = math.min(item.count, math.ceil(fuelLeft / fuelSmelts[item.name]))
-      fuelLeft = fuelLeft - kept * fuelSmelts[item.name]
+  batch(function()
+    for slot, item in pairs(okL and list or {}) do
+      local kept = 0
+      if not item.nbt and keep[item.name] then
+        kept = math.min(item.count, keep[item.name])
+        keep[item.name] = keep[item.name] - kept
+      elseif not item.nbt and fuelSmelts[item.name] and fuelLeft > 0 then
+        kept = math.min(item.count, math.ceil(fuelLeft / fuelSmelts[item.name]))
+        fuelLeft = fuelLeft - kept * fuelSmelts[item.name]
+      end
+      if item.count > kept then putAway(to, slot, item, item.count - kept) end
     end
-    if item.count > kept then putAway(to, slot, item, item.count - kept) end
-  end
+  end)
 end
 
 -- Top a work chest up to n of each item and to fuel for msg.fuel smelts
@@ -1710,6 +1750,9 @@ local function handleRequest(from, msg)
         local want = n - have
         local cap = type(msg.most) == "table" and tonumber(msg.most[name])
         if cap then want = math.min(want, math.max(0, math.floor(cap))) end
+        -- reserved before the move, so a sweep that reads the chest while
+        -- items arrive never takes them for strays
+        if held then held[name] = { n = n, at = os.clock() } end
         if want > 0 then
           local err
           sent[name], err = fetch(name, want, to)
@@ -1861,32 +1904,48 @@ local function sweepLoop()
   while true do
     sleep(SWEEP_EVERY)
     local swept = 0
-    for _, chest in ipairs(deliveryChests()) do
-      local ok, list = pcall(peripheral.call, chest, "list")
-      if ok then
-        local res = reserved[chest] or {}
-        local allow, held = {}, {}
-        for name, r in pairs(res) do
-          if os.clock() - r.at > HOLD then res[name] = nil else allow[name] = r.n end
-        end
-        for slot, item in pairs(list) do
-          local keep = 0
-          if not item.nbt and allow[item.name] then
-            keep = math.min(allow[item.name], item.count)
-            allow[item.name] = allow[item.name] - keep
-            held[item.name] = (held[item.name] or 0) + keep
-          end
-          if item.count > keep then
-            local extra = item.count - keep
-            swept = swept + extra - putAway(chest, slot, item, extra)
-          end
-        end
-        for name, r in pairs(res) do
-          r.n = held[name] or 0
-          if r.n == 0 then res[name] = nil end
-        end
+    -- every delivery chest read at once (a tick each), then emptied in one batch
+    local chests, lists, jobs = deliveryChests(), {}, {}
+    local readAt = os.clock()
+    for i, chest in ipairs(chests) do
+      jobs[i] = function()
+        local ok, list = pcall(peripheral.call, chest, "list")
+        lists[i] = ok and list or false
       end
     end
+    if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+    batch(function()
+      for i, chest in ipairs(chests) do
+        local list = lists[i]
+        if list then
+          local res = reserved[chest] or {}
+          local allow, held = {}, {}
+          for name, r in pairs(res) do
+            if os.clock() - r.at > HOLD then res[name] = nil else allow[name] = r.n end
+          end
+          for slot, item in pairs(list) do
+            local keep = 0
+            if not item.nbt and allow[item.name] then
+              keep = math.min(allow[item.name], item.count)
+              allow[item.name] = allow[item.name] - keep
+              held[item.name] = (held[item.name] or 0) + keep
+            end
+            if item.count > keep then
+              local extra = item.count - keep
+              swept = swept + extra - putAway(chest, slot, item, extra)
+            end
+          end
+          -- shrink reservations to what's left, but never one a delivery
+          -- made since the chest was read (its items aren't in this list)
+          for name, r in pairs(res) do
+            if r.at <= readAt then
+              r.n = held[name] or 0
+              if r.n == 0 then res[name] = nil end
+            end
+          end
+        end
+      end
+    end)
     if swept > 0 then
       message = { ("Put away %d items from the delivery chests."):format(swept), "lightGray" }
       os.queueEvent("storage_changed")

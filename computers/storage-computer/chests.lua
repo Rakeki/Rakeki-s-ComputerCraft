@@ -8,6 +8,7 @@
 --   B.space()                         used, total, text for the header ("12 chests, 40/324 slots")
 --   B.putAway(from, slot, item, n)    move n of a chest slot's item into storage; returns how many didn't fit
 --   B.fetch(key, n, to, toSlot)       send up to n of the item with that key to a chest (slot); returns sent, err
+--   B.batch(fn, ...)                  (chests only) fn with put-aways batched: stores read again once, at the end
 --   B.tidy()                          move a few stacks so bulk items sit in the roomiest storage; returns how
 --                                     many stacks moved and what
 --   B.roomInfo()                      how many stores hold more than 64 a slot, and the most any holds
@@ -254,13 +255,38 @@ function M.new(setup)
 
   ---------------------------------------------------------------- moving
 
+  -- Inside B.batch, stores items went into are only marked and read again
+  -- once, all at once, when the batch ends: emptying a chest of 27 slots
+  -- into one store cost a read (a tick) after every slot.
+  local batchDepth, dirty = 0, {}
+
+  local function flush()
+    local jobs = {}
+    for name in pairs(dirty) do
+      jobs[#jobs + 1] = function() rescan(name) end
+    end
+    dirty = {}
+    if #jobs > 0 then parallel.waitForAll(table.unpack(jobs)) end
+  end
+
+  -- Run fn(...) with put-aways batched; returns what fn returns. Counts are
+  -- right again when it returns (until then, what went in isn't counted).
+  function B.batch(fn, ...)
+    batchDepth = batchDepth + 1
+    local result = table.pack(pcall(fn, ...))
+    batchDepth = batchDepth - 1
+    if batchDepth == 0 then flush() end
+    if not result[1] then error(result[2], 0) end
+    return table.unpack(result, 2, result.n)
+  end
+
   function B.putAway(from, slot, item, count)
     local key, left = keyOf(item), count
     for _, name in ipairs(placeOrder(key, totalOf(key) + count >= BULK)) do
       local okP, moved = pcall(peripheral.call, from, "pushItems", name, slot, left)
       if okP and moved > 0 then
         left = left - moved
-        rescan(name)
+        if batchDepth > 0 then dirty[name] = true else rescan(name) end
       end
       if left <= 0 then break end
     end
@@ -270,16 +296,23 @@ function M.new(setup)
   function B.fetch(key, amount, to, toSlot)
     local sent, misses = 0, 0
     for _, name in ipairs(stores) do
-      local touched = false -- only re-read chests items came from: each read takes a tick
-      for slot, item in pairs(contents[name] or {}) do
-        if keyOf(item) == key then
+      -- only re-read a chest when a move didn't go as its cached contents
+      -- said it would (each read takes a tick): a full move is just taken
+      -- off the cache
+      local list, stale, touched = contents[name] or {}, false, false
+      for slot, item in pairs(list) do
+        if keyOf(item) == key and item.count > 0 then
           touched = true
-          local ok, moved = pcall(peripheral.call, to, "pullItems", name, slot, amount - sent, toSlot)
+          local want = amount - sent
+          local ok, moved = pcall(peripheral.call, to, "pullItems", name, slot, want, toSlot)
           if not ok then
             rescan(name)
             return sent, tostring(moved) -- e.g. the chest isn't on the same network
           end
           sent = sent + moved
+          if moved ~= math.min(want, item.count) then stale = true end
+          item.count = item.count - moved
+          if item.count <= 0 then list[slot] = nil end
           if moved == 0 then
             -- the slot was emptied meanwhile, or the chest is full: after a
             -- few misses in a row, take it that it's full
@@ -294,7 +327,12 @@ function M.new(setup)
           if sent >= amount then break end
         end
       end
-      if touched then rescan(name) end
+      if touched then
+        itemsCache = nil
+        -- read again if it was off, or someone read it again meanwhile (the
+        -- fresh list may have been read before these moves)
+        if stale or contents[name] ~= list then rescan(name) end
+      end
       if sent >= amount then break end
     end
     return sent
