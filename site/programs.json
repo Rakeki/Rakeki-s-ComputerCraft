@@ -1334,7 +1334,8 @@
       "commands": [
         ["stash", "start (opens the setup screen the first time)"],
         ["stash setup", "the setup screen (in the running stash if there is one; or F5, or Setup on the monitor)"],
-        ["stash monitor [name|none]", "pick the monitor"]
+        ["stash monitor [name|none]", "pick the monitor"],
+        ["stash check", "list every chest, barrel and furnace on the cable and what the stash takes it for (storage, drawer, a chest from setup, or why it's left alone)"]
       ],
       "integrates": [
         ["storage-computer", "When the base grows, it can take over the same chests (and serve turtles too)."],

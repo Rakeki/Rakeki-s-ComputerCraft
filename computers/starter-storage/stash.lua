@@ -21,6 +21,7 @@
 --   stash                  start (opens the setup screen the first time)
 --   stash setup            the setup screen (in the running stash if there is one)
 --   stash monitor [name]   pick the monitor ('none' for no monitor)
+--   stash check            list every inventory on the cable and what the stash makes of it
 local screen = require("lib.screen") -- flicker-free drawing on the terminal and monitor
 local files = require("lib.files") -- crash-safe save files
 local setupui = require("lib.setupui") -- the setup screen
@@ -179,8 +180,37 @@ elseif args[1] == "setup" or args[1] == "config" then
     print("Nothing changed.")
   end
   return
+elseif args[1] == "check" then
+  -- every inventory on the cable, what the stash takes it for, and its slots
+  local roles = {}
+  for _, st in ipairs(SETTINGS) do
+    if setup and setup[st.key] then roles[setup[st.key]] = st.what end
+  end
+  for _, n in ipairs(setup and setup.ignore or {}) do roles[n] = "Not storage (setup)" end
+  local lines, stores = {}, 0
+  for _, name in ipairs(peripheral.getNames()) do
+    if storesLib.isInventory(name) then
+      local kind, why = storesLib.explain(name)
+      local okS, size = pcall(peripheral.call, name, "size")
+      local okL, list = pcall(peripheral.call, name, "list")
+      local used = 0
+      for _ in pairs(okL and type(list) == "table" and list or {}) do used = used + 1 end
+      local what = roles[name] or (kind == "store" and "storage") or (kind == "drawer" and "drawer (bulk first)")
+        or (kind == "furnace" and "furnace") or ("left alone: " .. why)
+      if roles[name] == nil and (kind == "store" or kind == "drawer") then stores = stores + 1 end
+      lines[#lines + 1] = ("%s (%s)\n  %s, %s/%s slots used"):format(name, peripheral.getType(name), what, used,
+        okS and tostring(size) or "?")
+    end
+  end
+  if #lines == 0 then
+    print("No inventories on the cable. Right-click each wired modem so it turns red.")
+  else
+    textutils.pagedPrint(table.concat(lines, "\n"))
+    print(("%d of them are storage."):format(stores))
+  end
+  return
 elseif args[1] and args[1] ~= "start" then
-  print("Usage: stash | stash setup | stash monitor [name|none]")
+  print("Usage: stash | stash setup | stash monitor [name|none] | stash check")
   return
 end
 

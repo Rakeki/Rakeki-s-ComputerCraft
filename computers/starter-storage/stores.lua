@@ -27,12 +27,13 @@
 
 -- Types of storage, matched against the peripheral type
 -- ("minecraft:chest", "sophisticatedstorage:barrel", "functionalstorage:oak_1").
-local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer", "functionalstorage:", "storagedrawers:" }
+local STORAGE_TYPES = { "chest", "barrel", "shulker_box", "crate", "drawer", "functionalstorage:", "storagedrawers:",
+  "sophisticatedstorage:" }
 -- Types that are never storage even if they match: an ender chest shares its
 -- items with one far away, controllers show every drawer they reach (each
 -- item would count twice), compacting drawers show one item as three.
 local NEVER = { "ender", "controller", "compacting", "_io", "slave", "storage_link", "storage_input", "storage_output",
-  "armory" }
+  "armory", "decoration" }
 -- Kinds that hold one item per slot, a lot of it (drawers, limited barrels).
 local DRAWER_TYPES = { "drawer", "functionalstorage:", "storagedrawers:", "limited_barrel" }
 local BULK = 256 -- with this many of an item (or more), it goes in drawers and upgraded storage
@@ -88,6 +89,18 @@ function M.kindOf(name)
   if has(t, DRAWER_TYPES) then return "drawer" end
   if has(t, STORAGE_TYPES) then return "store" end
   return nil
+end
+
+-- Why a peripheral is or isn't storage, for 'stash check': its kind (as
+-- kindOf), or nil and the reason.
+function M.explain(name)
+  local t = peripheral.getType(name)
+  if not t then return nil, "gone" end
+  if not isInventory(name) then return nil, "not an inventory CC can reach" end
+  local kind = M.kindOf(name)
+  if kind then return kind end
+  if has(t, NEVER) then return nil, "never storage (ender chest, controller, compacting...)" end
+  return nil, "not a kind of storage it knows"
 end
 
 function M.new(setup, config)

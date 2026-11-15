@@ -87,6 +87,7 @@ It doesn't use rednet, turtles or other computers. When the base grows, the
 stash                    -- start (the setup screen the first time)
 stash setup              -- change the chests (opens in the running stash too; or F5, or Setup on the monitor)
 stash monitor            -- pick the monitor; 'stash monitor none' for none
+stash check              -- list every chest, barrel and furnace on the cable and what the stash takes it for
 ```
 
 On the computer:
@@ -134,7 +135,8 @@ minute, so it notices what RS took or added.
   controllers aren't used: they show items that are already in other
   drawers, so everything would count twice. Put modems on the drawers
   themselves.
-- Ender chests, hoppers and machines on the cable are left alone. To keep a
+- Ender chests, hoppers and machines on the cable are left alone (`stash check`
+  lists every block and what it's taken for). To keep a
   chest for yourself, add it under Not storage in setup.
 - It reads every chest again each minute, so things you put in or take out
   by hand show up.
