@@ -19,7 +19,7 @@
 -- roomiest storage (stack upgrades) with a free slot. Small amounts go into
 -- plain chests first, so drawers and upgraded storage stay free for bulk.
 -- tidy keeps drawers going to the items taking the most chest slots (empty
--- drawers first, then swaps that free SWAP_GAIN slots), merges part stacks,
+-- drawers first, then swaps by SWAP_RATIO), merges part stacks,
 -- and keeps each kind of item (CATEGORIES) to its own plain chests. When everything is full it overflows
 -- into the Refined Storage input (an RS Interface, or a chest an RS Importer
 -- empties). Items in the RS output (an Interface's export slots, or a chest
@@ -41,7 +41,7 @@ local NEVER = { "ender", "controller", "compacting", "_io", "slave", "storage_li
 local DRAWER_TYPES = { "drawer", "functionalstorage:", "storagedrawers:", "limited_barrel" }
 local BULK = 256 -- with this many of an item (or more), it goes in drawers and upgraded storage
 local DRAWER_STACKS = 2 -- an item that fills this many stacks (or more) is worth a drawer of its own
-local SWAP_GAIN = 2 -- chest slots a swap must free before a drawer's item is moved out for a bigger one
+local SWAP_RATIO = 2 -- a drawer's item makes way for one there's this many times more of (so two never swap back and forth)
 local FUEL = { ["minecraft:charcoal"] = true, ["minecraft:coal"] = true, ["minecraft:coal_block"] = true }
 -- Kinds of item, so each kind keeps to its own chests: the first kind with a
 -- pattern (Lua, on the item id) that matches. Anything else is its mod's own
@@ -181,6 +181,7 @@ function M.new(setup, config)
   local dirty = {} -- names to read again
   local cache -- items() and the index, until something is read or moved
   local version = 0 -- goes up with every change, so a list built across a change isn't kept
+  local refused = {} -- key -> true: a drawer wouldn't take it (tried again after the next full scan)
   local function invalidate() cache, version = nil, version + 1 end
 
   local function roleOf(name)
@@ -268,6 +269,7 @@ function M.new(setup, config)
       fns[#fns + 1] = function() read(name) end
     end
     together(fns)
+    refused = {}
     invalidate()
   end
 
@@ -595,6 +597,17 @@ function M.new(setup, config)
   -- then free slots); true when it's empty.
   local function evict(name, slot, item)
     local key = keyOf(item)
+    local room = 0
+    for _, n in ipairs(order) do
+      local st = stores[n]
+      if not st.drawer and not st.rs and not st.fuel then
+        room = room + freeSlots(n) * slotRoom(st, 1, key)
+        for s, it in pairs(contents[n] or {}) do
+          if keyOf(it) == key then room = room + math.max(0, slotRoom(st, s, key) - it.count) end
+        end
+      end
+    end
+    if room < item.count then return false end
     local left = item.count
     for _, t in ipairs(targets(key, 0)) do
       local ts = stores[t.name]
@@ -611,11 +624,12 @@ function M.new(setup, config)
     return false
   end
 
-  -- Drawers for the items that take the most chest slots: an empty drawer
-  -- goes to the biggest first; with none empty, a drawer holding little (what
-  -- fits back in a slot or two) is emptied for an item that frees SWAP_GAIN
-  -- more slots. Moves up to most stacks; refused (key -> true) are skipped.
-  local refused = {}
+  -- Drawers for the items there's the most of: an empty drawer goes to the
+  -- biggest first (DRAWER_STACKS stacks or more); with none empty, the drawer
+  -- holding the fewest stacks is emptied back into the chests for an item
+  -- there's SWAP_RATIO times more of, when it all fits. Counted in stacks,
+  -- not chest slots, so items in upgraded storage count for what they are.
+  -- Moves up to most stacks; refused items are skipped.
   function S.drawerTidy(most, done)
     if most <= 0 then return 0 end
     local moves = 0
@@ -644,28 +658,29 @@ function M.new(setup, config)
     end
     local wants = {}
     for _, it in ipairs(S.items()) do
-      if not it.nbt and (it.maxCount or 64) > 1 and not refused[it.key] and not inDrawer(it.key) then
-        local cs = chestSlots(it.key)
-        if cs >= DRAWER_STACKS then wants[#wants + 1] = { it = it, slots = cs } end
+      local max = it.maxCount or 64
+      if not it.nbt and max > 1 and not refused[it.key] and not inDrawer(it.key) and chestSlots(it.key) > 0 then
+        local stacks = it.count / max
+        if stacks >= DRAWER_STACKS then wants[#wants + 1] = { it = it, stacks = stacks } end
       end
     end
-    table.sort(wants, function(a, b) return a.slots > b.slots end)
+    table.sort(wants, function(a, b) return a.stacks > b.stacks end)
     for _, want in ipairs(wants) do
       if moves >= most then break end
       local d = emptyDrawer()
       if not d then
-        -- the drawer slot whose items need the fewest chest slots back
+        -- the drawer slot holding the fewest stacks
         local best
         for _, name in ipairs(order) do
           local st = stores[name]
           if st.drawer then
             for slot, item in pairs(contents[name] or {}) do
-              local need = math.ceil(item.count / maxOf(keyOf(item)))
-              if not best or need < best.need then best = { name = name, slot = slot, item = item, need = need } end
+              local stacks = item.count / maxOf(keyOf(item))
+              if not best or stacks < best.stacks then best = { name = name, slot = slot, item = item, stacks = stacks } end
             end
           end
         end
-        if best and want.slots - best.need >= SWAP_GAIN and evict(best.name, best.slot, best.item) then
+        if best and want.stacks >= SWAP_RATIO * best.stacks and evict(best.name, best.slot, best.item) then
           moves = moves + 1
           done[#done + 1] = ("%s out of %s"):format(shortName(best.item.name), best.name)
           d = best.name
@@ -685,7 +700,7 @@ function M.new(setup, config)
             took(w.name, w.slot, m)
             moved(d, nil, want.it.key, item, m)
           elseif first then
-            refused[want.it.key] = true -- the drawer won't take it (until a restart)
+            refused[want.it.key] = true -- the drawer won't take it (until the next full scan)
             break
           end
           first = false

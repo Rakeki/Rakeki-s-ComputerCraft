@@ -19,14 +19,14 @@ It puts things where they take the least room:
 
 - An item that already has a drawer goes into that drawer, then onto its own
   part stacks.
-- Drawers go to the items that would take the most chest slots: anything
-  that fills 2 stacks or more gets an empty drawer as it comes in (else the
-  storage with the most stack upgrades). Every 15 seconds the stash moves a
-  few stacks: items with a drawer have their chest stacks moved into it,
-  empty drawers go to the items taking the most chest slots, and when no
-  drawer is empty, an item spread over many slots swaps places with a drawer
-  holding little (what fits back in a slot or two), when that frees at least
-  2 slots.
+- Drawers go to the items you have the most of: anything that fills 2
+  stacks or more gets an empty drawer as it comes in (else the storage with
+  the most stack upgrades). Every 15 seconds the stash moves a few stacks:
+  items with a drawer have their other stacks moved into it, empty drawers
+  go to the biggest items, and when no drawer is empty, an item you have at
+  least twice as much of as a drawer holds takes that drawer (what was in
+  it goes back into the chests, if it all fits). It counts stacks, so things
+  in upgraded storage count for all they are.
 - Things you have a lot of (256 or more) without a drawer go to the storage
   with the most stack upgrades.
 - Small amounts go into plain chests first (the fullest one first), so
