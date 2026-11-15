@@ -1320,7 +1320,7 @@
         "Bulk items (256+) go into drawers, then the storage with the most stack upgrades; small amounts into plain chests",
         "Every 15 s a few stacks of bulk are moved out of plain chests, so their slots stay free",
         "Type to search, Enter takes 64, 16, 1 or all (Tab picks); F4 puts the output chest back",
-        "Every furnace, blast furnace and smoker kept busy: ores and raw food by themselves, charcoal when fuel runs low",
+        "Every furnace, blast furnace and smoker kept busy: ores and raw food by themselves, charcoal when fuel runs low (planks get the first charcoal going in a new world)",
         "Order stone, glass, smooth stone, bricks and more from the Furnaces page, or smelt any item with F1",
         "Refined Storage through its own blocks: overflow and F2 into an RS Interface, an RS output read as stock",
         "Touch monitor: tap an item to take it, order and stop smelting",

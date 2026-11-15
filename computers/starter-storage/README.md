@@ -35,14 +35,16 @@ Smelting works like the [factory's](../factory/README.md) smelter:
   are smelted by themselves, in blast furnaces first. Raw meat, fish and
   potatoes go into the smokers (16 potatoes are always kept to plant).
 - When there's fuel for fewer than 32 coal's worth, logs are burnt into
-  charcoal by themselves (32 of each kind of log are always kept).
+  charcoal by themselves (16 of each kind of log are always kept).
 - Everything else is smelted when you ask, from the Furnaces page: stone,
   smooth stone, glass, deepslate, bricks, terracotta, nether bricks, cracked
   stone bricks, smooth sandstone, smooth quartz, green dye, sponge and
   dried kelp. Or pick any item on the list and press F1.
 - Fuel is coal, charcoal and coal blocks, put in to match what's in each
   furnace. They come from the fuel chest if you have one, else from storage.
-  Coal and charcoal that come in go to the fuel chest first.
+  Coal and charcoal that come in go to the fuel chest first. With none of
+  those (a new world), it burns dried kelp blocks, blaze rods or planks
+  instead, which is enough to turn logs into the first charcoal.
 - What's smelted goes straight back into storage. Anything a furnace won't
   smelt is taken back out after 2 minutes.
 

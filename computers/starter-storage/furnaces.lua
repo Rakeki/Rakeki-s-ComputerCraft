@@ -2,7 +2,8 @@
 -- and smoker on the wired network, kept busy from storage the way the
 -- factory's smelter does it. Raw metals and ores go in by themselves (blast
 -- furnaces first), raw food into the smokers; with config.charcoal set,
--- logs are burnt into charcoal whenever there's less than that much fuel.
+-- logs are burnt into charcoal whenever there's less than that much fuel
+-- (with no coal at all, planks and other starter fuels get it going).
 -- Everything else is smelted on request: stone, glass, smooth stone,
 -- bricks... or any stored item (F1 on the item list). What's smelted goes
 -- straight back into storage (coal and charcoal into the fuel chest first).
@@ -18,11 +19,16 @@ local files = require("lib.files")
 local ORDERS_FILE = "/.stash_smelt" -- the smelting orders, so they carry on after a reboot
 local LOAD_MIN = 8 -- fewest items put into an empty furnace at once (what one coal smelts)
 local LOAD_MAX = 64 -- most items put into a furnace at once
-local LOGS_KEPT = 32 -- logs of each kind never burnt into charcoal by themselves (for planks)
+local LOGS_KEPT = 16 -- logs of each kind never burnt into charcoal by themselves (for planks)
 local STUCK_AFTER = 120 -- seconds a fuelled furnace may sit on an item without smelting it before it's taken out
--- Fuel, in the order it's used, and how many items one smelts. Logs and planks
--- are never burnt: they're for charcoal and building.
+-- Fuel, in the order it's used, and how many items one smelts. Logs are never
+-- burnt: they're for charcoal.
 local FUELS = { { "minecraft:charcoal", 8 }, { "minecraft:coal", 8 }, { "minecraft:coal_block", 80 } }
+-- Used only while there's none of FUELS, so a new world with no coal can get
+-- its first charcoal going; planks (any "*_planks") last.
+local STARTER = { { "minecraft:dried_kelp_block", 20 }, { "minecraft:blaze_rod", 12 } }
+local PLANKS = "_planks$" -- matched on the item id
+local PLANK_SMELTS = 1.5 -- items one plank smelts
 
 -- What can be ordered: make from the first of from there is. kind "ore"
 -- may go in blast furnaces, "food" in smokers; the rest only in furnaces.
@@ -71,7 +77,12 @@ function M.new(stores, setup, config)
     for _, r in ipairs(list) do recipes[#recipes + 1] = r end
   end
   local smelts = {}
-  for _, f in ipairs(FUELS) do smelts[f[1]] = f[2] end
+  for _, list in ipairs({ FUELS, STARTER }) do
+    for _, f in ipairs(list) do smelts[f[1]] = f[2] end
+  end
+  local function smeltsOf(name)
+    return smelts[name] or (name:find(PLANKS) and PLANK_SMELTS) or 8
+  end
 
   local F = {}
   local furnaces = {} -- { name, kind = "furnace"/"blast"/"smoker", input, fuel, output, seen, since }
@@ -111,9 +122,28 @@ function M.new(stores, setup, config)
     return true
   end
 
-  local function fuelStored()
+  -- Coal and charcoal stored, in smelts (what decides making charcoal).
+  local function coalStored()
     local n = 0
     for _, f in ipairs(FUELS) do n = n + stores.count(f[1]) * f[2] end
+    return n
+  end
+  -- The fuels to use now: FUELS, else the starter fuels and planks there are.
+  local function fuels()
+    if coalStored() > 0 then return FUELS end
+    local list = {}
+    for _, f in ipairs(STARTER) do
+      if stores.count(f[1]) > 0 then list[#list + 1] = f end
+    end
+    for _, it in ipairs(stores.items()) do
+      if not it.nbt and it.name:find(PLANKS) then list[#list + 1] = { it.key, PLANK_SMELTS } end
+    end
+    return list
+  end
+  -- Every fuel there is to use now, in smelts.
+  local function fuelStored()
+    local n = 0
+    for _, f in ipairs(fuels()) do n = n + stores.count(f[1]) * f[2] end
     return n
   end
 
@@ -139,7 +169,8 @@ function M.new(stores, setup, config)
         if auto then list[#list + 1] = { key = it.key, left = it.count - (keep[it.name] or 0), kind = k } end
       end
     end
-    if (config.charcoal or 0) > 0 and fuelStored() < config.charcoal * 8 then
+    local charcoal = config.charcoal or 32
+    if charcoal > 0 and coalStored() < charcoal * 8 then
       for _, log in ipairs(LOGS) do
         local spare = math.min(64, stores.count(log) - (keep[log] or LOGS_KEPT))
         if spare > 0 then list[#list + 1] = { key = log, left = spare, kind = "plain" } end
@@ -163,7 +194,7 @@ function M.new(stores, setup, config)
 
   local function fuelIn(fu)
     if not fu.fuel then return 0 end
-    return fu.fuel.count * (smelts[fu.fuel.name] or 8)
+    return fu.fuel.count * smeltsOf(fu.fuel.name)
   end
 
   -- Fuel for what's in the furnace: more of what's in its fuel slot, else
@@ -171,18 +202,18 @@ function M.new(stores, setup, config)
   local function addFuel(fu)
     local need = (fu.input and fu.input.count or 0) - fuelIn(fu)
     if need <= 0 then return end
-    for _, f in ipairs(FUELS) do
+    for _, f in ipairs(fuels()) do
       local name, per = f[1], f[2]
-      if (not fu.fuel or fu.fuel.name == name) and stores.count(name) > 0 then
+      if (not fu.fuel or fu.fuel.name == name:match("^[^#]+")) and stores.count(name) > 0 then
         local n = math.min(64 - (fu.fuel and fu.fuel.count or 0), math.ceil(need / per))
         local sent = n > 0 and stores.fetch(name, n, fu.name, 2, { fuelFirst = true }) or 0
         if sent > 0 then
-          fu.fuel = { name = name, count = (fu.fuel and fu.fuel.count or 0) + sent }
+          fu.fuel = { name = name:match("^[^#]+"), count = (fu.fuel and fu.fuel.count or 0) + sent }
           return
         end
       end
     end
-    if not fu.fuel then F.message = "Out of fuel: put coal or charcoal in." end
+    if not fu.fuel then F.message = "Out of fuel: put coal, charcoal or planks in." end
   end
 
   function F.round()
