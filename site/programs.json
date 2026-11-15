@@ -1318,7 +1318,7 @@
       "features": [
         "Every chest, barrel, drawer and Sophisticated Storage chest or barrel on the cable is one store",
         "Drawers go to the items taking the most chest slots (2 stacks or more), swapped as that changes; bulk without a drawer into the storage with the most stack upgrades; small amounts into plain chests",
-        "Each kind of item (ores, wood, stone, food, gear, each mod's items) keeps to its own chests; part stacks are merged; stack upgrades are read",
+        "Each kind of item (ores, wood, stone, food, gear, each mod's items) keeps to its own chests; part stacks are merged; upgraded storage is packed with the items that save the most slots",
         "Every 15 s a few stacks of bulk are moved out of plain chests, so their slots stay free",
         "Type to search, Enter takes 64, 16, 1 or all (Tab picks); F4 puts the output chest back",
         "Every furnace, blast furnace and smoker kept busy: ores and raw food by themselves, charcoal when fuel runs low (planks get the first charcoal going in a new world)",

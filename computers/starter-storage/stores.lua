@@ -577,6 +577,7 @@ function M.new(setup, config)
       end
     end
     moves = moves + S.drawerTidy(most - moves, done)
+    moves = moves + S.compactTidy(most - moves, done)
     moves = moves + S.sortTidy(most - moves, done)
     if moves > 0 then S.refresh() end
     return moves, done
@@ -725,6 +726,106 @@ function M.new(setup, config)
   -- items in a chest of another kind moved to a chest of their own kind, or,
   -- for a kind with 2+ such slots and no chest yet, into an empty chest
   -- (while another stays empty). Up to most moves.
+  -- Upgraded storage (stack upgrades) used where it saves the most slots:
+  -- an item's stacks in plain chests go onto its part stack in upgraded
+  -- storage, and an item taking 2+ plain slots moves into upgraded storage
+  -- (the biggest saving first, the biggest upgrades first). When it's full,
+  -- a slot there holding no more than a plain stack goes back to a plain
+  -- chest to make room for an item that saves 2+ slots. Drawer items are
+  -- left to the drawers. Up to most moves.
+  local function isRoomy(st) return st and not st.drawer and not st.rs and not st.fuel and st.limit > 64 end
+  function S.compactTidy(most, done)
+    if most <= 0 then return 0 end
+    local roomy = {}
+    for _, name in ipairs(order) do
+      if isRoomy(stores[name]) then roomy[#roomy + 1] = name end
+    end
+    if #roomy == 0 then return 0 end
+    table.sort(roomy, function(a, b) return stores[a].limit > stores[b].limit end)
+
+    -- where more of key goes in upgraded storage: its part stack, else a free slot
+    local function roomyTarget(key)
+      for _, name in ipairs(roomy) do
+        for slot, it in pairs(contents[name] or {}) do
+          if keyOf(it) == key and it.count < slotRoom(stores[name], slot, key) then return name, slot end
+        end
+      end
+      for _, name in ipairs(roomy) do
+        if freeSlots(name) > 0 then return name end
+      end
+    end
+    -- empties a slot in upgraded storage that holds no more than a plain
+    -- stack into a plain chest; returns the store it freed a slot in
+    local function makeRoom(except)
+      for _, name in ipairs(roomy) do
+        for slot, it in pairs(contents[name] or {}) do
+          local key = keyOf(it)
+          if key ~= except and it.count <= maxOf(key) then
+            for _, t in ipairs(targets(key, 0)) do
+              if isPlain(stores[t.name]) then
+                local m = push(name, slot, t.name, it.count, t.slot)
+                if m > 0 then
+                  moved(t.name, t.slot, key, it, m)
+                  took(name, slot, m)
+                end
+                if not (contents[name] or {})[slot] then return name, it end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    local cands = {}
+    for _, it in ipairs(S.items()) do
+      if not inDrawer(it.key) then
+        local plain, plainCount, part = {}, 0, false
+        for _, w in ipairs(build().where[it.key] or {}) do
+          local st = stores[w.name]
+          local item = (contents[w.name] or {})[w.slot]
+          if item and isPlain(st) then
+            plain[#plain + 1] = { name = w.name, slot = w.slot }
+            plainCount = plainCount + item.count
+          elseif item and isRoomy(st) and item.count < slotRoom(st, w.slot, it.key) then
+            part = true
+          end
+        end
+        local per = slotRoom(stores[roomy[1]], 1, it.key)
+        local saving = #plain - (part and 0 or math.ceil(plainCount / per))
+        if #plain > 0 and saving >= 1 then cands[#cands + 1] = { it = it, plain = plain, saving = saving } end
+      end
+    end
+    table.sort(cands, function(a, b) return a.saving > b.saving end)
+
+    local moves = 0
+    for _, c in ipairs(cands) do
+      if moves >= most then break end
+      for _, p in ipairs(c.plain) do
+        if moves >= most then break end
+        local item = (contents[p.name] or {})[p.slot]
+        if item then
+          local to, toSlot = roomyTarget(c.it.key)
+          if not to and c.saving >= 2 then
+            local freed, what = makeRoom(c.it.key)
+            if freed then
+              moves = moves + 1
+              done[#done + 1] = ("%s out of %s"):format(shortName(what.name), freed)
+              to = freed
+            end
+          end
+          if not to then break end
+          local m = push(p.name, p.slot, to, item.count, toSlot)
+          if m == 0 then break end
+          moves = moves + 1
+          done[#done + 1] = ("%d %s to %s"):format(m, c.it.displayName, to)
+          moved(to, toSlot, c.it.key, item, m)
+          took(p.name, p.slot, m)
+        end
+      end
+    end
+    return moves
+  end
+
   function S.sortTidy(most, done)
     if most <= 0 then return 0 end
     local moves = 0

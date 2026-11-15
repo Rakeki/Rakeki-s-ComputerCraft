@@ -21,7 +21,7 @@ It puts things where they take the least room:
   part stacks.
 - Drawers go to the items you have the most of: anything that fills 2
   stacks or more gets an empty drawer as it comes in (else the storage with
-  the most stack upgrades). Every 15 seconds the stash moves a few stacks:
+  the most stack upgrades). Every 15 seconds the stash moves up to 16 stacks:
   items with a drawer have their other stacks moved into it, empty drawers
   go to the biggest items, and when no drawer is empty, an item you have at
   least twice as much of as a drawer holds takes that drawer (what was in
@@ -39,8 +39,13 @@ It puts things where they take the least room:
   stacks of the same item are merged, and things in another kind's chest are
   moved to their own.
 - Stack upgrades count: each chest's slot size is read (again every minute),
-  so Sophisticated Storage with stack upgrades takes bulk, and each drawer
-  slot's own size is used.
+  and each drawer slot's own size is used. Every 15 seconds the stash packs
+  upgraded storage (Sophisticated Storage with stack upgrades) for the most
+  room: an item's stacks in plain chests join its part stack there, and an
+  item spread over 2 or more plain slots moves in, the biggest saving
+  first, into the barrels with the biggest upgrades. When upgraded storage
+  is full, a slot there holding no more than a plain stack goes back to a
+  plain chest to make room for an item that saves 2 or more slots.
 - When everything is full, the rest goes into Refined Storage (see
   [Refined Storage](#refined-storage)). If that's full too, it stays in the
   input chest and the screen says so.
