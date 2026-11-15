@@ -31,6 +31,16 @@ It puts things where they take the least room:
   with the most stack upgrades.
 - Small amounts go into plain chests first (the fullest one first), so
   drawers and upgraded storage stay free for bulk.
+- Each kind of item keeps to its own plain chests: ores and ingots,
+  redstone, tools and armour, wood, food, mob drops, stone and dirt, and each
+  mod's items (Create's, Mekanism's...) as a kind of their own. Things go into
+  a chest already holding their kind; a kind with no chest yet starts one in
+  an empty chest (one empty chest is always kept). Every 15 seconds, part
+  stacks of the same item are merged, and things in another kind's chest are
+  moved to their own.
+- Stack upgrades count: each chest's slot size is read (again every minute),
+  so Sophisticated Storage with stack upgrades takes bulk, and each drawer
+  slot's own size is used.
 - When everything is full, the rest goes into Refined Storage (see
   [Refined Storage](#refined-storage)). If that's full too, it stays in the
   input chest and the screen says so.
@@ -155,4 +165,5 @@ minute, so it notices what RS took or added.
 - `config.lua`: `bulk` (256: when an item counts as bulk), `charcoal` (32;
   0 = charcoal only on request), `cook` (false: no cooking by itself),
   `keep` (items never smelted by themselves), `recipes` (your own, e.g.
-  Create's raw zinc).
+  Create's raw zinc), `separate` (false: no chest per kind of item),
+  `categories` (your own kinds of item).

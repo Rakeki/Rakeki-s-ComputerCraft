@@ -21,6 +21,18 @@ return {
     -- { title = "Zinc ingot", from = { "create:raw_zinc" }, kind = "ore" },
   },
 
+  -- Keep each kind of item in its own chests (ores, wood, stone, food...,
+  -- and each mod's items). false = put things anywhere.
+  separate = true,
+
+  -- Your own kinds of item, in place of the built-in ones: name and Lua
+  -- patterns on the item id; the first match wins, anything else goes by its
+  -- mod ("create") or "misc". Leave out to use the built-in list.
+  -- categories = {
+  --   { "ores", { ":raw_", "_ore$", "_ingot$", "_nugget$" } },
+  --   { "wood", { "_log$", "_planks$", "_sapling$" } },
+  -- },
+
   -- Smelted by themselves as ores (Lua patterns on the item id), unless skip
   -- matches. Leave out to use the built-in lists.
   -- ores = { ":raw_", "_ore$", ":ancient_debris$", ":crushed_raw_" },

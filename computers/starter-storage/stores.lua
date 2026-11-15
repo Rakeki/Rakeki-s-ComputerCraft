@@ -19,7 +19,8 @@
 -- roomiest storage (stack upgrades) with a free slot. Small amounts go into
 -- plain chests first, so drawers and upgraded storage stay free for bulk.
 -- tidy keeps drawers going to the items taking the most chest slots (empty
--- drawers first, then swaps that free SWAP_GAIN slots). When everything is full it overflows
+-- drawers first, then swaps that free SWAP_GAIN slots), merges part stacks,
+-- and keeps each kind of item (CATEGORIES) to its own plain chests. When everything is full it overflows
 -- into the Refined Storage input (an RS Interface, or a chest an RS Importer
 -- empties). Items in the RS output (an Interface's export slots, or a chest
 -- an RS Exporter fills) count as stored and are taken last.
@@ -42,6 +43,26 @@ local BULK = 256 -- with this many of an item (or more), it goes in drawers and 
 local DRAWER_STACKS = 2 -- an item that fills this many stacks (or more) is worth a drawer of its own
 local SWAP_GAIN = 2 -- chest slots a swap must free before a drawer's item is moved out for a bigger one
 local FUEL = { ["minecraft:charcoal"] = true, ["minecraft:coal"] = true, ["minecraft:coal_block"] = true }
+-- Kinds of item, so each kind keeps to its own chests: the first kind with a
+-- pattern (Lua, on the item id) that matches. Anything else is its mod's own
+-- kind ("create"), and vanilla odds and ends are "misc". config.categories
+-- replaces this list; config.separate = false turns sorting off.
+local CATEGORIES = {
+  { "ores", { ":raw_", "_ore$", "_ingot$", "_nugget$", ":diamond$", ":emerald$", ":lapis_lazuli$", ":redstone$",
+    ":coal$", ":charcoal$", ":quartz$", "_dust$", ":netherite_scrap$", ":amethyst_shard$", ":flint$" } },
+  { "redstone", { "redstone_", ":repeater$", ":comparator$", "piston$", ":hopper$", ":observer$", "rail$", ":dropper$",
+    ":dispenser$", ":lever$", "_button$", "_pressure_plate$", ":target$", ":daylight_detector$" } },
+  { "gear", { "_sword$", "_axe$", "_shovel$", "_hoe$", "_helmet$", "_chestplate$", "_leggings$", "_boots$", ":bow$",
+    ":crossbow$", ":shield$", ":fishing_rod$", ":trident$", ":shears$", "_horse_armor$", ":arrow$" } },
+  { "wood", { "_log$", "_wood$", "_planks$", "_sapling$", ":stick$", "_stem$", "_hyphae$", "_leaves$" } },
+  { "food", { "seeds$", ":wheat$", ":carrot$", "potato$", ":beetroot$", "apple$", ":beef$", ":porkchop$", ":chicken$",
+    ":mutton$", ":rabbit$", ":cod$", ":salmon$", "^minecraft:cooked_", ":bread$", "melon", "pumpkin", ":sugar",
+    ":egg$", "kelp", "berries$", "stew$", ":cake$", ":cookie$" } },
+  { "mob", { ":bone", ":string$", ":gunpowder$", ":rotten_flesh$", ":spider_eye$", ":ender_pearl$", ":slime_ball$",
+    ":feather$", ":leather$", ":blaze_", ":ghast_tear$", ":phantom_membrane$", ":ink_sac$" } },
+  { "stone", { "stone", "cobble", "deepslate", ":granite", ":diorite", ":andesite", ":tuff$", ":calcite$", "netherrack",
+    "basalt", ":dirt$", ":coarse_dirt$", ":gravel$", ":sand$", ":red_sand$", ":clay", "terracotta", "brick" } },
+}
 local YIELD_AFTER = 0.05 -- seconds of work in a long loop before the screens get a turn
 
 local function keyOf(item) return item.nbt and (item.name .. "#" .. item.nbt) or item.name end
@@ -99,6 +120,17 @@ end
 
 local M = { keyOf = keyOf, shortName = shortName, isInventory = isInventory, touching = touching, FUEL = FUEL }
 
+-- The kind of an item id (CATEGORIES, or cats in the same form).
+function M.categoryOf(name, cats)
+  for _, c in ipairs(cats or CATEGORIES) do
+    for _, pat in ipairs(c[2]) do
+      if name:find(pat) then return c[1] end
+    end
+  end
+  local mod = name:match("^([^:]+):")
+  return (mod and mod ~= "minecraft") and mod or "misc"
+end
+
 -- The coroutine allowed to yield in long loops (the stash's work loop).
 function M.setWorker(co) worker = co end
 
@@ -130,6 +162,16 @@ end
 function M.new(setup, config)
   config = config or {}
   local bulk = config.bulk or BULK
+  local separate = config.separate ~= false
+  local cats, catMemo = config.categories or CATEGORIES, {}
+  local function catOf(name)
+    local c = catMemo[name]
+    if not c then
+      c = M.categoryOf(name:match("^[^#]+"), cats)
+      catMemo[name] = c
+    end
+    return c
+  end
   local S = { keyOf = keyOf, shortName = shortName }
   local stores = {} -- name -> { name, drawer, size, limit, slotLimits, rs = "in"/"out", fuel }
   local order = {} -- store names, sorted
@@ -138,7 +180,6 @@ function M.new(setup, config)
   local pending = {} -- name -> slots probably used since the last read (moves without a known slot)
   local dirty = {} -- names to read again
   local cache -- items() and the index, until something is read or moved
-  local arrived = {} -- key -> items put away into chests not read since (not counted yet)
   local version = 0 -- goes up with every change, so a list built across a change isn't kept
   local function invalidate() cache, version = nil, version + 1 end
 
@@ -227,7 +268,6 @@ function M.new(setup, config)
       fns[#fns + 1] = function() read(name) end
     end
     together(fns)
-    arrived = {}
     invalidate()
   end
 
@@ -236,7 +276,6 @@ function M.new(setup, config)
     for name in pairs(dirty) do fns[#fns + 1] = function() read(name) end end
     if #fns > 0 then
       together(fns)
-      arrived = {}
       invalidate()
     end
   end
@@ -294,6 +333,18 @@ function M.new(setup, config)
     return n
   end
   local function freeSlots(name) return math.max(0, stores[name].size - used(name)) end
+  -- a plain chest or barrel: not a drawer, RS, the fuel chest or upgraded storage
+  local function isPlain(st) return st and not st.drawer and not st.rs and not st.fuel and st.limit <= 64 end
+  -- The kind most of a chest's slots hold (ties: the first by name), nil when empty.
+  local function chestCat(name)
+    local n, best = {}, nil
+    for _, item in pairs(contents[name] or {}) do
+      local c = catOf(item.name)
+      n[c] = (n[c] or 0) + 1
+      if not best or n[c] > n[best] or (n[c] == n[best] and c < best) then best = c end
+    end
+    return best
+  end
 
   -- Where up to n more of key go, best first: { name, slot } (slot nil = anywhere in it).
   local function targets(key, total)
@@ -332,8 +383,20 @@ function M.new(setup, config)
       end
     end
     table.sort(roomy, function(a, b) return stores[a].limit > stores[b].limit end)
-    -- the fullest plain chest first, so items gather in a few and the rest stay empty
+    -- plain chests holding this kind of item first, then an empty one (while
+    -- another stays empty) to start this kind's chest, then the rest; the
+    -- fullest first in each, so items gather in a few and the rest stay empty
+    local rank, empties = {}, 0
+    for _, name in ipairs(plain) do
+      if used(name) == 0 then empties = empties + 1 end
+    end
+    local kind = separate and catOf(key)
+    for _, name in ipairs(plain) do
+      local c = kind and chestCat(name)
+      rank[name] = not kind and 0 or c == kind and 0 or (c == nil and empties > 1) and 1 or 2
+    end
     table.sort(plain, function(a, b)
+      if rank[a] ~= rank[b] then return rank[a] < rank[b] end
       local fa, fb = freeSlots(a), freeSlots(b)
       if fa ~= fb then return fa < fb end
       return a < b
@@ -350,29 +413,35 @@ function M.new(setup, config)
     return out
   end
 
-  -- Notes a move so the next choice knows (the store is read again later).
+  -- Notes a move so the next choice knows. Without a slot, it's noted where
+  -- pushItems puts it (onto the item's own part stacks, then the first empty
+  -- slots) and the store is read again later to be sure: so the next move
+  -- knows which chest and drawer now hold the item.
   local function moved(to, toSlot, key, item, n)
-    if not stores[to] then return end
+    local st = stores[to]
+    if not st then return end
     local list = contents[to] or {}
     contents[to] = list
-    if not toSlot and stores[to].drawer then
-      -- a drawer takes it into the slot that holds it, else its first empty
-      -- one: note it there now, so the next move knows the drawer is this
-      -- item's (it's read again later to be sure)
-      for s = 1, stores[to].size do
-        if list[s] and keyOf(list[s]) == key then toSlot = s break end
-      end
-      for s = 1, toSlot and 0 or stores[to].size do
-        if not list[s] then toSlot = s break end
-      end
-      dirty[to] = true
-    end
-    if toSlot and list[toSlot] then
-      list[toSlot].count = list[toSlot].count + n
-    elseif toSlot then
-      list[toSlot] = { name = item.name, nbt = item.nbt, count = n }
+    if toSlot then
+      if list[toSlot] then list[toSlot].count = list[toSlot].count + n
+      else list[toSlot] = { name = item.name, nbt = item.nbt, count = n } end
     else
-      pending[to] = (pending[to] or 0) + math.ceil(n / maxOf(key))
+      local left = n
+      for s = 1, st.size do
+        local it = list[s]
+        if left > 0 and it and keyOf(it) == key then
+          local m = math.min(left, slotRoom(st, s, key) - it.count)
+          if m > 0 then it.count, left = it.count + m, left - m end
+        end
+      end
+      for s = 1, st.size do
+        if left <= 0 then break end
+        if not list[s] then
+          local m = math.min(left, slotRoom(st, s, key))
+          list[s], left = { name = item.name, nbt = item.nbt, count = m }, left - m
+        end
+      end
+      if left > 0 then pending[to] = (pending[to] or 0) + math.ceil(left / maxOf(key)) end
       dirty[to] = true
     end
     invalidate()
@@ -406,12 +475,11 @@ function M.new(setup, config)
       end
     end
     if left > 0 then
-      for _, t in ipairs(targets(key, S.count(key) + (arrived[key] or 0) + left)) do
+      for _, t in ipairs(targets(key, S.count(key) + left)) do
         local m = push(from, slot, t.name, left, t.slot)
         if m > 0 then
           left = left - m
           moved(t.name, t.slot, key, item, m)
-          if not t.slot and not stores[t.name].drawer then arrived[key] = (arrived[key] or 0) + m end
           if t.name == setup.rsIn then S.sentToRs = (S.sentToRs or 0) + m end
         end
         if left <= 0 then break end
@@ -497,6 +565,7 @@ function M.new(setup, config)
       end
     end
     moves = moves + S.drawerTidy(most - moves, done)
+    moves = moves + S.sortTidy(most - moves, done)
     if moves > 0 then S.refresh() end
     return moves, done
   end
@@ -620,6 +689,84 @@ function M.new(setup, config)
             break
           end
           first = false
+        end
+      end
+    end
+    return moves
+  end
+
+  -- Space and order in the chests: part stacks of one item merged (the
+  -- smallest into the biggest, in a chest of its kind if there is one), then
+  -- items in a chest of another kind moved to a chest of their own kind, or,
+  -- for a kind with 2+ such slots and no chest yet, into an empty chest
+  -- (while another stays empty). Up to most moves.
+  function S.sortTidy(most, done)
+    if most <= 0 then return 0 end
+    local moves = 0
+    for _, it in ipairs(S.items()) do
+      if moves >= most then break end
+      local parts = {}
+      for _, w in ipairs(build().where[it.key] or {}) do
+        local st = stores[w.name]
+        local item = st and not st.drawer and not st.rs and not st.fuel and (contents[w.name] or {})[w.slot]
+        local room = item and slotRoom(st, w.slot, it.key)
+        if item and item.count < room then
+          parts[#parts + 1] = { name = w.name, slot = w.slot, count = item.count, room = room,
+            home = not separate or chestCat(w.name) == catOf(it.key) }
+        end
+      end
+      if #parts >= 2 then
+        table.sort(parts, function(a, b)
+          if a.home ~= b.home then return a.home end
+          return a.count > b.count
+        end)
+        local into, from = parts[1], parts[#parts]
+        local m = push(from.name, from.slot, into.name, math.min(from.count, into.room - into.count), into.slot)
+        if m > 0 then
+          moves = moves + 1
+          done[#done + 1] = ("merged %d %s"):format(m, it.displayName)
+          took(from.name, from.slot, m)
+          moved(into.name, into.slot, it.key, it, m)
+        end
+      end
+    end
+    if not separate or moves >= most then return moves end
+
+    -- strays: items in a chest whose kind isn't theirs
+    local strays, empties = {}, {}
+    for _, name in ipairs(order) do
+      if isPlain(stores[name]) then
+        if used(name) == 0 then empties[#empties + 1] = name end
+        local c = chestCat(name)
+        for slot, item in pairs(contents[name] or {}) do
+          local ic = catOf(item.name)
+          if c and ic ~= c then strays[#strays + 1] = { name = name, slot = slot, cat = ic } end
+        end
+      end
+    end
+    local perCat = {}
+    for _, st in ipairs(strays) do perCat[st.cat] = (perCat[st.cat] or 0) + 1 end
+    for _, sy in ipairs(strays) do
+      if moves >= most then break end
+      local item = (contents[sy.name] or {})[sy.slot]
+      if item then
+        local to
+        for _, name in ipairs(order) do
+          if name ~= sy.name and isPlain(stores[name]) and freeSlots(name) > 0 and chestCat(name) == sy.cat then
+            to = name
+            break
+          end
+        end
+        if not to and perCat[sy.cat] >= 2 and #empties > 1 then to = table.remove(empties, 1) end
+        if to then
+          local key = keyOf(item)
+          local m = push(sy.name, sy.slot, to, item.count)
+          if m > 0 then
+            moves = moves + 1
+            done[#done + 1] = ("%d %s to the %s chest"):format(m, shortName(item.name), sy.cat)
+            moved(to, nil, key, item, m)
+            took(sy.name, sy.slot, m)
+          end
         end
       end
     end
