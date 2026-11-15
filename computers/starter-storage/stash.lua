@@ -289,12 +289,15 @@ local function workLoop()
   changed()
   local last = { input = -math.huge, smelt = -math.huge, tidy = os.clock(), scan = os.clock() }
   local rediscover = false
-  local timer = os.startTimer(0)
+  -- Work is due by the clock and woken by ticker()'s stash_tick, not by a
+  -- timer of its own: a timer that fires while this loop waits inside a yield
+  -- (building the item list for an action) is missed, and waiting for that
+  -- one stopped the input chest being emptied. A missed tick is followed by
+  -- another a second later.
+  local due = os.clock()
   while true do
     local ev = { os.pullEvent() }
-    if ev[1] == "timer" and ev[2] == timer then
-      timer = nil
-    elseif ev[1] == "peripheral" or ev[1] == "peripheral_detach" then
+    if ev[1] == "peripheral" or ev[1] == "peripheral_detach" then
       rediscover = true
     elseif ev[1] == "stash_setup" then
       local s = files.read(SETUP_FILE) or setup
@@ -303,7 +306,7 @@ local function workLoop()
       rediscover = true
     end
     drain()
-    if not timer then
+    if os.clock() >= due then
       local now = os.clock()
       if rediscover then
         rediscover = false
@@ -340,8 +343,17 @@ local function workLoop()
         furnaces.discover()
         changed()
       end
-      timer = os.startTimer(1)
+      due = os.clock() + 1
     end
+  end
+end
+
+-- Wakes the work loop every second. It never waits on anything else, so its
+-- own timer can't be missed.
+local function ticker()
+  while true do
+    sleep(1)
+    os.queueEvent("stash_tick")
   end
 end
 
@@ -607,7 +619,10 @@ end
 local function uiLoop()
   local INPUT = { char = true, key = true, paste = true, mouse_click = true, mouse_scroll = true, monitor_touch = true,
     term_resize = true, monitor_resize = true, stash_monitor = true }
-  local soon, beat, draw = nil, os.startTimer(5), true
+  -- Redraws go by the clock (soonAt, beatAt), checked on every wake, so a
+  -- timer missed while redraw() yielded only delays them to the next
+  -- stash_tick instead of stopping them.
+  local soonAt, beatAt, draw = nil, os.clock() + 5, true
   while true do
     if mon.setup then
       mon.setup = false
@@ -620,10 +635,15 @@ local function uiLoop()
     end
     local ev = { os.pullEvent() }
     local e = ev[1]
-    if e == "timer" and ev[2] == soon then soon, draw = nil, true
-    elseif e == "timer" and ev[2] == beat then beat, draw = os.startTimer(5), true
-    elseif e == "stash_changed" or e == "peripheral" or e == "peripheral_detach" then soon = soon or os.startTimer(0.3)
+    local now = os.clock()
+    if e == "stash_changed" or e == "peripheral" or e == "peripheral_detach" then
+      if not soonAt then
+        soonAt = now + 0.3
+        os.startTimer(0.3)
+      end
     elseif INPUT[e] then draw = true end
+    if soonAt and now >= soonAt then soonAt, draw = nil, true end
+    if now >= beatAt then beatAt, draw = now + 5, true end
     if e == "stash_monitor" then monScreen:refresh() end
     if setupui.wanted("stash", ev) then mon.setup = true end
     local mx, my = monScreen:clicked(ev)
@@ -655,7 +675,7 @@ end
 ---------------------------------------------------------------- start
 
 local function main()
-  parallel.waitForAny(workLoop, uiLoop)
+  parallel.waitForAny(workLoop, uiLoop, ticker)
 end
 
 parallel.waitForAny(function()
