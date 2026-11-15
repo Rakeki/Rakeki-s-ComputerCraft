@@ -72,7 +72,10 @@ It doesn't use rednet, turtles or other computers. When the base grows, the
    wired modem touching it (a full-block wired modem for chests and
    furnaces, which a small modem can't go on; barrels and drawers take a
    small one), and join every modem to a wired modem on the computer with
-   networking cable. Right-click each modem so it turns red.
+   networking cable. Right-click each modem so it turns red. Don't put a
+   chest, barrel or furnace straight against the computer: CC can't move
+   items between a block touching the computer and one on the cable, so the
+   stash leaves those out.
 2. Pick two chests for in and out, also on the cable: the **input chest**
    (what you drop in is put away) and the **output chest** (what you take
    comes here). Optionally a **fuel chest** for coal and charcoal.

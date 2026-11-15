@@ -60,12 +60,14 @@ local SETTINGS = {
   { key = "rsOut", what = "RS output", hint = "An RS Interface's export slots, or an RS Exporter's chest." },
 }
 
--- Every chest-like thing on the cable, for the lists (furnaces aren't).
+-- Every chest-like thing on the cable, for the lists (furnaces aren't, nor
+-- blocks touching the computer: items can't move to or from those).
 local function chestNames()
   local names = {}
   for _, n in ipairs(peripheral.getNames()) do
     local t = peripheral.getType(n)
-    if storesLib.isInventory(n) and not (t:find("furnace", 1, true) or t:find("smoker", 1, true)) then
+    if storesLib.isInventory(n) and not storesLib.touching(n)
+      and not (t:find("furnace", 1, true) or t:find("smoker", 1, true)) then
       names[#names + 1] = n
     end
   end
@@ -197,6 +199,9 @@ elseif args[1] == "check" then
       for _ in pairs(okL and type(list) == "table" and list or {}) do used = used + 1 end
       local what = roles[name] or (kind == "store" and "storage") or (kind == "drawer" and "drawer (bulk first)")
         or (kind == "furnace" and "furnace") or ("left alone: " .. why)
+      if roles[name] and storesLib.touching(name) then
+        what = what .. ", but it touches the computer: items can't move in or out. Put a wired modem on it"
+      end
       if roles[name] == nil and (kind == "store" or kind == "drawer") then stores = stores + 1 end
       lines[#lines + 1] = ("%s (%s)\n  %s, %s/%s slots used"):format(name, peripheral.getType(name), what, used,
         okS and tostring(size) or "?")
@@ -235,6 +240,16 @@ end
 require("lib.label").set("Stash") -- names it Stash-<id> (unless you labelled it)
 if report then report.init("stash") end
 if errlog then errlog.init("stash") end
+
+-- Setup chests touching the computer: CC can't move items to or from them.
+local function touchingProblem()
+  for _, st in ipairs(SETTINGS) do
+    local name = setup[st.key]
+    if name and storesLib.touching(name) then
+      return ("The %s (%s) touches the computer, so items can't move in or out. Put a wired modem on it, join it to the cable, and pick it again in setup (F5)."):format(st.what:lower(), name)
+    end
+  end
+end
 
 local stores = storesLib.new(setup, config)
 local furnaces = furnacesLib.new(stores, setup, config)
@@ -316,6 +331,7 @@ local function workLoop()
   furnaces.discover()
   local _, total = stores.space()
   say(("Ready: %d items in %d slots, %d furnaces."):format(#stores.items(), total, #furnaces.list()))
+  if touchingProblem() then say(touchingProblem(), "red") end
   changed()
   local last = { input = -math.huge, smelt = -math.huge, tidy = os.clock(), scan = os.clock() }
   local rediscover = false
@@ -346,7 +362,9 @@ local function workLoop()
       end
       if now - last.input >= INPUT_EVERY then
         last.input = now
-        local full, any = empty(setup.input)
+        local problem = touchingProblem()
+        local full, any = 0, false
+        if problem then say(problem, "red") else full, any = empty(setup.input) end
         if full > 0 then say("Storage is full! Add chests, or an RS input.", "red") end
         if any then changed() end
         drain()

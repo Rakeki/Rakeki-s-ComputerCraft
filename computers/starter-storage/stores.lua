@@ -77,13 +77,24 @@ local function together(fns)
   for i = 1, #fns, 100 do parallel.waitForAll(table.unpack(fns, i, math.min(#fns, i + 99))) end
 end
 
-local M = { keyOf = keyOf, shortName = shortName, isInventory = isInventory, FUEL = FUEL }
+-- A block touching the computer (named by its side) isn't on the wired
+-- network, and CC only moves items between blocks on the same network: every
+-- pushItems to or from it fails. It's left out, and setup chests there are
+-- refused.
+local function touching(name)
+  for _, side in ipairs(rs.getSides()) do
+    if side == name then return true end
+  end
+  return false
+end
+
+local M = { keyOf = keyOf, shortName = shortName, isInventory = isInventory, touching = touching, FUEL = FUEL }
 
 -- What a peripheral is to the stash, from its type: "drawer", "store",
 -- "furnace" or nil (not ours: hoppers, machines, ender chests, turtles).
 function M.kindOf(name)
   local t = peripheral.getType(name)
-  if not t or not isInventory(name) then return nil end
+  if not t or not isInventory(name) or touching(name) then return nil end
   if t:find("furnace", 1, true) or t:find("smoker", 1, true) then return "furnace" end
   if has(t, NEVER) then return nil end
   if has(t, DRAWER_TYPES) then return "drawer" end
@@ -97,6 +108,7 @@ function M.explain(name)
   local t = peripheral.getType(name)
   if not t then return nil, "gone" end
   if not isInventory(name) then return nil, "not an inventory CC can reach" end
+  if touching(name) then return nil, "touches the computer, so items can't move to or from it: put a wired modem on it" end
   local kind = M.kindOf(name)
   if kind then return kind end
   if has(t, NEVER) then return nil, "never storage (ender chest, controller, compacting...)" end
@@ -106,7 +118,7 @@ end
 function M.new(setup, config)
   config = config or {}
   local bulk = config.bulk or BULK
-  local S = {}
+  local S = { keyOf = keyOf, shortName = shortName }
   local stores = {} -- name -> { name, drawer, size, limit, slotLimits, rs = "in"/"out", fuel }
   local order = {} -- store names, sorted
   local contents = {} -- name -> list()
@@ -131,7 +143,7 @@ function M.new(setup, config)
   function S.discover()
     local found, list = {}, {}
     for _, name in ipairs(peripheral.getNames()) do
-      local role = roleOf(name)
+      local role = not touching(name) and roleOf(name)
       local kind = not role and M.kindOf(name)
       if role == "fuel" or role == "rsOut" then
         found[name] = stores[name] or { name = name, size = 0, limit = 64 }
