@@ -14,10 +14,12 @@
 --   stores.space()                    used, total, text ("12 stores, 40/324 slots, 3 drawers")
 --
 -- Where things go, so the space lasts: an item already in a drawer goes
--- into that drawer, then onto its own part stacks. An item there's a lot of
--- (BULK) takes an empty drawer, then the roomiest storage (stack upgrades)
--- with a free slot. Small amounts go into plain chests first, so drawers and
--- upgraded storage stay free for bulk. When everything is full it overflows
+-- into that drawer, then onto its own part stacks. An item that fills
+-- DRAWER_STACKS stacks (or BULK items) takes an empty drawer, then the
+-- roomiest storage (stack upgrades) with a free slot. Small amounts go into
+-- plain chests first, so drawers and upgraded storage stay free for bulk.
+-- tidy keeps drawers going to the items taking the most chest slots (empty
+-- drawers first, then swaps that free SWAP_GAIN slots). When everything is full it overflows
 -- into the Refined Storage input (an RS Interface, or a chest an RS Importer
 -- empties). Items in the RS output (an Interface's export slots, or a chest
 -- an RS Exporter fills) count as stored and are taken last.
@@ -37,6 +39,8 @@ local NEVER = { "ender", "controller", "compacting", "_io", "slave", "storage_li
 -- Kinds that hold one item per slot, a lot of it (drawers, limited barrels).
 local DRAWER_TYPES = { "drawer", "functionalstorage:", "storagedrawers:", "limited_barrel" }
 local BULK = 256 -- with this many of an item (or more), it goes in drawers and upgraded storage
+local DRAWER_STACKS = 2 -- an item that fills this many stacks (or more) is worth a drawer of its own
+local SWAP_GAIN = 2 -- chest slots a swap must free before a drawer's item is moved out for a bigger one
 local FUEL = { ["minecraft:charcoal"] = true, ["minecraft:coal"] = true, ["minecraft:coal_block"] = true }
 local YIELD_AFTER = 0.05 -- seconds of work in a long loop before the screens get a turn
 
@@ -126,6 +130,7 @@ function M.new(setup, config)
   local pending = {} -- name -> slots probably used since the last read (moves without a known slot)
   local dirty = {} -- names to read again
   local cache -- items() and the index, until something is read or moved
+  local arrived = {} -- key -> items put away into chests not read since (not counted yet)
   local version = 0 -- goes up with every change, so a list built across a change isn't kept
   local function invalidate() cache, version = nil, version + 1 end
 
@@ -214,6 +219,7 @@ function M.new(setup, config)
       fns[#fns + 1] = function() read(name) end
     end
     together(fns)
+    arrived = {}
     invalidate()
   end
 
@@ -222,6 +228,7 @@ function M.new(setup, config)
     for name in pairs(dirty) do fns[#fns + 1] = function() read(name) end end
     if #fns > 0 then
       together(fns)
+      arrived = {}
       invalidate()
     end
   end
@@ -323,7 +330,11 @@ function M.new(setup, config)
       if fa ~= fb then return fa < fb end
       return a < b
     end)
-    local groups = total >= bulk and { drawers, roomy, plain } or { plain, roomy, drawers }
+    -- an item that fills a few stacks gets a drawer (one drawer slot for many
+    -- chest slots); items with extra data or that don't stack never do
+    local max = maxOf(key)
+    local worthy = total >= bulk or (max > 1 and not key:find("#", 1, true) and math.ceil(total / max) >= DRAWER_STACKS)
+    local groups = worthy and { drawers, roomy, plain } or { plain, roomy, drawers }
     for _, g in ipairs(groups) do
       for _, name in ipairs(g) do add(name, nil) end
     end
@@ -336,6 +347,18 @@ function M.new(setup, config)
     if not stores[to] then return end
     local list = contents[to] or {}
     contents[to] = list
+    if not toSlot and stores[to].drawer then
+      -- a drawer takes it into the slot that holds it, else its first empty
+      -- one: note it there now, so the next move knows the drawer is this
+      -- item's (it's read again later to be sure)
+      for s = 1, stores[to].size do
+        if list[s] and keyOf(list[s]) == key then toSlot = s break end
+      end
+      for s = 1, toSlot and 0 or stores[to].size do
+        if not list[s] then toSlot = s break end
+      end
+      dirty[to] = true
+    end
     if toSlot and list[toSlot] then
       list[toSlot].count = list[toSlot].count + n
     elseif toSlot then
@@ -375,11 +398,12 @@ function M.new(setup, config)
       end
     end
     if left > 0 then
-      for _, t in ipairs(targets(key, S.count(key) + left)) do
+      for _, t in ipairs(targets(key, S.count(key) + (arrived[key] or 0) + left)) do
         local m = push(from, slot, t.name, left, t.slot)
         if m > 0 then
           left = left - m
           moved(t.name, t.slot, key, item, m)
+          if not t.slot and not stores[t.name].drawer then arrived[key] = (arrived[key] or 0) + m end
           if t.name == setup.rsIn then S.sentToRs = (S.sentToRs or 0) + m end
         end
         if left <= 0 then break end
@@ -464,8 +488,134 @@ function M.new(setup, config)
         end
       end
     end
+    moves = moves + S.drawerTidy(most - moves, done)
     if moves > 0 then S.refresh() end
     return moves, done
+  end
+
+  -- Chest slots (not drawers, RS or the fuel chest) an item takes.
+  local function chestSlots(key)
+    local n = 0
+    for _, w in ipairs(build().where[key] or {}) do
+      local st = stores[w.name]
+      if st and not st.drawer and not st.rs and not st.fuel then n = n + 1 end
+    end
+    return n
+  end
+  local function inDrawer(key)
+    for _, w in ipairs(build().where[key] or {}) do
+      if (stores[w.name] or {}).drawer then return true end
+    end
+    return false
+  end
+  local function emptyDrawer()
+    for _, name in ipairs(order) do
+      if stores[name].drawer and freeSlots(name) > 0 then return name end
+    end
+  end
+
+  -- Moves a drawer slot's items back into chests (stacks it already has,
+  -- then free slots); true when it's empty.
+  local function evict(name, slot, item)
+    local key = keyOf(item)
+    local left = item.count
+    for _, t in ipairs(targets(key, 0)) do
+      local ts = stores[t.name]
+      if ts and not ts.drawer and t.name ~= setup.rsIn then
+        local m = push(name, slot, t.name, left, t.slot)
+        if m > 0 then
+          left = left - m
+          took(name, slot, m)
+          moved(t.name, t.slot, key, item, m)
+        end
+        if left <= 0 then return true end
+      end
+    end
+    return false
+  end
+
+  -- Drawers for the items that take the most chest slots: an empty drawer
+  -- goes to the biggest first; with none empty, a drawer holding little (what
+  -- fits back in a slot or two) is emptied for an item that frees SWAP_GAIN
+  -- more slots. Moves up to most stacks; refused (key -> true) are skipped.
+  local refused = {}
+  function S.drawerTidy(most, done)
+    if most <= 0 then return 0 end
+    local moves = 0
+    -- items with a drawer: their chest stacks go into it, whatever the amount
+    for _, it in ipairs(S.items()) do
+      if moves >= most then break end
+      local drawerAt
+      for _, w in ipairs(build().where[it.key] or {}) do
+        if (stores[w.name] or {}).drawer then drawerAt = w end
+      end
+      if drawerAt and chestSlots(it.key) > 0 then
+        for _, w in ipairs(build().where[it.key] or {}) do
+          if moves >= most then break end
+          local st = stores[w.name]
+          local item = st and not st.drawer and not st.rs and not st.fuel and (contents[w.name] or {})[w.slot]
+          if item then
+            local m = push(w.name, w.slot, drawerAt.name, item.count, drawerAt.slot)
+            if m == 0 then break end -- the drawer is full
+            moves = moves + 1
+            done[#done + 1] = ("%d %s to %s"):format(m, it.displayName, drawerAt.name)
+            took(w.name, w.slot, m)
+            moved(drawerAt.name, drawerAt.slot, it.key, item, m)
+          end
+        end
+      end
+    end
+    local wants = {}
+    for _, it in ipairs(S.items()) do
+      if not it.nbt and (it.maxCount or 64) > 1 and not refused[it.key] and not inDrawer(it.key) then
+        local cs = chestSlots(it.key)
+        if cs >= DRAWER_STACKS then wants[#wants + 1] = { it = it, slots = cs } end
+      end
+    end
+    table.sort(wants, function(a, b) return a.slots > b.slots end)
+    for _, want in ipairs(wants) do
+      if moves >= most then break end
+      local d = emptyDrawer()
+      if not d then
+        -- the drawer slot whose items need the fewest chest slots back
+        local best
+        for _, name in ipairs(order) do
+          local st = stores[name]
+          if st.drawer then
+            for slot, item in pairs(contents[name] or {}) do
+              local need = math.ceil(item.count / maxOf(keyOf(item)))
+              if not best or need < best.need then best = { name = name, slot = slot, item = item, need = need } end
+            end
+          end
+        end
+        if best and want.slots - best.need >= SWAP_GAIN and evict(best.name, best.slot, best.item) then
+          moves = moves + 1
+          done[#done + 1] = ("%s out of %s"):format(shortName(best.item.name), best.name)
+          d = best.name
+        end
+      end
+      if not d then break end
+      local first = true
+      for _, w in ipairs(build().where[want.it.key] or {}) do
+        if moves >= most then break end
+        local st = stores[w.name]
+        local item = st and not st.drawer and not st.rs and not st.fuel and (contents[w.name] or {})[w.slot]
+        if item then
+          local m = push(w.name, w.slot, d, item.count)
+          if m > 0 then
+            moves = moves + 1
+            done[#done + 1] = ("%d %s to %s"):format(m, want.it.displayName, d)
+            took(w.name, w.slot, m)
+            moved(d, nil, want.it.key, item, m)
+          elseif first then
+            refused[want.it.key] = true -- the drawer won't take it (until a restart)
+            break
+          end
+          first = false
+        end
+      end
+    end
+    return moves
   end
 
   function S.space()
