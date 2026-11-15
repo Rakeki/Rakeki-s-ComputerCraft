@@ -456,9 +456,19 @@ function M.new(setup, config)
     invalidate()
   end
 
+  -- Moves up to n, asking again until it's all moved or nothing more goes:
+  -- drawers (Functional Storage) give out at most one stack per pushItems,
+  -- so a drawer emptied for another item was left half full (and the next
+  -- tidy filled it again), and taking All from a drawer took 64.
   local function push(from, slot, to, n, toSlot)
-    local ok, m = pcall(peripheral.call, from, "pushItems", to, slot, n, toSlot)
-    return ok and tonumber(m) or 0
+    local total = 0
+    while total < n do
+      local ok, m = pcall(peripheral.call, from, "pushItems", to, slot, n - total, toSlot)
+      m = ok and tonumber(m) or 0
+      if m <= 0 then break end
+      total = total + m
+    end
+    return total
   end
 
   function S.putAway(from, slot, item, n)
