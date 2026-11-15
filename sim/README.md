@@ -81,6 +81,7 @@ what a player would notice.
 | `bootstrap` | Four turtles placed together in one chunk, each with an ender modem and a chest: GPS deployer then strip miner (`set nav.range 64`), leveller, excavator, tree farm; and a crafty furnace turtle behind the strip miner's chest | what today's programs get done alone (ore mined at Y -54, furnaces crafted, the ore smelted), and that each turtle stays within its range; prints every step of a whole base, done or what's missing |
 | `updates` | The update watcher (with a monitor), a power dashboard, the AutoMine server and a dashboard set to `install.remote false`; a new version of two programs goes up on the site 4 minutes in | both updated and rebooted, the one set to say no did neither, and the watcher shows each |
 | `base` | All the above together, plus builders + build control, excavator, leveller, strip miner, crate turtle, turtle finder, overseer bridge, craft overseer, update watcher | via `map.mjs` |
+| `stash` | Not part of `base`: the starter storage, one computer, an input and an output barrel, four chests and a furnace on a cable, set up through its own setup screen; then a search typed and cleared with Delete 40 times at different moments while it works | the input emptied, every Delete cleared the search |
 
 ## Things to know
 

@@ -707,6 +707,10 @@ local function uiLoop()
       ui.query, ui.selected, ui.scroll = ui.query .. ev[2], 1, 0
     elseif e == "key" then
       onKey(ev[2])
+    elseif e == "key_up" and ev[2] == keys.delete and ui.page == "items" then
+      -- Delete clears the search on release too: a lone key press that's
+      -- missed (the program busy elsewhere) still clears it
+      ui.query, ui.selected, ui.scroll, draw = "", 1, 0, true
     elseif e == "mouse_scroll" then
       if ui.page == "items" then ui.selected = ui.selected + ev[2] else ui.fsel = (ui.fsel or 1) + ev[2] end
     elseif e == "mouse_click" and ev[4] == 2 and ev[3] >= term.getSize() - 12 then
