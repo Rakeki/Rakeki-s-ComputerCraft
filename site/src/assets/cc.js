@@ -614,6 +614,97 @@
     return s;
   }
 
+  //---------------------------------------------------------------- starter storage (stash)
+
+  // The stash's items page: same layout as drawTerminal in
+  // computers/starter-storage/stash.lua. It types a few searches on its own
+  // until clicked; then click a row to pick it, and again to take.
+  function stash(el) {
+    const W = 51, H = 19;
+    const s = new Screen(W, H, el);
+    el.classList.add("clickable");
+    const items = [
+      ["Cobblestone", 3456, "D"], ["Dirt", 1210, "D"], ["Oak Log", 388, ""], ["Raw Iron", 0, ""], ["Iron Ingot", 142, ""],
+      ["Coal", 96, "F"], ["Wheat Seeds", 61, ""], ["Sand", 54, ""], ["Glass", 40, "R"], ["Bone", 23, ""],
+      ["String", 17, ""], ["Raw Copper", 12, ""], ["Diamond", 5, ""], ["Stone Pickaxe", 1, ""],
+    ].map(([name, count, tag]) => ({ name, count, tag, base: count }));
+    const AMOUNTS = [64, 16, 1, "All"];
+    const st = { query: "", selected: 1, scroll: 0, amount: 0, msg: ["Ready: 14 items in 189 slots, 3 furnaces.", "lightGray"], auto: true };
+    const fitT = (t, w) => (t.length > w ? t.slice(0, w) : t.padEnd(w));
+    const matches = () => items.filter((it) => it.count > 0 && it.name.toLowerCase().includes(st.query.toLowerCase()))
+      .sort((a, b) => b.count - a.count);
+
+    function take() {
+      const it = matches()[st.selected - 1];
+      if (!it) return;
+      const a = AMOUNTS[st.amount];
+      const sent = a === "All" ? it.count : Math.min(a, it.count);
+      it.count -= sent;
+      st.msg = [`Sent ${sent} ${it.name}.`, "lime"];
+    }
+
+    function draw() {
+      const list = matches();
+      s.clear();
+      s.fill(1, "gray");
+      s.put(2, 1, "Stash", "yellow", "gray");
+      const stat = "6 chests 61/162 slots, 2 drawers";
+      s.put(W - stat.length + 1, 1, stat, "lightGray", "gray");
+      s.put(1, 2, "Find: ", "lightGray");
+      s.put(7, 2, st.query, "white");
+      const amount = `Amount: ${AMOUNTS[st.amount]}`;
+      s.put(W - amount.length + 1, 2, amount, "lightGray");
+      s.zones.push({ x1: W - amount.length + 1, x2: W, y1: 2, y2: 2, action: () => { st.amount = (st.amount + 1) % AMOUNTS.length; } });
+      const rows = H - 5;
+      st.selected = Math.max(1, Math.min(st.selected, list.length));
+      if (st.selected <= st.scroll) st.scroll = st.selected - 1;
+      if (st.selected > st.scroll + rows) st.scroll = st.selected - rows;
+      for (let i = 1; i <= rows; i++) {
+        const it = list[st.scroll + i - 1];
+        if (!it) continue;
+        const sel = st.scroll + i === st.selected, bg = sel ? "blue" : "black";
+        const right = `${it.count} ${fitT(it.tag, 2)}`;
+        s.put(1, 2 + i, fitT(" " + it.name, W - right.length - 1), "white", bg);
+        s.put(W - right.length, 2 + i, right + " ", sel ? "white" : "lightGray", bg);
+        const idx = st.scroll + i;
+        s.zones.push({ x1: 1, x2: W, y1: 2 + i, y2: 2 + i, action: () => { if (st.selected === idx) take(); else st.selected = idx; } });
+      }
+      if (!list.length) s.put(2, 4, "No matches.", "lightGray");
+      s.put(1, H - 2, fitT(st.msg[0], W), st.msg[1]);
+      s.put(1, H - 1, fitT("Enter take  Tab amount  F1 smelt it  F2 to RS", W), "gray");
+      s.put(1, H, fitT("F3 furnaces  F4 put back output  F5 setup", W), "gray");
+      s.render({ x: 7 + st.query.length, y: 2 });
+    }
+
+    // the demo: raw iron comes in and is smelted, a search, a take
+    const raw = items.find((it) => it.name === "Raw Iron"), ingot = items.find((it) => it.name === "Iron Ingot");
+    const script = [
+      () => { raw.count = 40; st.msg = ["", "lightGray"]; }, () => {},
+      () => { raw.count = 0; st.msg = ["Furnaces: 2/3 busy, raw iron in the blast furnace.", "lightGray"]; }, () => {},
+      () => { ingot.count += 40; st.msg = ["", "lightGray"]; },
+      ...[..."iron"].map((ch) => () => { st.query += ch; st.selected = 1; }), () => {}, () => take(), () => {},
+      () => { st.query = ""; st.selected = 1; },
+      () => { st.msg = ["Tidied: 64 Dirt to functionalstorage:oak_1_0.", "lightBlue"]; }, () => {}, () => {},
+    ];
+    let step = 0;
+    setInterval(() => {
+      if (!st.auto) return;
+      script[step % script.length]();
+      step++;
+      if (step % script.length === 0) items.forEach((it) => { it.count = it.base; });
+      draw();
+    }, 900);
+
+    el.addEventListener("click", (ev) => {
+      if (st.auto) { st.auto = false; st.query = ""; st.msg = ["", "lightGray"]; }
+      const { x, y } = s.cellAt(ev); const z = s.zoneAt(x, y);
+      if (z) z.action();
+      draw();
+    });
+    draw();
+    return s;
+  }
+
   //---------------------------------------------------------------- storage monitor: network view
 
   // The storage monitor's network view: same layout as links.draw in
@@ -2541,5 +2632,5 @@
   }
 
 
-  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, storageNetwork, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
+  window.CC = { PALETTE, Screen, Typer, fit, screens: { automine, dashboard, projector, storage, stash, storageNetwork, storageMonitor, storageSetup, smelter, cooker, cookerMonitor, overseer, colony, fission, breeder, power, fusion, dminer, enricher, infuser, smelterBoard, remote, crafts, cannon, essence, buildControl, instabuild, finder, updateWatcher } };
 })();

@@ -64,6 +64,8 @@ Object.assign(BLOCKS, {
   rail: { c: "#8a8a8a", tex: "flat", box: [0, 1, 0, 0.08, 0, 1], clear: true },
   station: { c: "#4c4366", tex: "me", amt: 0.05 },
   diskdrive: { c: "#b9b9b9", tex: "furnace", amt: 0.03 },
+  drawer: { c: "#7a5a32", top: "#8a6a3c", tex: "barrel", trim: "#3b2a16", amt: 0.05 }, // Functional Storage / Storage Drawers
+  rsinterface: { c: "#3c3f46", top: "#55606e", tex: "me", amt: 0.05 }, // Refined Storage Interface
 });
 // facing +x
 BLOCKS.turtleE = { ...BLOCKS.turtle, face: "right", side: "left" };

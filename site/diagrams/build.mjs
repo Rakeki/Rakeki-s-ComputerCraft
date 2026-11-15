@@ -459,6 +459,38 @@ S["village-turtle"] = () => {
 
 //---------------------------------------------------------------- storage
 
+S["starter-storage"] = () => {
+  const w = new World();
+  ground(w, -1, 14, -1, 6);
+  // the store: chests (a full-block modem between each pair), drawers and upgraded barrels with small modems
+  for (let i = 0; i < 3; i++) { const b = i === 1 ? "fullmodem" : "chest"; w.set(i, 0, 0, b); w.set(i, 1, 0, b); }
+  for (let x = 3; x <= 5; x++) { w.set(x, 0, 0, "drawer"); w.set(x, 1, 0, "drawer"); }
+  for (let x = 6; x <= 7; x++) { w.set(x, 0, 0, "barrel3"); w.set(x, 1, 0, "barrel3"); }
+  w.box(1, 11, 0, 0, 1, 1, "cable");
+  w.set(12, 0, 1, "advancedE"); w.set(12, 1, 1, "modem"); w.set(13, 0, 1, "monitor"); w.set(13, 1, 1, "monitor");
+  const tap = (x, b = "chest") => { w.set(x, 0, 2, "fullmodem"); w.set(x, 0, 3, b); };
+  tap(1); tap(3); tap(5); tap(9, "furnace"); tap(10, "furnace"); tap(11, "rsinterface");
+  w.set(7, 0, 2, "fullmodem"); w.set(7, 0, 3, "furnace");
+  return {
+    title: "Starter storage: what to place",
+    world: w,
+    labels: [
+      { at: [1, 1, 0], text: ["chests (double chests work)", "a full-block modem between two joins both"], col: Y, off: [-40, -80] },
+      { at: [4, 1, 0], text: ["drawers: bulk items go here", "(Functional Storage, Storage Drawers)"], col: Y, off: [10, -95] },
+      { at: [7, 1, 0], text: ["barrels with stack upgrades", "(Sophisticated Storage): bulk next"], col: Y, off: [110, -70] },
+      { at: [6, 0, 1], text: ["networking cable joining every modem", "right-click each modem: it turns red"], col: W, off: [150, -10] },
+      { at: [1, 0, 3], text: ["input chest", "(put things in here)"], col: G, off: [-90, 40] },
+      { at: [3, 0, 3], text: ["output chest", "(what you take out)"], col: O, off: [-60, 75] },
+      { at: [5, 0, 3], text: ["optional fuel chest", "(coal, charcoal)"], col: R, off: [-10, 95] },
+      { at: [9, 0, 3], text: ["furnaces, blast furnaces, smokers", "(full-block modem each)"], col: W, off: [30, 95] },
+      { at: [11, 0, 3], text: ["optional RS Interface:", "overflow into Refined Storage"], col: P, off: [120, 60] },
+      { at: [12, 0, 1], text: ["the computer", "+ a small wired modem"], col: B, off: [80, -80] },
+      { at: [13, 1, 1], text: "optional monitor (touch)", col: Y, off: [110, -20] },
+    ],
+    notes: ["Chests and furnaces need a full-block wired modem touching them; barrels and drawers take a small one directly.", "Put modems on the drawers themselves, not a drawer controller (it would count everything twice).", "No wireless modem needed: everything is on the cable (one lets it report to the status server)."],
+  };
+};
+
 S["storage-computer"] = () => {
   const w = new World();
   ground(w, -1, 14, -1, 6);

@@ -59,7 +59,7 @@ label.set("Factory", { "Smelt", "Enrich" })        -- Factory-Smelt-Enrich-7
 | power-dashboard | Power | | gps-deployer | GpsDeployer |
 | display-monitor | Display | | turtle-finder | Finder |
 | status-server | Status | | overseer-bridge | Bridge |
-| update-watcher | Updater | | | |
+| update-watcher | Updater | | starter-storage | Stash |
 
 The factory's extras are each running part's `short` (else its `title`), in
 the chain's order: `Enrich`, `Smelt`, `Infuse`, `Saw`, `Brew`, `Cook`, `Essence`. A

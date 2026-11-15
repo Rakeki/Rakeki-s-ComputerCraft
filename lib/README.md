@@ -21,7 +21,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
   `digital-miner-manager` (if present), `crate-turtle` (if present), `furnace-turtle`,
-  `build-control` (if present), `remote-terminal` (if present), `craft-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `overseer-bridge`, `update-watcher`, `display-monitor` (if present) and the computer template.
+  `build-control` (if present), `remote-terminal` (if present), `craft-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `overseer-bridge`, `update-watcher`, `display-monitor` (if present), `starter-storage` (if present) and the computer template.
 - `errlog.lua`: saves errors to `/errors.log` on the computer in one format
   (time, program, computer, message, context such as position and fuel, stack
   trace), skipping repeats and trimming old entries. Used by
@@ -32,7 +32,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   present), `craft-overseer` (if present), `factory` (if present), `colony-dashboard` (if present), `fission-guard` (if present),
   `power-dashboard` (if present), `fusion-control` (if present),
   `digital-miner-manager` (if present), `crate-turtle` (if present), `furnace-turtle` (if present),
-  `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present), `craft-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `turtle-finder` (if present), `overseer-bridge` (if present), `update-watcher` (if present), `display-monitor` (if present) and the computer template.
+  `build-control` (if present), `instabuild` (if present), `remote-terminal` (if present), `craft-terminal` (if present), `cannon-feeder` (if present), `cobble-breeder` (if present), `turtle-finder` (if present), `overseer-bridge` (if present), `update-watcher` (if present), `display-monitor` (if present), `starter-storage` (if present) and the computer template.
 - `claim.lua`: tells the [storage
   computer](../computers/storage-computer/README.md) which chest on its
   network is the one next to this turtle (its delivery chest, or the crafter
@@ -60,7 +60,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   work chest for its smelter and enricher).
 - `setupui.lua`: setup screens on the monitor and the terminal at once: pages of
   settings, and chest lists a page at a time with what's in each chest, an Empty
-  filter and a search (typed, or an on-screen keyboard on the monitor). Used by `storage-computer` and `factory`
+  filter and a search (typed, or an on-screen keyboard on the monitor). Used by `storage-computer`, `starter-storage` and `factory`
   (with `mekfeed.lua`'s and `workchest.lua`'s setup pages); `ui:pickByDrop` picks a chest by
   the item the player drops in it (nothing uses it now: the factory lists every barrel and chest instead).
 - `screen.lua`: flicker-free monitors and terminals: each frame is drawn into
@@ -72,7 +72,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `status-server`, `blueprint-projector`, `storage-computer`,
   `craft-overseer`, `factory`, `colony-dashboard`,
   `fission-guard`, `power-dashboard`, `fusion-control`,
-  `digital-miner-manager`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `overseer-bridge`, `update-watcher` and `display-monitor`.
+  `digital-miner-manager`, `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `overseer-bridge`, `update-watcher`, `display-monitor` and `starter-storage`.
 - `crafts.lua`: crafting questions for the craft overseer, the storage
   system's recipe server: what could be made (`crafts.count`), having it made
   (`crafts.prepare`, `crafts.deliver` after a storage delivery came up short),
@@ -97,7 +97,7 @@ Shared Lua modules. Copy the `lib/` folder onto a computer and load with
   `status-server`, `gps-deployer`, `blueprint-projector`, `builder-turtle`,
   `storage-computer`, `craft-overseer`, `factory`,
   `fission-guard`, `crate-turtle`, `furnace-turtle`, `build-control`, `instabuild`,
-  `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `display-monitor` and `workchest.lua`.
+  `remote-terminal`, `craft-terminal`, `cannon-feeder`, `cobble-breeder`, `turtle-finder`, `display-monitor`, `starter-storage` and `workchest.lua`.
 - `label.lua`: names the computer or turtle `<Name>-<id>` at start (`Storage-4`, `Excavator-12`); the factory adds the parts running on it (`Factory-Smelt-Enrich-7`) and renames itself when they change. A label the player typed is never replaced. Used by every program.
 - `inv.lua`: a turtle's inventory and fuel: count or select an item (by name,
   list, set or function), empty slots, fuel level, refuel from what's on
