@@ -64,8 +64,13 @@ end
 
 -- Yields now and then so CC never stops the program for running too long;
 -- each yield waits for its own ticket so other loops' yields don't wake it.
-local yieldedAt, tickets = os.clock(), 0
+-- Only the work loop (M.setWorker) yields here: while a loop waits for its
+-- ticket it misses every other event, and the screens lost key presses
+-- (Delete, a single event, most of all) when drawing paused in here. The
+-- screens build the list in one go, like the storage computer's.
+local yieldedAt, tickets, worker = os.clock(), 0, nil
 local function breathe()
+  if coroutine.running() ~= worker then return end
   if os.clock() - yieldedAt < YIELD_AFTER then return end
   tickets = tickets + 1
   local mine = tickets
@@ -93,6 +98,9 @@ local function touching(name)
 end
 
 local M = { keyOf = keyOf, shortName = shortName, isInventory = isInventory, touching = touching, FUEL = FUEL }
+
+-- The coroutine allowed to yield in long loops (the stash's work loop).
+function M.setWorker(co) worker = co end
 
 -- What a peripheral is to the stash, from its type: "drawer", "store",
 -- "furnace" or nil (not ours: hoppers, machines, ender chests, turtles).
@@ -263,8 +271,8 @@ function M.new(setup, config)
       if a.count ~= b.count then return a.count > b.count end
       return a.displayName < b.displayName
     end)
-    -- the screens build it too, yielding between chests: if anything moved
-    -- meanwhile, use it once but don't keep it
+    -- the work loop yields between chests while building it: if anything
+    -- moved meanwhile, use it once but don't keep it
     local built = { list = list, byKey = byKey, where = where }
     if v == version then cache = built end
     return built

@@ -324,6 +324,7 @@ local function drain()
 end
 
 local function workLoop()
+  storesLib.setWorker(coroutine.running()) -- only this loop pauses in long work
   say("Reading every chest...")
   changed()
   stores.discover()
