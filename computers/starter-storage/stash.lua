@@ -492,7 +492,7 @@ local function drawTerminal()
     end
     if #list == 0 then put(t, 2, listTop + 1, ui.query ~= "" and "No matches." or "Nothing stored yet.", "lightGray") end
     put(t, 1, h - 1, fit("Enter take  Tab amount  F1 smelt it  F2 to RS", w), "gray")
-    put(t, 1, h, fit("F3 furnaces  F4 put back output  F5 setup", w), "gray")
+    put(t, 1, h, fit("Del clear  F3 furnaces  F4 put back  F5 setup", w), "gray")
   else
     put(t, 1, 2, "Furnaces", "white")
     put(t, w - #amount + 1, 2, amount, "lightGray")
@@ -660,7 +660,8 @@ local function onKey(k)
     if k == keys.up then ui.fsel = (ui.fsel or 1) - 1
     elseif k == keys.down then ui.fsel = (ui.fsel or 1) + 1
     elseif k == keys.enter and ui.fpick and ui.fpick.kind == "recipe" then orderRecipe(ui.fpick.recipe, AMOUNTS[ui.amount])
-    elseif k == keys.delete and ui.fpick and ui.fpick.kind == "order" then ask({ kind = "cancel", i = ui.fpick.i }) end
+    elseif k == keys.delete and ui.fpick and ui.fpick.kind == "order" then ask({ kind = "cancel", i = ui.fpick.i })
+    elseif k == keys.delete then ui.query, ui.selected, ui.scroll = "", 1, 0 end
   end
 end
 

@@ -96,7 +96,7 @@ stash check              -- list every chest, barrel and furnace on the cable an
 On the computer:
 
 ```
-type                     -- search (Backspace, Delete clears it)
+type                     -- search (Backspace takes a letter off, Delete clears it)
 Up / Down / PgUp / PgDn  -- pick an item (or click it; click it again to take)
 Enter                    -- take the amount shown (64, 16, 1 or All; Tab changes it)
 F1                       -- smelt that many of the picked item

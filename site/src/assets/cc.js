@@ -672,7 +672,7 @@
       if (!list.length) s.put(2, 4, "No matches.", "lightGray");
       s.put(1, H - 2, fitT(st.msg[0], W), st.msg[1]);
       s.put(1, H - 1, fitT("Enter take  Tab amount  F1 smelt it  F2 to RS", W), "gray");
-      s.put(1, H, fitT("F3 furnaces  F4 put back output  F5 setup", W), "gray");
+      s.put(1, H, fitT("Del clear  F3 furnaces  F4 put back  F5 setup", W), "gray");
       s.render({ x: 7 + st.query.length, y: 2 });
     }
 
