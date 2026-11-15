@@ -289,7 +289,12 @@ function M.new(stores, setup, config)
   end
 
   function F.order(title, from, n)
-    orders[#orders + 1] = { title = title, from = from, n = n, loaded = 0 }
+    -- its own copy of the item list: two orders sharing the recipe's list
+    -- made the orders file unsavable ("Cannot serialize table with repeated
+    -- entries") and stopped the stash
+    local list = {}
+    for i, key in ipairs(from) do list[i] = key end
+    orders[#orders + 1] = { title = title, from = list, n = n, loaded = 0 }
     save()
   end
 
