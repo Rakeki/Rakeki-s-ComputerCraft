@@ -1329,7 +1329,7 @@
       "setup": [
         "Put a wired modem on every chest, barrel, drawer and furnace (full-block modems on chests and furnaces) and join them to the computer with cable. Right-click each modem.",
         "Add an input chest and an output chest on the cable, and optionally a fuel chest, an RS Interface and an advanced monitor.",
-        "Run stash: the setup screen opens on the computer and the monitor. Pick the input and output chests (and the optional ones), Save, reboot."
+        "Reboot (or run stash): the setup screen opens on the computer and the monitor. Pick the input and output chests (and the optional ones) and Save; from then on it starts on every boot."
       ],
       "commands": [
         ["stash", "start (opens the setup screen the first time)"],

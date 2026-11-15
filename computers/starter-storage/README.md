@@ -76,10 +76,10 @@ It doesn't use rednet, turtles or other computers. When the base grows, the
    comes here). Optionally a **fuel chest** for coal and charcoal.
 3. Optionally put an advanced monitor on the cable (or touching the
    computer) to take things with a tap.
-4. Run `stash`: the setup screen opens on the computer and the monitor. Pick
-   the input and output chests (and the fuel chest, RS chests, chests to
-   leave alone) from lists that show what's in each, then Save.
-5. Reboot. From now on it starts by itself.
+4. Reboot (or run `stash`): the setup screen opens on the computer and the
+   monitor. Pick the input and output chests (and the fuel chest, RS chests,
+   chests to leave alone) from lists that show what's in each, then Save. The
+   stash starts, and from now on it starts by itself on every boot.
 
 ```
 stash                    -- start (the setup screen the first time)
